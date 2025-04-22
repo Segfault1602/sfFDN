@@ -1,0 +1,81 @@
+// Copyright (C) 2025 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
+#pragma once
+
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/delay_time_varying.h"
+#include "sffdn/filterbank.h"
+#include "sffdn/types.h"
+
+#include <cstdint>
+#include <span>
+#include <vector>
+
+namespace sfFDN
+{
+
+/**
+ * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
+ * of audio with different delays.
+ * @note The delay lines are instances of the Delay class, which is a non-interpolating delay line.
+ *
+ * @ingroup AudioProcessors
+ */
+class DelayBankTimeVarying : public AudioProcessor
+{
+  public:
+    /**
+     * @brief Constructs a delay bank with a specified set of delays and maximum delay.
+     * @param config The configuration for the delay bank.
+     */
+    DelayBankTimeVarying(const DelayBankTimeVaryingOptions& config);
+
+    ~DelayBankTimeVarying() = default;
+
+    /**
+     * @brief Returns the current delays for each delay line in the bank.
+     * @return A vector of delay values for each channel.
+     */
+    std::vector<float> GetDelays() const;
+
+    /**
+     * @brief Returns the number of input channels this processor expects.
+     * @return The number of input channels.
+     * @note This is equal to the number of delay lines in the bank.
+     */
+    uint32_t InputChannelCount() const override;
+
+    /**
+     * @brief Returns the number of output channels this processor produces.
+     * @return The number of output channels.
+     * @note This is equal to the number of delay lines in the bank.
+     */
+    uint32_t OutputChannelCount() const override;
+
+    /**
+     * @brief Clears the internal delay buffers.
+     * This sets all delay buffers to zero.
+     */
+    void Clear() override;
+
+    /**
+     * @brief Processes a block of multi-channel audio.
+     * @param input The input audio buffer.
+     * @param output The output audio buffer.
+     * @note The input and output buffers must have the same sample count and a channel count equal to the number of
+     * delay lines in the bank.
+     */
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    /** @brief Creates a copy of the delay bank.
+     * @return A unique pointer to the cloned delay bank.
+     */
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+  private:
+    FilterBank delay_bank_;
+    DelayBankTimeVaryingOptions config_;
+};
+
+} // namespace sfFDN

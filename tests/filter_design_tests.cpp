@@ -1,0 +1,179 @@
+#include <array>
+#include <complex>
+#include <iomanip>
+#include <iostream>
+#include <print>
+#include <ranges>
+#include <span>
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+
+#include <sffdn/sffdn.h>
+
+#include "filter_design_internal.h"
+
+TEST_CASE("TwoFilter")
+{
+    constexpr float kSR = 48000;
+    constexpr std::array<double, 10> kT60s = {2.5, 2.7, 2.5, 2.3, 2.3, 2.1, 1.7, 1.6, 1.2, 1.0};
+    // constexpr std::array<double, 10> kT60s = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
+    constexpr float kDelay = 1619;
+    constexpr float kShelfCutoff = 8000.0f;
+
+    std::vector<double> coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
+
+    // clang-format off
+    constexpr std::array<double, 66> kExpectedSOS = {
+        0.833753922053558, -0.196112500418774, 0, 1.000000000000000, -0.300074975165566, 0,
+        0.999995541761545, -1.995969983773138, 0.995991141545255, 1.000000000000000, -1.995969983773138, 0.995986683306800,
+        1.000031455441331, -1.991962851696166, 0.991998061679195, 1.000000000000000, -1.991962851696166, 0.992029517120525,
+        1.000000814161373, -1.983794860302083, 0.984059636620207, 1.000000000000000, -1.983794860302083, 0.984060450781580,
+        0.999893742170679, -1.967208144896469, 0.968368234838074, 1.000000000000000, -1.967208144896469, 0.968261977008753,
+        0.999917777296403, -1.933453811844555, 0.937684589949490, 1.000000000000000, -1.933453811844555, 0.937602367245893,
+        0.999700260098036, -1.862502303348346, 0.878873502206346, 1.000000000000000, -1.862502303348346, 0.878573762304382,
+        0.996510690312741, -1.706273726254403, 0.769953855737997, 1.000000000000000, -1.706273726254403, 0.766464546050738,
+        0.997725098051978, -1.383712253277730, 0.600048185769784, 1.000000000000000, -1.383712253277730, 0.597773283821762,
+        0.992215955533026, -0.682207683428299, 0.372199411323571, 1.000000000000000, -0.682207683428299, 0.364415366856597,
+        0.995766905324853, 0.598066031393632, 0.200365157462411, 1.000000000000000, 0.598066031393632, 0.196132062787264
+    };
+    // clang-format on
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kExpectedSOS.at(i), 1e-13));
+    }
+
+    std::array<float, 10> t60s_f{};
+    for (size_t i = 0; i < kT60s.size(); ++i)
+    {
+        t60s_f[i] = static_cast<float>(kT60s[i]);
+    }
+
+    sfFDN::TenBandFilterOptions config;
+    config.t60s = t60s_f;
+    config.delay = kDelay;
+    config.sample_rate = kSR;
+    config.shelf_cutoff = kShelfCutoff;
+
+    auto float_coeffs = sfFDN::DesignTenBandAbsorption(config);
+    for (auto i = 0u; i < float_coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(float_coeffs[i].b0, Catch::Matchers::WithinAbs(kExpectedSOS.at(i * 6), 1e-7));
+    }
+}
+
+TEST_CASE("TwoFilter2")
+{
+    constexpr float kSR = 48000;
+    constexpr std::array<double, 10> kT60s = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1.0};
+    // constexpr std::array<double, 10> kT60s = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
+    constexpr float kDelay = 1619;
+    constexpr float kShelfCutoff = 8000.0f;
+
+    std::vector<double> coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        std::cout << std::setprecision(4) << coeffs[i] << ", ";
+        if ((i + 1) % 6 == 0)
+        {
+            std::cout << "\n";
+        }
+    }
+}
+
+TEST_CASE("Polyval")
+{
+    constexpr size_t kN = 10;
+    std::array<double, kN> freqs = {31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
+    std::array<std::complex<double>, kN> dig_w;
+
+    for (auto [w, f] : std::views::zip(dig_w, freqs))
+    {
+        w = std::exp(std::complex<double>(0.0, 1.0) * f);
+    }
+
+    std::array p = {0.5, -0.8, 0.2};
+
+    std::array<std::complex<double>, kN> result;
+    sfFDN::Polyval<double>(p, dig_w, result);
+
+    std::array<std::complex<double>, kN> expected = {std::complex<double>(-0.116292474735830, -0.030764807808418),
+                                                     std::complex<double>(-0.162494939592148, -0.047383785262679),
+                                                     std::complex<double>(-0.309677457072758, +0.007568357580022),
+                                                     std::complex<double>(-0.434715280943946, +0.542536512972206),
+                                                     std::complex<double>(1.188268956890534, +0.787657214523982),
+                                                     std::complex<double>(-0.433633035582978, -0.196483880217534),
+                                                     std::complex<double>(0.128994159506051, -1.085783500471624),
+                                                     std::complex<double>(0.816780131394544, +1.045724551283134),
+                                                     std::complex<double>(-0.348206819242412, -0.732770892795190),
+                                                     std::complex<double>(1.475942296183083, -0.234683626155909)};
+
+    for (const auto [res, exp] : std::views::zip(result, expected))
+    {
+        REQUIRE_THAT(res.imag(), Catch::Matchers::WithinAbs(exp.imag(), 1e-14));
+        REQUIRE_THAT(res.real(), Catch::Matchers::WithinAbs(exp.real(), 1e-14));
+    }
+}
+
+TEST_CASE("GraphicEQ")
+{
+    SKIP();
+    constexpr double kSR = 48000;
+    constexpr double kF0 = 1000.0;
+    constexpr double kQ = 0.707;
+    constexpr double kDbGain = -6.0;
+    constexpr double kWc = kF0 / kSR;
+
+    auto coeffs = sfFDN::LowShelfRBJ(kWc, kDbGain, kQ);
+
+    constexpr std::array<double, 6> kLowShelfExpected = {0.968460511117436f, -1.786264176544932f, 0.828701928321781f,
+                                                         1.000000000000000f, -1.780840861366279f, 0.802585754617870f};
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kLowShelfExpected.at(i), 1e-6));
+    }
+
+    coeffs = sfFDN::HighShelfRBJ(kWc, kDbGain, kQ);
+
+    constexpr std::array<double, 6> kHighShelfExpected = {0.517509209589753f, -0.921601546570798f, 0.415345519500289f,
+                                                          1.000000000000000f, -1.844436769532185f, 0.855689952051429f};
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kHighShelfExpected.at(i), 1e-6));
+    }
+
+    constexpr std::array<float, 10> kFreq = {62.5, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 8000};
+    constexpr std::array<float, 10> kMag = {1.0, 1.5, 2.0, 0.5, 1.0, 0.9, -0.5, 1.0, -1.0, -6.0};
+
+    auto graphic_eq_coeffs = sfFDN::DesignGraphicEQ({kMag, kFreq, kSR});
+
+    for (auto i = 0u; i < graphic_eq_coeffs.size(); ++i)
+    {
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b0 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b1 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b2 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a0 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a1 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a2 << "\n";
+    }
+}
+
+TEST_CASE("ThreeBandFilter")
+{
+    constexpr float kDelay = 1000.f;
+    constexpr float sr = 48000.f;
+    sfFDN::ThreeBandFilterOptions config{{2.f, 1.f, 0.5f}, kDelay, {300.f, 8000.f}, 1.f / std::sqrt(2.f), sr};
+
+    auto sos = sfFDN::DesignThreeBandAbsorption(config);
+
+    for (auto i = 0u; i < sos.size(); ++i)
+    {
+        std::cout << std::setprecision(3) << sos[i].b0 << ", " << std::setprecision(3) << sos[i].b1 << ", "
+                  << std::setprecision(3) << sos[i].b2 << ", " << std::setprecision(3) << sos[i].a0 << ", "
+                  << std::setprecision(3) << sos[i].a1 << ", " << std::setprecision(3) << sos[i].a2 << "\n";
+    }
+}

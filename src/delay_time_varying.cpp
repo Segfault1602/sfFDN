@@ -1,0 +1,132 @@
+#include "sffdn/delay_time_varying.h"
+
+#include "sffdn/audio_buffer.h"
+#include "sffdn/delay_interp.h"
+
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <stdexcept>
+
+namespace sfFDN
+{
+
+DelayTimeVarying::DelayTimeVarying(const DelayOptions& config)
+    : delay_{config}
+    , base_delay_{config.delay}
+{
+    if (config.lfo_config.has_value())
+    {
+        SetMod(config.lfo_config.value());
+    }
+}
+
+void DelayTimeVarying::Clear()
+{
+    delay_.Clear();
+    lfo_.ResetPhase();
+}
+
+void DelayTimeVarying::SetMaximumDelay(uint32_t delay)
+{
+    delay_.SetMaximumDelay(delay);
+}
+
+void DelayTimeVarying::SetDelay(float delay)
+{
+    delay_.SetDelay(delay);
+    base_delay_ = delay;
+}
+
+float DelayTimeVarying::GetDelay() const
+{
+    return delay_.GetDelay();
+}
+
+void DelayTimeVarying::SetMod(const ModulationOptions& options)
+{
+    if (delay_.GetDelay() < options.amplitude)
+    {
+        throw std::invalid_argument("SetMod: amplitude must be less than the current delay");
+    }
+
+    if (delay_.GetDelay() + options.amplitude > delay_.GetMaximumDelay())
+    {
+        throw std::invalid_argument("SetMod: amplitude + base delay must be less than the maximum delay");
+    }
+
+    lfo_.SetFrequency(options.frequency);
+    lfo_.SetAmplitude(options.amplitude);
+    lfo_.SetPhaseOffset(options.initial_phase);
+
+    if (delay_.GetMaximumDelay() < delay_.GetDelay() + options.amplitude)
+    {
+        delay_.SetMaximumDelay(static_cast<uint32_t>(delay_.GetDelay() + options.amplitude) + 64);
+    }
+}
+
+void DelayTimeVarying::UpdateDelay()
+{
+    delay_.SetDelay(base_delay_ + lfo_.Tick());
+}
+
+float DelayTimeVarying::Tick(float input)
+{
+    UpdateDelay();
+
+    return delay_.Tick(input);
+}
+
+uint32_t DelayTimeVarying::InputChannelCount() const
+{
+    return 1;
+}
+
+uint32_t DelayTimeVarying::OutputChannelCount() const
+{
+    return 1;
+}
+
+void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == 1);
+    assert(output.ChannelCount() == 1);
+
+    auto in_span = input.GetChannelSpan(0);
+    auto out_span = output.GetChannelSpan(0);
+
+    constexpr uint32_t kUnrollFactor = 16;
+    const uint32_t size = in_span.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
+    {
+        std::array<float, kUnrollFactor> mods{};
+        lfo_.Generate(mods);
+
+        auto in_batch = in_span.subspan(sample, kUnrollFactor);
+        auto out_batch = out_span.subspan(sample, kUnrollFactor);
+
+        for (auto i = 0u; i < kUnrollFactor; ++i)
+        {
+            delay_.SetDelay(base_delay_ + mods[i]);
+            out_batch[i] = delay_.Tick(in_batch[i]);
+        }
+    }
+
+    for (; sample < size; ++sample)
+    {
+        UpdateDelay();
+        out_span[sample] = delay_.Tick(in_span[sample]);
+    }
+}
+
+std::unique_ptr<AudioProcessor> DelayTimeVarying::Clone() const
+{
+    auto clone = std::make_unique<DelayTimeVarying>(*this);
+    return clone;
+}
+
+} // namespace sfFDN

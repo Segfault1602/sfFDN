@@ -1,0 +1,52 @@
+#pragma once
+
+#include "sffdn/fdn.h"
+#include "sffdn/types.h"
+
+#include <cstdint>
+#include <variant>
+#include <vector>
+
+namespace sfFDN
+{
+struct FDNConfig
+{
+    uint32_t fdn_size; // number of channels
+    bool transposed;
+    float direct_gain;
+    uint32_t block_size;
+    float sample_rate;
+    DelayBankOptions delay_bank_config;
+
+    // Input gain Block
+    struct
+    {
+        std::vector<single_channel_processor_variant_t> single_channel_processors;
+        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Split, .gains = {}};
+        std::vector<multi_channel_processor_variant_t> multichannel_processors;
+    } input_block_config;
+
+    // Feedback matrix block
+    feedback_matrix_variant_t feedback_matrix_config;
+
+    // Loop filter block
+    std::vector<multi_channel_processor_variant_t> loop_filter_configs;
+
+    // Output gain block
+    struct
+    {
+        std::vector<multi_channel_processor_variant_t> multichannel_processors;
+        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Merge, .gains = {}};
+        std::vector<single_channel_processor_variant_t> single_channel_processors;
+    } output_block_config;
+
+    // Tone correction filter block
+    std::vector<single_channel_processor_variant_t> tone_correction_filters;
+};
+
+std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
+
+void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p);
+void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p);
+
+} // namespace sfFDN

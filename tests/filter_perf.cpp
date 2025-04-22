@@ -1,0 +1,433 @@
+#include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
+
+#include "rng.h"
+#include "sffdn/delay_utils.h"
+#include "sffdn/sffdn.h"
+
+#include "filter_coeffs.h"
+#include "test_utils.h"
+
+#include <iostream>
+#include <random>
+
+#ifdef __APPLE__
+#include <Accelerate/accelerate.h>
+#endif
+
+using namespace ankerl;
+using namespace std::chrono_literals;
+
+TEST_CASE("FilterBankPerf")
+{
+    constexpr uint32_t kChannelCount = 16;
+
+    auto filter_bank = GetLoopFilter(kChannelCount, 11);
+
+    constexpr uint32_t kSampleToProcess = 512;
+
+    nanobench::Bench bench;
+    bench.title("FilterBank perf - Block Size Comparison");
+    bench.minEpochIterations(200);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
+    sfFDN::RNG rng;
+
+    for (const auto& block_size : kBlockSizes)
+    {
+        std::vector<float> input(block_size * kChannelCount, 0);
+        for (float& i : input)
+        {
+            i = rng();
+        }
+        std::vector<float> output(block_size * kChannelCount, 0);
+
+        bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
+            const uint32_t num_blocks = kSampleToProcess / block_size;
+            assert(kSampleToProcess % block_size == 0);
+
+            for (auto i = 0u; i < num_blocks; ++i)
+            {
+                sfFDN::AudioBuffer input_buffer(block_size, kChannelCount, input);
+                sfFDN::AudioBuffer output_buffer(block_size, kChannelCount, output);
+                filter_bank->Process(input_buffer, output_buffer);
+            }
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
+}
+
+TEST_CASE("IIRFilterBankPerf")
+{
+    constexpr uint32_t kChannelCount = 16;
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 128;
+
+    constexpr std::array<float, 10> kRT60s = {2.f, 2.1f, 2.5f, 2.f, 1.5f, 1.f, 0.8f, 0.5f, 0.3f, 0.21f};
+    auto delays = sfFDN::GetDelayLengths(kChannelCount, 500, 5000, sfFDN::DelayLengthType::Uniform);
+
+    sfFDN::TenBandFilterOptions config;
+    config.t60s = kRT60s;
+    config.sample_rate = kSampleRate;
+    config.shelf_cutoff = 8000.0f;
+
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        config.delay = delays[i];
+        auto filter_coeffs = sfFDN::DesignTenBandAbsorption(config);
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+
+        filter->SetCoefficients(filter_coeffs);
+        filter_bank->AddFilter(std::move(filter));
+    }
+
+    nanobench::Bench bench;
+    bench.title("FilterBank vs IIRFilterBank perf");
+    bench.minEpochIterations(5000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    std::vector<float> input(kBlockSize * kChannelCount, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize * kChannelCount, 0);
+
+    bench.run("FilterBank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+        filter_bank->Process(input_buffer, output_buffer);
+
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    auto iir_filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    std::vector<sfFDN::FilterCoefficients> coeffs;
+
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        config.delay = delays[i];
+        auto filter_coeffs = sfFDN::DesignTenBandAbsorption(config);
+        coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
+    }
+    iir_filter_bank->SetFilter(coeffs, kChannelCount);
+
+    bench.run("IIRFilterBank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+        iir_filter_bank->Process(input_buffer, output_buffer);
+
+        nanobench::doNotOptimizeAway(output);
+    });
+}
+
+TEST_CASE("OnePoleFilter")
+{
+    sfFDN::OnePoleFilter filter;
+    filter.SetCoefficients(0.5f, 0.2f);
+
+    constexpr uint32_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize, 0);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("OnePoleFilter perf");
+    bench.minEpochIterations(50000);
+    bench.timeUnit(1us, "us");
+
+    bench.run("OnePoleFilter (tick)", [&] {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            output[i] = filter.Tick(input[i]);
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    bench.run("OnePoleFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
+}
+
+TEST_CASE("AllpassFilter")
+{
+    sfFDN::AllpassFilter filter;
+    filter.SetCoefficients(0.5f);
+
+    constexpr uint32_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize, 0);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("AllpassFilter perf");
+    bench.minEpochIterations(50000);
+    bench.timeUnit(1us, "us");
+
+    bench.run("AllpassFilter (tick)", [&] {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            output[i] = filter.Tick(input[i]);
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    bench.run("AllpassFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
+}
+
+TEST_CASE("CascadedBiquadsPerf")
+{
+    // clang-format off
+    constexpr std::array<sfFDN::FilterCoefficients,11> kSOS = {{
+        {0.81751023887136f, 0.f,             0.f,             1.f,              0.f,             0.f},
+        {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f, 1.02249041084395f},
+        {1.01622872208192f, -2.02365307479989f, 1.007493166706850f, 1.01612692482198f, -2.02365307479989f, 1.00759496396680f},
+        {1.02974305306051f, -2.04156824876738f, 1.012098520888300f, 1.02938518464746f, -2.04156824876738f, 1.01245638930135f},
+        {1.03938843409774f, -2.04233625493554f, 1.004041899029330f, 1.03864517487749f, -2.04233625493554f, 1.00478515824958f},
+        {1.05902204811827f, -2.04269511977105f, 0.988056022939481f, 1.05740876007274f, -2.04269511977105f, 0.989669310985015f},
+        {1.07201865801626f, -1.99022403375181f, 0.935378940468472f, 1.07151604544293f, -1.99022403375181f, 0.935881553041804f},
+        {1.12290898014521f, -1.91155847686232f, 0.856081978411337f, 1.12575666122989f, -1.91155847686232f, 0.853234297326652f},
+        {1.20682751196864f, -1.65249906638422f, 0.701314049656436f, 1.23174882339560f, -1.65249906638422f, 0.676392738229472f},
+        {1.43968619970461f, -0.92491012494636f, 0.410134050188126f, 1.52666454179014f, -0.924910124946368f, 0.323155708102591f},
+        {2.42350220912989f, -0.09096516658686f, 0.416410844594722f, 2.70192581010466f, -0.428582226711284f, 0.475604303744375f}
+    }};
+
+    constexpr std::array<sfFDN::FilterCoefficients,1> kSOS_OneBand = {{
+        {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f, 1.02249041084395f},
+    }};
+    // clang-format on
+
+    sfFDN::CascadedBiquads filter_bank;
+    filter_bank.SetCoefficients(kSOS);
+
+    constexpr uint32_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
+
+    // Fill with white noise
+    sfFDN::RNG generator;
+    for (auto& i : input)
+    {
+        i = generator();
+    }
+
+    std::vector<float> output(kBlockSize, 0);
+
+    nanobench::Bench bench;
+    bench.title("CascadedBiquads perf");
+    // bench.batch(kBlockSize);
+    bench.minEpochIterations(20000);
+    bench.timeUnit(1us, "us");
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
+
+    sfFDN::CascadedBiquads one_band_filter;
+    one_band_filter.SetCoefficients(kSOS_OneBand);
+
+    bench.run("CascadedBiquads - One Band", [&] { one_band_filter.Process(input_buffer, output_buffer); });
+}
+
+TEST_CASE("FirFilter")
+{
+    nanobench::Bench bench;
+    bench.title("Fir perf");
+    bench.minEpochIterations(50000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kFirSizes = {16, 32, 64, 128, 256};
+    sfFDN::RNG rng;
+
+    for (const auto& fir_size : kFirSizes)
+    {
+        std::vector<float> ir(fir_size, 0.f);
+        for (auto& coeff : ir)
+        {
+            coeff = rng();
+        }
+        sfFDN::Fir filter;
+        filter.SetCoefficients(ir);
+
+        constexpr uint32_t kSize = 128;
+        std::array<float, kSize> input = {0.f};
+        input[0] = 1.f;
+        std::array<float, kSize> output{};
+
+        sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+
+        bench.run("Fir - Size " + std::to_string(fir_size), [&] { filter.Process(input_buffer, output_buffer); });
+    }
+}
+
+TEST_CASE("FirFilterSparse")
+{
+    nanobench::Bench bench;
+    bench.title("Fir sparse perf");
+    bench.minEpochIterations(50000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kFirSizes = {64, 128, 256, 512, 1024, 2048, 4096, 8192};
+    constexpr uint32_t kFirTapCount = 32;
+    sfFDN::RNG rng;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    for (const auto& fir_size : kFirSizes)
+    {
+        std::uniform_int_distribution<> distribution(0, fir_size - 1);
+
+        sfFDN::SparseFirOptions sparse_fir_config;
+
+        for (auto i = 0u; i < kFirTapCount; i++)
+        {
+            auto coeff = rng();
+            auto index = i * (fir_size / kFirTapCount);
+            sparse_fir_config.coeffs.emplace_back(index, coeff);
+        }
+
+        sfFDN::SparseFir filter;
+        filter.SetCoefficients(sparse_fir_config);
+
+        constexpr uint32_t kSize = 128;
+        std::array<float, kSize> input = {0.f};
+        input[0] = 1.f;
+        std::array<float, kSize> output{};
+
+        sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+
+        bench.run("Fir - Size " + std::to_string(fir_size), [&] { filter.Process(input_buffer, output_buffer); });
+    }
+}
+
+TEST_CASE("ParallelSchroederAllpassSection")
+{
+    constexpr uint32_t kChannelCount = 16;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kFilterOrder = 2;
+
+    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        sfFDN::SchroederAllpassSectionOptions section_options;
+        section_options.delays = sfFDN::GetDelayLengths(kFilterOrder, kBlockSize, 1000, sfFDN::DelayLengthType::Random);
+        section_options.gains = std::vector<float>(kFilterOrder, 0.7f);
+        options.sections.push_back(section_options);
+    }
+
+    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
+
+    std::vector<float> input(kChannelCount * kBlockSize, 0.f);
+    // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
+    for (uint32_t i = 0; i < kChannelCount; ++i)
+    {
+        input[i * kBlockSize] = 1.f;
+    }
+
+    std::vector<float> output(kChannelCount * kBlockSize, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+
+    nanobench::Bench bench;
+    bench.title("ParallelSchroederAllpassSection perf");
+    bench.minEpochIterations(5000);
+    bench.timeUnit(1us, "us");
+    bench.relative(true);
+
+    bench.run("ParallelSchroederAllpassSection", [&] { filter->Process(input_buffer, output_buffer); });
+}
+
+#ifdef __APPLE__
+TEST_CASE("VDSP_FilterBank")
+{
+    constexpr uint32_t N = 16; // number of channels
+    constexpr uint32_t M = 11; // number of section
+
+    std::vector<float> delays((2 * M) + 2, 0.f);
+    std::vector<double> coeffs;
+    coeffs.reserve(N * M * 5);
+
+    for (auto i = 0u; i < N; ++i)
+    {
+        auto sos = k_h001_AbsorbtionSOS[i];
+        REQUIRE(sos.size() == M);
+
+        for (auto j = 0u; j < M; ++j)
+        {
+            auto norm_sos = sos[j].Normalize();
+            coeffs.push_back(norm_sos.b0);
+            coeffs.push_back(norm_sos.b1);
+            coeffs.push_back(norm_sos.b2);
+            coeffs.push_back(norm_sos.a1);
+            coeffs.push_back(norm_sos.a2);
+        }
+    }
+
+    vDSP_biquadm_Setup biquad_setup = vDSP_biquadm_CreateSetup(coeffs.data(), M, N);
+    REQUIRE(biquad_setup != nullptr);
+
+    constexpr uint32_t kSampleToProcess = 512;
+
+    nanobench::Bench bench;
+    bench.title("vDSP FilterBank perf");
+    bench.minEpochIterations(1000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
+
+    sfFDN::RNG rng;
+    for (const auto& block_size : kBlockSizes)
+    {
+        std::vector<float> input(block_size * N, 0);
+        for (float& i : input)
+        {
+            i = rng();
+        }
+        std::vector<float> output(block_size * N, 0);
+
+        std::array<const float*, N> input_ptrs{};
+        std::array<float*, N> output_ptrs{};
+
+        for (auto i = 0u; i < N; ++i)
+        {
+            input_ptrs[i] = std::span(input).subspan(i * block_size, block_size).data();
+            output_ptrs[i] = std::span(output).subspan(i * block_size, block_size).data();
+        }
+
+        bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
+            const uint32_t num_blocks = kSampleToProcess / block_size;
+            assert(kSampleToProcess % block_size == 0);
+
+            for (auto i = 0u; i < num_blocks; ++i)
+            {
+                vDSP_biquadm(biquad_setup, input_ptrs.data(), 1, output_ptrs.data(), 1, block_size);
+            }
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
+}
+#endif

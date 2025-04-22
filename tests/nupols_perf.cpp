@@ -1,0 +1,107 @@
+#include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <fstream>
+#include <iostream>
+#include <memory>
+
+#include "sffdn/sffdn.h"
+
+#include "filter_coeffs.h"
+
+using namespace ankerl;
+using namespace std::chrono_literals;
+
+namespace
+{
+std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
+{
+    // Create a simple filter for testing purposes
+    auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+    std::vector<float> coeffs;
+    auto sos = k_h001_AbsorbtionSOS[0];
+
+    filter->SetCoefficients(sos);
+
+    return filter;
+}
+} // namespace
+
+TEST_CASE("PartitionedConvolver")
+{
+    constexpr uint32_t kBlockSize = 128;
+
+    constexpr uint32_t kFirLength = 24000;
+    auto ref_filter = CreateTestFilter();
+    std::vector<float> fir(kFirLength, 0.f);
+    for (auto i = 0u; i < kFirLength; ++i)
+    {
+        // Fill the FIR filter with some test coefficients
+        fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
+    }
+
+    std::vector<float> input(kBlockSize, 0.f);
+    input[0] = 1.f;
+    std::vector<float> output(kBlockSize, 0.f);
+
+    nanobench::Bench bench;
+    bench.title("PartitionedConvolver perf (FIR Size " + std::to_string(kFirLength) + ", Block Size " +
+                std::to_string(kBlockSize) + ")");
+    bench.minEpochIterations(200);
+    bench.timeUnit(1us, "us");
+    bench.relative(true);
+
+    // The convolver does not do the same amount of work for each Process() call, as it processes the FIR in partitions.
+    // To get a more accurate measurement, we run multiple iterations and average the time.
+    constexpr uint32_t kLoopCount = 100;
+    bench.batch(kLoopCount);
+
+    for (uint32_t rep_count = 2; rep_count <= 32; rep_count *= 2)
+    {
+        sfFDN::PartitionedConvolver nupols(kBlockSize, fir, rep_count);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+        bench.run(nupols.GetShortInfo(), [&] {
+            // Process the block
+            for (uint32_t i = 0; i < kLoopCount; ++i)
+            {
+                nupols.Process(input_buffer, output_buffer);
+            }
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
+
+    // Check for max time
+    constexpr auto kRepCount = 2u;
+    sfFDN::PartitionedConvolver nupols(kBlockSize, fir, kRepCount);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    std::cout << "Measuring individual Process() calls for " << nupols.GetShortInfo() << "...\n";
+
+    std::vector<float> durations;
+    durations.reserve(1000);
+    for (auto i = 0u; i < 1000; ++i)
+    {
+        auto start = std::chrono::steady_clock::now();
+        nupols.Process(input_buffer, output_buffer);
+        auto end = std::chrono::steady_clock::now();
+        double duration_us = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end - start).count();
+        durations.push_back(duration_us);
+    }
+
+    std::fstream out("nupols_perf_durations.txt", std::ios::out);
+    for (const auto& duration : durations)
+    {
+        out << duration << "\n";
+    }
+    out.close();
+
+    constexpr double kMaxAllowedDurationUs = 1.0e6 / (48000.0 / kBlockSize);
+    for (const auto& duration : durations)
+    {
+        REQUIRE(duration < kMaxAllowedDurationUs);
+        // std::cout << duration << "\n";
+    }
+}

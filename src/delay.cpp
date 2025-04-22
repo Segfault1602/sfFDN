@@ -1,0 +1,323 @@
+#include "sffdn/delay.h"
+
+#include "array_math.h"
+#include "sffdn/audio_buffer.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <iostream>
+#include <ranges>
+#include <span>
+#include <vector>
+
+namespace
+{
+uint32_t FastMod(uint32_t input, uint32_t ceil)
+{
+    return input >= ceil ? input % ceil : input;
+}
+} // namespace
+
+namespace sfFDN
+{
+
+Delay::Delay(uint32_t delay, uint32_t max_delay)
+    : in_point_(0)
+    , out_point_(0)
+    , delay_(0)
+    , last_frame_(0.0f)
+{
+    if (delay > max_delay)
+    {
+        std::cerr << "Delay::Delay: max_delay must be > than delay argument!\n";
+        assert(false);
+    }
+
+    if ((max_delay + 1) > buffer_.size())
+    {
+        buffer_.resize(max_delay + 1, 0.0);
+    }
+
+    in_point_ = 0;
+    last_frame_ = 0.0;
+    this->SetDelay(delay);
+}
+
+void Delay::Clear()
+{
+    std::ranges::fill(buffer_, 0.0f);
+}
+
+void Delay::SetMaximumDelay(uint32_t delay)
+{
+    if (delay < buffer_.size())
+    {
+        return;
+    }
+    buffer_.resize(delay + 1, 0.0);
+}
+
+uint32_t Delay::GetMaximumDelay() const
+{
+    return buffer_.size() - 1;
+}
+
+void Delay::SetDelay(uint32_t delay)
+{
+    if (delay == delay_)
+    {
+        return;
+    }
+
+    if (delay > buffer_.size() - 1)
+    {
+        assert(false);
+        return;
+    }
+
+    out_point_ = buffer_.size() + in_point_ - delay;
+    out_point_ = FastMod(out_point_, buffer_.size());
+    delay_ = delay;
+}
+
+float Delay::LastOut() const
+{
+    return last_frame_;
+}
+
+float Delay::NextOut() const
+{
+    return buffer_[out_point_];
+}
+
+float Delay::Tick(float input)
+{
+    buffer_[in_point_] = input;
+    in_point_ = (in_point_ + 1) % buffer_.size();
+
+    // Read out next value
+    last_frame_ = buffer_[out_point_];
+    out_point_ = (out_point_ + 1) % buffer_.size();
+
+    return last_frame_;
+}
+
+float Delay::TapOut(uint32_t tap) const
+{
+    if (tap >= buffer_.size())
+    {
+        std::cerr << "Delay::TapOut: Tap point exceeds buffer size!\n";
+        assert(false);
+        return 0.0f;
+    }
+
+    const uint32_t tap_point = (in_point_ + buffer_.size() - tap - 1) % buffer_.size();
+    return buffer_[tap_point];
+}
+
+void Delay::Process(const AudioBuffer input, AudioBuffer& output)
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == 1); // Delay only supports mono input
+
+    if (AddNextInputs(input.GetChannelSpan(0)))
+    {
+        GetNextOutputs(output.GetChannelSpan(0));
+    }
+    else
+    {
+        // We could not add all input samples at once, so just process samples one by one.
+        auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
+        for (auto i = 0u; i < input.SampleCount(); ++i)
+        {
+            output_span[i] = Tick(input_span[i]);
+        }
+    }
+}
+
+bool Delay::AddNextInputs(std::span<const float> input)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    std::span<float> write_buffer = GetNextInputBuffers(input.size());
+
+    int samples_written = 0;
+
+    while (samples_written < input.size() && !write_buffer.empty())
+    {
+        assert(write_buffer.size() <= input.size());
+        std::ranges::copy(input.subspan(samples_written, write_buffer.size()), write_buffer.begin());
+        samples_written += write_buffer.size();
+
+        AdvanceWrite(write_buffer.size());
+        write_buffer = GetNextInputBuffers(input.size() - samples_written);
+    }
+
+    if (samples_written != input.size())
+    {
+        // Not enough space in buffer to write all input samples
+        std::cerr << "Delay::AddNextInputs: Not enough space in buffer to write input data!\n";
+        assert(false);
+        return false;
+    }
+
+    return true;
+}
+
+std::span<float> Delay::GetNextOutputBuffers(uint32_t output_size)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    std::span<float> out_buffer{};
+
+    // Two scenarios:
+    // 1. The out pointer is after the in pointer
+    //      The read region wraps around the buffer. We have two regions to consider. The first region is from
+    //      out_point to the end of the buffer, and the second region is from the beginning of the buffer to in_point_.
+    // 2. The in pointer is after the out pointer
+    //      In this case we have all the space between in_point_ and out_point_ that we can read from.
+    if (out_point_ > in_point_)
+    {
+        out_buffer = buffer_span.subspan(out_point_);
+    }
+    else
+    {
+        out_buffer = buffer_span.subspan(out_point_, in_point_ - out_point_);
+    }
+
+    if (out_buffer.size() >= output_size)
+    {
+        out_buffer = out_buffer.first(output_size);
+    }
+
+    return out_buffer;
+}
+
+std::span<float> Delay::GetNextInputBuffers(uint32_t size)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    std::span<float> out_buffer{};
+
+    // Two scenarios:
+    // 1. The out pointer is after the in pointer
+    //      In this case we have all the space between in_point_ and out_point_ that we can write to.
+    // 2. The in pointer is after the out pointer
+    //      The write region wraps around the buffer. We have two regions to consider. The first region is from
+    //      in_point_ to the end of the buffer, and the second region is from the beginning of the buffer to out_point_.
+    if (out_point_ > in_point_)
+    {
+        out_buffer = buffer_span.subspan(in_point_, out_point_ - in_point_);
+    }
+    else
+    {
+        out_buffer = buffer_span.subspan(in_point_);
+    }
+
+    if (out_buffer.size() >= size)
+    {
+        out_buffer = out_buffer.first(size);
+    }
+
+    return out_buffer;
+}
+
+void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<float>& write_buffer, uint32_t size)
+{
+    read_buffer = GetNextOutputBuffers(size);
+    write_buffer = GetNextInputBuffers(size);
+
+    auto min_size = std::min(read_buffer.size(), write_buffer.size());
+    read_buffer = read_buffer.first(min_size);
+    write_buffer = write_buffer.first(min_size);
+}
+
+void Delay::GetNextOutputs(std::span<float> output)
+{
+    std::span<float> buffer = GetNextOutputBuffers(output.size());
+
+    int sample_written = 0;
+
+    while (sample_written < output.size() && !buffer.empty())
+    {
+        assert(buffer.size() <= output.size());
+        std::ranges::copy(buffer, output.subspan(sample_written).begin());
+        sample_written += buffer.size();
+
+        AdvanceRead(buffer.size());
+        buffer = GetNextOutputBuffers(output.size() - sample_written);
+    }
+
+    if (sample_written != output.size())
+    {
+        std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
+        assert(false);
+    }
+
+    last_frame_ = output.back();
+}
+
+void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, std::span<float> coeffs)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    assert(taps.size() == coeffs.size());
+
+    for (const auto& [delay, coeff] : std::views::zip(taps, coeffs))
+    {
+        // read chases write
+        int tap_point = (in_point_ + buffer_.size() - delay) % buffer_.size();
+        tap_point -= output.size();
+        while (tap_point < 0)
+        {
+            tap_point += buffer_.size();
+        }
+        std::span<float> buffer_1{};
+        std::span<float> buffer_2{};
+
+        if (tap_point > in_point_)
+        {
+            buffer_1 = buffer_span.subspan(tap_point);
+            buffer_2 = buffer_span.subspan(0, in_point_);
+        }
+        else
+        {
+            buffer_1 = buffer_span.subspan(tap_point, in_point_ - tap_point);
+            buffer_2 = {};
+        }
+
+        // Check that we have enough data to read from
+        const uint32_t available_space = buffer_1.size() + buffer_2.size();
+        if (available_space < output.size())
+        {
+            std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
+            assert(false);
+            return;
+        }
+
+        if (buffer_1.size() >= output.size())
+        {
+            ArrayMath::ScaleAccumulate(buffer_1.first(output.size()), coeff, output);
+        }
+        else
+        {
+            ArrayMath::ScaleAccumulate(buffer_1, coeff, output.first(buffer_1.size()));
+            ArrayMath::ScaleAccumulate(buffer_2.first(output.size() - buffer_1.size()), coeff,
+                                       output.subspan(buffer_1.size()));
+        }
+    }
+}
+
+void Delay::AdvanceRead(uint32_t sample_count)
+{
+    out_point_ = FastMod(out_point_ + sample_count, buffer_.size());
+}
+
+void Delay::AdvanceWrite(uint32_t sample_count)
+{
+    in_point_ = FastMod(in_point_ + sample_count, buffer_.size());
+}
+} // namespace sfFDN

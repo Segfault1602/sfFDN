@@ -1,0 +1,62 @@
+---
+Checks: "*,
+        -readability-identifier-naming,
+        -bugprone-implicit-widening-of-multiplication-result,
+        -bugprone-easily-swappable-parameters,
+        -bugprone-narrowing-conversions,
+        -cppcoreguidelines-narrowing-conversions,
+        -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+        -cppcoreguidelines-pro-type-reinterpret-cast,
+        -cppcoreguidelines-use-default-member-init,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -cppcoreguidelines-pro-bounds-constant-array-index,
+        -readability-identifier-length,
+        -readability-uppercase-literal-suffix,
+        -readability-function-cognitive-complexity,
+        -readability-magic-numbers,
+        -readability-math-missing-parentheses,
+        -readability-avoid-unconditional-preprocessor-if,
+        -readability-container-contains,
+        -modernize-use-nodiscard,
+        -modernize-use-default-member-init,
+        -modernize-use-trailing-return-type,
+        -modernize-use-std-numbers,
+        -modernize-use-integer-sign-comparison,
+        -misc-include-cleaner,
+        -misc-confusable-identifiers,
+        -mpi-*,
+        -cert-*,
+        -abseil-*,
+        -altera-*,
+        -android-*,
+        -fuchsia-*,
+        -llvm*,
+        -boost-*,
+        -google-*,
+        -hicpp-*,
+        -zircon-*,
+"
+
+HeaderFilterRegex: ''
+FormatStyle:     none
+CheckOptions:
+  - key:             readability-identifier-naming.VariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.FunctionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.PrivateMemberSuffix
+    value:           _
+  - key:             readability-identifier-naming.ParameterCase
+    value:           lower_case
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           lower_case
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariablePrefix
+    value:           k

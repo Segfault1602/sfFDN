@@ -1,0 +1,19 @@
+#pragma once
+
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cassert>
+#include <cmath>
+#include <complex>
+#include <cstdint>
+#include <format>
+#include <iostream>
+#include <memory>
+#include <numbers>
+#include <numeric>
+#include <print>
+#include <random>
+#include <ranges>
+#include <span>
+#include <vector>
