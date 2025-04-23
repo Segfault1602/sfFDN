@@ -189,16 +189,10 @@ class Biquad2 : public Filter
 class CascadedBiquads : public Filter
 {
   public:
-    CascadedBiquads() = default;
+    CascadedBiquads();
     ~CascadedBiquads() override;
 
     void Clear() override;
-
-    /// @brief Set the biquad coefficients.
-    /// @param index The index of the biquad
-    /// @param b The b coefficients
-    /// @param a The a coefficients
-    void SetCoefficients(size_t index, std::span<const float> b, std::span<const float> a);
 
     void SetCoefficients(size_t num_stage, std::span<const float> coeffs);
 
@@ -212,12 +206,7 @@ class CascadedBiquads : public Filter
     void dump_coeffs();
 
   private:
-    size_t stage_;
-
-    std::vector<float> state_;
-    std::vector<float> coeffs_;
-
-    vDSP_biquad_Setup biquad_setup_ = nullptr;
-    std::vector<float> delays_;
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 } // namespace fdn

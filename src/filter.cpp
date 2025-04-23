@@ -176,58 +176,6 @@ float Biquad2::Tick(float in)
 //     }
 // }
 
-CascadedBiquads::~CascadedBiquads()
-{
-    vDSP_biquad_DestroySetup(biquad_setup_);
-    biquad_setup_ = nullptr;
-}
-
-void CascadedBiquads::Clear()
-{
-    state_.clear();
-    state_.resize(stage_ * 2, 0);
-
-    delays_.clear();
-    delays_.resize(stage_ * 2 + 2, 0);
-}
-
-void CascadedBiquads::SetCoefficients(size_t num_stage, std::span<const float> coeffs)
-{
-    assert(coeffs.size() == num_stage * 5);
-
-    coeffs_.clear();
-
-    coeffs_.insert(coeffs_.begin(), coeffs.begin(), coeffs.end());
-    stage_ = num_stage;
-
-    state_.resize(num_stage * 2, 0);
-
-    if (biquad_setup_ != nullptr)
-    {
-        vDSP_biquad_DestroySetup(biquad_setup_);
-        biquad_setup_ = nullptr;
-    }
-
-    std::vector<double> coeffs_d(num_stage * 5);
-    for (size_t i = 0; i < coeffs.size(); i++)
-    {
-        coeffs_d[i] = coeffs_[i];
-    }
-
-    biquad_setup_ = vDSP_biquad_CreateSetup(coeffs_d.data(), num_stage);
-    assert(biquad_setup_ != nullptr);
-
-    delays_.clear();
-    delays_.resize(num_stage * 2 + 2, 0);
-}
-
-float CascadedBiquads::Tick(float in)
-{
-    float out = 0;
-    ProcessBlock(&in, &out, 1);
-    return out;
-}
-
 #if 0
 void CascadedBiquads::ProcessBlock(const float* in, float* out, size_t size)
 {
@@ -321,24 +269,5 @@ void CascadedBiquads::ProcessBlock(const float* in, float* out, size_t size)
     } while (stage > 0);
 }
 #endif
-
-void CascadedBiquads::ProcessBlock(const float* in, float* out, size_t size)
-{
-    assert(in != nullptr);
-    assert(out != nullptr);
-    assert(biquad_setup_ != nullptr);
-
-    vDSP_biquad(biquad_setup_, delays_.data(), in, 1, out, 1, size);
-}
-
-void CascadedBiquads::dump_coeffs()
-{
-    for (size_t i = 0; i < stage_; i++)
-    {
-        size_t offset = i * 5;
-        std::cout << "[" << coeffs_[offset] << ", " << coeffs_[offset + 1] << ", " << coeffs_[offset + 2] << ", "
-                  << coeffs_[offset + 3] << ", " << coeffs_[offset + 4] << "]" << std::endl;
-    }
-}
 
 } // namespace fdn

@@ -19,7 +19,7 @@ using namespace std::chrono_literals;
 TEST_CASE("FDNPerf")
 {
     constexpr size_t SR = 48000;
-    constexpr size_t block_size = 1;
+    constexpr size_t block_size = 512;
     constexpr size_t ITER = ((SR / block_size) + 1) * block_size; // 1 second at 48kHz
     constexpr size_t N = 16;
 

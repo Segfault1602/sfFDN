@@ -5,6 +5,8 @@
 #include <cassert>
 #include <iostream>
 
+#include "array_math.h"
+
 namespace
 {
 using RowMajorConstMatrix = Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
@@ -21,8 +23,6 @@ FDN::FDN(size_t N, size_t block_size, bool transpose)
     , mixing_matrix_(std::make_unique<MixMat>(N))
     , N_(N)
     , block_size_(block_size)
-    , input_gain_(N, 1.f)
-    , output_gain_(N, 1.f)
     , direct_gain_(1.f)
     , feedback_(N * block_size, 0.f)
     , temp_buffer_(N * block_size, 0.f)
@@ -41,14 +41,14 @@ void FDN::Clear()
 
 void FDN::SetInputGains(const std::span<const float> gains)
 {
-    assert(gains.size() == input_gain_.size());
-    std::copy(gains.begin(), gains.end(), input_gain_.begin());
+    assert(gains.size() == N_);
+    input_gains_.SetGains(gains);
 }
 
 void FDN::SetOutputGains(const std::span<const float> gains)
 {
-    assert(gains.size() == output_gain_.size());
-    std::copy(gains.begin(), gains.end(), output_gain_.begin());
+    assert(gains.size() == N_);
+    output_gains_.SetGains(gains);
 }
 
 void FDN::SetDirectGain(float gain)
@@ -107,14 +107,7 @@ void FDN::Tick(const std::span<const float> input, std::span<float> output)
     assert(input.size() == output.size());
     assert(input.size() == block_size_);
 
-    const size_t col = N_;
-    const size_t row = block_size_;
-
-    Eigen::Map<const Eigen::VectorXf> input_map(input.data(), row);
-    Eigen::Map<Eigen::VectorXf> input_gain_map(input_gain_.data(), N_);
-
-    ColMajorMatrix temp_buffer_map(temp_buffer_.data(), row, col);
-    temp_buffer_map = input_map * input_gain_map.transpose();
+    input_gains_.ProcessBlock(input, temp_buffer_);
 
     if (schroeder_section_)
     {
@@ -127,16 +120,12 @@ void FDN::Tick(const std::span<const float> input, std::span<float> output)
         filter_bank_.Tick(feedback_, feedback_);
     }
 
-    ColMajorMatrix feedback_map(feedback_.data(), row, col);
-
-    Eigen::Map<Eigen::VectorXf> output_map(output.data(), output.size());
-    Eigen::Map<Eigen::VectorXf> output_gain_map(output_gain_.data(), N_);
-
-    output_map = feedback_map * output_gain_map;
+    output_gains_.ProcessBlock(feedback_, output);
 
     mixing_matrix_->Tick(feedback_, feedback_);
 
-    feedback_map.noalias() += temp_buffer_map;
+    ArrayMath::Add(feedback_, temp_buffer_, feedback_);
+
     delay_bank_.AddNextInputs(feedback_);
 
     if (tc_filter_)
@@ -144,7 +133,7 @@ void FDN::Tick(const std::span<const float> input, std::span<float> output)
         tc_filter_->ProcessBlock(output.data(), output.data(), output.size());
     }
 
-    output_map.noalias() += input_map * direct_gain_;
+    ArrayMath::ScaleAdd(input, direct_gain_, output, output);
 }
 
 void FDN::TickTranspose(const std::span<const float> input, std::span<float> output)
@@ -155,11 +144,7 @@ void FDN::TickTranspose(const std::span<const float> input, std::span<float> out
     const size_t col = N_;
     const size_t row = block_size_;
 
-    Eigen::Map<const Eigen::VectorXf> input_map(input.data(), row);
-    Eigen::Map<Eigen::VectorXf> input_gain_map(input_gain_.data(), N_);
-
-    ColMajorMatrix temp_buffer_map(temp_buffer_.data(), row, col);
-    temp_buffer_map = input_map * input_gain_map.transpose();
+    input_gains_.ProcessBlock(input, temp_buffer_);
 
     if (schroeder_section_)
     {
@@ -168,8 +153,7 @@ void FDN::TickTranspose(const std::span<const float> input, std::span<float> out
 
     delay_bank_.GetNextOutputs(feedback_);
 
-    ColMajorMatrix feedback_map(feedback_.data(), row, col);
-    feedback_map.noalias() += temp_buffer_map;
+    ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
     mixing_matrix_->Tick(feedback_, feedback_);
     if (!bypass_absorption_)
@@ -179,16 +163,13 @@ void FDN::TickTranspose(const std::span<const float> input, std::span<float> out
 
     delay_bank_.AddNextInputs(feedback_);
 
-    Eigen::Map<Eigen::VectorXf> output_map(output.data(), output.size());
-    Eigen::Map<Eigen::VectorXf> output_gain_map(output_gain_.data(), N_);
-
-    output_map = feedback_map * output_gain_map;
+    output_gains_.ProcessBlock(feedback_, output);
     if (tc_filter_)
     {
         tc_filter_->ProcessBlock(output.data(), output.data(), output.size());
     }
 
-    output_map.noalias() += input_map * direct_gain_;
+    ArrayMath::ScaleAdd(input, direct_gain_, output, output);
 }
 
 } // namespace fdn

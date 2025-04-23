@@ -6,6 +6,7 @@
 #include "delaybank.h"
 #include "filterbank.h"
 #include "mixing_matrix.h"
+#include "parallel_gains.h"
 #include "schroeder_allpass.h"
 
 namespace fdn
@@ -44,10 +45,11 @@ class FDN
     FilterBank filter_bank_;
     std::unique_ptr<FeedbackMatrix> mixing_matrix_;
 
+    ParallelGains input_gains_;
+    ParallelGains output_gains_;
+
     const size_t N_;
     const size_t block_size_;
-    std::vector<float> input_gain_;
-    std::vector<float> output_gain_;
     float direct_gain_;
     std::vector<float> feedback_;
     std::vector<float> temp_buffer_;

@@ -2,6 +2,7 @@
 #include "nanobench.h"
 
 #include <iostream>
+#include <random>
 
 #include "mixing_matrix.h"
 
@@ -10,52 +11,40 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("Perf" * doctest::skip(true))
+TEST_CASE("MixMatPerf")
 {
+    constexpr size_t SR = 48000;
+    constexpr size_t block_size = 512;
+    constexpr size_t ITER = ((SR / block_size) + 1); // 1 second at 48kHz
     constexpr size_t N = 16;
+
+    std::cout << "ITER: " << ITER << std::endl;
+    std::cout << "BLOCK SIZE: " << block_size << std::endl;
+    std::cout << "N: " << N << std::endl;
+
     fdn::MixMat mix_mat = fdn::MixMat::Householder(N);
 
-    constexpr size_t size = 48000;
-    std::vector<float> input(N * size);
-
-    // fill input with random values
+    std::vector<float> input(N * block_size, 0.f);
+    std::vector<float> output(N * block_size, 0.f);
+    // Fill with white noise
+    std::default_random_engine generator;
+    std::normal_distribution<double> dist(0, 0.1);
     for (size_t i = 0; i < input.size(); ++i)
     {
-        input[i] = static_cast<float>(rand()) / RAND_MAX;
+        input[i] = dist(generator);
     }
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
-    bench.minEpochIterations(100);
+    // bench.minEpochIterations(100);
     bench.timeUnit(1ms, "ms");
-    bench.relative(true);
 
-    std::vector<float> output(N * size);
-    bench.run("Householder - All", [&] {
-        mix_mat.Tick(input, output);
-        nanobench::doNotOptimizeAway(output);
+    bench.run("Householder", [&] {
+        for (size_t i = 0; i < ITER; ++i)
+        {
+            mix_mat.Tick(input, output);
+        }
     });
-
-    std::vector<float> output_sample(N * size);
-    constexpr size_t block_size[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, size};
-
-    for (size_t bs : block_size)
-    {
-        bench.run("Householder - Block size " + std::to_string(bs), [&] {
-            for (size_t i = 0; i < input.size(); i += N * bs)
-            {
-                std::span<float> input_span(input.data() + i, N * bs);
-                std::span<float> output_span(output_sample.data() + i, N * bs);
-                mix_mat.Tick(input_span, output_span);
-            }
-            nanobench::doNotOptimizeAway(output);
-        });
-    }
-
-    for (size_t i = 0; i < output.size(); ++i)
-    {
-        CHECK(output[i] == doctest::Approx(output_sample[i]).epsilon(0.0001));
-    }
 }
 
 TEST_CASE("Matrix_Order")

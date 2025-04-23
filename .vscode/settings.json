@@ -64,6 +64,8 @@
         "valarray": "cpp",
         "variant": "cpp",
         "vector": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "hash_map": "cpp",
+        "alignedvector3": "cpp"
     }
 }

@@ -1,1 +1,0 @@
-add_library(cmsis arm_biquad_cascade_df2T_f32.cpp arm_biquad_cascade_df2T_init_f32.cpp)

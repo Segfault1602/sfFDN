@@ -5,6 +5,8 @@ project(sfFDN)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(SF_FDN_USE_VDSP "Use VDSP for DSP operations" ON)
+
 include(./fetch_deps.cmake)
 
 add_subdirectory(src)
