@@ -47,7 +47,7 @@ Delay::~Delay()
 
 void Delay::Clear()
 {
-    std::fill(buffer_.begin(), buffer_.end(), 0.0);
+    std::fill(buffer_.begin(), buffer_.end(), 0.0f);
 }
 
 void Delay::SetMaximumDelay(unsigned long delay)

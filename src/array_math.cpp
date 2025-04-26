@@ -2,8 +2,6 @@
 
 #include <cassert>
 
-#include <Accelerate/Accelerate.h>
-
 namespace fdn
 {
 

@@ -54,4 +54,21 @@ set(INSTALL_PKGCONFIG_MODULE
     OFF
     CACHE BOOL "Disable pkgconfig module!" FORCE)
 
+set(EIGEN_BUILD_DOC OFF)
+set(EIGEN_BUILD_BTL OFF)
+set(EIGEN_BUILD_TESTING OFF)
+set(BUILD_TESTING OFF)
+set(EIGEN_BUILD_PKGCONFIG OFF)
+set(EIGEN_LEAVE_TEST_IN_ALL_TARGET OFF)
+
+
+if (WIN32)
+    # Seems to be required to build on windows
+    set(EIGEN_TEST_CXX11 ON CACHE BOOL "Enable C++11 tests")
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.25)
+endif()
+
 FetchContent_MakeAvailable(eigen nanobench doctest libsndfile)
+
+target_compile_options(sndfile PRIVATE "-Wno-deprecated")
+target_compile_options(eigen INTERFACE "-Wno-deprecated")

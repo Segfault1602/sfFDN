@@ -28,6 +28,9 @@ if(SF_FDN_USE_VDSP)
     target_link_libraries(fdn PUBLIC "-framework Accelerate")
 endif()
 
-target_compile_options(fdn PRIVATE -Wno-deprecated $<$<CONFIG:Debug>:-fsanitize=address>
-                                   $<$<CONFIG:Release>:-O3>)
-target_link_options(fdn PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
+target_compile_options(fdn PRIVATE ${COMMON_CXX_FLAGS})
+
+if (NOT WIN32)
+    target_compile_options(fdn PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+    target_link_options(fdn PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
+endif()

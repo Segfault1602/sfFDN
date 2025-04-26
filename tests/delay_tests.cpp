@@ -1,5 +1,6 @@
 #include "doctest.h"
 
+#include <array>
 #include <iostream>
 #include <numeric>
 #include <sndfile.h>

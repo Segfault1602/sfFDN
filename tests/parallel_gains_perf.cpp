@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include "nanobench.h"
 
+#include <array>
 #include <iostream>
 #include <random>
 
@@ -15,8 +16,8 @@ TEST_CASE("ParallelGainsPerf")
     constexpr size_t block_size = 512;
     constexpr size_t ITER = ((SR / block_size) + 1); // 1 second at 48kHz
     constexpr size_t N = 16;
-    constexpr std::array<float, N> kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
-                                             0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+    constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+                                   0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
     std::cout << "ITER: " << ITER << std::endl;
     std::cout << "BLOCK SIZE: " << block_size << std::endl;

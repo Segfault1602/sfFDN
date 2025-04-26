@@ -4,10 +4,9 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
-
-#include <Accelerate/Accelerate.h>
 
 namespace fdn
 {

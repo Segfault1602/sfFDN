@@ -18,4 +18,3 @@ find_package(nanobind CONFIG REQUIRED)
 
 nanobind_add_module(cpp_fdn cpp_fdn.cpp)
 target_link_libraries(cpp_fdn PRIVATE fdn)
-target_compile_options(cpp_fdn PRIVATE -Wno-deprecated)

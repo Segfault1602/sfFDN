@@ -1,7 +1,6 @@
 #include "fdn.h"
 
 #include <Eigen/Core>
-#include <arm_neon.h>
 #include <cassert>
 #include <iostream>
 

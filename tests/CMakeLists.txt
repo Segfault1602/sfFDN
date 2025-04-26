@@ -16,8 +16,13 @@ if(SF_FDN_USE_VDSP)
 endif()
 
 target_include_directories(tests PRIVATE ${doctest_SOURCE_DIR}/doctest)
-target_compile_options(tests PRIVATE -Wno-deprecated -fsanitize=address)
-target_link_options(tests PRIVATE -fsanitize=address)
+target_compile_options(tests PRIVATE ${COMMON_CXX_FLAGS})
+
+
+if (NOT WIN32)
+    target_compile_options(tests PRIVATE ${COMMON_CXX_FLAGS} -fsanitize=address)
+    target_link_options(tests PRIVATE -fsanitize=address)
+endif()
 
 set(PERF_SOURCE
     main.cpp
@@ -35,4 +40,4 @@ if(SF_FDN_USE_VDSP)
 endif()
 
 target_include_directories(perf PRIVATE ${doctest_SOURCE_DIR}/doctest)
-target_compile_options(perf PRIVATE -Wno-deprecated)
+target_compile_options(perf PRIVATE ${COMMON_CXX_FLAGS})
