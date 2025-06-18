@@ -1,23 +1,3 @@
-/***************************************************/
-/*! \class DelayA
-    \brief STK allpass interpolating delay line class.
-
-    This class implements a fractional-length digital delay-line using
-    a first-order allpass filter.  If the delay and maximum length are
-    not specified during instantiation, a fixed maximum length of 4095
-    and a delay of zero is set.
-
-    An allpass filter has unity magnitude gain but variable phase
-    delay properties, making it useful in achieving fractional delays
-    without affecting a signal's frequency magnitude response.  In
-    order to achieve a maximally flat phase delay response, the
-    minimum delay possible in this implementation is limited to a
-    value of 0.5.
-
-    by Perry R. Cook and Gary P. Scavone, 1995--2023.
-*/
-/***************************************************/
-
 #include "delaya.h"
 
 #include <cassert>
@@ -26,17 +6,17 @@
 namespace fdn
 {
 
-DelayA::DelayA(float delay, unsigned long maxDelay)
+DelayAllpass::DelayAllpass(float delay, unsigned long maxDelay)
 {
     if (delay < 0.5)
     {
-        std::cerr << "DelayA::DelayA: delay must be >= 0.5!" << std::endl;
+        std::cerr << "DelayAllpass::DelayAllpass: delay must be >= 0.5!" << std::endl;
         assert(false);
     }
 
     if (delay > (float)maxDelay)
     {
-        std::cerr << "DelayA::DelayA: maxDelay must be > than delay argument!" << std::endl;
+        std::cerr << "DelayAllpass::DelayAllpass: maxDelay must be > than delay argument!" << std::endl;
         assert(false);
     }
 
@@ -45,7 +25,6 @@ DelayA::DelayA(float delay, unsigned long maxDelay)
         buffer_.resize(maxDelay + 1, 0.0);
 
     inPoint_ = 0;
-    fake_in_point_ = 0;
     this->SetDelay(delay);
     apInput_ = 0.0;
     doNextOut_ = true;
@@ -53,11 +32,11 @@ DelayA::DelayA(float delay, unsigned long maxDelay)
     lastFrame_ = 0.0;
 }
 
-DelayA::~DelayA()
+DelayAllpass::~DelayAllpass()
 {
 }
 
-void DelayA::Clear()
+void DelayAllpass::Clear()
 {
     for (unsigned int i = 0; i < buffer_.size(); i++)
         buffer_[i] = 0.0;
@@ -65,16 +44,16 @@ void DelayA::Clear()
     apInput_ = 0.0;
 }
 
-void DelayA::SetMaximumDelay(unsigned long delay)
+void DelayAllpass::SetMaximumDelay(unsigned long delay)
 {
     if (delay < buffer_.size())
         return;
     buffer_.resize(delay + 1, 0.0);
 }
 
-void DelayA::UpdateAlpha(float delay)
+void DelayAllpass::UpdateAlpha(float delay)
 {
-    float outPointer = fake_in_point_ - delay + 1.0; // outPoint chases inpoint
+    float outPointer = inPoint_ - delay + 1.0; // outPoint chases inpoint
 
     unsigned long length = buffer_.size();
     while (outPointer < 0)
@@ -102,19 +81,19 @@ void DelayA::UpdateAlpha(float delay)
     coeff_ = (1.0 - alpha_) / (1.0 + alpha_); // coefficient for allpass
 }
 
-void DelayA::SetDelay(float delay)
+void DelayAllpass::SetDelay(float delay)
 {
     unsigned long length = buffer_.size();
     if (delay + 1 > length)
     { // The value is too big.
-        std::cerr << "DelayA::setDelay: argument (" << delay << ") greater than maximum!" << std::endl;
+        std::cerr << "DelayAllpass::setDelay: argument (" << delay << ") greater than maximum!" << std::endl;
         assert(false);
         return;
     }
 
     if (delay < 0.5)
     {
-        std::cerr << "DelayA::setDelay: argument (" << delay << ") less than 0.5 not possible!" << std::endl;
+        std::cerr << "DelayAllpass::setDelay: argument (" << delay << ") less than 0.5 not possible!" << std::endl;
         assert(false);
         return;
     }
@@ -123,7 +102,7 @@ void DelayA::SetDelay(float delay)
     delay_ = delay;
 }
 
-float DelayA::NextOut(void)
+float DelayAllpass::NextOut()
 {
     if (doNextOut_)
     {
@@ -136,7 +115,7 @@ float DelayA::NextOut(void)
     return nextOutput_;
 }
 
-float DelayA::Tick(float input)
+float DelayAllpass::Tick(float input)
 {
     buffer_[inPoint_++] = input * gain_;
 
@@ -155,65 +134,18 @@ float DelayA::Tick(float input)
     return lastFrame_;
 }
 
-void DelayA::Tick(std::span<float> input, std::span<float> output)
+void DelayAllpass::Process(const AudioBuffer& input, AudioBuffer& output)
 {
-    assert(input.size() == output.size());
-    for (size_t i = 0; i < input.size(); i++)
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == 1); // This class only works with mono input.
+
+    auto input_span = input.GetChannelSpan(0);
+    auto output_span = output.GetChannelSpan(0);
+
+    for (size_t i = 0; i < input_span.size(); i++)
     {
-        output[i] = Tick(input[i]);
-    }
-}
-
-void DelayA::AddNextInput(float input)
-{
-    // assert(inPoint_ != outPoint_);
-    buffer_[inPoint_++] = input * gain_;
-
-    // Increment input pointer modulo length.
-    if (inPoint_ == buffer_.size())
-        inPoint_ = 0;
-}
-
-float DelayA::GetNextOutput()
-{
-    // assert(inPoint_ != outPoint_);
-    lastFrame_ = NextOut();
-    doNextOut_ = true;
-
-    // Save the allpass input and increment modulo length.
-    apInput_ = buffer_[outPoint_++];
-    if (outPoint_ == buffer_.size())
-        outPoint_ = 0;
-
-    ++fake_in_point_;
-    if (fake_in_point_ == buffer_.size())
-        fake_in_point_ = 0;
-
-    return lastFrame_;
-}
-
-void DelayA::AddNextInputs(std::span<const float> input)
-{
-    assert(input.size() < delay_);
-
-    for (size_t i = 0; i < input.size(); i++)
-    {
-        assert(inPoint_ != outPoint_);
-        buffer_[inPoint_++] = input[i] * gain_;
-
-        // Increment input pointer modulo length.
-        if (inPoint_ == buffer_.size())
-            inPoint_ = 0;
-    }
-}
-
-void DelayA::GetNextOutputs(std::span<float> output)
-{
-    assert(output.size() < delay_);
-
-    for (size_t i = 0; i < output.size(); i++)
-    {
-        output[i] = GetNextOutput();
+        output_span[i] = Tick(input_span[i]);
     }
 }
 

@@ -22,7 +22,7 @@
 namespace fdn
 {
 
-Delay::Delay(unsigned long delay, unsigned long maxDelay)
+Delay::Delay(size_t delay, size_t maxDelay)
 {
     // Writing before reading allows delays from 0 to length-1.
     // If we want to allow a delay of maxDelay, we need a
@@ -57,7 +57,7 @@ void Delay::SetMaximumDelay(unsigned long delay)
     buffer_.resize(delay + 1, 0.0);
 }
 
-void Delay::SetDelay(unsigned long delay)
+void Delay::SetDelay(size_t delay)
 {
     if (delay > buffer_.size() - 1)
     { // The value is too big.
@@ -73,29 +73,35 @@ void Delay::SetDelay(unsigned long delay)
     delay_ = delay;
 }
 
+float Delay::NextOut() const
+{
+    return buffer_[outPoint_];
+}
+
 float Delay::Tick(float input)
 {
-    buffer_[inPoint_++] = input;
-
-    // Check for end condition
-    if (inPoint_ == buffer_.size())
-        inPoint_ = 0;
+    buffer_[inPoint_] = input;
+    inPoint_ = (inPoint_ + 1) % buffer_.size();
 
     // Read out next value
-    lastFrame_ = buffer_[outPoint_++];
-
-    if (outPoint_ == buffer_.size())
-        outPoint_ = 0;
+    lastFrame_ = buffer_[outPoint_];
+    outPoint_ = (outPoint_ + 1) % buffer_.size();
 
     return lastFrame_;
 }
 
-void Delay::Tick(std::span<const float> input, std::span<float> output)
+void Delay::Process(const AudioBuffer input, AudioBuffer& output)
 {
-    assert(input.size() == output.size());
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == 1); // Delay only supports mono input
 
-    // TODO: this needs to be tested
+    AddNextInputs(input.GetChannelSpan(0));
+    GetNextOutputs(output.GetChannelSpan(0));
+}
 
+void Delay::AddNextInputs(std::span<const float> input)
+{
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
     size_t available_space = (outPoint_ > inPoint_) ? (outPoint_ - inPoint_) : (buffer_.size() - inPoint_ + outPoint_);
@@ -122,22 +128,27 @@ void Delay::Tick(std::span<const float> input, std::span<float> output)
         std::copy(input.begin() + size1, input.end(), buffer_.begin());
     }
 
-    inPoint_ += input.size();
-    while (inPoint_ >= buffer_.size())
-    {
-        inPoint_ -= buffer_.size();
-    }
+    inPoint_ = (inPoint_ + input.size()) % buffer_.size();
+}
 
-    // read out next values
+void Delay::GetNextOutputs(std::span<float> output)
+{
     size_t outPoint = outPoint_;
-    for (size_t i = 0; i < input.size(); ++i)
-    {
-        output[i] = buffer_[outPoint++];
-        if (outPoint == buffer_.size())
-            outPoint = 0;
-    }
-    outPoint_ = outPoint;
 
+    size_t endPoint = outPoint + output.size();
+    if (endPoint < buffer_.size())
+    {
+        std::copy(buffer_.begin() + outPoint, buffer_.begin() + endPoint, output.begin());
+    }
+    else
+    {
+        size_t size1 = buffer_.size() - outPoint;
+        size_t size2 = output.size() - size1;
+        std::copy(buffer_.begin() + outPoint, buffer_.end(), output.begin());
+        std::copy(buffer_.begin(), buffer_.begin() + size2, output.begin() + size1);
+    }
+
+    outPoint_ = endPoint % buffer_.size();
     lastFrame_ = output.back();
 }
 

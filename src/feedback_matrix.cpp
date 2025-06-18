@@ -1,22 +1,21 @@
-#include "mixing_matrix.h"
+#include "feedback_matrix.h"
 
 #include <cassert>
 #include <iostream>
-#include <mdspan>
 
 namespace fdn
 {
 
-MixMat::MixMat(size_t N)
-    : N_(N)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(size_t N)
+    : FeedbackMatrix(N)
     , matrix_(N, N)
 {
     matrix_.setIdentity();
 }
 
-MixMat MixMat::Householder(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(size_t N)
 {
-    MixMat mat(N);
+    ScalarFeedbackMatrix mat(N);
 
     Eigen::MatrixXf I = Eigen::MatrixXf::Identity(N, N);
     Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
@@ -28,11 +27,11 @@ MixMat MixMat::Householder(size_t N)
     return mat;
 }
 
-MixMat MixMat::Householder(std::span<const float> v)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(std::span<const float> v)
 {
     assert(v.size() > 0);
     size_t N = v.size();
-    MixMat mat(N);
+    ScalarFeedbackMatrix mat(N);
 
     Eigen::MatrixXf I = Eigen::MatrixXf::Identity(N, N);
     Eigen::Map<const Eigen::VectorXf> v_map(v.data(), N);
@@ -47,11 +46,11 @@ MixMat MixMat::Householder(std::span<const float> v)
     return mat;
 }
 
-MixMat MixMat::Hadamard(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(size_t N)
 {
     // only works for N = 2^k
     assert((N & (N - 1)) == 0 && N > 0);
-    MixMat mat(N);
+    ScalarFeedbackMatrix mat(N);
 
     // Initialize H1 = [1]
     Eigen::MatrixXf H = Eigen::MatrixXf::Ones(1, 1);
@@ -74,14 +73,14 @@ MixMat MixMat::Hadamard(size_t N)
     return mat;
 }
 
-MixMat MixMat::Eye(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Eye(size_t N)
 {
-    MixMat mat(N);
+    ScalarFeedbackMatrix mat(N);
     mat.matrix_ = Eigen::MatrixXf::Identity(N, N);
     return mat;
 }
 
-void MixMat::SetMatrix(const std::span<const float> matrix)
+void ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
 {
     assert(matrix.size() == N_ * N_);
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> matrix_map(matrix.data(),
@@ -89,23 +88,24 @@ void MixMat::SetMatrix(const std::span<const float> matrix)
     matrix_ = matrix_map;
 }
 
-void MixMat::Tick(const std::span<const float> input, std::span<float> output)
+void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
 {
-    assert(output.size() == input.size());
-    assert(input.size() % N_ == 0);
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == N_);
 
     const size_t col = N_;
-    const size_t row = input.size() / N_;
+    const size_t row = input.SampleCount();
 
-    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> input_map(input.data(), row,
+    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> input_map(input.Data(), row,
                                                                                                       col);
-    Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.data(), row,
+    Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.Data(), row,
                                                                                                  col);
 
     output_map = input_map * matrix_;
 }
 
-void MixMat::Print() const
+void ScalarFeedbackMatrix::Print() const
 {
     std::cout << matrix_ << std::endl;
 }

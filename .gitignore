@@ -38,3 +38,6 @@ imgui.ini
 *.html
 
 /build
+/xcode
+
+*.wav

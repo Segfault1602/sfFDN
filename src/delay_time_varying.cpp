@@ -56,19 +56,21 @@ float DelayTimeVarying::Tick(float input)
 {
     // UpdateDelay();
 
-    return delayA_.Tick(input);
+    // return delayA_.Tick(input);
+    return 0.0f; // Placeholder return value
 }
 
 void DelayTimeVarying::AddNextInput(float input)
 {
-    delayA_.AddNextInput(input);
+    // delayA_.AddNextInput(input);
 }
 
 float DelayTimeVarying::GetNextOutput()
 {
     // UpdateDelay();
 
-    return delayA_.GetNextOutput();
+    // return delayA_.GetNextOutput();
+    return 0.0f; // Placeholder return value
 }
 
 } // namespace fdn

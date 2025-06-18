@@ -4,12 +4,13 @@
 #include <span>
 #include <vector>
 
+#include "delaybank.h"
 #include <delay.h>
-#include <mixing_matrix.h>
+#include <feedback_matrix.h>
 
 namespace fdn
 {
-class DelayMatrix : public MixMat
+class DelayMatrix : public FeedbackMatrix
 {
   public:
     DelayMatrix(size_t N, std::span<const size_t> delays);
@@ -17,16 +18,12 @@ class DelayMatrix : public MixMat
     void Clear();
 
     void SetDelays(std::span<size_t> delays);
-    void SetMatrix(MixMat mixing_matrix);
+    void SetMatrix(ScalarFeedbackMatrix mixing_matrix);
 
-    void Tick(std::span<const float> input, std::span<float> output) override;
-
-    // Debug functions
-    void DumpDelays() const;
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
   private:
-    size_t N_;
-    std::vector<Delay> delays_;
-    MixMat mixing_matrix_;
+    DelayBank delays_;
+    ScalarFeedbackMatrix mixing_matrix_;
 };
 } // namespace fdn

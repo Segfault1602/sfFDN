@@ -3,8 +3,8 @@ include(FetchContent)
 FetchContent_Declare(
     eigen
     GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-    GIT_TAG 3.4.0
-    GIT_SHALLOW TRUE)
+    GIT_TAG nightly
+)
 
 FetchContent_Declare(
     nanobench
@@ -68,7 +68,10 @@ if (WIN32)
     set(CMAKE_POLICY_VERSION_MINIMUM 3.25)
 endif()
 
-FetchContent_MakeAvailable(eigen nanobench doctest libsndfile)
+FetchContent_Declare(pffft GIT_REPOSITORY https://bitbucket.org/jpommier/pffft.git)
 
+FetchContent_MakeAvailable(eigen nanobench doctest libsndfile pffft)
+
+add_library(PFFFT STATIC ${pffft_SOURCE_DIR}/pffft.c)
 target_compile_options(sndfile PRIVATE "-Wno-deprecated")
 target_compile_options(eigen INTERFACE "-Wno-deprecated")

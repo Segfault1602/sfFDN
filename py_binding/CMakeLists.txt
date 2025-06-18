@@ -5,7 +5,7 @@ else()
 endif()
 
 find_package(
-    Python 3.8
+    Python 3.12
     COMPONENTS Interpreter ${DEV_MODULE}
     REQUIRED)
 
@@ -16,5 +16,9 @@ execute_process(
     OUTPUT_VARIABLE nanobind_ROOT)
 find_package(nanobind CONFIG REQUIRED)
 
-nanobind_add_module(cpp_fdn cpp_fdn.cpp)
+nanobind_add_module(
+    cpp_fdn # Extension name
+    # Source files
+    cpp_fdn.cpp
+    )
 target_link_libraries(cpp_fdn PRIVATE fdn)

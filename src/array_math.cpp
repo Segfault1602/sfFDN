@@ -1,6 +1,9 @@
 #include "array_math.h"
 
 #include <cassert>
+#include <experimental/simd>
+
+#include <arm_neon.h>
 
 namespace fdn
 {
@@ -23,6 +26,7 @@ void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
         b_ptr += 4;
         --block_count;
     }
+
     size_t remainder = a.size() % 4;
     while (remainder > 0)
     {

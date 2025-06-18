@@ -93,181 +93,24 @@ float OnePoleFilter::Tick(float in)
     return outputs_[0];
 }
 
-float OneZeroFilter::Tick(float in)
+void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output)
 {
-    float out = gain_ * in * b_[0] + inputs_[0] * b_[1];
-    inputs_[0] = in;
-    return out;
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
+
+    auto input_buf = input.GetChannelBuffer(0);
+    auto output_buf = output.GetChannelBuffer(0);
+    ProcessBlock(input_buf.Data(), output_buf.Data(), input.SampleCount());
+}
+size_t OnePoleFilter::InputChannelCount() const
+{
+    return 1; // OnePoleFilter only supports single channel input
 }
 
-float TwoPoleFilter::Tick(float in)
+size_t OnePoleFilter::OutputChannelCount() const
 {
-    outputs_[0] = gain_ * in * b_[0] - outputs_[1] * a_[1] - outputs_[2] * a_[2];
-    outputs_[2] = outputs_[1];
-    outputs_[1] = outputs_[0];
-    return outputs_[0];
+    return 1; // OnePoleFilter only supports single channel output
 }
-
-float TwoZeroFilter::Tick(float in)
-{
-    float out = gain_ * in * b_[0] + inputs_[0] * b_[1] + inputs_[1] * b_[2];
-    inputs_[1] = inputs_[0];
-    inputs_[0] = in;
-    return out;
-}
-
-void Biquad::SetCoefficients(float b0, float b1, float b2, float a1, float a2)
-{
-    b_[0] = b0;
-    b_[1] = b1;
-    b_[2] = b2;
-    a_[1] = a1;
-    a_[2] = a2;
-}
-
-float Biquad::Tick(float in)
-{
-    inputs_[0] = gain_ * in;
-    outputs_[0] = inputs_[0] * b_[0] + inputs_[1] * b_[1] + inputs_[2] * b_[2];
-    outputs_[0] -= outputs_[1] * a_[1] + outputs_[2] * a_[2];
-
-    inputs_[2] = inputs_[1];
-    inputs_[1] = inputs_[0];
-
-    outputs_[2] = outputs_[1];
-    outputs_[1] = outputs_[0];
-    return outputs_[0];
-}
-
-void Biquad2::SetCoefficients(float b0, float b1, float b2, float a1, float a2)
-{
-    b_[0] = b0;
-    b_[1] = b1;
-    b_[2] = b2;
-    a_[1] = a1;
-    a_[2] = a2;
-}
-
-float Biquad2::Tick(float in)
-{
-    outputs_[0] = b_[0] * in + d1_;
-    d1_ = b_[1] * in - a_[1] * outputs_[0] + d2_;
-    d2_ = b_[2] * in - a_[2] * outputs_[0];
-    return outputs_[0];
-}
-
-// void Biquad::ProcessBlock(const float* in, float* out, size_t size)
-// {
-//     assert(in != nullptr);
-//     assert(out != nullptr);
-
-//     for (size_t i = 0; i < size; ++i)
-//     {
-//         inputs_[0] = gain_ * in[i];
-//         outputs_[0] = inputs_[0] * b_[0] + inputs_[1] * b_[1] + inputs_[2] * b_[2];
-//         outputs_[0] -= outputs_[1] * a_[1] + outputs_[2] * a_[2];
-
-//         inputs_[2] = inputs_[1];
-//         inputs_[1] = inputs_[0];
-
-//         outputs_[2] = outputs_[1];
-//         outputs_[1] = outputs_[0];
-//         out[i] = outputs_[0];
-//     }
-// }
-
-#if 0
-void CascadedBiquads::ProcessBlock(const float* in, float* out, size_t size)
-{
-    assert(in != nullptr);
-    assert(out != nullptr);
-
-    size_t stage = stage_;
-
-    const float* in_ptr = in;
-    float* out_ptr = out;
-
-    size_t sample = size;
-    while (sample > 0)
-    {
-        float* coeffs_ptr = coeffs_.data();
-        float* state_ptr = state_.data();
-        stage = stage_;
-        float in1 = *in_ptr++;
-        float out1 = 0;
-        do
-        {
-            float* b = coeffs_ptr;
-            coeffs_ptr += 3;
-            float* a = coeffs_ptr;
-            coeffs_ptr += 2;
-
-            float* state = state_ptr;
-            state_ptr += 2;
-
-            out1 = b[0] * in1 + state[0];
-            state[0] = b[1] * in1 - a[0] * out1 + state[1];
-            state[1] = b[2] * in1 - a[1] * out1;
-
-            in1 = out1;
-            --stage;
-        } while (stage > 0);
-
-        *out_ptr++ = out1;
-
-        --sample;
-    }
-}
-
-void CascadedBiquads::ProcessBlock(const float* in, float* out, size_t size)
-{
-    assert(in != nullptr);
-    assert(out != nullptr);
-
-    size_t stage = stage_;
-
-    const float* in_ptr = in;
-    float* out_ptr = out;
-    float* coeffs_ptr = coeffs_.data();
-    float* state_ptr = state_.data();
-
-    do
-    {
-        float* b = coeffs_ptr;
-        coeffs_ptr += 3;
-        float* a = coeffs_ptr;
-        coeffs_ptr += 2;
-
-        float d1 = state_ptr[0];
-        float d2 = state_ptr[1];
-
-        size_t sample = size;
-        while (sample > 0)
-        {
-            float in1 = *in_ptr++;
-
-            float acc1 = b[0] * in1 + d1;
-
-            d1 = b[1] * in1 + d2;
-            d1 -= a[0] * acc1;
-
-            d2 = b[2] * in1;
-            d2 -= a[1] * acc1;
-
-            *out_ptr++ = acc1;
-            --sample;
-        }
-
-        state_ptr[0] = d1;
-        state_ptr[1] = d2;
-        state_ptr += 2;
-
-        in_ptr = out;
-        out_ptr = out;
-
-        --stage;
-    } while (stage > 0);
-}
-#endif
 
 } // namespace fdn

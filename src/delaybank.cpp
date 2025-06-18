@@ -14,11 +14,17 @@ DelayBank::DelayBank(unsigned long delayCount, unsigned long maxDelay)
     }
 }
 
-DelayBank::DelayBank(const std::span<const float> delays, unsigned long maxDelay)
+DelayBank::DelayBank(std::span<const size_t> delays, size_t block_size)
 {
     for (size_t i = 0; i < delays.size(); i++)
     {
-        delays_.emplace_back(delays[i], maxDelay);
+        size_t max_delay = delays[i] + block_size;
+        if (max_delay % 64 != 0)
+        {
+            max_delay += 64 - (max_delay % 64);
+        }
+
+        delays_.emplace_back(delays[i], max_delay);
     }
 }
 
@@ -30,7 +36,17 @@ void DelayBank::Clear()
     }
 }
 
-void DelayBank::SetDelays(const std::span<const float> delays)
+size_t DelayBank::InputChannelCount() const
+{
+    return delays_.size();
+}
+
+size_t DelayBank::OutputChannelCount() const
+{
+    return delays_.size();
+}
+
+void DelayBank::SetDelays(const std::span<const size_t> delays)
 {
     assert(delays.size() == delays_.size());
     for (size_t i = 0; i < delays.size(); i++)
@@ -40,69 +56,33 @@ void DelayBank::SetDelays(const std::span<const float> delays)
     }
 }
 
-void DelayBank::SetModulation(float freq, float depth)
+void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output)
 {
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == delays_.size());
+
+    AddNextInputs(input);
+    GetNextOutputs(output);
+}
+
+void DelayBank::AddNextInputs(const AudioBuffer& input)
+{
+    assert(input.ChannelCount() == delays_.size());
+
     for (size_t i = 0; i < delays_.size(); i++)
     {
-        delays_[i].SetMod(freq, depth);
+        delays_[i].AddNextInputs(input.GetChannelSpan(i));
     }
 }
 
-void DelayBank::Tick(const std::span<const float> input, std::span<float> output)
+void DelayBank::GetNextOutputs(AudioBuffer& output)
 {
-    assert(input.size() == output.size());
+    assert(output.ChannelCount() == delays_.size());
 
-    // Input size must be a multiple of the delay size.
-    assert(input.size() % delays_.size() == 0);
-
-    const size_t delay_count = delays_.size();
-    const size_t block_size = input.size() / delay_count;
-
-    auto input_mdspan = std::mdspan(input.data(), block_size, delay_count);
-    auto output_mdspan = std::mdspan(output.data(), block_size, delay_count);
-
-    for (size_t i = 0; i < delay_count; i++)
+    for (size_t i = 0; i < delays_.size(); i++)
     {
-        auto input_span = std::span<const float>(input.data() + i * block_size, block_size);
-        auto output_span = std::span<float>(output.data() + i * block_size, block_size);
-        for (size_t j = 0; j < block_size; j++)
-        {
-            output_span[j] = delays_[i].Tick(input_span[j]);
-        }
-    }
-}
-
-void DelayBank::AddNextInputs(const std::span<const float> input)
-{
-    assert(input.size() % delays_.size() == 0);
-
-    const size_t delay_count = delays_.size();
-    const size_t block_size = input.size() / delay_count;
-
-    for (size_t i = 0; i < delay_count; i++)
-    {
-        auto input_span = std::span<const float>(input.data() + i * block_size, block_size);
-        for (size_t j = 0; j < block_size; j++)
-        {
-            delays_[i].AddNextInput(input_span[j]);
-        }
-    }
-}
-
-void DelayBank::GetNextOutputs(std::span<float> output)
-{
-    assert(output.size() % delays_.size() == 0);
-
-    const size_t delay_count = delays_.size();
-    const size_t block_size = output.size() / delay_count;
-
-    for (size_t i = 0; i < delay_count; i++)
-    {
-        auto output_span = std::span<float>(output.data() + i * block_size, block_size);
-        for (size_t j = 0; j < block_size; j++)
-        {
-            output_span[j] = delays_[i].GetNextOutput();
-        }
+        delays_[i].GetNextOutputs(output.GetChannelSpan(i));
     }
 }
 

@@ -5,13 +5,8 @@
 
 namespace fdn
 {
-FilterBank::FilterBank(size_t filterCount)
+FilterBank::FilterBank()
 {
-    filters_.resize(filterCount, nullptr);
-    for (size_t i = 0; i < filterCount; i++)
-    {
-        filters_[i] = new OnePoleFilter();
-    }
 }
 
 FilterBank::~FilterBank()
@@ -24,49 +19,39 @@ FilterBank::~FilterBank()
 
 void FilterBank::Clear()
 {
-    for (auto filter : filters_)
-    {
-        filter->Clear();
-    }
+    // for (auto filter : filters_)
+    // {
+    //     filter->Clear();
+    // }
 }
 
-void FilterBank::SetFilter(size_t index, Filter* filter)
+void FilterBank::AddFilter(std::unique_ptr<AudioProcessor> filter)
 {
-    assert(index < filters_.size());
-    if (filters_[index] != nullptr)
-    {
-        delete filters_[index];
-    }
-    filters_[index] = filter;
+    filters_.push_back(filter.release());
 }
 
-void FilterBank::Tick(const std::span<const float> input, std::span<float> output)
+void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output)
 {
-    assert(input.size() == output.size());
-
-    // Input size must be a multiple of the delay size.
-    assert(input.size() % filters_.size() == 0);
-
-    const size_t delay_count = filters_.size();
-    const size_t block_size = input.size() / delay_count;
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == filters_.size());
 
     for (size_t i = 0; i < filters_.size(); ++i)
     {
-        auto input_span = input.subspan(i * block_size, block_size);
-        auto output_span = output.subspan(i * block_size, block_size);
-        filters_[i]->ProcessBlock(input_span.data(), output_span.data(), block_size);
+        auto input_buf = input.GetChannelBuffer(i);
+        auto output_buf = output.GetChannelBuffer(i);
+        filters_[i]->Process(input_buf, output_buf);
     }
+}
 
-    // auto input_mdspan = std::mdspan(input.data(), block_size, delay_count);
-    // auto output_mdspan = std::mdspan(output.data(), block_size, delay_count);
+size_t FilterBank::InputChannelCount() const
+{
+    return filters_.size();
+}
 
-    // for (size_t i = 0; i < input_mdspan.extent(0); i++)
-    // {
-    //     for (size_t j = 0; j < input_mdspan.extent(1); j++)
-    //     {
-    //         output_mdspan[i, j] = filters_[j]->Tick(input_mdspan[i, j]);
-    //     }
-    // }
+size_t FilterBank::OutputChannelCount() const
+{
+    return filters_.size();
 }
 
 } // namespace fdn

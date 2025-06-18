@@ -22,11 +22,6 @@ class PyFDN
     {
     }
 
-    void Clear()
-    {
-        fdn_.Clear();
-    }
-
     void SetInputGains(const nb::ndarray<float, nb::shape<-1>>& gains)
     {
         if (gains.ndim() != 1)
@@ -42,16 +37,6 @@ class PyFDN
         std::span<float> gain_span(gains.data(), gains.size());
 
         fdn_.SetInputGains(gain_span);
-    }
-
-    void DisableAbsorptionFilters()
-    {
-        fdn_.SetBypassAbsorption(true);
-    }
-
-    void EnableAbsorptionFilters()
-    {
-        fdn_.SetBypassAbsorption(false);
     }
 
     void SetOutputGains(const nb::ndarray<float, nb::shape<-1>>& gains)
@@ -88,9 +73,10 @@ class PyFDN
         }
 
         std::span<float> matrix_span(matrix.data(), matrix.size());
-        fdn::MixMat mixing_matrix(N_);
+        fdn::ScalarFeedbackMatrix mixing_matrix(N_);
         mixing_matrix.SetMatrix(matrix_span);
-        std::unique_ptr<fdn::FeedbackMatrix> mixing_matrix_ptr = std::make_unique<fdn::MixMat>(mixing_matrix);
+        std::unique_ptr<fdn::FeedbackMatrix> mixing_matrix_ptr =
+            std::make_unique<fdn::ScalarFeedbackMatrix>(mixing_matrix);
         fdn_.SetFeedbackMatrix(std::move(mixing_matrix_ptr));
     }
 
@@ -123,19 +109,18 @@ class PyFDN
             }
         }
 
-        auto ffm = std::make_unique<fdn::FilterFeedbackMatrix>(N_, K);
-        ffm->SetDelays(delays_vector);
+        auto ffm = std::make_unique<fdn::FilterFeedbackMatrix>(N_);
 
-        std::vector<fdn::MixMat> feedback_matrices;
+        std::vector<fdn::ScalarFeedbackMatrix> feedback_matrices;
         for (size_t i = 0; i < matrix.shape(0); i++)
         {
             std::span<float> matrix_span(matrix.data() + i * N_ * N_, N_ * N_);
-            fdn::MixMat feedback_matrix(N_);
+            fdn::ScalarFeedbackMatrix feedback_matrix(N_);
             feedback_matrix.SetMatrix(matrix_span);
             feedback_matrices.push_back(feedback_matrix);
         }
 
-        ffm->SetMatrices(feedback_matrices);
+        ffm->ConstructMatrix(delays_vector, feedback_matrices);
         fdn_.SetFeedbackMatrix(std::move(ffm));
     }
 
@@ -151,20 +136,28 @@ class PyFDN
             throw std::runtime_error("Delays size must be equal to N");
         }
 
-        auto filter_bank = fdn_.GetFilterBank();
+        auto filter_bank = std::make_unique<fdn::FilterBank>();
         for (size_t i = 0; i < N_; i++)
         {
-            auto filter = new fdn::OnePoleFilter();
+            auto filter = std::make_unique<fdn::OnePoleFilter>();
             float b = 0.f;
             float a = 0.f;
             fdn::get_filter_coefficients(t60_dc, t60_ny, SR_, delays.data()[i], b, a);
             filter->SetCoefficients(b, a);
-            filter_bank->SetFilter(i, filter);
+            filter_bank->AddFilter(std::move(filter));
         }
+
+        fdn_.SetFilterBank(std::move(filter_bank));
     }
 
-    void SetAbsorptionFilters(const nb::ndarray<float, nb::shape<-1, 11, 6>>& sos_array)
+    void SetAbsorptionFilters(const nb::ndarray<float, nb::shape<-1, -1, 6>>& sos_array)
     {
+        if (sos_array.shape(0) != N_)
+        {
+            throw std::runtime_error(std::format("SOS array must have {} rows", N_));
+        }
+
+        auto filter_bank = std::make_unique<fdn::FilterBank>();
         for (size_t n = 0; n < sos_array.shape(0); n++)
         {
             std::vector<float> coeffs;
@@ -177,12 +170,12 @@ class PyFDN
                 coeffs.push_back(sos_array(n, i, 4) / sos_array(n, i, 3));
                 coeffs.push_back(sos_array(n, i, 5) / sos_array(n, i, 3));
             }
-            fdn::CascadedBiquads* filter = new fdn::CascadedBiquads();
+            auto filter = std::make_unique<fdn::CascadedBiquads>();
             filter->SetCoefficients(sos_array.shape(1), coeffs);
-            fdn_.GetFilterBank()->SetFilter(n, filter);
-
-            // filter->dump_coeffs();
+            filter->dump_coeffs();
+            filter_bank->AddFilter(std::move(filter));
         }
+        fdn_.SetFilterBank(std::move(filter_bank));
     }
 
     void SetTCFilter(const nb::ndarray<float, nb::shape<-1, 6>>& sos)
@@ -200,29 +193,7 @@ class PyFDN
 
         std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
         filter->SetCoefficients(sos.shape(0), coeffs);
-        // filter->dump_coeffs();
         fdn_.SetTCFilter(std::move(filter));
-    }
-
-    void SetSchroederSection(const nb::ndarray<size_t, nb::shape<-1>> delays,
-                             const nb::ndarray<float, nb::shape<-1>> gains)
-    {
-        if (delays.ndim() != 1 || gains.ndim() != 1)
-        {
-            throw std::runtime_error("Delays and gains must be 1D arrays");
-        }
-        if (delays.size() != N_ || gains.size() != N_)
-        {
-            throw std::runtime_error("Delays and gains size must be equal to N");
-        }
-        std::span<size_t> delay_span(delays.data(), delays.size());
-        std::span<float> gain_span(gains.data(), gains.size());
-
-        std::unique_ptr<fdn::SchroederAllpassSection> schroeder_section =
-            std::make_unique<fdn::SchroederAllpassSection>(N_);
-        schroeder_section->SetDelays(delay_span);
-        schroeder_section->SetGains(gain_span);
-        fdn_.SetSchroederSection(std::move(schroeder_section));
     }
 
     void SetDelays(const nb::ndarray<float, nb::shape<-1>>& delays)
@@ -237,16 +208,17 @@ class PyFDN
             throw std::runtime_error("Delays size must be equal to N");
         }
 
-        std::span<float> delay_span(delays.data(), delays.size());
+        std::vector<size_t> delays_vector;
+        for (size_t i = 0; i < delays.size(); i++)
+        {
+            if (delays.data()[i] < 0)
+            {
+                throw std::runtime_error("Delays must be non-negative");
+            }
+            delays_vector.push_back(static_cast<size_t>(delays.data()[i]));
+        }
 
-        auto delay_bank = fdn_.GetDelayBank();
-        delay_bank->SetDelays(delay_span);
-    }
-
-    void SetDelayModulation(float freq, float depth)
-    {
-        auto delay_bank = fdn_.GetDelayBank();
-        delay_bank->SetModulation(freq, depth);
+        fdn_.SetDelays(delays_vector);
     }
 
     nb::ndarray<nb::numpy, float, nb::ndim<1>> GetImpulseResponse(float duration)
@@ -261,9 +233,9 @@ class PyFDN
 
         for (size_t i = 0; i < input.size(); i += block_size_)
         {
-            std::span<float> input_span{input.data() + i, block_size_};
-            std::span<float> output_span{data + i, block_size_};
-            fdn_.Tick(input_span, output_span);
+            fdn::AudioBuffer input_buffer(block_size_, 1, input.data() + i);
+            fdn::AudioBuffer output_buffer(block_size_, 1, data + i);
+            fdn_.Process(input_buffer, output_buffer);
         }
 
         // Delete 'data' when the 'owner' capsule expires
@@ -289,9 +261,9 @@ class PyFDN
 
         for (size_t i = 0; i < input.size(); i += block_size_)
         {
-            std::span<float> input_span{input_data + i, block_size_};
-            std::span<float> output_span{data + i, block_size_};
-            fdn_.Tick(input_span, output_span);
+            fdn::AudioBuffer input_buffer(block_size_, 1, input_data + i);
+            fdn::AudioBuffer output_buffer(block_size_, 1, data + i);
+            fdn_.Process(input_buffer, output_buffer);
         }
 
         // Delete 'data' when the 'owner' capsule expires
@@ -315,43 +287,20 @@ class PyFDN
     size_t SR_;
 };
 
-int add(int a, int b)
-{
-    return a + b;
-}
-
-void print_elapsed_time()
-{
-    std::cout << "Total elapsed time: " << g_elapsed_time.count() << "ms" << std::endl;
-}
-
 NB_MODULE(cpp_fdn, m)
 {
-    // m.def("add", &add);
-    m.def("print_elapsed_time", &print_elapsed_time);
-    // clang-format off
     nb::class_<PyFDN>(m, "FDN")
-        .def(nb::init<size_t, size_t, size_t, bool>(),
-             nb::arg("N"),
-             nb::arg("SR"),
-             nb::arg("block_size") = 512,
+        .def(nb::init<size_t, size_t, size_t, bool>(), nb::arg("N"), nb::arg("SR"), nb::arg("block_size") = 512,
              nb::arg("transpose") = false)
-        .def("clear", &PyFDN::Clear)
         .def("set_input_gains", &PyFDN::SetInputGains)
         .def("set_output_gains", &PyFDN::SetOutputGains)
         .def("set_direct_gain", &PyFDN::SetDirectGain)
-        .def("set_mixing_matrix", &PyFDN::SetFeedbackMatrix)
+        .def("set_feedback_matrix", &PyFDN::SetFeedbackMatrix)
         .def("set_filter_feedback_matrix", &PyFDN::SetFilterFeedbackMatrix)
         .def("init_filters", &PyFDN::InitFilters)
         .def("set_absorption_filters", &PyFDN::SetAbsorptionFilters)
         .def("set_tone_correction_filter", &PyFDN::SetTCFilter)
-        .def("set_schroeder_section", &PyFDN::SetSchroederSection)
         .def("set_delays", &PyFDN::SetDelays)
-        .def("set_delay_modulation", &PyFDN::SetDelayModulation)
-        .def("disable_absorption_filters", &PyFDN::DisableAbsorptionFilters)
-        .def("enable_absorption_filters", &PyFDN::EnableAbsorptionFilters)
         .def("get_impulse_response", &PyFDN::GetImpulseResponse)
         .def("process_audio", &PyFDN::ProcessAudio);
-
-    // clang-format on
 }

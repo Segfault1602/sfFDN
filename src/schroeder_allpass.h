@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <span>
 
+#include "audio_buffer.h"
+#include "audio_processor.h"
 #include "delay.h"
 
 namespace fdn
@@ -24,7 +26,7 @@ class SchroederAllpass
     float g_;
 };
 
-class SchroederAllpassSection
+class SchroederAllpassSection : public AudioProcessor
 {
   public:
     SchroederAllpassSection(size_t N);
@@ -32,7 +34,11 @@ class SchroederAllpassSection
     void SetDelays(std::span<size_t> delays);
     void SetGains(std::span<float> gains);
 
-    void ProcessBlock(std::span<const float> in, std::span<float> out);
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+
+    size_t InputChannelCount() const override;
+
+    size_t OutputChannelCount() const override;
 
   private:
     std::vector<SchroederAllpass> allpasses_;

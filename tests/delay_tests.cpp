@@ -10,6 +10,8 @@
 #include "delaybank.h"
 #include <delay.h>
 
+TEST_SUITE_BEGIN("DelayTests");
+
 TEST_CASE("Delay")
 {
     fdn::Delay delay(1, 10);
@@ -31,7 +33,7 @@ TEST_CASE("Delay")
 
 TEST_CASE("DelayA")
 {
-    fdn::DelayA delay(1.5, 10);
+    fdn::DelayAllpass delay(1.5, 10);
 
     std::vector<float> output;
     constexpr size_t iteration = 10;
@@ -64,7 +66,11 @@ void TestDelayBlock(float delay, size_t block_size, size_t max_delay)
     std::iota(input_block.begin(), input_block.end(), 0.f);
 
     std::vector<float> output_block(block_size, 0.f);
-    delay_block.Tick(input_block, output_block);
+
+    fdn::AudioBuffer input_buffer(block_size, 1, input_block.data());
+    fdn::AudioBuffer output_buffer(block_size, 1, output_block.data());
+
+    delay_block.Process(input_buffer, output_buffer);
 
     for (size_t i = 0; i < block_size; ++i)
     {
@@ -79,21 +85,24 @@ TEST_CASE("DelayBlock")
 
 TEST_CASE("DelayABlock")
 {
-    TestDelayBlock<fdn::DelayA>(1.5f, 8, 10);
+    TestDelayBlock<fdn::DelayAllpass>(1.5f, 8, 10);
 }
 
 TEST_CASE("DelayBank")
 {
-    constexpr std::array<float, 4> delays = {2.f, 3.f, 4.f, 5.f};
+    constexpr size_t kNumDelay = 4;
+    constexpr std::array<size_t, kNumDelay> delays = {2, 3, 4, 5};
     fdn::DelayBank delay_bank(delays, 10);
 
     std::vector<float> output;
 
-    constexpr float impulse[] = {1, 1, 1, 1};
-
+    constexpr std::array<float, kNumDelay> impulse = {1, 1, 1, 1};
     std::array<float, 4> buffer = {0, 0, 0, 0};
 
-    delay_bank.Tick(impulse, buffer);
+    fdn::AudioBuffer impulse_buffer(1, kNumDelay, impulse.data());
+    fdn::AudioBuffer buffer_audio(1, kNumDelay, buffer.data());
+
+    delay_bank.Process(impulse_buffer, buffer_audio);
     for (auto& i : buffer)
     {
         output.push_back(i);
@@ -102,14 +111,14 @@ TEST_CASE("DelayBank")
     constexpr size_t iter = 9;
     for (size_t i = 0; i < iter; ++i)
     {
-        delay_bank.GetNextOutputs(buffer);
+        delay_bank.GetNextOutputs(buffer_audio);
         for (auto& i : buffer)
         {
             output.push_back(i);
         }
 
         buffer.fill(0);
-        delay_bank.AddNextInputs(buffer);
+        delay_bank.AddNextInputs(buffer_audio);
     }
 
     constexpr std::array<float, 10> delay0_expected = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
@@ -131,7 +140,7 @@ TEST_CASE("DelayBankBlock")
 {
     constexpr size_t kNumDelay = 4;
     constexpr size_t kBlockSize = 8;
-    constexpr std::array<float, kNumDelay> delays = {2.f, 3.f, 4.f, 5.f};
+    constexpr std::array<size_t, kNumDelay> delays = {2, 3, 4, 5};
     fdn::DelayBank delay_bank(delays, 10);
 
     std::vector<float> input(kNumDelay * kBlockSize, 0.f);
@@ -143,7 +152,10 @@ TEST_CASE("DelayBankBlock")
 
     std::vector<float> output(kNumDelay * kBlockSize, 0.f);
 
-    delay_bank.Tick(input, output);
+    fdn::AudioBuffer input_buffer(kBlockSize, kNumDelay, input.data());
+    fdn::AudioBuffer output_buffer(kBlockSize, kNumDelay, output.data());
+
+    delay_bank.Process(input_buffer, output_buffer);
 
     constexpr std::array<float, kBlockSize> delay0_expected = {0, 0, 1, 0, 0, 0, 0, 0};
     constexpr std::array<float, kBlockSize> delay1_expected = {0, 0, 0, 1, 0, 0, 0, 0};
@@ -167,3 +179,5 @@ TEST_CASE("DelayBankBlock")
         CHECK(output[3 * kBlockSize + j] == doctest::Approx(delay3_expected[j]).epsilon(0.01));
     }
 }
+
+TEST_SUITE_END(); // DelayTests

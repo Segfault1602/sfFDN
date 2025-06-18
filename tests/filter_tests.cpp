@@ -4,6 +4,7 @@
 #include <iostream>
 #include <random>
 
+#include "audio_buffer.h"
 #include "filter.h"
 #include "filterbank.h"
 #include "schroeder_allpass.h"
@@ -61,15 +62,24 @@ TEST_CASE("OnePoleFilter")
 
 TEST_CASE("SchroederAllpass")
 {
-    fdn::SchroederAllpass filter(2, 0.9);
+    fdn::SchroederAllpass filter(5, 0.9);
 
-    constexpr size_t size = 8;
-    constexpr std::array<float, size> input = {1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    constexpr size_t size = 18;
+    std::array<float, size> input = {0.f};
+    input[0] = 1.f;
+    constexpr std::array<float, size> expected_output = {0.9, 0,      0, 0, 0, 0.19, 0,      0, 0,
+                                                         0,   -0.171, 0, 0, 0, 0,    0.1539, 0, 0};
+
+    for (size_t i = 0; i < size; ++i)
+    {
+        float out = filter.Tick(input[i]);
+        CHECK(out == doctest::Approx(expected_output[i]).epsilon(0.0001));
+    }
+
+    fdn::SchroederAllpass filter_block(5, 0.9);
     std::array<float, size> output;
+    filter_block.ProcessBlock(input, output);
 
-    filter.ProcessBlock(input, output);
-
-    constexpr std::array<float, size> expected_output = {0.9, 0, 0, 0.19, 0, 0, -0.171, 0};
     for (size_t i = 0; i < size; ++i)
     {
         CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
@@ -96,12 +106,15 @@ TEST_CASE("SchroederAllpassSection")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    filter.ProcessBlock(input, output);
+    fdn::AudioBuffer input_buffer(kBlockSize, N, input);
+    fdn::AudioBuffer output_buffer(kBlockSize, N, output);
 
-    constexpr std::array<float, kBlockSize> out0_expected = {0.9, 0, 0, 0.19, 0, 0, -0.171, 0};
-    constexpr std::array<float, kBlockSize> out1_expected = {0.8, 0, 0, 0, 0.36, 0, 0, 0};
-    constexpr std::array<float, kBlockSize> out2_expected = {0.7, 0, 0, 0, 0, 0.51, 0, 0};
-    constexpr std::array<float, kBlockSize> out3_expected = {0.6, 0, 0, 0, 0, 0, 0.64, 0};
+    filter.Process(input_buffer, output_buffer);
+
+    constexpr std::array<float, kBlockSize> out0_expected = {0.9, 0, 0.19, 0, -0.171, 0, 0.1539, 0};
+    constexpr std::array<float, kBlockSize> out1_expected = {0.8, 0, 0, 0.36, 0, 0, -0.288, 0};
+    constexpr std::array<float, kBlockSize> out2_expected = {0.7, 0, 0, 0, 0.51, 0, 0, 0};
+    constexpr std::array<float, kBlockSize> out3_expected = {0.6, 0, 0, 0, 0, 0.64, 0, 0};
 
     for (size_t j = 0; j < kBlockSize; ++j)
     {
@@ -125,14 +138,14 @@ TEST_CASE("FilterBank")
 {
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 8;
-    fdn::FilterBank filter_bank(N);
+    fdn::FilterBank filter_bank;
 
     float pole = 0.9;
     for (size_t i = 0; i < N; i++)
     {
-        fdn::OnePoleFilter* filter = new fdn::OnePoleFilter();
+        auto filter = std::make_unique<fdn::OnePoleFilter>();
         filter->SetCoefficients(1 - pole, -pole);
-        filter_bank.SetFilter(i, filter);
+        filter_bank.AddFilter(std::move(filter));
         pole -= 0.1;
     }
 
@@ -145,7 +158,10 @@ TEST_CASE("FilterBank")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    filter_bank.Tick(input, output);
+    fdn::AudioBuffer input_buffer(kBlockSize, N, input);
+    fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+
+    filter_bank.Process(input_buffer, output_buffer);
 
     std::vector<float> expected_output = {0.1,    0.09,   0.081,  0.0729, 0.06561, 0.059049, 0.0531441, 0.04782969,
                                           0.2000, 0.1600, 0.1280, 0.1024, 0.0819,  0.0655,   0.0524,    0.0419,
@@ -153,37 +169,6 @@ TEST_CASE("FilterBank")
                                           0.4000, 0.2400, 0.1440, 0.0864, 0.0518,  0.0311,   0.0187,    0.0112};
 
     for (size_t i = 0; i < expected_output.size(); ++i)
-    {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
-    }
-}
-
-TEST_CASE("Biquad")
-{
-    fdn::Biquad2 filter;
-    const float b[] = {1.43968619970461, -0.924910124946368, 0.410134050188126};
-    const float a[] = {1.52666454179014, -0.924910124946368, 0.323155708102591};
-
-    filter.SetCoefficients(b[0] / a[0], b[1] / a[0], b[2] / a[0], a[1] / a[0], a[2] / a[0]);
-
-    constexpr size_t size = 32;
-    std::array<float, size> input = {0};
-    input[0] = 1.f;
-    std::array<float, size> output;
-
-    filter.ProcessBlock(input.data(), output.data(), size);
-
-    constexpr std::array<float, size> expected_output = {
-        0.943027207546498,     -0.0345162353249673,   0.0481212523349700,    0.0364598446178098,
-        0.0119026947770631,    -0.000506518603242146, -0.00282636284888336,  -0.00160509867801952,
-        -0.000374159951591413, 0.000113078196007070,  0.000147707034731643,  6.55506594330984e-05,
-        8.44723700140710e-06,  -8.75774236532282e-06, -7.09382915736027e-06, -2.44391605012413e-06,
-        2.09664168850688e-08,  5.30016549695450e-07,  3.16665673875361e-07,  7.96569326387598e-08,
-        -1.87708666630942e-08, -2.82334173113965e-08, -1.31315428348312e-08, -1.97928679023278e-09,
-        1.58048514572899e-09,  1.37648087076403e-09,  4.99375125891778e-10,  1.11743340696494e-11,
-        -9.89350728737817e-11, -6.23038643057677e-11, -1.68039806301516e-11, 3.00765324492577e-12};
-
-    for (size_t i = 0; i < size; ++i)
     {
         CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
     }

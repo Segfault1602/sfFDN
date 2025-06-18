@@ -2,6 +2,9 @@
 #include "nanobench.h"
 
 #include <array>
+#include <filesystem>
+#include <format>
+#include <fstream>
 #include <iostream>
 #include <random>
 
@@ -10,21 +13,18 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("ParallelGainsPerf")
+TEST_SUITE_BEGIN("ParallelGains");
+
+TEST_CASE("ParallelInputGainsPerf")
 {
     constexpr size_t SR = 48000;
-    constexpr size_t block_size = 512;
-    constexpr size_t ITER = ((SR / block_size) + 1); // 1 second at 48kHz
+    constexpr size_t kBlockSize = 128;
     constexpr size_t N = 16;
     constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
                                    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
-    std::cout << "ITER: " << ITER << std::endl;
-    std::cout << "BLOCK SIZE: " << block_size << std::endl;
-    std::cout << "N: " << N << std::endl;
-
-    std::vector<float> input(block_size, 0.f);
-    std::vector<float> output(block_size * N, 0.f);
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize * N, 0.f);
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
@@ -34,30 +34,67 @@ TEST_CASE("ParallelGainsPerf")
     }
 
     nanobench::Bench bench;
-    bench.title("FDN Perf");
+    bench.title("Parallel Input Gain Perf");
     bench.minEpochIterations(100);
-    bench.timeUnit(1us, "us");
-    bench.relative(true);
+    // bench.batch(kBlockSize);
 
+    fdn::ParallelGains input_gains(fdn::ParallelGainsMode::Multiplexed);
+    input_gains.SetGains(kGains);
     bench.run("ParallelGains - Input", [&] {
-        fdn::ParallelGains input_gains;
-
-        input_gains.SetGains(kGains);
-
-        for (size_t i = 0; i < ITER; ++i)
-        {
-            input_gains.ProcessBlock(input, output);
-        }
+        fdn::AudioBuffer input_buffer(kBlockSize, 1, input.data());
+        fdn::AudioBuffer output_buffer(kBlockSize, N, output.data());
+        input_gains.Process(input_buffer, output_buffer);
     });
 
-    bench.run("ParallelGains - Output", [&] {
-        fdn::ParallelGains output_gains;
-
-        output_gains.SetGains(kGains);
-
-        for (size_t i = 0; i < ITER; ++i)
-        {
-            output_gains.ProcessBlock(output, input);
-        }
-    });
+    std::filesystem::path output_dir = std::filesystem::current_path() / "perf";
+    if (!std::filesystem::exists(output_dir))
+    {
+        std::filesystem::create_directory(output_dir);
+    }
+    std::filesystem::path filepath = output_dir / std::format("parallel_input_gain_B{}.json", kBlockSize);
+    std::ofstream render_out(filepath);
+    bench.render(ankerl::nanobench::templates::json(), render_out);
 }
+
+TEST_CASE("ParallelOutputGainsPerf")
+{
+    constexpr size_t SR = 48000;
+    constexpr size_t kBlockSize = 128;
+    constexpr size_t N = 16;
+    constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+                                   0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize * N, 0.f);
+    // Fill with white noise
+    std::default_random_engine generator;
+    std::normal_distribution<double> dist(0, 0.1);
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = dist(generator);
+    }
+
+    nanobench::Bench bench;
+    bench.title("Parallel Output Gain Perf");
+    bench.minEpochIterations(100);
+    // bench.batch(kBlockSize);
+
+    fdn::ParallelGains output_gains(fdn::ParallelGainsMode::DeMultiplexed);
+    output_gains.SetGains(kGains);
+    bench.run("ParallelGains - Output", [&] {
+        fdn::AudioBuffer input_buffer(kBlockSize, N, input.data());
+        fdn::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+        output_gains.Process(input_buffer, output_buffer);
+    });
+
+    std::filesystem::path output_dir = std::filesystem::current_path() / "perf";
+    if (!std::filesystem::exists(output_dir))
+    {
+        std::filesystem::create_directory(output_dir);
+    }
+    std::filesystem::path filepath = output_dir / std::format("parallel_output_gain_B{}.json", kBlockSize);
+    std::ofstream render_out(filepath);
+    bench.render(ankerl::nanobench::templates::json(), render_out);
+}
+
+TEST_SUITE_END();

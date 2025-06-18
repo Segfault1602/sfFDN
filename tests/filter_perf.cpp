@@ -1,47 +1,58 @@
 #include "doctest.h"
 #include "nanobench.h"
 
+#include <filesystem>
+#include <fstream>
 #include <random>
 
 #include <filterbank.h>
 
+#include "test_utils.h"
+
 using namespace ankerl;
 using namespace std::chrono_literals;
+
+TEST_SUITE_BEGIN("Filters");
 
 TEST_CASE("FilterBankPerf")
 {
     constexpr size_t N = 16;
-    fdn::FilterBank filter_bank(N);
 
-    float pole = 0.90;
-    for (size_t i = 0; i < N; i++)
-    {
-        fdn::OnePoleFilter* filter = new fdn::OnePoleFilter();
-        filter->SetCoefficients(1 - pole, -pole);
-        filter_bank.SetFilter(i, filter);
-        pole -= 0.01;
-    }
+    auto filter_bank = GetFilterBank(N, 11);
 
-    constexpr size_t size = 48000;
-    std::vector<float> input(N * size, 0);
-
-    // fill input with random values
-    for (size_t i = 0; i < input.size(); ++i)
-    {
-        input[i] = static_cast<float>(rand()) / RAND_MAX;
-    }
+    constexpr size_t kSampleToProcess = 32768;
 
     nanobench::Bench bench;
     bench.title("FilterBank perf");
     bench.minEpochIterations(100);
-    bench.timeUnit(1ms, "ms");
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+    bench.batch(kSampleToProcess);
 
-    bench.run("FilterBank", [&] {
-        std::vector<float> output(N * size, 0);
-        filter_bank.Clear();
-        filter_bank.Tick(input, output);
-        nanobench::doNotOptimizeAway(output);
-    });
+    constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
+
+    for (const auto& block_size : kBlockSizes)
+    {
+        std::vector<float> input(block_size * N, 0);
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(rand()) / RAND_MAX;
+        }
+        std::vector<float> output(block_size * N, 0);
+
+        bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
+            const size_t num_blocks = kSampleToProcess / block_size;
+            assert(kSampleToProcess % block_size == 0);
+
+            for (size_t i = 0; i < num_blocks; ++i)
+            {
+                fdn::AudioBuffer input_buffer(block_size, N, input);
+                fdn::AudioBuffer output_buffer(block_size, N, output);
+                filter_bank->Process(input_buffer, output_buffer);
+            }
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
 }
 
 TEST_CASE("CascadedBiquadsPerf")
@@ -76,9 +87,8 @@ TEST_CASE("CascadedBiquadsPerf")
     filter_bank.SetCoefficients(sos.size(), coeffs);
 
     constexpr size_t SR = 48000;
-    constexpr size_t block_size = 512;
-    constexpr size_t ITER = ((SR / block_size) + 1) * block_size; // 1 second at 48kHz
-    std::vector<float> input(ITER, 0);
+    constexpr size_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
 
     // Fill with white noise
     std::default_random_engine generator;
@@ -88,35 +98,14 @@ TEST_CASE("CascadedBiquadsPerf")
         input[i] = dist(generator);
     }
 
-    std::vector<float> output(ITER, 0);
+    std::vector<float> output(kBlockSize, 0);
 
     nanobench::Bench bench;
     bench.title("CascadedBiquads perf");
-    bench.minEpochIterations(100);
-    bench.timeUnit(1ms, "ms");
-    bench.relative(true);
+    bench.batch(kBlockSize);
+    bench.minEpochIterations(200000);
 
-    bench.run("CascadedBiquads - Samples", [&] {
-        filter_bank.Clear();
-
-        for (size_t i = 0; i < ITER; i++)
-        {
-            output[i] = filter_bank.Tick(input[i]);
-        }
-
-        nanobench::doNotOptimizeAway(output);
-    });
-
-    bench.run("CascadedBiquads - 512 Block", [&] {
-        filter_bank.Clear();
-
-        for (size_t i = 0; i < input.size(); i += block_size)
-        {
-            std::span<float> input_span{input.data() + i, block_size};
-            std::span<float> output_span{output.data() + i, block_size};
-            filter_bank.ProcessBlock(input_span.data(), output_span.data(), block_size);
-        }
-
-        nanobench::doNotOptimizeAway(output);
-    });
+    bench.run("CascadedBiquads", [&] { filter_bank.ProcessBlock(input.data(), output.data(), kBlockSize); });
 }
+
+TEST_SUITE_END();

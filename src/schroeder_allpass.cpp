@@ -3,6 +3,8 @@
 #include <cassert>
 #include <mdspan>
 
+#include <arm_neon.h>
+
 namespace fdn
 {
 SchroederAllpass::SchroederAllpass(size_t delay, float g)
@@ -24,17 +26,42 @@ void SchroederAllpass::SetG(float g)
 
 float SchroederAllpass::Tick(float input)
 {
-    float v_n = input - g_ * delay_.LastOut();
-    float out = g_ * v_n + delay_.LastOut();
+    float out = delay_.NextOut();
+    float v_n = input - g_ * out;
     delay_.Tick(v_n);
-    return out;
+    return g_ * v_n + out;
 }
 
 void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> out)
 {
     assert(in.size() == out.size());
 
-    for (size_t i = 0; i < in.size(); i++)
+    size_t unroll_size = in.size() & ~3;
+
+    if (delay_.GetDelay() < 4)
+    {
+        unroll_size = 0;
+    }
+
+    for (size_t i = 0; i < unroll_size; i += 4)
+    {
+        float del_out[4];
+        delay_.GetNextOutputs(del_out);
+
+        float v_n0 = in[i] - g_ * del_out[0];
+        float v_n1 = in[i + 1] - g_ * del_out[1];
+        float v_n2 = in[i + 2] - g_ * del_out[2];
+        float v_n3 = in[i + 3] - g_ * del_out[3];
+
+        delay_.AddNextInputs({{v_n0, v_n1, v_n2, v_n3}});
+
+        out[i] = g_ * v_n0 + del_out[0];
+        out[i + 1] = g_ * v_n1 + del_out[1];
+        out[i + 2] = g_ * v_n2 + del_out[2];
+        out[i + 3] = g_ * v_n3 + del_out[3];
+    }
+
+    for (size_t i = unroll_size; i < in.size(); ++i)
     {
         out[i] = Tick(in[i]);
     }
@@ -67,18 +94,26 @@ void SchroederAllpassSection::SetGains(std::span<float> gains)
     }
 }
 
-void SchroederAllpassSection::ProcessBlock(std::span<const float> in, std::span<float> out)
+size_t SchroederAllpassSection::InputChannelCount() const
 {
-    assert(in.size() == out.size());
+    return allpasses_.size();
+}
 
-    assert(in.size() % stage_ == 0);
+size_t SchroederAllpassSection::OutputChannelCount() const
+{
+    return allpasses_.size();
+}
 
-    const size_t block_size = in.size() / stage_;
+void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output)
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == stage_);
 
     for (size_t i = 0; i < allpasses_.size(); ++i)
     {
-        auto input_span = std::span<const float>(in.data() + i * block_size, block_size);
-        auto output_span = std::span<float>(out.data() + i * block_size, block_size);
+        auto input_span = input.GetChannelSpan(i);
+        auto output_span = output.GetChannelSpan(i);
         allpasses_[i].ProcessBlock(input_span, output_span);
     }
 }

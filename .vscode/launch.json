@@ -10,7 +10,21 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=ParallelGainsOutput"
+                "-tc=UPOLS"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
+            "name": "Perf",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/RelWithDebInfo/perf",
+            "args": [
+                "-tc=ManualHadamard"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

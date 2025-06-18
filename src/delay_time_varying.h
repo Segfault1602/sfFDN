@@ -27,7 +27,7 @@ class DelayTimeVarying
   private:
     void UpdateDelay();
 
-    DelayA delayA_;
+    DelayAllpass delayA_;
     float delay_;
 
     size_t samplerate_;

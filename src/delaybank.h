@@ -4,40 +4,31 @@
 #include <vector>
 
 #include "delay.h"
-#include "delay_time_varying.h"
-#include "delaya.h"
+
+#include "audio_buffer.h"
+#include "audio_processor.h"
 
 namespace fdn
 {
-class DelayBank
+class DelayBank : public AudioProcessor
 {
   public:
     DelayBank(unsigned long delayCount, unsigned long maxDelay = 4096);
-    DelayBank(const std::span<const float> delays, unsigned long maxDelay);
+    DelayBank(std::span<const size_t> delays, size_t block_size);
     ~DelayBank() = default;
 
     void Clear();
-    void SetDelays(const std::span<const float> delays);
-    void SetModulation(float freq, float depth);
+    void SetDelays(const std::span<const size_t> delays);
 
-    /**
-     * @brief Tick the delay bank.
-     * 'input' and 'output' must have the same size.
-     * The size of 'input' must be a multiple of the delay count.
-     * 'input' and 'output' can point to the same memory.
-     *
-     * @note Samples in the input buffer are interleaved by delay line:
-     * input = [delay0_sample0, delay1_sample0, delay1_sample1, ...]
-     *
-     * @param input The input buffer.
-     * @param output The output buffer.
-     */
-    void Tick(const std::span<const float> input, std::span<float> output);
+    size_t InputChannelCount() const override;
+    size_t OutputChannelCount() const override;
 
-    void AddNextInputs(const std::span<const float> input);
-    void GetNextOutputs(std::span<float> output);
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+
+    void AddNextInputs(const AudioBuffer& input);
+    void GetNextOutputs(AudioBuffer& output);
 
   private:
-    std::vector<fdn::DelayTimeVarying> delays_;
+    std::vector<fdn::Delay> delays_;
 };
 } // namespace fdn

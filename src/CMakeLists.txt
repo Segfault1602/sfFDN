@@ -1,28 +1,38 @@
 set(FDN_SOURCE
-    delaya.cpp
+    audio_buffer.cpp
+    cascaded_filter.cpp
+    circular_buffer.cpp
     delay.cpp
+    delaya.cpp
+    delaybank.cpp
     delay_matrix.cpp
     delay_time_varying.cpp
-    delaybank.cpp
-    filter.cpp
-    filter_feedback_matrix.cpp
-    mixing_matrix.cpp
-    parallel_gains.cpp
-    filterbank.cpp
+    feedback_matrix.cpp
     fdn.cpp
-    schroeder_allpass.cpp)
+    fft.cpp
+    filter.cpp
+    filterbank.cpp
+    filter_feedback_matrix.cpp
+    filter_utils.cpp
+    math_utils.cpp
+    matrix_multiplication.cpp
+    nupols.cpp
+    parallel_gains.cpp
+    schroeder_allpass.cpp
+    upols.cpp
+    )
 
 if(SF_FDN_USE_VDSP)
     message(STATUS "Using VDSP for DSP operations")
-    set(FDN_SOURCE ${FDN_SOURCE} vdsp_array_math.cpp vdsp_cascaded_filter.cpp)
+    set(FDN_SOURCE ${FDN_SOURCE} vdsp_array_math.cpp )
 else()
     message(STATUS "Using vanilla C++ for DSP operations")
-    set(FDN_SOURCE ${FDN_SOURCE} array_math.cpp cascaded_filter.cpp)
+    set(FDN_SOURCE ${FDN_SOURCE} array_math.cpp )
 endif()
 
 add_library(fdn ${FDN_SOURCE})
-target_include_directories(fdn PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(fdn PUBLIC Eigen3::Eigen)
+target_include_directories(fdn PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
+target_link_libraries(fdn PUBLIC Eigen3::Eigen PFFFT)
 
 if(SF_FDN_USE_VDSP)
     target_link_libraries(fdn PUBLIC "-framework Accelerate")
@@ -31,6 +41,6 @@ endif()
 target_compile_options(fdn PRIVATE ${COMMON_CXX_FLAGS})
 
 if (NOT WIN32)
-    target_compile_options(fdn PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+    target_compile_options(fdn PRIVATE $<$<CONFIG:Debug>:-fsanitize=address> -fno-omit-frame-pointer)
     target_link_options(fdn PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
 endif()

@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "delay_matrix.h"
-#include "mixing_matrix.h"
+#include "feedback_matrix.h"
 
 namespace fdn
 {
@@ -13,23 +13,28 @@ namespace fdn
 class FilterFeedbackMatrix : public FeedbackMatrix
 {
   public:
-    FilterFeedbackMatrix(size_t N, size_t K);
+    FilterFeedbackMatrix(size_t N);
 
     void Clear();
-    void SetDelays(std::span<size_t> delays);
-    void SetMatrices(std::span<MixMat> mixing_matrices);
+    // void SetDelays(std::span<size_t> delays);
+    // void SetMatrices(std::span<ScalarFeedbackMatrix> mixing_matrices);
 
-    void Tick(std::span<const float> input, std::span<float> output) override;
+    void ConstructMatrix(std::span<size_t> delays, std::span<ScalarFeedbackMatrix> mixing_matrices);
 
-    // Debug functions
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
-    void DumpDelays() const;
+    size_t InputChannelCount() const override
+    {
+        return N_;
+    }
+
+    size_t OutputChannelCount() const override
+    {
+        return N_;
+    }
 
   private:
-    size_t N_;
-    size_t K_;
     std::vector<DelayMatrix> stages_;
-
-    MixMat last_mat_;
+    ScalarFeedbackMatrix last_mat_;
 };
 } // namespace fdn

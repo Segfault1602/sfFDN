@@ -6,8 +6,28 @@
 
 namespace fdn
 {
-ParallelGains::ParallelGains()
+
+ParallelGains::ParallelGains(ParallelGainsMode mode)
+    : gains_(1, 1.0f) // Default to one channel with gain of 1.0
+    , mode_(mode)
 {
+}
+
+ParallelGains::ParallelGains(size_t N, ParallelGainsMode mode, float gain)
+    : gains_(N, gain)
+    , mode_(mode)
+{
+}
+
+ParallelGains::ParallelGains(ParallelGainsMode mode, std::span<const float> gains)
+    : mode_(mode)
+{
+    SetGains(gains);
+}
+
+void ParallelGains::SetMode(ParallelGainsMode mode)
+{
+    mode_ = mode;
 }
 
 void ParallelGains::SetGains(std::span<const float> gains)
@@ -16,55 +36,50 @@ void ParallelGains::SetGains(std::span<const float> gains)
     gains_.assign(gains.begin(), gains.end());
 }
 
-void ParallelGains::ProcessBlock(const std::span<const float> input, std::span<float> output)
+size_t ParallelGains::InputChannelCount() const
 {
-    if (input.size() <= output.size())
+    return mode_ == ParallelGainsMode::Multiplexed ? 1 : gains_.size();
+}
+
+size_t ParallelGains::OutputChannelCount() const
+{
+    return mode_ == ParallelGainsMode::Multiplexed ? gains_.size() : 1;
+}
+
+void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output)
+{
+    if (mode_ == ParallelGainsMode::Multiplexed)
     {
         ProcessBlockMultiplexed(input, output);
     }
     else
     {
+        assert(mode_ == ParallelGainsMode::DeMultiplexed);
         ProcessBlockDeMultiplexed(input, output);
     }
 }
 
-void ParallelGains::ProcessBlockMultiplexed(const std::span<const float> input, std::span<float> output)
+void ParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output)
 {
-    assert(input.size() <= output.size());
-    assert(output.size() == input.size() * gains_.size());
+    assert(input.ChannelCount() == 1);
+    assert(output.ChannelCount() == gains_.size());
+    assert(input.SampleCount() == output.SampleCount());
 
-    const size_t block_size = output.size() / gains_.size();
-    const size_t gain_count = gains_.size();
-
-    float* out_ptr = output.data();
-
-    for (size_t i = 0; i < gain_count; i++)
+    for (size_t i = 0; i < gains_.size(); i++)
     {
-        auto output_span = std::span<float>(output.data() + i * block_size, block_size);
-        // vDSP_vsmul(input.data(), 1, &gains_[i], output_span.data(), 1, block_size);
-        ArrayMath::Scale(input, gains_[i], output_span);
+        ArrayMath::Scale(input.GetChannelSpan(0), gains_[i], output.GetChannelSpan(i));
     }
 }
 
-void ParallelGains::ProcessBlockDeMultiplexed(const std::span<const float> input, std::span<float> output)
+void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output)
 {
-    assert(input.size() > output.size());
-    assert(input.size() % gains_.size() == 0);
-    assert(output.size() == input.size() / gains_.size());
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == gains_.size());
+    assert(output.ChannelCount() == 1);
 
-    const size_t block_size = input.size() / gains_.size();
-    const size_t gain_count = gains_.size();
-
-    const float* in_ptr = input.data();
-
-    constexpr size_t unroll_factor = 4;
-    const size_t remainder = block_size % unroll_factor;
-
-    for (size_t i = 0; i < gain_count; i++)
+    for (size_t i = 0; i < gains_.size(); i++)
     {
-        auto input_span = std::span<const float>(input.data() + i * block_size, block_size);
-        ArrayMath::ScaleAccumulate(input_span, gains_[i], output);
-        // vDSP_vsma(input_span.data(), 1, &gains_[i], output.data(), 1, output.data(), 1, block_size);
+        ArrayMath::ScaleAccumulate(input.GetChannelSpan(i), gains_[i], output.GetChannelSpan(0));
     }
 }
 
