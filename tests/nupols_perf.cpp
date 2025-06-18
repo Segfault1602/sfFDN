@@ -15,10 +15,10 @@ using namespace std::chrono_literals;
 
 namespace
 {
-std::unique_ptr<fdn::CascadedBiquads> CreateTestFilter()
+std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 {
     // Create a simple filter for testing purposes
-    auto filter = std::make_unique<fdn::CascadedBiquads>();
+    auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
     for (size_t j = 0; j < sos.size(); j++)
@@ -52,7 +52,7 @@ TEST_CASE("NUPOLS")
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
     }
 
-    fdn::NUPOLS nupols(kBlockSize, fir, fdn::PartitionStrategy::kGardner);
+    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
     nupols.DumpInfo();
 
@@ -70,8 +70,8 @@ TEST_CASE("NUPOLS")
 
     bench.run("NUPOLS", [&] {
         // Process the block
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         for (size_t i = 0; i < kLoopCount; ++i)
         {
             // Process the block

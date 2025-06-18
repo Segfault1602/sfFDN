@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iostream>
 
-namespace fdn
+namespace sfFDN
 {
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(size_t N)
@@ -110,4 +110,4 @@ void ScalarFeedbackMatrix::Print() const
     std::cout << matrix_ << std::endl;
 }
 
-} // namespace fdn
+} // namespace sfFDN

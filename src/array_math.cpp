@@ -5,7 +5,7 @@
 
 #include <arm_neon.h>
 
-namespace fdn
+namespace sfFDN
 {
 
 void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
@@ -147,4 +147,4 @@ void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::sp
         --remainder;
     }
 }
-} // namespace fdn
+} // namespace sfFDN

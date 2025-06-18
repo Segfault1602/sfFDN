@@ -19,7 +19,7 @@
 #include <cassert>
 #include <iostream>
 
-namespace fdn
+namespace sfFDN
 {
 
 Delay::Delay(size_t delay, size_t maxDelay)
@@ -152,4 +152,4 @@ void Delay::GetNextOutputs(std::span<float> output)
     lastFrame_ = output.back();
 }
 
-} // namespace fdn
+} // namespace sfFDN

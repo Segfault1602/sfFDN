@@ -5,7 +5,7 @@
 
 #include <arm_neon.h>
 
-namespace fdn
+namespace sfFDN
 {
 SchroederAllpass::SchroederAllpass(size_t delay, float g)
     : delay_(delay, (delay < 32) ? 32 : delay + 1)
@@ -118,4 +118,4 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
     }
 }
 
-} // namespace fdn
+} // namespace sfFDN

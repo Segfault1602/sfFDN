@@ -5,7 +5,7 @@
 
 #include "audio_buffer.h"
 
-namespace fdn
+namespace sfFDN
 {
 class DelayAllpass
 {
@@ -61,4 +61,4 @@ class DelayAllpass
     float NextOut();
 };
 
-} // namespace fdn
+} // namespace sfFDN

@@ -2,7 +2,7 @@
 
 #include <Accelerate/Accelerate.h>
 
-namespace fdn
+namespace sfFDN
 {
 void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
 {
@@ -29,4 +29,4 @@ void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::sp
     vDSP_vsma(a.data(), 1, &b, out.data(), 1, out.data(), 1, a.size());
 }
 
-} // namespace fdn
+} // namespace sfFDN

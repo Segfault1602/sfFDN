@@ -6,7 +6,7 @@
 #include "audio_buffer.h"
 #include "audio_processor.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class Delay
@@ -49,4 +49,4 @@ class Delay
     float lastFrame_;
 };
 
-} // namespace fdn
+} // namespace sfFDN

@@ -7,7 +7,7 @@
 #include "audio_processor.h"
 #include "delay.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class SchroederAllpass
@@ -44,4 +44,4 @@ class SchroederAllpassSection : public AudioProcessor
     std::vector<SchroederAllpass> allpasses_;
     size_t stage_;
 };
-} // namespace fdn
+} // namespace sfFDN

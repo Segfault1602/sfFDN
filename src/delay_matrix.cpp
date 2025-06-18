@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iostream>
 
-namespace fdn
+namespace sfFDN
 {
 
 DelayMatrix::DelayMatrix(size_t N, std::span<const size_t> delays)
@@ -39,4 +39,4 @@ void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
     delays_.Process(output, output);
 }
 
-} // namespace fdn
+} // namespace sfFDN

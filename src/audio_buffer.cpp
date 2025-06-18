@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace fdn
+namespace sfFDN
 {
 
 AudioBuffer::AudioBuffer()
@@ -94,4 +94,4 @@ AudioBuffer AudioBuffer::GetChannelBuffer(size_t channel)
     assert(channel < channel_count_);
     return AudioBuffer(size_, 1, buffer_ + channel * size_);
 }
-} // namespace fdn
+} // namespace sfFDN

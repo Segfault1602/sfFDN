@@ -38,11 +38,11 @@ TEST_CASE("ParallelInputGainsPerf")
     bench.minEpochIterations(100);
     // bench.batch(kBlockSize);
 
-    fdn::ParallelGains input_gains(fdn::ParallelGainsMode::Multiplexed);
+    sfFDN::ParallelGains input_gains(sfFDN::ParallelGainsMode::Multiplexed);
     input_gains.SetGains(kGains);
     bench.run("ParallelGains - Input", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output.data());
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
         input_gains.Process(input_buffer, output_buffer);
     });
 
@@ -79,11 +79,11 @@ TEST_CASE("ParallelOutputGainsPerf")
     bench.minEpochIterations(100);
     // bench.batch(kBlockSize);
 
-    fdn::ParallelGains output_gains(fdn::ParallelGainsMode::DeMultiplexed);
+    sfFDN::ParallelGains output_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
     output_gains.SetGains(kGains);
     bench.run("ParallelGains - Output", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input.data());
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
         output_gains.Process(input_buffer, output_buffer);
     });
 

@@ -22,7 +22,7 @@ TEST_CASE("Accumulate")
     bench.run("Accumulate", [&] {
         for (size_t i = 0; i < 1000; ++i)
         {
-            fdn::ArrayMath::Accumulate(a, b);
+            sfFDN::ArrayMath::Accumulate(a, b);
             nanobench::doNotOptimizeAway(a);
         }
     });
@@ -43,7 +43,7 @@ TEST_CASE("Add")
     bench.run("Add", [&] {
         for (size_t i = 0; i < 1000; ++i)
         {
-            fdn::ArrayMath::Add(a, b, out);
+            sfFDN::ArrayMath::Add(a, b, out);
             nanobench::doNotOptimizeAway(a);
         }
     });
@@ -63,7 +63,7 @@ TEST_CASE("Scale")
     bench.run("Scale", [&] {
         for (size_t i = 0; i < 1000; ++i)
         {
-            fdn::ArrayMath::Scale(a, 2.f, out);
+            sfFDN::ArrayMath::Scale(a, 2.f, out);
             nanobench::doNotOptimizeAway(out);
         }
     });
@@ -83,7 +83,7 @@ TEST_CASE("ScaleAdd")
     bench.run("ScaleAdd", [&] {
         for (size_t i = 0; i < 1000; ++i)
         {
-            fdn::ArrayMath::ScaleAdd(a, 2.f, b, out);
+            sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
             nanobench::doNotOptimizeAway(out);
         }
     });

@@ -32,9 +32,9 @@ TEST_SUITE_BEGIN("Delays");
 //         input[i] = dist(generator);
 //     }
 
-//     fdn::Delay delay(kDelay, kMaxDelay);
-//     fdn::DelayA delay_a(kDelay, kMaxDelay);
-//     fdn::DelayTimeVarying delay_tv(kDelay, kMaxDelay);
+//     sfFDN::Delay delay(kDelay, kMaxDelay);
+//     sfFDN::DelayA delay_a(kDelay, kMaxDelay);
+//     sfFDN::DelayTimeVarying delay_tv(kDelay, kMaxDelay);
 
 //     nanobench::Bench bench;
 //     bench.title("Delay Perf");
@@ -59,7 +59,7 @@ TEST_CASE("DelayBank")
     constexpr size_t kBlockSize = 128;
     constexpr size_t kDelayCount = kDelays.size();
 
-    fdn::DelayBank delay_bank(kDelays, kBlockSize);
+    sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
 
     std::vector<float> input(kBlockSize * N, 0.f);
     std::vector<float> output(kBlockSize * N, 0.f);
@@ -71,8 +71,8 @@ TEST_CASE("DelayBank")
         input[i] = dist(generator);
     }
 
-    fdn::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    fdn::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
 
     nanobench::Bench bench;
     bench.title("DelayBank Perf");

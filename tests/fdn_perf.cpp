@@ -47,74 +47,74 @@ TEST_CASE("FDNPerf")
     bench.minEpochIterations(10000);
 
     bench.run("FDN", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         fdn->Process(input_buffer, output_buffer);
     });
 
     // Benchmark the individual components
     auto input_gains =
-        std::make_unique<fdn::ParallelGains>(fdn::ParallelGainsMode::Multiplexed, std::vector<float>(N, 1.f));
+        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, std::vector<float>(N, 1.f));
     bench.run("Input Gains", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         input_gains->Process(input_buffer, output_buffer);
     });
 
-    fdn::DelayBank delay_bank(GetDefaultDelays(N), kBlockSize);
+    sfFDN::DelayBank delay_bank(GetDefaultDelays(N), kBlockSize);
     bench.run("Delay Bank", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         delay_bank.GetNextOutputs(output_buffer);
         delay_bank.AddNextInputs(input_buffer);
     });
 
     auto filter_bank = GetFilterBank(N, 11);
     bench.run("Filter Bank", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         filter_bank->Process(input_buffer, output_buffer);
     });
 
-    auto fir_filter_bank = std::make_unique<fdn::FilterBank>();
+    auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/att_fir_1153.wav");
-        auto nupols = std::make_unique<fdn::NUPOLS>(kBlockSize, fir, fdn::PartitionStrategy::kGardner);
+        auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
         fir_filter_bank->AddFilter(std::move(nupols));
     }
     bench.run("FIR Filter Bank", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         fir_filter_bank->Process(input_buffer, output_buffer);
     });
 
-    auto mix_mat = std::make_unique<fdn::ScalarFeedbackMatrix>(fdn::ScalarFeedbackMatrix::Householder(N));
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
     bench.run("Mixing Matrix", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         mix_mat->Process(input_buffer, output_buffer);
     });
 
     auto output_gains = GetDefaultOutputGains(N);
     bench.run("Output Gains", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         output_gains->Process(input_buffer, output_buffer);
     });
 
     auto tc_filter = GetDefaultTCFilter();
     bench.run("TC Filter", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         tc_filter->Process(input_buffer, output_buffer);
     });
 
     bench.run("Direct Gain", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
-        fdn::ArrayMath::ScaleAccumulate(input_buffer.GetChannelSpan(0), 1.f, output_buffer.GetChannelSpan(0));
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::ArrayMath::ScaleAccumulate(input_buffer.GetChannelSpan(0), 1.f, output_buffer.GetChannelSpan(0));
     });
 }
 
@@ -127,11 +127,11 @@ TEST_CASE("FDNPerf_FIR")
     auto fdn = CreateFDN(SR, kBlockSize, N);
 
     // Replace filterbank with FIR filters
-    auto filter_bank = std::make_unique<fdn::FilterBank>();
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/att_fir_1153.wav");
-        auto nupols = std::make_unique<fdn::NUPOLS>(kBlockSize, fir, fdn::PartitionStrategy::kGardner);
+        auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
         filter_bank->AddFilter(std::move(nupols));
     }
@@ -155,8 +155,8 @@ TEST_CASE("FDNPerf_FIR")
     bench.minEpochIterations(10000);
 
     bench.run("FDN", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         fdn->Process(input_buffer, output_buffer);
     });
 }
@@ -182,9 +182,9 @@ TEST_CASE("FDNPerf_FFM")
         2, 3, 8, 10, 14, 16, 0, 18, 36, 54, 72, 90, 0, 108, 216, 324, 432, 540,
     };
 
-    auto ffm = std::make_unique<fdn::FilterFeedbackMatrix>(N);
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
 
-    std::vector<fdn::ScalarFeedbackMatrix> mixing_matrices(K);
+    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(K);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
@@ -196,7 +196,7 @@ TEST_CASE("FDNPerf_FFM")
             u_n[j] = dis(gen);
         }
 
-        mixing_matrices[i] = fdn::ScalarFeedbackMatrix::Householder(u_n);
+        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix::Householder(u_n);
     }
     ffm->ConstructMatrix(ffm_delays, mixing_matrices);
 
@@ -207,8 +207,8 @@ TEST_CASE("FDNPerf_FFM")
     bench.title("FDN Perf");
     bench.timeUnit(1us, "us");
     bench.run("FDN_FFM", [&] {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         fdn->Process(input_buffer, output_buffer);
     });
 }
@@ -242,8 +242,8 @@ TEST_CASE("FDNPerf_Order")
         }
 
         bench.complexityN(N).run("FDN Order " + std::to_string(N), [&] {
-            fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-            fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+            sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+            sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
             fdn->Process(input_buffer, output_buffer);
         });
     }
@@ -282,8 +282,8 @@ TEST_CASE("FDNPerf_OrderFFM")
         }
 
         bench.complexityN(num_stages[i]).run("FFM num stages: " + std::to_string(num_stages[i]), [&] {
-            fdn::AudioBuffer input_buffer(kBlockSize, 1, input);
-            fdn::AudioBuffer output_buffer(kBlockSize, 1, output);
+            sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+            sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
             fdn->Process(input_buffer, output_buffer);
         });
     }

@@ -15,10 +15,10 @@ using namespace std::chrono_literals;
 
 namespace
 {
-std::unique_ptr<fdn::CascadedBiquads> CreateTestFilter()
+std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 {
     // Create a simple filter for testing purposes
-    auto filter = std::make_unique<fdn::CascadedBiquads>();
+    auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
     for (size_t j = 0; j < sos.size(); j++)
@@ -52,7 +52,7 @@ TEST_CASE("UPOLS")
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
     }
 
-    fdn::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols(kBlockSize, fir);
 
     upols.PrintPartition();
 

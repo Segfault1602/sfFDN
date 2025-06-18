@@ -46,8 +46,8 @@ TEST_CASE("FilterBankPerf")
 
             for (size_t i = 0; i < num_blocks; ++i)
             {
-                fdn::AudioBuffer input_buffer(block_size, N, input);
-                fdn::AudioBuffer output_buffer(block_size, N, output);
+                sfFDN::AudioBuffer input_buffer(block_size, N, input);
+                sfFDN::AudioBuffer output_buffer(block_size, N, output);
                 filter_bank->Process(input_buffer, output_buffer);
             }
             nanobench::doNotOptimizeAway(output);
@@ -73,7 +73,7 @@ TEST_CASE("CascadedBiquadsPerf")
     }};
     // clang-format on
 
-    fdn::CascadedBiquads filter_bank;
+    sfFDN::CascadedBiquads filter_bank;
     std::vector<float> coeffs;
     for (size_t i = 0; i < sos.size(); i++)
     {

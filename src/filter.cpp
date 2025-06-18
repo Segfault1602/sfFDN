@@ -9,7 +9,7 @@ namespace
 constexpr float TWO_PI = std::numbers::pi_v<float> * 2;
 }
 
-namespace fdn
+namespace sfFDN
 {
 void Filter::SetGain(float gain)
 {
@@ -113,4 +113,4 @@ size_t OnePoleFilter::OutputChannelCount() const
     return 1; // OnePoleFilter only supports single channel output
 }
 
-} // namespace fdn
+} // namespace sfFDN

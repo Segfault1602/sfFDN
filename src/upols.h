@@ -7,7 +7,7 @@
 
 #include "fft.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class UPOLS
@@ -38,4 +38,4 @@ class UPOLS
     std::span<complex_t> spectrum_buffer_;
     std::span<float> result_buffer_;
 };
-} // namespace fdn
+} // namespace sfFDN

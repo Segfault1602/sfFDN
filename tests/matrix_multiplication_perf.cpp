@@ -73,7 +73,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
 
     // MatrixMultiplication
     std::array<float, N> output;
-    fdn::MatrixMultiply(kInput, output, kMatrix16x16, N);
+    sfFDN::MatrixMultiply(kInput, output, kMatrix16x16, N);
 
     for (size_t i = 0; i < N; ++i)
     {
@@ -124,7 +124,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
         std::array<float, N> output;
         for (size_t i = 0; i < kIterations; ++i)
         {
-            fdn::MatrixMultiply(kInput, output, kMatrix16x16, 16);
+            sfFDN::MatrixMultiply(kInput, output, kMatrix16x16, 16);
             nanobench::doNotOptimizeAway(output);
         }
     });
@@ -133,7 +133,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
         std::array<float, N> output;
         for (size_t i = 0; i < kIterations; ++i)
         {
-            fdn::MatrixMultiply_16(kInput, output, kMatrix16x16);
+            sfFDN::MatrixMultiply_16(kInput, output, kMatrix16x16);
             nanobench::doNotOptimizeAway(output);
         }
     });
@@ -182,7 +182,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
         {
             in[j] = input[j * kBlockSize + i];
         }
-        fdn::MatrixMultiply(in, out, kMatrix16x16, N);
+        sfFDN::MatrixMultiply(in, out, kMatrix16x16, N);
 
         for (size_t j = 0; j < N; ++j)
         {
@@ -256,7 +256,7 @@ TEST_CASE("Hadamard")
     std::cout << eigen_output << std::endl;
 
     std::array<float, N> output;
-    fdn::MatrixMultiply(kInput, output, kHadamard, N);
+    sfFDN::MatrixMultiply(kInput, output, kHadamard, N);
     std::cout << "Custom Hadamard Output: ";
     for (const auto& val : output)
     {
@@ -264,7 +264,7 @@ TEST_CASE("Hadamard")
     }
     std::cout << std::endl;
 
-    fdn::HadamardMultiply(kInput, output);
+    sfFDN::HadamardMultiply(kInput, output);
     std::cout << "Hadamard Multiply Output: ";
     for (const auto& val : output)
     {
@@ -277,7 +277,7 @@ TEST_CASE("Hadamard")
     {
         inout[i] = kInput[i];
     }
-    fdn::WalshHadamardTransform(inout);
+    sfFDN::WalshHadamardTransform(inout);
     std::cout << "Walsh Hadamard Transform Output: ";
     for (const auto& val : inout)
     {
@@ -311,7 +311,7 @@ TEST_CASE("Hadamard")
         std::array<float, N> output;
         for (size_t i = 0; i < kIterations; ++i)
         {
-            fdn::MatrixMultiply(kInput, output, kHadamard, N);
+            sfFDN::MatrixMultiply(kInput, output, kHadamard, N);
             nanobench::doNotOptimizeAway(output);
         }
     });
@@ -320,7 +320,7 @@ TEST_CASE("Hadamard")
         std::array<float, N> output;
         for (size_t i = 0; i < kIterations; ++i)
         {
-            fdn::HadamardMultiply(kInput, output);
+            sfFDN::HadamardMultiply(kInput, output);
             nanobench::doNotOptimizeAway(output);
         }
     });
@@ -333,7 +333,7 @@ TEST_CASE("Hadamard")
         }
         for (size_t i = 0; i < kIterations; ++i)
         {
-            fdn::WalshHadamardTransform(inout);
+            sfFDN::WalshHadamardTransform(inout);
             nanobench::doNotOptimizeAway(inout);
         }
     });

@@ -10,7 +10,7 @@
 
 #include "audio_processor.h"
 
-namespace fdn
+namespace sfFDN
 {
 class Filter
 {
@@ -125,4 +125,4 @@ class CascadedBiquads : public Filter, public AudioProcessor
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
-} // namespace fdn
+} // namespace sfFDN

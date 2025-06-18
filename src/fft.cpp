@@ -9,7 +9,7 @@
 
 #include "array_math.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 FFT::FFT(size_t fft_size)
@@ -96,4 +96,4 @@ void FFT::FreeBuffer(void* buffer)
     }
     pffft_aligned_free(buffer);
 }
-} // namespace fdn
+} // namespace sfFDN

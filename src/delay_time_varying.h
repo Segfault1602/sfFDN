@@ -4,7 +4,7 @@
 
 #include "delaya.h"
 
-namespace fdn
+namespace sfFDN
 {
 class DelayTimeVarying
 {
@@ -37,4 +37,4 @@ class DelayTimeVarying
     float mod_phase_;
     float mod_phase_increment_;
 };
-} // namespace fdn
+} // namespace sfFDN

@@ -7,7 +7,7 @@
 
 #include "array_math.h"
 
-namespace fdn
+namespace sfFDN
 {
 FDN::FDN(size_t N, size_t block_size, bool transpose)
     : delay_bank_(N)
@@ -145,4 +145,4 @@ void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
     ArrayMath::ScaleAccumulate(input.GetChannelSpan(0), direct_gain_, output.GetChannelSpan(0));
 }
 
-} // namespace fdn
+} // namespace sfFDN

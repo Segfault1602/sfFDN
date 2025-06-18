@@ -88,7 +88,7 @@ void HadamardMultiply_16(const std::span<const float> in, std::span<float> out)
 
 } // namespace
 
-namespace fdn
+namespace sfFDN
 {
 
 void HadamardMultiply(const std::span<const float> input, std::span<float> output)
@@ -266,4 +266,4 @@ void MatrixMultiply(std::span<const float> in, std::span<float> out, std::span<c
     }
 }
 
-} // namespace fdn
+} // namespace sfFDN

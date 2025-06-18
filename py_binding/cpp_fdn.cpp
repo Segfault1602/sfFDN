@@ -73,10 +73,10 @@ class PyFDN
         }
 
         std::span<float> matrix_span(matrix.data(), matrix.size());
-        fdn::ScalarFeedbackMatrix mixing_matrix(N_);
+        sfFDN::ScalarFeedbackMatrix mixing_matrix(N_);
         mixing_matrix.SetMatrix(matrix_span);
-        std::unique_ptr<fdn::FeedbackMatrix> mixing_matrix_ptr =
-            std::make_unique<fdn::ScalarFeedbackMatrix>(mixing_matrix);
+        std::unique_ptr<sfFDN::FeedbackMatrix> mixing_matrix_ptr =
+            std::make_unique<sfFDN::ScalarFeedbackMatrix>(mixing_matrix);
         fdn_.SetFeedbackMatrix(std::move(mixing_matrix_ptr));
     }
 
@@ -109,13 +109,13 @@ class PyFDN
             }
         }
 
-        auto ffm = std::make_unique<fdn::FilterFeedbackMatrix>(N_);
+        auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N_);
 
-        std::vector<fdn::ScalarFeedbackMatrix> feedback_matrices;
+        std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
         for (size_t i = 0; i < matrix.shape(0); i++)
         {
             std::span<float> matrix_span(matrix.data() + i * N_ * N_, N_ * N_);
-            fdn::ScalarFeedbackMatrix feedback_matrix(N_);
+            sfFDN::ScalarFeedbackMatrix feedback_matrix(N_);
             feedback_matrix.SetMatrix(matrix_span);
             feedback_matrices.push_back(feedback_matrix);
         }
@@ -136,13 +136,13 @@ class PyFDN
             throw std::runtime_error("Delays size must be equal to N");
         }
 
-        auto filter_bank = std::make_unique<fdn::FilterBank>();
+        auto filter_bank = std::make_unique<sfFDN::FilterBank>();
         for (size_t i = 0; i < N_; i++)
         {
-            auto filter = std::make_unique<fdn::OnePoleFilter>();
+            auto filter = std::make_unique<sfFDN::OnePoleFilter>();
             float b = 0.f;
             float a = 0.f;
-            fdn::get_filter_coefficients(t60_dc, t60_ny, SR_, delays.data()[i], b, a);
+            sfFDN::get_filter_coefficients(t60_dc, t60_ny, SR_, delays.data()[i], b, a);
             filter->SetCoefficients(b, a);
             filter_bank->AddFilter(std::move(filter));
         }
@@ -157,7 +157,7 @@ class PyFDN
             throw std::runtime_error(std::format("SOS array must have {} rows", N_));
         }
 
-        auto filter_bank = std::make_unique<fdn::FilterBank>();
+        auto filter_bank = std::make_unique<sfFDN::FilterBank>();
         for (size_t n = 0; n < sos_array.shape(0); n++)
         {
             std::vector<float> coeffs;
@@ -170,7 +170,7 @@ class PyFDN
                 coeffs.push_back(sos_array(n, i, 4) / sos_array(n, i, 3));
                 coeffs.push_back(sos_array(n, i, 5) / sos_array(n, i, 3));
             }
-            auto filter = std::make_unique<fdn::CascadedBiquads>();
+            auto filter = std::make_unique<sfFDN::CascadedBiquads>();
             filter->SetCoefficients(sos_array.shape(1), coeffs);
             filter->dump_coeffs();
             filter_bank->AddFilter(std::move(filter));
@@ -191,7 +191,7 @@ class PyFDN
             coeffs.push_back(sos(i, 5) / sos(i, 3));
         }
 
-        std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
+        std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
         filter->SetCoefficients(sos.shape(0), coeffs);
         fdn_.SetTCFilter(std::move(filter));
     }
@@ -233,8 +233,8 @@ class PyFDN
 
         for (size_t i = 0; i < input.size(); i += block_size_)
         {
-            fdn::AudioBuffer input_buffer(block_size_, 1, input.data() + i);
-            fdn::AudioBuffer output_buffer(block_size_, 1, data + i);
+            sfFDN::AudioBuffer input_buffer(block_size_, 1, input.data() + i);
+            sfFDN::AudioBuffer output_buffer(block_size_, 1, data + i);
             fdn_.Process(input_buffer, output_buffer);
         }
 
@@ -261,8 +261,8 @@ class PyFDN
 
         for (size_t i = 0; i < input.size(); i += block_size_)
         {
-            fdn::AudioBuffer input_buffer(block_size_, 1, input_data + i);
-            fdn::AudioBuffer output_buffer(block_size_, 1, data + i);
+            sfFDN::AudioBuffer input_buffer(block_size_, 1, input_data + i);
+            sfFDN::AudioBuffer output_buffer(block_size_, 1, data + i);
             fdn_.Process(input_buffer, output_buffer);
         }
 
@@ -281,7 +281,7 @@ class PyFDN
     }
 
   private:
-    fdn::FDN fdn_;
+    sfFDN::FDN fdn_;
     size_t N_;
     size_t block_size_;
     size_t SR_;

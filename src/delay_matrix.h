@@ -8,7 +8,7 @@
 #include <delay.h>
 #include <feedback_matrix.h>
 
-namespace fdn
+namespace sfFDN
 {
 class DelayMatrix : public FeedbackMatrix
 {
@@ -26,4 +26,4 @@ class DelayMatrix : public FeedbackMatrix
     DelayBank delays_;
     ScalarFeedbackMatrix mixing_matrix_;
 };
-} // namespace fdn
+} // namespace sfFDN

@@ -11,7 +11,7 @@
 #include "parallel_gains.h"
 #include "schroeder_allpass.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class FDN : public AudioProcessor
@@ -68,4 +68,4 @@ class FDN : public AudioProcessor
 
     bool transpose_;
 };
-} // namespace fdn
+} // namespace sfFDN

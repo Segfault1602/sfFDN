@@ -6,7 +6,7 @@
 
 #include "audio_processor.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 enum class ParallelGainsMode
@@ -38,4 +38,4 @@ class ParallelGains : public AudioProcessor
     ParallelGainsMode mode_;
 };
 
-} // namespace fdn
+} // namespace sfFDN

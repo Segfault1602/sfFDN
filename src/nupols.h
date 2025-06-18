@@ -9,7 +9,7 @@
 #include "fft.h"
 #include "upols.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class NupolsSegment;
@@ -71,4 +71,4 @@ class NupolsSegment
 
     std::vector<float> output_buffer_;
 };
-} // namespace fdn
+} // namespace sfFDN

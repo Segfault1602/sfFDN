@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iostream>
 
-namespace fdn
+namespace sfFDN
 {
 
 DelayAllpass::DelayAllpass(float delay, unsigned long maxDelay)
@@ -149,4 +149,4 @@ void DelayAllpass::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
-} // namespace fdn
+} // namespace sfFDN

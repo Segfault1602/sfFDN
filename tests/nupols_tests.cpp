@@ -17,10 +17,10 @@
 
 namespace
 {
-std::unique_ptr<fdn::CascadedBiquads> CreateTestFilter()
+std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 {
     // Create a simple filter for testing purposes
-    auto filter = std::make_unique<fdn::CascadedBiquads>();
+    auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
     for (size_t j = 0; j < sos.size(); j++)
@@ -45,10 +45,10 @@ TEST_CASE("NUPOLS")
     constexpr size_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = fdn::GetImpulseResponse(ref_filter.get());
+    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
-    fdn::NUPOLS nupols(kBlockSize, fir, fdn::PartitionStrategy::kGardner);
+    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
     nupols.DumpInfo();
 
@@ -61,15 +61,15 @@ TEST_CASE("NUPOLS")
     const size_t kBlockCount = kFirLength / kBlockSize;
     for (size_t i = 0; i < kBlockCount; ++i)
     {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input.data() + i * kBlockSize);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data() + i * kBlockSize);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
         // Process the block
         nupols.Process(input_buffer, output_buffer);
     }
 
     std::vector<float> output_fir(kFirLength + kBlockSize, 0.f);
     output_fir[0] = 1.f;
-    auto fir_buffer = fdn::AudioBuffer(kFirLength + kBlockSize, 1, output_fir.data());
+    auto fir_buffer = sfFDN::AudioBuffer(kFirLength + kBlockSize, 1, output_fir.data());
     inner_prod_fir.Process(fir_buffer);
 
     float fir_energy = 0.f;
@@ -92,7 +92,7 @@ TEST_CASE("NUPOLS_Noise")
     constexpr size_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = fdn::GetImpulseResponse(ref_filter.get());
+    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
     InnerProdFIR inner_prod_fir(fir);
@@ -101,13 +101,13 @@ TEST_CASE("NUPOLS_Noise")
     const size_t kInputSize = input_chirp.size();
 
     std::vector<float> filter_output(kInputSize, 0.f);
-    fdn::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
-    fdn::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
+    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
+    sfFDN::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
 
     std::copy(input_chirp.begin(), input_chirp.end(), filter_output.begin());
     inner_prod_fir.Process(ref_output_buffer);
 
-    fdn::NUPOLS nupols(kBlockSize, fir, fdn::PartitionStrategy::kGardner);
+    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
     nupols.DumpInfo();
 
@@ -116,8 +116,8 @@ TEST_CASE("NUPOLS_Noise")
     const size_t kBlockCount = kInputSize / kBlockSize;
     for (size_t i = 0; i < kBlockCount; ++i)
     {
-        fdn::AudioBuffer input_buffer(kBlockSize, 1, input_chirp.data() + i * kBlockSize);
-        fdn::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input_chirp.data() + i * kBlockSize);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
         // Process the block
         nupols.Process(input_buffer, output_buffer);
     }

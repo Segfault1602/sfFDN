@@ -2,7 +2,7 @@
 
 #include "filter.h"
 
-namespace fdn
+namespace sfFDN
 {
 std::vector<float> GetImpulseResponse(Filter* filter, size_t block_size = 512);
 }

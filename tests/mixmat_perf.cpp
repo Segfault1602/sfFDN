@@ -24,7 +24,7 @@ TEST_CASE("MixMatPerf")
     std::cout << "BLOCK SIZE: " << kBlockSize << std::endl;
     std::cout << "N: " << N << std::endl;
 
-    fdn::ScalarFeedbackMatrix mix_mat = fdn::ScalarFeedbackMatrix::Householder(N);
+    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
 
     std::vector<float> input(N * kBlockSize, 0.f);
     std::vector<float> output(N * kBlockSize, 0.f);
@@ -36,7 +36,7 @@ TEST_CASE("MixMatPerf")
         input[i] = dist(generator);
     }
 
-    fdn::AudioBuffer input_buffer(kBlockSize, N, input.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
@@ -83,11 +83,11 @@ TEST_CASE("Matrix_Order")
         }
         std::vector<float> output(N * block_size, 0.f);
 
-        fdn::AudioBuffer input_buffer(block_size, N, input.data());
-        fdn::AudioBuffer output_buffer(block_size, N, output.data());
+        sfFDN::AudioBuffer input_buffer(block_size, N, input.data());
+        sfFDN::AudioBuffer output_buffer(block_size, N, output.data());
 
         bench.complexityN(N).run("Householder - Order " + std::to_string(N), [&] {
-            fdn::ScalarFeedbackMatrix mix_mat = fdn::ScalarFeedbackMatrix::Householder(N);
+            sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
             for (size_t i = 0; i < ITER; ++i)
             {
                 mix_mat.Process(input_buffer, output_buffer);
@@ -124,8 +124,8 @@ TEST_CASE("FFMPerf_Order")
         }
         std::vector<float> output(N * block_size, 0.f);
 
-        fdn::AudioBuffer input_buffer(block_size, N, input.data());
-        fdn::AudioBuffer output_buffer(block_size, N, output.data());
+        sfFDN::AudioBuffer input_buffer(block_size, N, input.data());
+        sfFDN::AudioBuffer output_buffer(block_size, N, output.data());
 
         auto ffm = CreateFFM(N, i, 1);
 

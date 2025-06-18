@@ -7,7 +7,7 @@
 
 #include "audio_processor.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class FeedbackMatrix : public AudioProcessor
@@ -60,4 +60,4 @@ class ScalarFeedbackMatrix : public FeedbackMatrix
     Eigen::MatrixXf matrix_;
 };
 
-} // namespace fdn
+} // namespace sfFDN

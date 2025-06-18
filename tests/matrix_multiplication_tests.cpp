@@ -27,7 +27,7 @@ void TestMatrixMultipl_Eye()
     std::vector<float> output(N, 0.f);
 
     auto matrix_span = std::span<const float, N * N>(matrix.data(), N * N);
-    fdn::MatrixMultiply(input, output, matrix_span, N);
+    sfFDN::MatrixMultiply(input, output, matrix_span, N);
 
     for (size_t i = 0; i < N; ++i)
     {
@@ -64,7 +64,7 @@ TEST_CASE("MatrixMultiply_6")
     float output[kInputSize] = {0.f};
 
     auto matrix_span = std::span<const float, N * N>(matrix.data(), N * N);
-    fdn::MatrixMultiply(a, output, matrix_span, N);
+    sfFDN::MatrixMultiply(a, output, matrix_span, N);
 
     float expected[kInputSize] = {
         2.8961, 0.4472, -0.9876, 0.3676, 0.2517, -2.9600, 1.2252,  -0.8501, -2.8060, -1.7479, 1.1077, -1.4938,
@@ -86,13 +86,13 @@ TEST_CASE("Hadamard")
         std::array<float, N> output;
         constexpr std::array<float, N> expected = {5, -1, -2, 0};
 
-        fdn::HadamardMultiply(input, output);
+        sfFDN::HadamardMultiply(input, output);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
-        fdn::WalshHadamardTransform(input);
+        sfFDN::WalshHadamardTransform(input);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));
@@ -109,13 +109,13 @@ TEST_CASE("Hadamard")
         constexpr std::array<float, N> expected = {
             12.727922061357855, -1.414213562373095, -2.828427124746190, 0, -5.656854249492380, 0, 0, 0};
 
-        fdn::HadamardMultiply(input, output);
+        sfFDN::HadamardMultiply(input, output);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
-        fdn::WalshHadamardTransform(input);
+        sfFDN::WalshHadamardTransform(input);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));
@@ -131,13 +131,13 @@ TEST_CASE("Hadamard")
 
         constexpr std::array<float, N> expected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
 
-        fdn::HadamardMultiply(input, output);
+        sfFDN::HadamardMultiply(input, output);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
-        fdn::WalshHadamardTransform(input);
+        sfFDN::WalshHadamardTransform(input);
         for (size_t i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));

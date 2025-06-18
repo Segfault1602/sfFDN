@@ -1,6 +1,6 @@
 #include "math_utils.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 bool Math::IsPowerOfTwo(size_t n)
@@ -21,4 +21,4 @@ size_t Math::NextPowerOfTwo(size_t n)
     }
     return n + 1;
 }
-} // namespace fdn
+} // namespace sfFDN

@@ -7,7 +7,7 @@
 #include "audio_processor.h"
 #include "filter.h"
 
-namespace fdn
+namespace sfFDN
 {
 class FilterBank : public AudioProcessor
 {
@@ -29,4 +29,4 @@ class FilterBank : public AudioProcessor
     std::vector<AudioProcessor*> filters_;
 };
 
-} // namespace fdn
+} // namespace sfFDN

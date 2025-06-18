@@ -3,7 +3,7 @@
 #include <cassert>
 #include <mdspan>
 
-namespace fdn
+namespace sfFDN
 {
 FilterBank::FilterBank()
 {
@@ -54,4 +54,4 @@ size_t FilterBank::OutputChannelCount() const
     return filters_.size();
 }
 
-} // namespace fdn
+} // namespace sfFDN

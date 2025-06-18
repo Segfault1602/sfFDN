@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <span>
 
-namespace fdn
+namespace sfFDN
 {
 /// @brief A class representing an audio buffer with multiple channels of non-interleaved audio data.
 class AudioBuffer
@@ -47,4 +47,4 @@ class AudioBuffer
     const size_t channel_count_;
     float* buffer_;
 };
-} // namespace fdn
+} // namespace sfFDN

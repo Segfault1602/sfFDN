@@ -42,7 +42,7 @@ const std::vector<float> kTestSOSExpectedOutput = {
 
 TEST_CASE("OnePoleFilter")
 {
-    fdn::OnePoleFilter filter;
+    sfFDN::OnePoleFilter filter;
     filter.SetCoefficients(0.1, -0.9);
 
     constexpr size_t size = 8;
@@ -62,7 +62,7 @@ TEST_CASE("OnePoleFilter")
 
 TEST_CASE("SchroederAllpass")
 {
-    fdn::SchroederAllpass filter(5, 0.9);
+    sfFDN::SchroederAllpass filter(5, 0.9);
 
     constexpr size_t size = 18;
     std::array<float, size> input = {0.f};
@@ -76,7 +76,7 @@ TEST_CASE("SchroederAllpass")
         CHECK(out == doctest::Approx(expected_output[i]).epsilon(0.0001));
     }
 
-    fdn::SchroederAllpass filter_block(5, 0.9);
+    sfFDN::SchroederAllpass filter_block(5, 0.9);
     std::array<float, size> output;
     filter_block.ProcessBlock(input, output);
 
@@ -91,7 +91,7 @@ TEST_CASE("SchroederAllpassSection")
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 8;
 
-    fdn::SchroederAllpassSection filter(N);
+    sfFDN::SchroederAllpassSection filter(N);
     std::array<size_t, N> delays = {2, 3, 4, 5};
     std::array<float, N> gains = {0.9, 0.8, 0.7, 0.6};
     filter.SetDelays(delays);
@@ -106,8 +106,8 @@ TEST_CASE("SchroederAllpassSection")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-    fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     filter.Process(input_buffer, output_buffer);
 
@@ -138,12 +138,12 @@ TEST_CASE("FilterBank")
 {
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 8;
-    fdn::FilterBank filter_bank;
+    sfFDN::FilterBank filter_bank;
 
     float pole = 0.9;
     for (size_t i = 0; i < N; i++)
     {
-        auto filter = std::make_unique<fdn::OnePoleFilter>();
+        auto filter = std::make_unique<sfFDN::OnePoleFilter>();
         filter->SetCoefficients(1 - pole, -pole);
         filter_bank.AddFilter(std::move(filter));
         pole -= 0.1;
@@ -158,8 +158,8 @@ TEST_CASE("FilterBank")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    fdn::AudioBuffer input_buffer(kBlockSize, N, input);
-    fdn::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     filter_bank.Process(input_buffer, output_buffer);
 
@@ -176,7 +176,7 @@ TEST_CASE("FilterBank")
 
 TEST_CASE("CascadedBiquads")
 {
-    fdn::CascadedBiquads filter;
+    sfFDN::CascadedBiquads filter;
 
     std::vector<float> coeffs;
     for (size_t i = 0; i < kTestSOS.size(); i++)

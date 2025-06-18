@@ -17,10 +17,10 @@
 
 namespace
 {
-std::unique_ptr<fdn::CascadedBiquads> CreateTestFilter()
+std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 {
     // Create a simple filter for testing purposes
-    auto filter = std::make_unique<fdn::CascadedBiquads>();
+    auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
     for (size_t j = 0; j < sos.size(); j++)
@@ -45,10 +45,10 @@ TEST_CASE("UPOLS")
     constexpr size_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = fdn::GetImpulseResponse(ref_filter.get());
+    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
-    fdn::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols(kBlockSize, fir);
 
     upols.PrintPartition();
 
@@ -84,7 +84,7 @@ TEST_CASE("UPOLS_Noise")
 
     auto ref_filter = CreateTestFilter();
 
-    auto fir = fdn::GetImpulseResponse(ref_filter.get());
+    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
     std::cout << "Impulse response size: " << fir.size() << std::endl;
 
     std::vector<float> input_chirp = ReadWavFile("./tests/chirp.wav");
@@ -92,14 +92,14 @@ TEST_CASE("UPOLS_Noise")
 
     std::vector<float> filter_output(kInputSize, 0.f);
     // Filter the input noise with the IIR filter
-    fdn::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
-    fdn::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
+    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
+    sfFDN::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
 
     std::copy(input_chirp.begin(), input_chirp.end(), filter_output.begin());
     InnerProdFIR inner_prod_fir(fir);
     inner_prod_fir.Process(ref_output_buffer);
 
-    fdn::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols(kBlockSize, fir);
 
     upols.PrintPartition();
 

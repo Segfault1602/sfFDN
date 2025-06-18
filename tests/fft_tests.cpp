@@ -15,7 +15,7 @@ TEST_CASE("FFT")
         auto subcase_name = std::format("FFT size: {}", fft_size);
         SUBCASE(subcase_name.c_str())
         {
-            fdn::FFT fft(fft_size);
+            sfFDN::FFT fft(fft_size);
 
             auto input_buffer = fft.AllocateRealBuffer();
             auto output_buffer = fft.AllocateComplexBuffer();
@@ -35,9 +35,10 @@ TEST_CASE("FFT")
             fft.Forward(input_buffer, output_buffer);
             fft.Inverse(output_buffer, input_buffer);
 
+            const float scale = 1.0f / static_cast<float>(fft_size);
             for (size_t i = 0; i < input_buffer.size(); ++i)
             {
-                CHECK(input_buffer[i] == doctest::Approx(expected_buffer[i]));
+                CHECK(input_buffer[i] * scale == doctest::Approx(expected_buffer[i]));
             }
         }
     }

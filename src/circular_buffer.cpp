@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-namespace fdn
+namespace sfFDN
 {
 CircularBuffer::CircularBuffer(size_t size)
     : buffer_(size, 0.f)
@@ -118,4 +118,4 @@ void CircularBuffer::Print() const
     }
     std::cout << std::endl;
 }
-} // namespace fdn
+} // namespace sfFDN

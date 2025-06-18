@@ -4,7 +4,7 @@
 
 #include "array_math.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 ParallelGains::ParallelGains(ParallelGainsMode mode)
@@ -83,4 +83,4 @@ void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuf
     }
 }
 
-} // namespace fdn
+} // namespace sfFDN

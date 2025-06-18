@@ -28,7 +28,7 @@ std::vector<float> ComputeRMS(const std::vector<float>& samples, size_t win_size
 }
 } // namespace
 
-namespace fdn
+namespace sfFDN
 {
 std::vector<float> GetImpulseResponse(Filter* filter, size_t block_size)
 {
@@ -66,4 +66,4 @@ std::vector<float> GetImpulseResponse(Filter* filter, size_t block_size)
 
     return impulse;
 }
-} // namespace fdn
+} // namespace sfFDN

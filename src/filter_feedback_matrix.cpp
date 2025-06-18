@@ -4,7 +4,7 @@
 #include <iostream>
 #include <mdspan>
 
-namespace fdn
+namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(size_t N)
     : FeedbackMatrix(N)
@@ -83,4 +83,4 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     last_mat_.Process(output, output);
 }
 
-} // namespace fdn
+} // namespace sfFDN

@@ -5,7 +5,7 @@
 
 #include "array_math.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 NupolsSegment::NupolsSegment(size_t parent_block_size, size_t block_size, size_t delay, std::span<const float> fir)
@@ -174,4 +174,4 @@ void NUPOLS::DumpInfo() const
     }
     std::cout << std::endl;
 }
-} // namespace fdn
+} // namespace sfFDN

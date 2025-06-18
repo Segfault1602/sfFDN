@@ -7,7 +7,7 @@
 #include "delay_matrix.h"
 #include "feedback_matrix.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class FilterFeedbackMatrix : public FeedbackMatrix
@@ -37,4 +37,4 @@ class FilterFeedbackMatrix : public FeedbackMatrix
     std::vector<DelayMatrix> stages_;
     ScalarFeedbackMatrix last_mat_;
 };
-} // namespace fdn
+} // namespace sfFDN

@@ -8,7 +8,7 @@
 #include "audio_buffer.h"
 #include "audio_processor.h"
 
-namespace fdn
+namespace sfFDN
 {
 class DelayBank : public AudioProcessor
 {
@@ -29,6 +29,6 @@ class DelayBank : public AudioProcessor
     void GetNextOutputs(AudioBuffer& output);
 
   private:
-    std::vector<fdn::Delay> delays_;
+    std::vector<sfFDN::Delay> delays_;
 };
-} // namespace fdn
+} // namespace sfFDN

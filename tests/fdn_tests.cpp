@@ -40,22 +40,22 @@ TEST_CASE("FDN")
         0.233208581805229,  0.508312821388245,  0.409773439168930,  -0.265208065509796,  0.494672924280167,
         0.451974451541901};
 
-    fdn::FDN fdn(N, block_size);
+    sfFDN::FDN fdn(N, block_size);
     fdn.SetInputGains(input_gains);
     fdn.SetOutputGains(output_gains);
     fdn.SetDirectGain(0.f);
     fdn.SetDelays(delays);
 
-    auto mix_mat = std::make_unique<fdn::ScalarFeedbackMatrix>(N);
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(N);
     mix_mat->SetMatrix(mixing_matrix);
 
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
-    auto filter_bank = std::make_unique<fdn::FilterBank>();
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS[i];
-        auto filter = std::make_unique<fdn::CascadedBiquads>();
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
         for (size_t j = 0; j < sos.size(); j++)
@@ -86,7 +86,7 @@ TEST_CASE("FDN")
         coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
     }
 
-    std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
+    std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(k_h001_EqualizationSOS.size(), coeffs);
     fdn.SetTCFilter(std::move(filter));
 
@@ -97,8 +97,8 @@ TEST_CASE("FDN")
 
     for (size_t i = 0; i < input.size(); i += block_size)
     {
-        fdn::AudioBuffer input_buffer(block_size, 1, input.data() + i);
-        fdn::AudioBuffer output_buffer(block_size, 1, output.data() + i);
+        sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
+        sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
 
         fdn.Process(input_buffer, output_buffer);
     }
@@ -157,22 +157,22 @@ TEST_CASE("FDN_Transposed")
         0.233208581805229,  0.508312821388245,  0.409773439168930,  -0.265208065509796,  0.494672924280167,
         0.451974451541901};
 
-    fdn::FDN fdn(N, block_size, true);
+    sfFDN::FDN fdn(N, block_size, true);
     fdn.SetInputGains(input_gains);
     fdn.SetOutputGains(output_gains);
     fdn.SetDirectGain(0.f);
     fdn.SetDelays(delays);
 
-    auto mix_mat = std::make_unique<fdn::ScalarFeedbackMatrix>(N);
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(N);
     mix_mat->SetMatrix(mixing_matrix);
 
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
-    auto filter_bank = std::make_unique<fdn::FilterBank>();
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS[i];
-        auto filter = std::make_unique<fdn::CascadedBiquads>();
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
         for (size_t j = 0; j < sos.size(); j++)
@@ -203,7 +203,7 @@ TEST_CASE("FDN_Transposed")
         coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
     }
 
-    std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
+    std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(k_h001_EqualizationSOS.size(), coeffs);
     fdn.SetTCFilter(std::move(filter));
 
@@ -214,8 +214,8 @@ TEST_CASE("FDN_Transposed")
 
     for (size_t i = 0; i < input.size(); i += block_size)
     {
-        fdn::AudioBuffer input_buffer(block_size, 1, input.data() + i);
-        fdn::AudioBuffer output_buffer(block_size, 1, output.data() + i);
+        sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
+        sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
 
         fdn.Process(input_buffer, output_buffer);
     }
@@ -265,22 +265,22 @@ TEST_CASE("FDN_FIR")
         0.233208581805229,  0.508312821388245,  0.409773439168930,  -0.265208065509796,  0.494672924280167,
         0.451974451541901};
 
-    fdn::FDN fdn(N, block_size);
+    sfFDN::FDN fdn(N, block_size);
     fdn.SetInputGains(input_gains);
     fdn.SetOutputGains(output_gains);
     fdn.SetDirectGain(0.f);
     fdn.SetDelays(delays);
 
-    auto mix_mat = std::make_unique<fdn::ScalarFeedbackMatrix>(N);
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(N);
     mix_mat->SetMatrix(mixing_matrix);
 
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
-    auto filter_bank = std::make_unique<fdn::FilterBank>();
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/att_fir_" + std::to_string(delays[i]) + ".wav");
-        auto nupols = std::make_unique<fdn::NUPOLS>(block_size, fir, fdn::PartitionStrategy::kGardner);
+        auto nupols = std::make_unique<sfFDN::NUPOLS>(block_size, fir, sfFDN::PartitionStrategy::kGardner);
 
         filter_bank->AddFilter(std::move(nupols));
     }
@@ -289,7 +289,7 @@ TEST_CASE("FDN_FIR")
 
     {
         auto eq_fir = ReadWavFile("./tests/equalization_fir.wav");
-        auto tc_filter = std::make_unique<fdn::NUPOLS>(block_size, eq_fir, fdn::PartitionStrategy::kGardner);
+        auto tc_filter = std::make_unique<sfFDN::NUPOLS>(block_size, eq_fir, sfFDN::PartitionStrategy::kGardner);
         fdn.SetTCFilter(std::move(tc_filter));
     }
 
@@ -300,8 +300,8 @@ TEST_CASE("FDN_FIR")
 
     for (size_t i = 0; i < input.size(); i += block_size)
     {
-        fdn::AudioBuffer input_buffer(block_size, 1, input.data() + i);
-        fdn::AudioBuffer output_buffer(block_size, 1, output.data() + i);
+        sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
+        sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
 
         fdn.Process(input_buffer, output_buffer);
     }

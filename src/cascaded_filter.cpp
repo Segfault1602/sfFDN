@@ -4,7 +4,7 @@
 #include <iostream>
 #include <span>
 
-namespace fdn
+namespace sfFDN
 {
 
 class CascadedBiquads::Impl
@@ -152,4 +152,4 @@ void CascadedBiquads::dump_coeffs()
     impl_->dump_coeffs();
 }
 
-} // namespace fdn
+} // namespace sfFDN

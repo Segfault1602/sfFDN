@@ -12,7 +12,7 @@ TEST_CASE("ParallelGainsInput")
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 10;
     constexpr std::array<float, N> gains = {0.25f, 0.5f, 0.75f, 1.f};
-    fdn::ParallelGains parallel_gains(fdn::ParallelGainsMode::Multiplexed);
+    sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::Multiplexed);
     parallel_gains.SetGains(gains);
 
     std::vector<float> input(kBlockSize, 0.f);
@@ -20,8 +20,8 @@ TEST_CASE("ParallelGainsInput")
 
     std::iota(input.begin(), input.end(), 0.f);
 
-    fdn::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-    fdn::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
 
     parallel_gains.Process(input_buffer, output_buffer);
 
@@ -41,7 +41,7 @@ TEST_CASE("ParallelGainsOutput")
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 10;
     constexpr std::array<float, N> gains = {0.5f, 0.5f, 0.5f, 0.5f};
-    fdn::ParallelGains parallel_gains(fdn::ParallelGainsMode::DeMultiplexed);
+    sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
     parallel_gains.SetGains(gains);
 
     std::vector<float> input(N * kBlockSize, 0.f);
@@ -55,8 +55,8 @@ TEST_CASE("ParallelGainsOutput")
         }
     }
 
-    fdn::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    fdn::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
 
     parallel_gains.Process(input_buffer, output_buffer);
 

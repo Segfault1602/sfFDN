@@ -4,7 +4,7 @@
 #include <mdspan>
 #include <span>
 
-namespace fdn
+namespace sfFDN
 {
 
 void HadamardMultiply(const std::span<const float> input, std::span<float> output);
@@ -19,4 +19,4 @@ void MatrixMultiply_16(const std::span<const float, 16> input, std::span<float, 
 
 void MatrixMultiply(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N);
 
-} // namespace fdn
+} // namespace sfFDN

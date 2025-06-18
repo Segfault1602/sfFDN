@@ -2,7 +2,7 @@
 
 #include <span>
 
-namespace fdn
+namespace sfFDN
 {
 namespace ArrayMath
 {
@@ -27,4 +27,4 @@ void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> o
 
 } // namespace ArrayMath
 
-} // namespace fdn
+} // namespace sfFDN

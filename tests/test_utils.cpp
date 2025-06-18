@@ -8,16 +8,16 @@
 #include "filter_coeffs.h"
 #include "parallel_gains.h"
 
-std::unique_ptr<fdn::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t sparsity)
+std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t sparsity)
 {
     assert(N <= 32);
 
     std::vector<float> sparsity_vect(K, 1);
     sparsity_vect[0] = sparsity;
 
-    auto ffm = std::make_unique<fdn::FilterFeedbackMatrix>(N);
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
 
-    std::vector<fdn::ScalarFeedbackMatrix> mixing_matrices(K);
+    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(K);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
@@ -29,7 +29,7 @@ std::unique_ptr<fdn::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t 
             u_n[j] = dis(gen);
         }
 
-        mixing_matrices[i] = fdn::ScalarFeedbackMatrix::Householder(u_n);
+        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix::Householder(u_n);
     }
 
     std::uniform_real_distribution<float> dis2(0.f, 1.f);
@@ -52,15 +52,15 @@ std::unique_ptr<fdn::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t 
     return ffm;
 }
 
-std::unique_ptr<fdn::FilterBank> GetFilterBank(size_t N, size_t order)
+std::unique_ptr<sfFDN::FilterBank> GetFilterBank(size_t N, size_t order)
 {
-    std::unique_ptr<fdn::FilterBank> filter_bank = std::make_unique<fdn::FilterBank>();
+    std::unique_ptr<sfFDN::FilterBank> filter_bank = std::make_unique<sfFDN::FilterBank>();
 
     for (size_t i = 0; i < N; i++)
     {
         // Just use the first filter for now
         auto sos = k_h001_AbsorbtionSOS[0];
-        auto filter = std::make_unique<fdn::CascadedBiquads>();
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
         for (size_t j = 0; j < order; j++)
@@ -81,7 +81,7 @@ std::unique_ptr<fdn::FilterBank> GetFilterBank(size_t N, size_t order)
     return filter_bank;
 }
 
-std::unique_ptr<fdn::AudioProcessor> GetDefaultTCFilter()
+std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
 {
     std::vector<float> coeffs;
     size_t filter_order = k_h001_EqualizationSOS.size();
@@ -94,21 +94,21 @@ std::unique_ptr<fdn::AudioProcessor> GetDefaultTCFilter()
         coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
     }
 
-    std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
+    std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(filter_order, coeffs);
     return filter;
 }
 
-std::unique_ptr<fdn::ParallelGains> GetDefaultInputGains(size_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(size_t N)
 {
     std::vector<float> input_gains(N, 1.f);
-    return std::make_unique<fdn::ParallelGains>(fdn::ParallelGainsMode::Multiplexed, input_gains);
+    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, input_gains);
 }
 
-std::unique_ptr<fdn::ParallelGains> GetDefaultOutputGains(size_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(size_t N)
 {
     std::vector<float> output_gains(N, 1.f);
-    return std::make_unique<fdn::ParallelGains>(fdn::ParallelGainsMode::DeMultiplexed, output_gains);
+    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed, output_gains);
 }
 
 std::vector<size_t> GetDefaultDelays(size_t N)
@@ -132,17 +132,17 @@ std::vector<size_t> GetDefaultDelays(size_t N)
     return delays;
 }
 
-std::unique_ptr<fdn::FDN> CreateFDN(size_t SR, size_t block_size, size_t N)
+std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, size_t block_size, size_t N)
 {
     assert(N <= 32);
 
-    auto fdn = std::make_unique<fdn::FDN>(N, block_size, false);
+    auto fdn = std::make_unique<sfFDN::FDN>(N, block_size, false);
     fdn->SetInputGains(GetDefaultInputGains(N));
     fdn->SetOutputGains(GetDefaultOutputGains(N));
     fdn->SetDirectGain(0.f);
     fdn->SetDelays(GetDefaultDelays(N));
 
-    auto mix_mat = std::make_unique<fdn::ScalarFeedbackMatrix>(fdn::ScalarFeedbackMatrix::Householder(N));
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = GetFilterBank(N, 11);
@@ -159,7 +159,7 @@ std::unique_ptr<fdn::FDN> CreateFDN(size_t SR, size_t block_size, size_t N)
         coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
     }
 
-    std::unique_ptr<fdn::CascadedBiquads> filter = std::make_unique<fdn::CascadedBiquads>();
+    std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(filter_order, coeffs);
     fdn->SetTCFilter(std::move(filter));
 

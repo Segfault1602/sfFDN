@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace fdn
+namespace sfFDN
 {
 
 DelayTimeVarying::DelayTimeVarying(float delay, unsigned long maxDelay, size_t samplerate)
@@ -73,4 +73,4 @@ float DelayTimeVarying::GetNextOutput()
     return 0.0f; // Placeholder return value
 }
 
-} // namespace fdn
+} // namespace sfFDN

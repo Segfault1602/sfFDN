@@ -5,7 +5,7 @@
 
 #include <array_math.h>
 
-using namespace fdn;
+using namespace sfFDN;
 
 TEST_SUITE_BEGIN("ArrayMath");
 

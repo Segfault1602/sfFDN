@@ -7,7 +7,7 @@
 #include "array_math.h"
 #include "math_utils.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 UPOLS::UPOLS(size_t block_size, std::span<const float> fir)
@@ -173,4 +173,4 @@ void UPOLS::PrintPartition() const
     }
     std::cout << "]" << std::endl;
 }
-} // namespace fdn
+} // namespace sfFDN

@@ -4,7 +4,7 @@
 #include <span>
 #include <vector>
 
-namespace fdn
+namespace sfFDN
 {
 
 class CircularBuffer
@@ -45,4 +45,4 @@ class CircularBuffer
     std::vector<float> buffer_;
     size_t write_ptr_;
 };
-} // namespace fdn
+} // namespace sfFDN

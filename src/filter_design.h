@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace fdn
+namespace sfFDN
 {
 inline void get_filter_coefficients(float t60_dc, float t60_ny, float sr, float delay, float& b, float& a)
 {
@@ -13,4 +13,4 @@ inline void get_filter_coefficients(float t60_dc, float t60_ny, float sr, float 
     b = (1.f - pole) * gain;
     a = -pole;
 }
-} // namespace fdn
+} // namespace sfFDN

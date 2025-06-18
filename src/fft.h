@@ -9,7 +9,7 @@
 
 using complex_t = std::complex<float>;
 
-namespace fdn
+namespace sfFDN
 {
 class FFT
 {
@@ -35,4 +35,4 @@ class FFT
     size_t complex_sample_count_;
     float* work_buffer_;
 };
-} // namespace fdn
+} // namespace sfFDN

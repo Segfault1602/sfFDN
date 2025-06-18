@@ -2,7 +2,7 @@
 
 #include "audio_buffer.h"
 
-namespace fdn
+namespace sfFDN
 {
 
 class AudioProcessor
@@ -19,4 +19,4 @@ class AudioProcessor
     virtual size_t InputChannelCount() const = 0;
     virtual size_t OutputChannelCount() const = 0;
 };
-} // namespace fdn
+} // namespace sfFDN

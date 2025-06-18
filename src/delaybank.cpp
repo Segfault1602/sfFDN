@@ -3,7 +3,7 @@
 #include <cassert>
 #include <mdspan>
 
-namespace fdn
+namespace sfFDN
 {
 
 DelayBank::DelayBank(unsigned long delayCount, unsigned long maxDelay)
@@ -86,4 +86,4 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
     }
 }
 
-} // namespace fdn
+} // namespace sfFDN
