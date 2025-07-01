@@ -72,6 +72,17 @@ void FFT::ConvolveAccumulate(std::span<complex_t> dft_a, std::span<complex_t> df
                                1.0f / fft_size_);
 }
 
+void FFT::Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_spectrum, bool forward)
+{
+    assert(spectrum.size() == complex_sample_count_);
+    assert(reordered_spectrum.size() == complex_sample_count_);
+    assert(spectrum.data() != reordered_spectrum.data());
+
+    // Reorder the spectrum using the FFT's internal bit-reversal ordering
+    pffft_zreorder(setup_, reinterpret_cast<const float*>(spectrum.data()),
+                   reinterpret_cast<float*>(reordered_spectrum.data()), forward ? PFFFT_FORWARD : PFFFT_BACKWARD);
+}
+
 std::span<float> FFT::AllocateRealBuffer()
 {
     auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);

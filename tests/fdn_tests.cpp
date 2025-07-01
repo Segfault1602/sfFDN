@@ -28,7 +28,7 @@ TEST_CASE("FDN")
                                                   -0.38236806, -0.057921566, -0.39115807};
     constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
                                                    0.30143532,  -0.49200505, 0.58704174};
-    constexpr std::array<size_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr std::array<uint32_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
 
     constexpr std::array<float, N * N> mixing_matrix = {
         0.590748429298401,  0.457586556673050,  0.0557801127433777, -0.148047655820847,  -0.478258520364761,
@@ -138,14 +138,14 @@ TEST_CASE("FDN_Transposed")
 {
     constexpr size_t SR = 48000;
     constexpr float SIMULATION_TIME = 0.01;
-    constexpr size_t N = 6;
-    constexpr size_t block_size = 512;
+    constexpr uint32_t N = 6;
+    constexpr uint32_t block_size = 512;
     constexpr size_t ITER = ((SR / block_size) + 1) * block_size;
     constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
                                                   -0.38236806, -0.057921566, -0.39115807};
     constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
                                                    0.30143532,  -0.49200505, 0.58704174};
-    constexpr std::array<size_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr std::array<uint32_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
 
     constexpr std::array<float, N * N> mixing_matrix = {
         0.590748429298401,  0.457586556673050,  0.0557801127433777, -0.148047655820847,  -0.478258520364761,
@@ -246,14 +246,14 @@ TEST_CASE("FDN_FIR")
 {
     constexpr size_t SR = 48000;
     constexpr float SIMULATION_TIME = 0.01;
-    constexpr size_t block_size = 64;
+    constexpr uint32_t block_size = 64;
     constexpr size_t ITER = ((SR / block_size) + 1) * block_size;
-    constexpr size_t N = 6;
+    constexpr uint32_t N = 6;
     constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
                                                   -0.38236806, -0.057921566, -0.39115807};
     constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
                                                    0.30143532,  -0.49200505, 0.58704174};
-    constexpr std::array<size_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr std::array<uint32_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
 
     constexpr std::array<float, N * N> mixing_matrix = {
         0.590748429298401,  0.457586556673050,  0.0557801127433777, -0.148047655820847,  -0.478258520364761,

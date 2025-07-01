@@ -8,7 +8,7 @@
 #include "filter_coeffs.h"
 #include "parallel_gains.h"
 
-std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t sparsity)
+std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity)
 {
     assert(N <= 32);
 
@@ -21,10 +21,10 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
-    for (size_t i = 0; i < K; ++i)
+    for (uint32_t i = 0; i < K; ++i)
     {
         std::vector<float> u_n(N, 0.f);
-        for (size_t j = 0; j < N; ++j)
+        for (uint32_t j = 0; j < N; ++j)
         {
             u_n[j] = dis(gen);
         }
@@ -33,16 +33,16 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_
     }
 
     std::uniform_real_distribution<float> dis2(0.f, 1.f);
-    std::vector<size_t> ffm_delays;
+    std::vector<uint32_t> ffm_delays;
     float pulse_size = 1;
-    for (size_t k = 0; k < K - 1; ++k)
+    for (uint32_t k = 0; k < K - 1; ++k)
     {
-        for (size_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < N; ++i)
         {
             float random = dis2(gen);
             float shift = std::floor(sparsity_vect[k] * (i + random));
             shift *= pulse_size;
-            ffm_delays.push_back(static_cast<size_t>(shift));
+            ffm_delays.push_back(static_cast<uint32_t>(shift));
         }
         pulse_size = pulse_size * N * sparsity_vect[k];
     }
@@ -52,18 +52,18 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_
     return ffm;
 }
 
-std::unique_ptr<sfFDN::FilterBank> GetFilterBank(size_t N, size_t order)
+std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order)
 {
     std::unique_ptr<sfFDN::FilterBank> filter_bank = std::make_unique<sfFDN::FilterBank>();
 
-    for (size_t i = 0; i < N; i++)
+    for (uint32_t i = 0; i < N; i++)
     {
         // Just use the first filter for now
         auto sos = k_h001_AbsorbtionSOS[0];
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
-        for (size_t j = 0; j < order; j++)
+        for (uint32_t j = 0; j < order; j++)
         {
             auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
             auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
@@ -99,31 +99,31 @@ std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
     return filter;
 }
 
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(size_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t N)
 {
     std::vector<float> input_gains(N, 1.f);
     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, input_gains);
 }
 
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(size_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t N)
 {
     std::vector<float> output_gains(N, 1.f);
     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed, output_gains);
 }
 
-std::vector<size_t> GetDefaultDelays(size_t N)
+std::vector<uint32_t> GetDefaultDelays(uint32_t N)
 {
-    std::vector<size_t> delays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593, 3253, 3343, 3547,
-                                  3559, 4483, 4507, 4663, 5483, 5801, 6863, 6917, 6983, 7457, 7481,
-                                  7759, 8081, 8269, 8737, 8747, 8863, 8929, 9437, 9643, 9677};
+    std::vector<uint32_t> delays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593, 3253, 3343, 3547,
+                                    3559, 4483, 4507, 4663, 5483, 5801, 6863, 6917, 6983, 7457, 7481,
+                                    7759, 8081, 8269, 8737, 8747, 8863, 8929, 9437, 9643, 9677};
 
     if (N > delays.size())
     {
         // Add more delays if needed
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<size_t> dis(1000, 10000);
-        for (size_t i = delays.size(); i < N; ++i)
+        std::uniform_int_distribution<uint32_t> dis(1000, 10000);
+        for (uint32_t i = delays.size(); i < N; ++i)
         {
             delays.push_back(dis(gen));
         }
@@ -132,7 +132,7 @@ std::vector<size_t> GetDefaultDelays(size_t N)
     return delays;
 }
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, size_t block_size, size_t N)
+std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N)
 {
     assert(N <= 32);
 

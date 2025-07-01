@@ -32,11 +32,11 @@ class NUPOLS : public AudioProcessor
 
     void DumpInfo() const;
 
-    size_t InputChannelCount() const override
+    uint32_t InputChannelCount() const override
     {
         return 1; // NUPOLS processes one channel at a time
     }
-    size_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const override
     {
         return 1; // NUPOLS processes one channel at a time
     }

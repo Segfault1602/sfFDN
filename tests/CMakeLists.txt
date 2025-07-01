@@ -13,7 +13,7 @@ set(TEST_SOURCE
     test_utils.cpp)
 
 add_executable(tests ${TEST_SOURCE})
-target_link_libraries(tests PRIVATE fdn doctest sndfile)
+target_link_libraries(tests PRIVATE sfFDN doctest sndfile)
 
 if(SF_FDN_USE_VDSP)
     target_link_libraries(tests PRIVATE "-framework Accelerate")
@@ -40,7 +40,7 @@ set(PERF_SOURCE
     nupols_perf.cpp
     test_utils.cpp)
 add_executable(perf ${PERF_SOURCE})
-target_link_libraries(perf PRIVATE fdn nanobench sndfile)
+target_link_libraries(perf PRIVATE sfFDN nanobench sndfile)
 
 if(SF_FDN_USE_VDSP)
     target_link_libraries(perf PRIVATE "-framework Accelerate")

@@ -164,8 +164,8 @@ TEST_CASE("FDNPerf_FIR")
 TEST_CASE("FDNPerf_FFM")
 {
     constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
-    constexpr size_t N = 16;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t N = 16;
 
     std::vector<float> input(kBlockSize, 0.f);
     std::vector<float> output(kBlockSize, 0.f);
@@ -177,8 +177,8 @@ TEST_CASE("FDNPerf_FFM")
         input[i] = dist(generator);
     }
 
-    constexpr size_t K = 4;
-    std::array<size_t, N*(K - 1)> ffm_delays = {
+    constexpr uint32_t K = 4;
+    std::array<uint32_t, N*(K - 1)> ffm_delays = {
         2, 3, 8, 10, 14, 16, 0, 18, 36, 54, 72, 90, 0, 108, 216, 324, 432, 540,
     };
 
@@ -188,10 +188,10 @@ TEST_CASE("FDNPerf_FFM")
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
-    for (size_t i = 0; i < K; ++i)
+    for (uint32_t i = 0; i < K; ++i)
     {
         float u_n[N] = {0.f};
-        for (size_t j = 0; j < N; ++j)
+        for (uint32_t j = 0; j < N; ++j)
         {
             u_n[j] = dis(gen);
         }
@@ -216,9 +216,9 @@ TEST_CASE("FDNPerf_FFM")
 TEST_CASE("FDNPerf_Order")
 {
     constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
+    constexpr uint32_t kBlockSize = 128;
 
-    constexpr size_t order[] = {4, 8, 16, 32, 64};
+    constexpr uint32_t order[] = {4, 8, 16, 32, 64};
 
     nanobench::Bench bench;
     bench.title("FDN Perf - Order");
@@ -226,9 +226,9 @@ TEST_CASE("FDNPerf_Order")
     bench.minEpochIterations(10000);
     // bench.batch(kBlockSize);
 
-    for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i)
+    for (uint32_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i)
     {
-        size_t N = order[i];
+        uint32_t N = order[i];
         auto fdn = CreateFDN(SR, kBlockSize, N);
 
         std::vector<float> input(kBlockSize, 0.f);
@@ -254,9 +254,9 @@ TEST_CASE("FDNPerf_Order")
 TEST_CASE("FDNPerf_OrderFFM")
 {
     constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 512;
+    constexpr uint32_t kBlockSize = 512;
 
-    constexpr std::array<size_t, 5> num_stages = {2, 3, 4, 5, 6};
+    constexpr std::array<uint32_t, 5> num_stages = {2, 3, 4, 5, 6};
 
     nanobench::Bench bench;
     bench.title("FDN Perf - FFM");
@@ -265,7 +265,7 @@ TEST_CASE("FDNPerf_OrderFFM")
 
     for (size_t i = 0; i < num_stages.size(); ++i)
     {
-        constexpr size_t N = 8;
+        constexpr uint32_t N = 8;
         auto fdn = CreateFDN(SR, kBlockSize, N);
 
         auto ffm = CreateFFM(N, num_stages[i], 1);

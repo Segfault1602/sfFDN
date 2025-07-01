@@ -13,7 +13,7 @@ ParallelGains::ParallelGains(ParallelGainsMode mode)
 {
 }
 
-ParallelGains::ParallelGains(size_t N, ParallelGainsMode mode, float gain)
+ParallelGains::ParallelGains(uint32_t N, ParallelGainsMode mode, float gain)
     : gains_(N, gain)
     , mode_(mode)
 {
@@ -36,14 +36,35 @@ void ParallelGains::SetGains(std::span<const float> gains)
     gains_.assign(gains.begin(), gains.end());
 }
 
-size_t ParallelGains::InputChannelCount() const
+uint32_t ParallelGains::InputChannelCount() const
 {
-    return mode_ == ParallelGainsMode::Multiplexed ? 1 : gains_.size();
+    switch (mode_)
+    {
+    case ParallelGainsMode::Multiplexed:
+        return 1; // Single input channel for multiplexed mode
+    case ParallelGainsMode::DeMultiplexed:
+    case ParallelGainsMode::Parallel:
+        return gains_.size(); // One input channel per gain in de-multiplexed and parallel modes
+    default:
+        assert(false && "Unknown ParallelGainsMode");
+        return 0; // Should never reach here
+    }
 }
 
-size_t ParallelGains::OutputChannelCount() const
+uint32_t ParallelGains::OutputChannelCount() const
 {
-    return mode_ == ParallelGainsMode::Multiplexed ? gains_.size() : 1;
+    switch (mode_)
+    {
+    case ParallelGainsMode::Multiplexed:
+        return gains_.size(); // One output channel per gain in multiplexed mode
+    case ParallelGainsMode::DeMultiplexed:
+        return 1; // Single output channel for de-multiplexed mode
+    case ParallelGainsMode::Parallel:
+        return gains_.size(); // One output channel per gain in parallel mode
+    default:
+        assert(false && "Unknown ParallelGainsMode");
+        return 0; // Should never reach here
+    }
 }
 
 void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output)
@@ -52,10 +73,17 @@ void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output)
     {
         ProcessBlockMultiplexed(input, output);
     }
+    else if (mode_ == ParallelGainsMode::DeMultiplexed)
+    {
+        ProcessBlockDeMultiplexed(input, output);
+    }
+    else if (mode_ == ParallelGainsMode::Parallel)
+    {
+        ProcessBlockParallel(input, output);
+    }
     else
     {
-        assert(mode_ == ParallelGainsMode::DeMultiplexed);
-        ProcessBlockDeMultiplexed(input, output);
+        assert(false && "Unknown ParallelGainsMode");
     }
 }
 
@@ -80,6 +108,18 @@ void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuf
     for (size_t i = 0; i < gains_.size(); i++)
     {
         ArrayMath::ScaleAccumulate(input.GetChannelSpan(i), gains_[i], output.GetChannelSpan(0));
+    }
+}
+
+void ParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output)
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == gains_.size());
+    assert(output.ChannelCount() == gains_.size());
+
+    for (size_t i = 0; i < gains_.size(); i++)
+    {
+        ArrayMath::Scale(input.GetChannelSpan(i), gains_[i], output.GetChannelSpan(i));
     }
 }
 

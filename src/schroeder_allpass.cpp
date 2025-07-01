@@ -7,13 +7,13 @@
 
 namespace sfFDN
 {
-SchroederAllpass::SchroederAllpass(size_t delay, float g)
+SchroederAllpass::SchroederAllpass(uint32_t delay, float g)
     : delay_(delay, (delay < 32) ? 32 : delay + 1)
     , g_(g)
 {
 }
 
-void SchroederAllpass::SetDelay(size_t delay)
+void SchroederAllpass::SetDelay(uint32_t delay)
 {
     delay_.SetMaximumDelay(delay + 1);
     delay_.SetDelay(delay);
@@ -36,14 +36,14 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
 {
     assert(in.size() == out.size());
 
-    size_t unroll_size = in.size() & ~3;
+    uint32_t unroll_size = in.size() & ~3;
 
     if (delay_.GetDelay() < 4)
     {
         unroll_size = 0;
     }
 
-    for (size_t i = 0; i < unroll_size; i += 4)
+    for (uint32_t i = 0; i < unroll_size; i += 4)
     {
         float del_out[4];
         delay_.GetNextOutputs(del_out);
@@ -61,25 +61,25 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
         out[i + 3] = g_ * v_n3 + del_out[3];
     }
 
-    for (size_t i = unroll_size; i < in.size(); ++i)
+    for (uint32_t i = unroll_size; i < in.size(); ++i)
     {
         out[i] = Tick(in[i]);
     }
 }
 
-SchroederAllpassSection::SchroederAllpassSection(size_t N)
+SchroederAllpassSection::SchroederAllpassSection(uint32_t N)
     : stage_(N)
 {
     allpasses_.reserve(N);
-    for (size_t i = 0; i < N; i++)
+    for (uint32_t i = 0; i < N; i++)
     {
         allpasses_.emplace_back(1, 0.0f);
     }
 }
 
-void SchroederAllpassSection::SetDelays(std::span<size_t> delays)
+void SchroederAllpassSection::SetDelays(std::span<uint32_t> delays)
 {
-    for (size_t i = 0; i < delays.size(); i++)
+    for (uint32_t i = 0; i < delays.size(); i++)
     {
         allpasses_[i].SetDelay(delays[i]);
     }
@@ -88,18 +88,18 @@ void SchroederAllpassSection::SetDelays(std::span<size_t> delays)
 void SchroederAllpassSection::SetGains(std::span<float> gains)
 {
     assert(gains.size() == allpasses_.size());
-    for (size_t i = 0; i < gains.size(); i++)
+    for (uint32_t i = 0; i < gains.size(); i++)
     {
         allpasses_[i].SetG(gains[i]);
     }
 }
 
-size_t SchroederAllpassSection::InputChannelCount() const
+uint32_t SchroederAllpassSection::InputChannelCount() const
 {
     return allpasses_.size();
 }
 
-size_t SchroederAllpassSection::OutputChannelCount() const
+uint32_t SchroederAllpassSection::OutputChannelCount() const
 {
     return allpasses_.size();
 }
@@ -110,7 +110,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == stage_);
 
-    for (size_t i = 0; i < allpasses_.size(); ++i)
+    for (uint32_t i = 0; i < allpasses_.size(); ++i)
     {
         auto input_span = input.GetChannelSpan(i);
         auto output_span = output.GetChannelSpan(i);

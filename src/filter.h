@@ -14,7 +14,7 @@ namespace sfFDN
 {
 class Filter
 {
-    static constexpr size_t COEFFICIENT_COUNT = 3;
+    static constexpr uint32_t COEFFICIENT_COUNT = 3;
 
   public:
     Filter() = default;
@@ -91,9 +91,9 @@ class OnePoleFilter : public Filter, public AudioProcessor
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
-    size_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const override;
 
-    size_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const override;
 };
 
 class CascadedBiquads : public Filter, public AudioProcessor
@@ -104,7 +104,7 @@ class CascadedBiquads : public Filter, public AudioProcessor
 
     void Clear() override;
 
-    void SetCoefficients(size_t num_stage, std::span<const float> coeffs);
+    void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs);
 
     /// @brief Input a sample in the filter and return the next output
     /// @param in The input sample
@@ -115,9 +115,9 @@ class CascadedBiquads : public Filter, public AudioProcessor
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
-    size_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const override;
 
-    size_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const override;
 
     void dump_coeffs();
 

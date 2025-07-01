@@ -44,12 +44,12 @@ void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
-size_t FilterBank::InputChannelCount() const
+uint32_t FilterBank::InputChannelCount() const
 {
     return filters_.size();
 }
 
-size_t FilterBank::OutputChannelCount() const
+uint32_t FilterBank::OutputChannelCount() const
 {
     return filters_.size();
 }

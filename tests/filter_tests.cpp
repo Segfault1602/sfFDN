@@ -6,6 +6,7 @@
 
 #include "audio_buffer.h"
 #include "filter.h"
+#include "filter_design.h"
 #include "filterbank.h"
 #include "schroeder_allpass.h"
 
@@ -60,6 +61,21 @@ TEST_CASE("OnePoleFilter")
     }
 }
 
+TEST_CASE("TwoFilter")
+{
+    constexpr size_t kNBands = 10;
+    constexpr float kSR = 48000.f;
+    std::array<float, kNBands> t60s = {0.228581607341766f, 0.228581607341766f, 0.256176093220711f, 0.284963846206665f,
+                                       0.268932670354843f, 0.321109890937805f, 0.329257786273956f, 0.340315490961075f,
+                                       0.258857980370522f, 0.125823333859444f};
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    sfFDN::GetTwoFilter(t60s, 593, kSR);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+    std::cout << "GetTwoFilter took " << duration << " us" << std::endl;
+}
+
 TEST_CASE("SchroederAllpass")
 {
     sfFDN::SchroederAllpass filter(5, 0.9);
@@ -88,18 +104,18 @@ TEST_CASE("SchroederAllpass")
 
 TEST_CASE("SchroederAllpassSection")
 {
-    constexpr size_t N = 4;
-    constexpr size_t kBlockSize = 8;
+    constexpr uint32_t N = 4;
+    constexpr uint32_t kBlockSize = 8;
 
     sfFDN::SchroederAllpassSection filter(N);
-    std::array<size_t, N> delays = {2, 3, 4, 5};
+    std::array<uint32_t, N> delays = {2, 3, 4, 5};
     std::array<float, N> gains = {0.9, 0.8, 0.7, 0.6};
     filter.SetDelays(delays);
     filter.SetGains(gains);
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (size_t i = 0; i < N; ++i)
+    for (uint32_t i = 0; i < N; ++i)
     {
         input[i * kBlockSize] = 1.f;
     }

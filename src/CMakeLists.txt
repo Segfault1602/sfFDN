@@ -6,15 +6,18 @@ set(FDN_SOURCE
     delaya.cpp
     delaybank.cpp
     delay_matrix.cpp
+    delay_utils.cpp
     delay_time_varying.cpp
     feedback_matrix.cpp
     fdn.cpp
     fft.cpp
     filter.cpp
     filterbank.cpp
+    filter_design.cpp
     filter_feedback_matrix.cpp
     filter_utils.cpp
     math_utils.cpp
+    matrix_gallery.cpp
     matrix_multiplication.cpp
     nupols.cpp
     parallel_gains.cpp
@@ -30,17 +33,17 @@ else()
     set(FDN_SOURCE ${FDN_SOURCE} array_math.cpp )
 endif()
 
-add_library(fdn ${FDN_SOURCE})
-target_include_directories(fdn PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
-target_link_libraries(fdn PUBLIC Eigen3::Eigen PFFFT)
+add_library(sfFDN ${FDN_SOURCE})
+target_include_directories(sfFDN PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
+target_link_libraries(sfFDN PUBLIC Eigen3::Eigen PFFFT kissfft)
 
 if(SF_FDN_USE_VDSP)
-    target_link_libraries(fdn PUBLIC "-framework Accelerate")
+    target_link_libraries(sfFDN PUBLIC "-framework Accelerate")
 endif()
 
-target_compile_options(fdn PRIVATE ${COMMON_CXX_FLAGS})
+target_compile_options(sfFDN PRIVATE ${COMMON_CXX_FLAGS})
 
 if (NOT WIN32)
-    target_compile_options(fdn PRIVATE $<$<CONFIG:Debug>:-fsanitize=address> -fno-omit-frame-pointer)
-    target_link_options(fdn PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
+    target_compile_options(sfFDN PRIVATE $<$<CONFIG:Debug>:-fsanitize=address> -fno-omit-frame-pointer)
+    target_link_options(sfFDN PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
 endif()

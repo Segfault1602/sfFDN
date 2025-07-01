@@ -6,14 +6,14 @@
 namespace sfFDN
 {
 
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(size_t N)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N)
     : FeedbackMatrix(N)
     , matrix_(N, N)
 {
     matrix_.setIdentity();
 }
 
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(uint32_t N)
 {
     ScalarFeedbackMatrix mat(N);
 
@@ -30,7 +30,7 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(size_t N)
 ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(std::span<const float> v)
 {
     assert(v.size() > 0);
-    size_t N = v.size();
+    uint32_t N = v.size();
     ScalarFeedbackMatrix mat(N);
 
     Eigen::MatrixXf I = Eigen::MatrixXf::Identity(N, N);
@@ -46,7 +46,7 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(std::span<const float> v)
     return mat;
 }
 
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(uint32_t N)
 {
     // only works for N = 2^k
     assert((N & (N - 1)) == 0 && N > 0);
@@ -57,7 +57,7 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(size_t N)
 
     while (H.rows() < N)
     {
-        size_t n = H.rows();
+        auto n = H.rows();
         Eigen::MatrixXf temp(2 * n, 2 * n);
         temp.topLeftCorner(n, n) = H;
         temp.topRightCorner(n, n) = H;
@@ -73,7 +73,7 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(size_t N)
     return mat;
 }
 
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Eye(size_t N)
+ScalarFeedbackMatrix ScalarFeedbackMatrix::Eye(uint32_t N)
 {
     ScalarFeedbackMatrix mat(N);
     mat.matrix_ = Eigen::MatrixXf::Identity(N, N);
@@ -94,8 +94,8 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == N_);
 
-    const size_t col = N_;
-    const size_t row = input.SampleCount();
+    const uint32_t col = N_;
+    const uint32_t row = input.SampleCount();
 
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> input_map(input.Data(), row,
                                                                                                       col);

@@ -17,7 +17,7 @@ namespace sfFDN
 class FDN : public AudioProcessor
 {
   public:
-    FDN(size_t N, size_t block_size = 1, bool transpose = false);
+    FDN(uint32_t N, uint32_t block_size = 1, bool transpose = false);
     ~FDN() = default;
 
     void SetInputGains(std::unique_ptr<AudioProcessor> gains);
@@ -29,7 +29,7 @@ class FDN : public AudioProcessor
     void SetDirectGain(float gain);
 
     void SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
-    void SetDelays(const std::span<const size_t> delays);
+    void SetDelays(const std::span<const uint32_t> delays);
 
     void SetFeedbackMatrix(std::unique_ptr<FeedbackMatrix> mixing_matrix);
 
@@ -37,12 +37,12 @@ class FDN : public AudioProcessor
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
-    size_t InputChannelCount() const override
+    uint32_t InputChannelCount() const override
     {
         return 1;
     }
 
-    size_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const override
     {
         return 1;
     }
@@ -58,8 +58,8 @@ class FDN : public AudioProcessor
     std::unique_ptr<AudioProcessor> input_gains_;
     std::unique_ptr<AudioProcessor> output_gains_;
 
-    const size_t N_;
-    const size_t block_size_;
+    const uint32_t N_;
+    const uint32_t block_size_;
     float direct_gain_;
     std::vector<float> feedback_;
     std::vector<float> temp_buffer_;

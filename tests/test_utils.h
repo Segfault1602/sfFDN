@@ -8,16 +8,16 @@
 #include <fdn.h>
 #include <filter_feedback_matrix.h>
 
-std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(size_t N, size_t K, size_t sparsity);
+std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity);
 
-std::unique_ptr<sfFDN::FilterBank> GetFilterBank(size_t N, size_t order);
+std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order);
 
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(size_t N);
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(size_t N);
-std::vector<size_t> GetDefaultDelays(size_t N);
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t N);
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t N);
+std::vector<uint32_t> GetDefaultDelays(uint32_t N);
 std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter();
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, size_t block_size, size_t N);
+std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N);
 
 std::vector<float> ReadWavFile(const std::string& filename);
 std::vector<float> WriteWavFile(const std::string& filename, const std::vector<float>& data);

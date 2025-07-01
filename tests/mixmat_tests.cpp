@@ -9,9 +9,43 @@
 #include "delay_matrix.h"
 #include "feedback_matrix.h"
 #include "filter_feedback_matrix.h"
+#include "matrix_gallery.h"
 #include "matrix_multiplication.h"
 
 #include "test_utils.h"
+
+TEST_CASE("VelvetFFM")
+{
+    auto vffm = sfFDN::ConstructVelvetFeedbackMatrix(4, 4, 4, 0.99);
+
+    std::cout << "Velvet FFM: " << vffm.N << "x" << vffm.K << std::endl;
+    std::cout << "Delays: ";
+
+    for (size_t i = 0; i < vffm.delays.size(); ++i)
+    {
+        std::cout << vffm.delays[i] << " ";
+
+        if ((i + 1) % vffm.N == 0)
+        {
+            std::cout << std::endl;
+        }
+    }
+
+    std::cout << "Matrices: " << std::endl;
+    for (size_t i = 0; i < vffm.matrices.size(); ++i)
+    {
+        std::cout << vffm.matrices[i] << " ";
+        if ((i + 1) % (vffm.N) == 0)
+        {
+            std::cout << std::endl;
+        }
+
+        if ((i + 1) % (vffm.N * vffm.N) == 0)
+        {
+            std::cout << std::endl;
+        }
+    }
+}
 
 TEST_CASE("IdentityMatrix")
 {
@@ -251,8 +285,8 @@ TEST_CASE("MatrixAssignment")
 
 TEST_CASE("DelayMatrix")
 {
-    constexpr size_t N = 4;
-    constexpr size_t delays[] = {0, 1, 3, 5};
+    constexpr uint32_t N = 4;
+    constexpr uint32_t delays[] = {0, 1, 3, 5};
     sfFDN::DelayMatrix delay_matrix(4, delays);
 
     auto mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
@@ -260,12 +294,12 @@ TEST_CASE("DelayMatrix")
 
     std::array<float, N * 8> input = {0.f};
 
-    for (size_t i = 0; i < N; ++i)
+    for (uint32_t i = 0; i < N; ++i)
     {
         input[i] = 1.f;
     }
 
-    constexpr size_t kBlockSize = 8;
+    constexpr uint32_t kBlockSize = 8;
     std::array<float, N * kBlockSize> output = {0.f};
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
@@ -274,13 +308,13 @@ TEST_CASE("DelayMatrix")
     delay_matrix.Process(input_buffer, output_buffer);
 
     float energy_in = 0.f;
-    for (size_t i = 0; i < input.size(); ++i)
+    for (uint32_t i = 0; i < input.size(); ++i)
     {
         energy_in += input[i] * input[i];
     }
 
     float energy_out = 0.f;
-    for (size_t i = 0; i < output.size(); ++i)
+    for (uint32_t i = 0; i < output.size(); ++i)
     {
         energy_out += output[i] * output[i];
     }
@@ -290,14 +324,14 @@ TEST_CASE("DelayMatrix")
 
 TEST_CASE("FilterFeedbackMatrix")
 {
-    constexpr size_t N = 8;
-    constexpr size_t K = 4;
+    constexpr uint32_t N = 8;
+    constexpr uint32_t K = 4;
     auto ffm = CreateFFM(N, K, 1);
 
     constexpr size_t ITER = 1024;
     std::array<float, N * ITER> input = {0.f};
 
-    for (size_t i = 0; i < N; ++i)
+    for (uint32_t i = 0; i < N; ++i)
     {
         input[i] = 1.f;
     }

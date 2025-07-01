@@ -13,11 +13,11 @@ namespace sfFDN
 class DelayMatrix : public FeedbackMatrix
 {
   public:
-    DelayMatrix(size_t N, std::span<const size_t> delays);
+    DelayMatrix(uint32_t N, std::span<const uint32_t> delays);
 
     void Clear();
 
-    void SetDelays(std::span<size_t> delays);
+    void SetDelays(std::span<uint32_t> delays);
     void SetMatrix(ScalarFeedbackMatrix mixing_matrix);
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;

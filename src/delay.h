@@ -12,7 +12,7 @@ namespace sfFDN
 class Delay
 {
   public:
-    Delay(size_t delay = 0, size_t maxDelay = 4095);
+    Delay(uint32_t delay = 0, uint32_t maxDelay = 4095);
 
     ~Delay();
 
@@ -20,7 +20,7 @@ class Delay
 
     void SetMaximumDelay(unsigned long delay);
 
-    void SetDelay(size_t delay);
+    void SetDelay(uint32_t delay);
 
     unsigned long GetDelay(void) const
     {
@@ -42,9 +42,9 @@ class Delay
     void GetNextOutputs(std::span<float> output);
 
   protected:
-    size_t inPoint_;
-    size_t outPoint_;
-    size_t delay_;
+    uint32_t inPoint_;
+    uint32_t outPoint_;
+    uint32_t delay_;
     std::vector<float> buffer_;
     float lastFrame_;
 };

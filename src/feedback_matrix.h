@@ -13,37 +13,37 @@ namespace sfFDN
 class FeedbackMatrix : public AudioProcessor
 {
   public:
-    FeedbackMatrix(size_t N)
+    FeedbackMatrix(uint32_t N)
         : N_(N) {};
 
     virtual ~FeedbackMatrix() = default;
 
     // virtual void Process(const AudioBuffer& input, AudioBuffer& output) = 0;
 
-    size_t InputChannelCount() const override
+    uint32_t InputChannelCount() const override
     {
         return N_;
     }
 
-    size_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const override
     {
         return N_;
     }
 
   protected:
-    size_t N_;
+    uint32_t N_;
 };
 
 class ScalarFeedbackMatrix : public FeedbackMatrix
 {
   public:
-    ScalarFeedbackMatrix(size_t N = 4);
+    ScalarFeedbackMatrix(uint32_t N = 4);
     virtual ~ScalarFeedbackMatrix() = default;
 
-    static ScalarFeedbackMatrix Householder(size_t N);
+    static ScalarFeedbackMatrix Householder(uint32_t N);
     static ScalarFeedbackMatrix Householder(std::span<const float> v);
-    static ScalarFeedbackMatrix Hadamard(size_t N);
-    static ScalarFeedbackMatrix Eye(size_t N);
+    static ScalarFeedbackMatrix Hadamard(uint32_t N);
+    static ScalarFeedbackMatrix Eye(uint32_t N);
 
     void SetMatrix(const std::span<const float> matrix);
 
@@ -51,7 +51,7 @@ class ScalarFeedbackMatrix : public FeedbackMatrix
 
     void Print() const;
 
-    size_t GetSize() const
+    uint32_t GetSize() const
     {
         return N_;
     }

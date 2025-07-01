@@ -22,7 +22,7 @@
 namespace sfFDN
 {
 
-Delay::Delay(size_t delay, size_t maxDelay)
+Delay::Delay(uint32_t delay, uint32_t maxDelay)
 {
     // Writing before reading allows delays from 0 to length-1.
     // If we want to allow a delay of maxDelay, we need a
@@ -57,7 +57,7 @@ void Delay::SetMaximumDelay(unsigned long delay)
     buffer_.resize(delay + 1, 0.0);
 }
 
-void Delay::SetDelay(size_t delay)
+void Delay::SetDelay(uint32_t delay)
 {
     if (delay > buffer_.size() - 1)
     { // The value is too big.
@@ -104,7 +104,8 @@ void Delay::AddNextInputs(std::span<const float> input)
 {
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
-    size_t available_space = (outPoint_ > inPoint_) ? (outPoint_ - inPoint_) : (buffer_.size() - inPoint_ + outPoint_);
+    uint32_t available_space =
+        (outPoint_ > inPoint_) ? (outPoint_ - inPoint_) : (buffer_.size() - inPoint_ + outPoint_);
     if (available_space < input.size())
     {
         std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
@@ -112,14 +113,14 @@ void Delay::AddNextInputs(std::span<const float> input)
         return;
     }
 
-    size_t end_point = inPoint_ + input.size();
+    uint32_t end_point = inPoint_ + input.size();
     if (end_point > buffer_.size())
     {
         end_point = buffer_.size();
     }
 
-    size_t size1 = end_point - inPoint_;
-    size_t size2 = input.size() - size1;
+    uint32_t size1 = end_point - inPoint_;
+    uint32_t size2 = input.size() - size1;
     // Copy input to buffer
     std::copy(input.begin(), input.begin() + size1, buffer_.begin() + inPoint_);
     // Copy input to buffer
@@ -133,17 +134,17 @@ void Delay::AddNextInputs(std::span<const float> input)
 
 void Delay::GetNextOutputs(std::span<float> output)
 {
-    size_t outPoint = outPoint_;
+    uint32_t outPoint = outPoint_;
 
-    size_t endPoint = outPoint + output.size();
+    uint32_t endPoint = outPoint + output.size();
     if (endPoint < buffer_.size())
     {
         std::copy(buffer_.begin() + outPoint, buffer_.begin() + endPoint, output.begin());
     }
     else
     {
-        size_t size1 = buffer_.size() - outPoint;
-        size_t size2 = output.size() - size1;
+        uint32_t size1 = buffer_.size() - outPoint;
+        uint32_t size2 = output.size() - size1;
         std::copy(buffer_.begin() + outPoint, buffer_.end(), output.begin());
         std::copy(buffer_.begin(), buffer_.begin() + size2, output.begin() + size1);
     }

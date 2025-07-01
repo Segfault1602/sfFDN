@@ -16,7 +16,7 @@ class AudioProcessor
     /// @param output The output audio samples.
     virtual void Process(const AudioBuffer& input, AudioBuffer& output) = 0;
 
-    virtual size_t InputChannelCount() const = 0;
-    virtual size_t OutputChannelCount() const = 0;
+    virtual uint32_t InputChannelCount() const = 0;
+    virtual uint32_t OutputChannelCount() const = 0;
 };
 } // namespace sfFDN

@@ -100,7 +100,7 @@ class PyFDN
             throw std::runtime_error(std::format("Feedback matrix must be of size {}x{}x{}", N_, N_, N_));
         }
 
-        std::vector<size_t> delays_vector;
+        std::vector<uint32_t> delays_vector;
         for (size_t i = 0; i < delays.shape(0); i++)
         {
             for (size_t j = 0; j < delays.shape(1); j++)
@@ -142,7 +142,7 @@ class PyFDN
             auto filter = std::make_unique<sfFDN::OnePoleFilter>();
             float b = 0.f;
             float a = 0.f;
-            sfFDN::get_filter_coefficients(t60_dc, t60_ny, SR_, delays.data()[i], b, a);
+            sfFDN::GetOnePoleAbsorption(t60_dc, t60_ny, SR_, delays.data()[i], b, a);
             filter->SetCoefficients(b, a);
             filter_bank->AddFilter(std::move(filter));
         }
@@ -208,7 +208,7 @@ class PyFDN
             throw std::runtime_error("Delays size must be equal to N");
         }
 
-        std::vector<size_t> delays_vector;
+        std::vector<uint32_t> delays_vector;
         for (size_t i = 0; i < delays.size(); i++)
         {
             if (delays.data()[i] < 0)

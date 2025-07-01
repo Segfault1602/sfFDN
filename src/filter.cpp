@@ -103,12 +103,12 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output)
     auto output_buf = output.GetChannelBuffer(0);
     ProcessBlock(input_buf.Data(), output_buf.Data(), input.SampleCount());
 }
-size_t OnePoleFilter::InputChannelCount() const
+uint32_t OnePoleFilter::InputChannelCount() const
 {
     return 1; // OnePoleFilter only supports single channel input
 }
 
-size_t OnePoleFilter::OutputChannelCount() const
+uint32_t OnePoleFilter::OutputChannelCount() const
 {
     return 1; // OnePoleFilter only supports single channel output
 }

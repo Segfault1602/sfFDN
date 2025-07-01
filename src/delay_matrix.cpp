@@ -6,7 +6,7 @@
 namespace sfFDN
 {
 
-DelayMatrix::DelayMatrix(size_t N, std::span<const size_t> delays)
+DelayMatrix::DelayMatrix(uint32_t N, std::span<const uint32_t> delays)
     : FeedbackMatrix(N)
     , delays_(N)
 {
@@ -17,7 +17,7 @@ void DelayMatrix::Clear()
     delays_.Clear();
 }
 
-void DelayMatrix::SetDelays(std::span<size_t> delays)
+void DelayMatrix::SetDelays(std::span<uint32_t> delays)
 {
     delays_.SetDelays(delays);
 }

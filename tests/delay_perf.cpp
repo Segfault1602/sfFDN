@@ -52,12 +52,12 @@ TEST_SUITE_BEGIN("Delays");
 
 TEST_CASE("DelayBank")
 {
-    constexpr size_t N = 16;
-    constexpr std::array<size_t, N> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
-                                               3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
+    constexpr uint32_t N = 16;
+    constexpr std::array<uint32_t, N> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
+                                                 3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
 
-    constexpr size_t kBlockSize = 128;
-    constexpr size_t kDelayCount = kDelays.size();
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kDelayCount = kDelays.size();
 
     sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
 

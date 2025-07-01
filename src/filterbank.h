@@ -21,9 +21,9 @@ class FilterBank : public AudioProcessor
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
-    size_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const override;
 
-    size_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const override;
 
   private:
     std::vector<AudioProcessor*> filters_;

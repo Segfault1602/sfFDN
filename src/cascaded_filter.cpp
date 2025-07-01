@@ -15,19 +15,35 @@ class CascadedBiquads::Impl
     {
     }
 
-    void SetCoefficients(size_t num_stage, std::span<const float> coeffs)
+    void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs)
     {
-        assert(coeffs.size() == num_stage * 5);
         coeffs_.clear();
         coeffs_.resize(num_stage);
 
-        for (size_t i = 0; i < num_stage; ++i)
+        if (coeffs.size() == num_stage * 5)
         {
-            coeffs_[i].b0 = coeffs[i * 5 + 0];
-            coeffs_[i].b1 = coeffs[i * 5 + 1];
-            coeffs_[i].b2 = coeffs[i * 5 + 2];
-            coeffs_[i].a1 = coeffs[i * 5 + 3];
-            coeffs_[i].a2 = coeffs[i * 5 + 4];
+            for (uint32_t i = 0; i < num_stage; ++i)
+            {
+                coeffs_[i].b0 = coeffs[i * 5 + 0];
+                coeffs_[i].b1 = coeffs[i * 5 + 1];
+                coeffs_[i].b2 = coeffs[i * 5 + 2];
+                coeffs_[i].a1 = coeffs[i * 5 + 3];
+                coeffs_[i].a2 = coeffs[i * 5 + 4];
+            }
+        }
+        else
+        {
+            assert(coeffs.size() == num_stage * 6);
+            for (uint32_t i = 0; i < num_stage; ++i)
+            {
+                const float a0 = coeffs[i * 6 + 3];
+
+                coeffs_[i].b0 = coeffs[i * 6 + 0] / a0;
+                coeffs_[i].b1 = coeffs[i * 6 + 1] / a0;
+                coeffs_[i].b2 = coeffs[i * 6 + 2] / a0;
+                coeffs_[i].a1 = coeffs[i * 6 + 4] / a0;
+                coeffs_[i].a2 = coeffs[i * 6 + 5] / a0;
+            }
         }
 
         states_.resize(num_stage, {0});
@@ -49,10 +65,10 @@ class CascadedBiquads::Impl
         auto in = input.GetChannelSpan(0);
         auto out = output.GetChannelSpan(0);
 
-        size_t sample = 0;
+        uint32_t sample = 0;
         while (sample < in.size())
         {
-            size_t stage = 0;
+            uint32_t stage = 0;
             float in1 = in[sample];
             float out1 = 0;
             while (stage < stage_)
@@ -75,9 +91,9 @@ class CascadedBiquads::Impl
 
     void dump_coeffs()
     {
-        for (size_t i = 0; i < stage_; i++)
+        for (uint32_t i = 0; i < stage_; i++)
         {
-            size_t offset = i * 5;
+            uint32_t offset = i * 5;
             std::cout << "[" << coeffs_[offset].b0 << ", " << coeffs_[offset].b1 << ", " << coeffs_[offset].b2 << ", "
                       << coeffs_[offset].a1 << ", " << coeffs_[offset].a2 << "]" << std::endl;
         }
@@ -94,7 +110,7 @@ class CascadedBiquads::Impl
         float s0, s1;
     };
 
-    size_t stage_;
+    uint32_t stage_;
     std::vector<IIRState> states_;
     std::vector<IIRCoeffs> coeffs_;
 };
@@ -108,7 +124,7 @@ CascadedBiquads::~CascadedBiquads()
 {
 }
 
-void CascadedBiquads::SetCoefficients(size_t num_stage, std::span<const float> coeffs)
+void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float> coeffs)
 {
     impl_->SetCoefficients(num_stage, coeffs);
 }
@@ -137,12 +153,12 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output)
     impl_->Process(input, output);
 }
 
-size_t CascadedBiquads::InputChannelCount() const
+uint32_t CascadedBiquads::InputChannelCount() const
 {
     return 1; // This filter processes a single input channel
 }
 
-size_t CascadedBiquads::OutputChannelCount() const
+uint32_t CascadedBiquads::OutputChannelCount() const
 {
     return 1;
 }

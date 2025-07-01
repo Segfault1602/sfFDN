@@ -26,6 +26,8 @@ class FFT
 
     void FreeBuffer(void* buffer);
 
+    void Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_spectrum, bool forward);
+
     std::span<float> AllocateRealBuffer();
     std::span<complex_t> AllocateComplexBuffer();
 
