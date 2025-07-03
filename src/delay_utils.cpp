@@ -158,9 +158,11 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
 
         break;
     }
+    default:
+        std::cerr << "[sfFDN::GetDelayLengths]: Unknown delay length type." << std::endl;
+        break;
     }
 
-    std::sort(delays.begin(), delays.end());
     return delays;
 }
 } // namespace sfFDN

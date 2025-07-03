@@ -16,7 +16,7 @@
 
 TEST_CASE("VelvetFFM")
 {
-    auto vffm = sfFDN::ConstructVelvetFeedbackMatrix(4, 4, 4, 0.99);
+    auto vffm = sfFDN::ConstructCascadedFeedbackMatrix(4, 4, 4, sfFDN::ScalarMatrixType::Hadamard, 0.99);
 
     std::cout << "Velvet FFM: " << vffm.N << "x" << vffm.K << std::endl;
     std::cout << "Delays: ";

@@ -362,6 +362,52 @@ Eigen::ArrayXf ShiftMatrixDistribute(size_t N, float sparsity, float pulse_size)
     return shift;
 }
 
+Eigen::MatrixXf GenerateMatrix_Internal(size_t N, sfFDN::ScalarMatrixType type, uint32_t seed)
+{
+    Eigen::MatrixXf A(N, N);
+    switch (type)
+    {
+    case sfFDN::ScalarMatrixType::Identity:
+        A = Eigen::MatrixXf::Identity(N, N);
+        break;
+    case sfFDN::ScalarMatrixType::Random:
+        A = RandomOrthogonal(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::Householder:
+    {
+        Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
+        v.normalize();
+        A = HouseholderMatrix(v);
+        break;
+    }
+    case sfFDN::ScalarMatrixType::RandomHouseholder:
+    {
+        A = RandomHouseholder(N, seed);
+        break;
+    }
+    case sfFDN::ScalarMatrixType::Hadamard:
+        A = HadamardMatrix(N);
+        break;
+    case sfFDN::ScalarMatrixType::Circulant:
+        A = CirculantMatrix(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::Allpass:
+        A = AllpassMatrix(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::NestedAllpass:
+        A = NestedAllpassMatrix_Internal(N, seed);
+        break;
+    // case sfFDN::ScalarMatrixType::TinyRotation:
+    //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
+    //     break;
+    default:
+        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << std::endl;
+        A = Eigen::MatrixXf::Zero(N, N);
+    }
+
+    return A;
+}
+
 } // namespace
 
 namespace sfFDN
@@ -369,46 +415,7 @@ namespace sfFDN
 
 std::vector<float> GenerateMatrix(size_t N, ScalarMatrixType type, uint32_t seed)
 {
-    Eigen::MatrixXf A(N, N);
-    switch (type)
-    {
-    case ScalarMatrixType::Identity:
-        A = Eigen::MatrixXf::Identity(N, N);
-        break;
-    case ScalarMatrixType::Random:
-        A = RandomOrthogonal(N, seed);
-        break;
-    case ScalarMatrixType::Householder:
-    {
-        Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
-        v.normalize();
-        A = HouseholderMatrix(v);
-        break;
-    }
-    case ScalarMatrixType::RandomHouseholder:
-    {
-        A = RandomHouseholder(N, seed);
-        break;
-    }
-    case ScalarMatrixType::Hadamard:
-        A = HadamardMatrix(N);
-        break;
-    case ScalarMatrixType::Circulant:
-        A = CirculantMatrix(N, seed);
-        break;
-    case ScalarMatrixType::Allpass:
-        A = AllpassMatrix(N, seed);
-        break;
-    case ScalarMatrixType::NestedAllpass:
-        A = NestedAllpassMatrix_Internal(N, seed);
-        break;
-    // case ScalarMatrixType::TinyRotation:
-    //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
-    //     break;
-    default:
-        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << std::endl;
-        A = Eigen::MatrixXf::Zero(N, N);
-    }
+    Eigen::MatrixXf A = GenerateMatrix_Internal(N, type, seed);
 
     std::vector<float> matrix(N * N, 0.0f);
     for (size_t i = 0; i < N; ++i)
@@ -438,7 +445,8 @@ std::vector<float> NestedAllpassMatrix(size_t N, uint32_t seed, std::span<float>
     return matrix;
 }
 
-VelvetFeedbackMatrixInfo ConstructVelvetFeedbackMatrix(size_t N, size_t K, float sparsity, float gain_per_samples)
+CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(size_t N, size_t K, float sparsity, ScalarMatrixType type,
+                                                           float gain_per_samples)
 {
     if (sparsity < 1.f)
     {
@@ -451,16 +459,16 @@ VelvetFeedbackMatrixInfo ConstructVelvetFeedbackMatrix(size_t N, size_t K, float
 
     float pulse_size = 1.f;
 
-    matrices.push_back(HadamardMatrix(N));
+    matrices.push_back(GenerateMatrix_Internal(N, type, 0));
     Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(K);
     sparsity_vec[0] = sparsity;
 
-    for (size_t i = 1; i < K; ++i)
+    for (size_t i = 0; i < K - 1; ++i)
     {
         Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[i], pulse_size);
 
         Eigen::DiagonalMatrix<float, Eigen::Dynamic> G1(Eigen::pow(gain_per_samples, shift_left));
-        Eigen::MatrixXf R1 = HadamardMatrix(N) * G1;
+        Eigen::MatrixXf R1 = GenerateMatrix_Internal(N, type, 0) * G1;
 
         pulse_size = pulse_size * N * sparsity_vec[i];
 
@@ -468,7 +476,7 @@ VelvetFeedbackMatrixInfo ConstructVelvetFeedbackMatrix(size_t N, size_t K, float
         delays.insert(delays.end(), shift_left.data(), shift_left.data() + N);
     }
 
-    VelvetFeedbackMatrixInfo info;
+    CascadedFeedbackMatrixInfo info;
     info.N = N;
     info.K = K;
     info.delays = delays;

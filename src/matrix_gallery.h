@@ -24,7 +24,7 @@ std::vector<float> GenerateMatrix(size_t N, ScalarMatrixType type, uint32_t seed
 std::vector<float> NestedAllpassMatrix(size_t N, uint32_t seed = 0, std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());
 
-struct VelvetFeedbackMatrixInfo
+struct CascadedFeedbackMatrixInfo
 {
     size_t N;                     // Number of channels
     size_t K;                     // Number of stages
@@ -33,15 +33,15 @@ struct VelvetFeedbackMatrixInfo
 };
 
 /**
- * @brief Constructs a Velvet feedback matrix.
+ * @brief Constructs a Cascaded feedback matrix.
  *
  * @param N Number of channels
  * @param K Number of stages
  * @param sparsity Sparsity level (>= 1)
  * @param gain_per_samples Gain per sample (default: 1.0)
- * @return VelvetFeedbackMatrixInfo
+ * @return CascadedFeedbackMatrixInfo
  */
-VelvetFeedbackMatrixInfo ConstructVelvetFeedbackMatrix(size_t N, size_t K, float sparsity,
-                                                       float gain_per_samples = 1.f);
+CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(size_t N, size_t K, float sparsity, ScalarMatrixType type,
+                                                           float gain_per_samples = 1.f);
 
 } // namespace sfFDN
