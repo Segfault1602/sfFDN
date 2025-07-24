@@ -57,14 +57,28 @@ void DelayBank::SetDelays(const std::span<const uint32_t> delays, uint32_t block
     }
 }
 
+std::vector<uint32_t> DelayBank::GetDelays() const
+{
+    std::vector<uint32_t> delays;
+    delays.reserve(delays_.size());
+    for (const auto& delay : delays_)
+    {
+        delays.push_back(delay.GetDelay());
+    }
+    return delays;
+}
+
 void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output)
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == delays_.size());
 
-    AddNextInputs(input);
-    GetNextOutputs(output);
+    for (uint32_t i = 0; i < delays_.size(); i++)
+    {
+        auto output_buffer = output.GetChannelBuffer(i);
+        delays_[i].Process(input.GetChannelBuffer(i), output_buffer);
+    }
 }
 
 void DelayBank::AddNextInputs(const AudioBuffer& input)

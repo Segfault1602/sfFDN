@@ -16,35 +16,28 @@
 
 TEST_CASE("VelvetFFM")
 {
-    auto vffm = sfFDN::ConstructCascadedFeedbackMatrix(4, 4, 4, sfFDN::ScalarMatrixType::Hadamard, 0.99);
+    constexpr size_t num_stages = 2;
+    constexpr float sparsity = 2.f;
+    constexpr size_t N = 4;
+    constexpr float cascade_gain = 1.f;
 
-    std::cout << "Velvet FFM: " << vffm.N << "x" << vffm.K << std::endl;
-    std::cout << "Delays: ";
+    std::cout << "Constructing cascaded feedback matrix with " << num_stages << " stages, sparsity: " << sparsity
+              << ", cascade gain: " << cascade_gain << std::endl;
+    sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
+        N, num_stages, sparsity, sfFDN::ScalarMatrixType::Hadamard, cascade_gain);
 
-    for (size_t i = 0; i < vffm.delays.size(); ++i)
+    std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
+    for (size_t i = 0; i < ffm_info.K; i++)
     {
-        std::cout << vffm.delays[i] << " ";
-
-        if ((i + 1) % vffm.N == 0)
-        {
-            std::cout << std::endl;
-        }
+        std::span<float> matrix_span(ffm_info.matrices.data() + i * ffm_info.N * ffm_info.N, ffm_info.N * ffm_info.N);
+        sfFDN::ScalarFeedbackMatrix feedback_matrix(ffm_info.N);
+        feedback_matrix.SetMatrix(matrix_span);
+        feedback_matrices.push_back(feedback_matrix);
     }
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
+    ffm->ConstructMatrix(ffm_info.delays, feedback_matrices);
 
-    std::cout << "Matrices: " << std::endl;
-    for (size_t i = 0; i < vffm.matrices.size(); ++i)
-    {
-        std::cout << vffm.matrices[i] << " ";
-        if ((i + 1) % (vffm.N) == 0)
-        {
-            std::cout << std::endl;
-        }
-
-        if ((i + 1) % (vffm.N * vffm.N) == 0)
-        {
-            std::cout << std::endl;
-        }
-    }
+    ffm->PrintInfo();
 }
 
 TEST_CASE("IdentityMatrix")

@@ -33,6 +33,8 @@ class FilterFeedbackMatrix : public FeedbackMatrix
         return N_;
     }
 
+    void PrintInfo() const;
+
   private:
     std::vector<DelayMatrix> stages_;
     ScalarFeedbackMatrix last_mat_;

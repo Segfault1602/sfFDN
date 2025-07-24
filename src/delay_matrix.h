@@ -22,6 +22,8 @@ class DelayMatrix : public FeedbackMatrix
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
+    void PrintInfo() const;
+
   private:
     DelayBank delays_;
     ScalarFeedbackMatrix mixing_matrix_;

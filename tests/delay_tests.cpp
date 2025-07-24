@@ -180,4 +180,36 @@ TEST_CASE("DelayBankBlock")
     }
 }
 
+TEST_CASE("DelayBankProcess")
+{
+    constexpr uint32_t kBlockSize = 8;
+    constexpr uint32_t kNumDelay = 4;
+    constexpr std::array<uint32_t, kNumDelay> delays = {0, 1, 2, 3};
+    sfFDN::DelayBank delay_bank(delays, kBlockSize);
+
+    std::vector<float> output;
+
+    std::array<float, kNumDelay * kBlockSize> impulse = {0.f};
+    for (size_t i = 0; i < kNumDelay; ++i)
+    {
+        impulse[i * kBlockSize] = 1.f;
+    }
+    std::array<float, kNumDelay * kBlockSize> buffer = {0.f};
+
+    sfFDN::AudioBuffer impulse_buffer(kBlockSize, kNumDelay, impulse.data());
+    sfFDN::AudioBuffer buffer_audio(kBlockSize, kNumDelay, buffer.data());
+
+    delay_bank.Process(impulse_buffer, buffer_audio);
+
+    for (uint32_t i = 0; i < buffer_audio.ChannelCount(); ++i)
+    {
+        std::cout << "Channel " << i << ": ";
+        for (uint32_t j = 0; j < buffer_audio.SampleCount(); ++j)
+        {
+            std::cout << buffer_audio.GetChannelSpan(i)[j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 TEST_SUITE_END(); // DelayTests

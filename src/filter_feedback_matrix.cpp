@@ -58,4 +58,15 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     last_mat_.Process(output, output);
 }
 
+void FilterFeedbackMatrix::PrintInfo() const
+{
+    std::cout << "FilterFeedbackMatrix Info:" << std::endl;
+    std::cout << "Number of stages: " << stages_.size() << std::endl;
+    std::cout << "Last mixing matrix size: " << last_mat_.GetSize() << std::endl;
+    for (const auto& stage : stages_)
+    {
+        stage.PrintInfo();
+    }
+    last_mat_.Print();
+}
 } // namespace sfFDN

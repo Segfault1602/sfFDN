@@ -65,13 +65,63 @@ class CascadedBiquads::Impl
         auto in = input.GetChannelSpan(0);
         auto out = output.GetChannelSpan(0);
 
-        uint32_t sample = 0;
-        while (sample < in.size())
+        size_t sample = 0;
+        const size_t kSize = in.size();
+        const size_t unroll_size = kSize & ~3;
+        while (sample < unroll_size)
         {
-            uint32_t stage = 0;
+            size_t stage = 0;
+            float in1 = in[sample];
+            float in2 = in[sample + 1];
+            float in3 = in[sample + 2];
+            float in4 = in[sample + 3];
+
+            float out1 = 0;
+            float out2 = 0;
+            float out3 = 0;
+            float out4 = 0;
+            while (stage < stage_)
+            {
+                IIRCoeffs coeffs = coeffs_[stage];
+                float s0 = states_[stage].s0;
+                float s1 = states_[stage].s1;
+
+#define COMPUTE_SAMPLE(x, y)                                                                                           \
+    y = coeffs.b0 * x + s0;                                                                                            \
+    s0 = coeffs.b1 * x + s1;                                                                                           \
+    s0 -= coeffs.a1 * y;                                                                                               \
+    s1 = coeffs.b2 * x;                                                                                                \
+    s1 -= coeffs.a2 * y;
+
+                COMPUTE_SAMPLE(in1, out1);
+                COMPUTE_SAMPLE(in2, out2);
+                COMPUTE_SAMPLE(in3, out3);
+                COMPUTE_SAMPLE(in4, out4);
+
+                in1 = out1;
+                in2 = out2;
+                in3 = out3;
+                in4 = out4;
+
+                states_[stage].s0 = s0;
+                states_[stage].s1 = s1;
+
+                ++stage;
+            }
+
+            out[sample] = out1;
+            out[sample + 1] = out2;
+            out[sample + 2] = out3;
+            out[sample + 3] = out4;
+            sample += 4;
+        }
+
+        while (sample < kSize)
+        {
+            size_t stage = 0;
             float in1 = in[sample];
             float out1 = 0;
-            while (stage < stage_)
+            do
             {
                 IIRCoeffs coeffs = coeffs_[stage];
                 IIRState* state = &states_[stage];
@@ -82,7 +132,7 @@ class CascadedBiquads::Impl
 
                 in1 = out1;
                 ++stage;
-            }
+            } while (stage < stage_);
 
             out[sample] = out1;
             ++sample;

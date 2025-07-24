@@ -20,6 +20,7 @@ class DelayBank : public AudioProcessor
 
     void Clear();
     void SetDelays(const std::span<const uint32_t> delays, uint32_t block_size = 512);
+    std::vector<uint32_t> GetDelays() const;
 
     uint32_t InputChannelCount() const override;
     uint32_t OutputChannelCount() const override;

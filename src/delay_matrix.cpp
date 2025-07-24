@@ -10,6 +10,7 @@ DelayMatrix::DelayMatrix(uint32_t N, std::span<const uint32_t> delays)
     : FeedbackMatrix(N)
     , delays_(N)
 {
+    delays_.SetDelays(delays);
 }
 
 void DelayMatrix::Clear()
@@ -37,6 +38,24 @@ void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
     mixing_matrix_.Process(input, output);
 
     delays_.Process(output, output);
+}
+
+void DelayMatrix::PrintInfo() const
+{
+    std::cout << "DelayMatrix Info:" << std::endl;
+    std::cout << "Delays: [";
+    auto delays = delays_.GetDelays();
+    for (size_t i = 0; i < delays.size(); ++i)
+    {
+        std::cout << delays[i];
+        if (i < delays.size() - 1)
+        {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]" << std::endl;
+    std::cout << "Mixing Matrix: ";
+    mixing_matrix_.Print();
 }
 
 } // namespace sfFDN
