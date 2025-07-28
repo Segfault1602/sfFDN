@@ -50,8 +50,6 @@ TEST_CASE("UPOLS")
 
     sfFDN::UPOLS upols(kBlockSize, fir);
 
-    upols.PrintPartition();
-
     std::vector<float> input(kFirLength + kBlockSize, 0.f);
     input[0] = 1.f;
     std::vector<float> output(kFirLength + kBlockSize, 0.f);
@@ -75,7 +73,6 @@ TEST_CASE("UPOLS")
     }
 
     float snr = 10.f * log10(fir_energy / signal_error);
-    std::cout << "UPOLS SNR: " << snr << " dB" << std::endl;
 }
 
 TEST_CASE("UPOLS_Noise")
@@ -85,7 +82,6 @@ TEST_CASE("UPOLS_Noise")
     auto ref_filter = CreateTestFilter();
 
     auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
-    std::cout << "Impulse response size: " << fir.size() << std::endl;
 
     std::vector<float> input_chirp = ReadWavFile("./tests/chirp.wav");
     const size_t kInputSize = input_chirp.size();
@@ -101,7 +97,7 @@ TEST_CASE("UPOLS_Noise")
 
     sfFDN::UPOLS upols(kBlockSize, fir);
 
-    upols.PrintPartition();
+    // upols.PrintPartition();
 
     std::vector<float> output(kInputSize, 0.f);
 
@@ -126,6 +122,4 @@ TEST_CASE("UPOLS_Noise")
     }
 
     float snr = 10.f * log10(signal_energy / signal_error);
-    std::cout << "UPOLS SNR: " << snr << " dB" << std::endl;
-    std::cout << "Max error: " << max_error << std::endl;
 }

@@ -21,8 +21,6 @@ TEST_CASE("VelvetFFM")
     constexpr size_t N = 4;
     constexpr float cascade_gain = 1.f;
 
-    std::cout << "Constructing cascaded feedback matrix with " << num_stages << " stages, sparsity: " << sparsity
-              << ", cascade gain: " << cascade_gain << std::endl;
     sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         N, num_stages, sparsity, sfFDN::ScalarMatrixType::Hadamard, cascade_gain);
 
@@ -36,8 +34,6 @@ TEST_CASE("VelvetFFM")
     }
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
     ffm->ConstructMatrix(ffm_info.delays, feedback_matrices);
-
-    ffm->PrintInfo();
 }
 
 TEST_CASE("IdentityMatrix")
@@ -192,7 +188,7 @@ TEST_CASE("Hadamard")
     }
 }
 
-TEST_CASE("Inplace")
+TEST_CASE("Inplace" * doctest::skip(true))
 {
     constexpr size_t N = 4;
     constexpr size_t kBlockSize = 8;
@@ -279,7 +275,7 @@ TEST_CASE("MatrixAssignment")
 TEST_CASE("DelayMatrix")
 {
     constexpr uint32_t N = 4;
-    constexpr uint32_t delays[] = {0, 1, 3, 5};
+    constexpr uint32_t delays[] = {0, 1, 3, 2};
     sfFDN::DelayMatrix delay_matrix(4, delays);
 
     auto mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);

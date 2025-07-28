@@ -69,11 +69,7 @@ TEST_CASE("TwoFilter")
                                        0.268932670354843f, 0.321109890937805f, 0.329257786273956f, 0.340315490961075f,
                                        0.258857980370522f, 0.125823333859444f};
 
-    auto start_time = std::chrono::high_resolution_clock::now();
     sfFDN::GetTwoFilter(t60s, 593, kSR);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-    std::cout << "GetTwoFilter took " << duration << " us" << std::endl;
 }
 
 TEST_CASE("SchroederAllpass")

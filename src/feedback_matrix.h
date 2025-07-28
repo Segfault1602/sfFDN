@@ -58,6 +58,7 @@ class ScalarFeedbackMatrix : public FeedbackMatrix
 
   private:
     Eigen::MatrixXf matrix_;
+    std::vector<float> matrix_coeffs_;
 };
 
 } // namespace sfFDN

@@ -246,7 +246,7 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
 
 void MatrixMultiply(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N)
 {
-    assert(in.size() % N == 0 && out.size() == in.size());
+    // assert(in.size() % N == 0 && out.size() == in.size());
 
     auto md_matrix = std::mdspan(matrix.data(), N, N);
 

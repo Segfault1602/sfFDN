@@ -44,7 +44,7 @@ TEST_CASE("FDNPerf")
     bench.title("FDN Perf");
     // bench.batch(kBlockSize);
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(100000);
 
     bench.run("FDN", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
@@ -76,19 +76,19 @@ TEST_CASE("FDNPerf")
         filter_bank->Process(input_buffer, output_buffer);
     });
 
-    auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (size_t i = 0; i < N; i++)
-    {
-        auto fir = ReadWavFile("./tests/att_fir_1153.wav");
-        auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+    // auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
+    // for (size_t i = 0; i < N; i++)
+    // {
+    //     auto fir = ReadWavFile("./tests/att_fir_1153.wav");
+    //     auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
-        fir_filter_bank->AddFilter(std::move(nupols));
-    }
-    bench.run("FIR Filter Bank", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
-        fir_filter_bank->Process(input_buffer, output_buffer);
-    });
+    //     fir_filter_bank->AddFilter(std::move(nupols));
+    // }
+    // bench.run("FIR Filter Bank", [&] {
+    //     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    //     sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+    //     fir_filter_bank->Process(input_buffer, output_buffer);
+    // });
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
     bench.run("Mixing Matrix", [&] {
@@ -224,7 +224,6 @@ TEST_CASE("FDNPerf_Order")
     bench.title("FDN Perf - Order");
     bench.timeUnit(1us, "us");
     bench.minEpochIterations(10000);
-    // bench.batch(kBlockSize);
 
     for (uint32_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i)
     {
@@ -249,6 +248,48 @@ TEST_CASE("FDNPerf_Order")
     }
 
     std::cout << bench.complexityBigO() << std::endl;
+}
+
+TEST_CASE("FDNPerf_BlockSize")
+{
+    constexpr size_t SR = 48000;
+    constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    constexpr size_t kInputSize = 1 << 12;
+    constexpr uint32_t kOrder = 16;
+
+    nanobench::Bench bench;
+    bench.title("FDN Perf - Order");
+    bench.relative(true);
+    bench.warmup(10);
+    bench.batch(kInputSize);
+    bench.minEpochIterations(100);
+
+    std::vector<float> input(kInputSize, 0.f);
+    // Fill with white noise
+    std::default_random_engine generator;
+    std::normal_distribution<double> dist(0, 0.1);
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = dist(generator);
+    }
+
+    std::vector<float> output(kInputSize, 0.f);
+
+    for (uint32_t i = 0; i < kBlockSizes.size(); ++i)
+    {
+        const uint32_t block_size = kBlockSizes[i];
+        auto fdn = CreateFDN(SR, block_size, kOrder);
+
+        bench.run("FDN Block Size " + std::to_string(block_size), [&] {
+            uint32_t block_count = kInputSize / block_size;
+            for (auto i = 0; i < block_count; ++i)
+            {
+                sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i * block_size);
+                sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i * block_size);
+                fdn->Process(input_buffer, output_buffer);
+            }
+        });
+    }
 }
 
 TEST_CASE("FDNPerf_OrderFFM")

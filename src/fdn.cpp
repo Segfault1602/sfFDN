@@ -120,29 +120,22 @@ void FDN::Process(const AudioBuffer& input, AudioBuffer& output)
 void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
 {
     AudioBuffer temp_buffer(block_size_, N_, temp_buffer_.data());
-    AudioBuffer work_buffer(block_size_, N_, feedback_.data());
+    AudioBuffer feeback_buffer(block_size_, N_, feedback_.data());
 
-    // zero out output
-    for (uint32_t i = 0; i < N_; ++i)
-    {
-        std::fill(work_buffer.GetChannelSpan(i).begin(), work_buffer.GetChannelSpan(i).end(), 0.f);
-    }
-
-    input_gains_->Process(input, temp_buffer);
-
-    delay_bank_.GetNextOutputs(work_buffer);
+    delay_bank_.GetNextOutputs(feeback_buffer);
     if (filter_bank_)
     {
-        filter_bank_->Process(work_buffer, work_buffer);
+        filter_bank_->Process(feeback_buffer, feeback_buffer);
     }
 
-    output_gains_->Process(work_buffer, output);
+    output_gains_->Process(feeback_buffer, output);
 
-    mixing_matrix_->Process(work_buffer, work_buffer);
+    mixing_matrix_->Process(feeback_buffer, temp_buffer);
 
+    input_gains_->Process(input, feeback_buffer);
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
-    delay_bank_.AddNextInputs(work_buffer);
+    delay_bank_.AddNextInputs(feeback_buffer);
 
     if (tc_filter_)
     {
@@ -155,24 +148,24 @@ void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
 void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
 {
     AudioBuffer temp_buffer(block_size_, N_, temp_buffer_.data());
-    AudioBuffer work_buffer(block_size_, N_, feedback_.data());
+    AudioBuffer feeback_buffer(block_size_, N_, feedback_.data());
 
     input_gains_->Process(input, temp_buffer);
 
-    delay_bank_.GetNextOutputs(work_buffer);
+    delay_bank_.GetNextOutputs(feeback_buffer);
 
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
-    mixing_matrix_->Process(work_buffer, work_buffer);
+    mixing_matrix_->Process(feeback_buffer, temp_buffer);
 
     if (filter_bank_)
     {
-        filter_bank_->Process(work_buffer, work_buffer);
+        filter_bank_->Process(temp_buffer, temp_buffer);
     }
 
-    delay_bank_.AddNextInputs(work_buffer);
+    delay_bank_.AddNextInputs(temp_buffer);
 
-    output_gains_->Process(work_buffer, output);
+    output_gains_->Process(temp_buffer, output);
     if (tc_filter_)
     {
         tc_filter_->Process(output, output);

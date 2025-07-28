@@ -23,6 +23,7 @@ void Scale(std::span<const float> a, const float b, std::span<float> out);
 // out[i] = a[i] * b + c[i]
 void ScaleAdd(std::span<const float> a, const float b, std::span<const float> c, std::span<float> out);
 
+// out[i] += a[i] * b
 void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out);
 
 } // namespace ArrayMath

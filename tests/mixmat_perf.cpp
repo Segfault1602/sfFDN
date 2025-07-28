@@ -41,7 +41,8 @@ TEST_CASE("MixMatPerf")
     nanobench::Bench bench;
     bench.title("Householder matrix");
     // bench.batch(kBlockSize);
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(100000);
+    bench.timeUnit(1us, "us");
 
     bench.run("Householder", [&] { mix_mat.Process(input_buffer, input_buffer); });
 
@@ -61,20 +62,20 @@ TEST_CASE("MixMatPerf")
 
 TEST_CASE("Matrix_Order")
 {
-    constexpr std::array<size_t, 9> order = {4, 6, 8, 10, 12, 14, 16, 24, 32};
+    constexpr std::array order = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
 
-    constexpr size_t block_size = 512;
+    constexpr size_t block_size = 4;
     constexpr size_t ITER = 94;
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
-    bench.minEpochIterations(100);
-    bench.timeUnit(1ms, "ms");
-    // bench.warmup(100);
+    // bench.timeUnit(1ms, "ms");
+    bench.warmup(100);
 
     for (size_t i = 0; i < order.size(); ++i)
     {
         const size_t N = order[i];
+        bench.minEpochIterations(4000000 / N);
         // fill input with random values
         std::vector<float> input(N * block_size, 0.f);
         for (size_t i = 0; i < input.size(); ++i)
@@ -86,13 +87,9 @@ TEST_CASE("Matrix_Order")
         sfFDN::AudioBuffer input_buffer(block_size, N, input.data());
         sfFDN::AudioBuffer output_buffer(block_size, N, output.data());
 
-        bench.complexityN(N).run("Householder - Order " + std::to_string(N), [&] {
-            sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
-            for (size_t i = 0; i < ITER; ++i)
-            {
-                mix_mat.Process(input_buffer, output_buffer);
-            }
-        });
+        sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
+        bench.complexityN(N).run("Householder - Order " + std::to_string(N),
+                                 [&] { mix_mat.Process(input_buffer, output_buffer); });
     }
 
     std::cout << bench.complexityBigO() << std::endl;

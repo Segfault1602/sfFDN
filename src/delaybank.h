@@ -31,6 +31,6 @@ class DelayBank : public AudioProcessor
     void GetNextOutputs(AudioBuffer& output);
 
   private:
-    std::vector<sfFDN::Delay> delays_;
+    std::vector<Delay> delays_;
 };
 } // namespace sfFDN

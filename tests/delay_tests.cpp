@@ -201,14 +201,17 @@ TEST_CASE("DelayBankProcess")
 
     delay_bank.Process(impulse_buffer, buffer_audio);
 
-    for (uint32_t i = 0; i < buffer_audio.ChannelCount(); ++i)
+    constexpr std::array<float, kBlockSize> delay0_expected = {1, 0, 0, 0, 0, 0, 0, 0};
+    constexpr std::array<float, kBlockSize> delay1_expected = {0, 1, 0, 0, 0, 0, 0, 0};
+    constexpr std::array<float, kBlockSize> delay2_expected = {0, 0, 1, 0, 0, 0, 0, 0};
+    constexpr std::array<float, kBlockSize> delay3_expected = {0, 0, 0, 1, 0, 0, 0, 0};
+
+    for (uint32_t i = 0; i < kBlockSize; ++i)
     {
-        std::cout << "Channel " << i << ": ";
-        for (uint32_t j = 0; j < buffer_audio.SampleCount(); ++j)
-        {
-            std::cout << buffer_audio.GetChannelSpan(i)[j] << " ";
-        }
-        std::cout << std::endl;
+        CHECK(buffer_audio.GetChannelSpan(0)[i] == doctest::Approx(delay0_expected[i]));
+        CHECK(buffer_audio.GetChannelSpan(1)[i] == doctest::Approx(delay1_expected[i]));
+        CHECK(buffer_audio.GetChannelSpan(2)[i] == doctest::Approx(delay2_expected[i]));
+        CHECK(buffer_audio.GetChannelSpan(3)[i] == doctest::Approx(delay3_expected[i]));
     }
 }
 

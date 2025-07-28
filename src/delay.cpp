@@ -1,19 +1,3 @@
-/***************************************************/
-/*! \class Delay
-    \brief STK non-interpolating delay line class.
-
-    This class implements a non-interpolating digital delay-line.  If
-    the delay and maximum length are not specified during
-    instantiation, a fixed maximum length of 4095 and a delay of zero
-    is set.
-
-    A non-interpolating delay line is typically used in fixed
-    delay-length applications, such as for reverberation.
-
-    by Perry R. Cook and Gary P. Scavone, 1995--2023.
-*/
-/***************************************************/
-
 #include "delay.h"
 
 #include <cassert>
@@ -60,7 +44,7 @@ void Delay::SetMaximumDelay(unsigned long delay)
 void Delay::SetDelay(uint32_t delay)
 {
     if (delay > buffer_.size() - 1)
-    { // The value is too big.
+    {
         assert(false);
         return;
     }

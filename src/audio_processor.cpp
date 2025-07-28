@@ -1,0 +1,103 @@
+#include "audio_processor.h"
+
+#include <cassert>
+
+namespace sfFDN
+{
+
+AudioProcessorChain::AudioProcessorChain(size_t block_size)
+    : block_size_(block_size)
+{
+    // Initialize work buffers based on the block size
+    max_work_buffer_size_ = block_size;
+    work_buffer_a_.resize(max_work_buffer_size_);
+    work_buffer_b_.resize(max_work_buffer_size_);
+}
+
+bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor> processor)
+{
+    if (processors_.empty())
+    {
+        processors_.push_back(processor.release());
+    }
+    else
+    {
+        if (processors_.back()->OutputChannelCount() != processor->InputChannelCount())
+        {
+            assert("Output channel count of last processor does not match input channel count of new processor.");
+            return false;
+        }
+        processors_.push_back(processor.release());
+    }
+
+    // Update the maximum work buffer size if necessary
+    size_t work_buffer_size = processors_.back()->OutputChannelCount() * block_size_;
+    if (work_buffer_size > max_work_buffer_size_)
+    {
+        max_work_buffer_size_ = work_buffer_size;
+        work_buffer_a_.resize(max_work_buffer_size_);
+        work_buffer_b_.resize(max_work_buffer_size_);
+    }
+
+    return true;
+}
+
+void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
+{
+    if (processors_.empty())
+    {
+        return;
+    }
+
+    assert(input.ChannelCount() == processors_.front()->InputChannelCount());
+    assert(output.ChannelCount() == processors_.back()->OutputChannelCount());
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.SampleCount() == block_size_);
+    if (processors_.size() == 1)
+    {
+        processors_[0]->Process(input, output);
+        return;
+    }
+
+    // Process the first audio processor
+    AudioBuffer buffer_a(block_size_, processors_[0]->OutputChannelCount(), work_buffer_a_);
+    processors_[0]->Process(input, buffer_a);
+
+    float* ptr_a = work_buffer_a_.data();
+    float* ptr_b = work_buffer_b_.data();
+
+    // Process the rest of the audio processors in the chain
+    for (size_t i = 1; i < processors_.size() - 1; ++i)
+    {
+        AudioBuffer buffer_in(block_size_, processors_[i]->InputChannelCount(), ptr_a);
+        AudioBuffer buffer_out(block_size_, processors_[i]->OutputChannelCount(), ptr_b);
+        assert(processors_[i]->InputChannelCount() == buffer_in.ChannelCount());
+        assert(processors_[i]->OutputChannelCount() == buffer_out.ChannelCount());
+        processors_[i]->Process(buffer_in, buffer_out);
+        std::swap(ptr_a, ptr_b);
+    }
+
+    // Process the last audio processor
+    AudioBuffer buffer_in(block_size_, processors_.back()->InputChannelCount(), ptr_a);
+    processors_.back()->Process(buffer_in, output);
+}
+
+uint32_t AudioProcessorChain::InputChannelCount() const
+{
+    if (processors_.empty())
+    {
+        return 0;
+    }
+    return processors_.front()->InputChannelCount();
+}
+
+uint32_t AudioProcessorChain::OutputChannelCount() const
+{
+    if (processors_.empty())
+    {
+        return 0;
+    }
+    return processors_.back()->OutputChannelCount();
+}
+
+} // namespace sfFDN

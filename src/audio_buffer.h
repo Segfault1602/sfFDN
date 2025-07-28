@@ -16,6 +16,11 @@ class AudioBuffer
     AudioBuffer(size_t frame_size, size_t channels, const float* buffer);
     AudioBuffer(size_t frame_size, size_t channels, std::span<float> buffer);
 
+    // AudioBuffer(AudioBuffer&& other) noexcept;
+    // AudioBuffer(const AudioBuffer& other);
+    // AudioBuffer& operator=(AudioBuffer&& other) noexcept;
+    // AudioBuffer& operator=(const AudioBuffer& other);
+
     /// @brief Returns the number of samples in one channel of the audio buffer.
     /// @return The number of samples in one channel.
     size_t SampleCount() const;
@@ -43,8 +48,8 @@ class AudioBuffer
     AudioBuffer GetChannelBuffer(size_t channel);
 
   private:
-    const size_t size_;
-    const size_t channel_count_;
+    size_t size_;
+    size_t channel_count_;
     float* buffer_;
 };
 } // namespace sfFDN

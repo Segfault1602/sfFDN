@@ -3,6 +3,8 @@
 #include <cassert>
 #include <iostream>
 
+#include "matrix_multiplication.h"
+
 namespace sfFDN
 {
 
@@ -86,6 +88,16 @@ void ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> matrix_map(matrix.data(),
                                                                                                        N_, N_);
     matrix_ = matrix_map;
+
+    matrix_coeffs_.resize(N_ * N_);
+    for (size_t i = 0; i < N_; ++i)
+    {
+        for (size_t j = 0; j < N_; ++j)
+        {
+            size_t index = i * N_ + j;
+            matrix_coeffs_[index] = matrix_map(j, i);
+        }
+    }
 }
 
 void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
@@ -102,7 +114,15 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.Data(), row,
                                                                                                  col);
 
+    // if (input.Data() != output.Data())
+
+    // {
+    // output_map.noalias() = input_map * matrix_;
+    // }
+    // else
+    // {
     output_map = input_map * matrix_;
+    // }
 }
 
 void ScalarFeedbackMatrix::Print() const

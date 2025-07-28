@@ -1,5 +1,6 @@
 set(TEST_SOURCE
     main.cpp
+    audio_processor_chain_tests.cpp
     array_math_tests.cpp
     delay_tests.cpp
     filter_tests.cpp
@@ -7,6 +8,7 @@ set(TEST_SOURCE
     matrix_multiplication_tests.cpp
     fdn_tests.cpp
     fft_tests.cpp
+    oscillator_tests.cpp
     upols_tests.cpp
     nupols_tests.cpp
     parallel_gains_tests.cpp

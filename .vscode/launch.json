@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=UPOLS"
+                "-tc=FDN"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

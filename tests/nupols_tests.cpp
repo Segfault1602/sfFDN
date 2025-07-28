@@ -50,8 +50,6 @@ TEST_CASE("NUPOLS")
 
     sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
-    nupols.DumpInfo();
-
     InnerProdFIR inner_prod_fir(fir);
 
     std::vector<float> input(kFirLength + kBlockSize, 0.f);
@@ -84,7 +82,6 @@ TEST_CASE("NUPOLS")
     }
 
     float snr = 10.f * log10(fir_energy / signal_error);
-    std::cout << "NUPOLS SNR: " << snr << " dB" << std::endl;
 }
 
 TEST_CASE("NUPOLS_Noise")
@@ -109,8 +106,6 @@ TEST_CASE("NUPOLS_Noise")
 
     sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
 
-    nupols.DumpInfo();
-
     std::vector<float> output(kInputSize, 0.f);
 
     const size_t kBlockCount = kInputSize / kBlockSize;
@@ -134,6 +129,4 @@ TEST_CASE("NUPOLS_Noise")
     }
 
     float snr = 10.f * log10(signal_energy / signal_error);
-    std::cout << "NUPOLS SNR: " << snr << " dB" << std::endl;
-    std::cout << "Max error: " << max_error << std::endl;
 }

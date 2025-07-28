@@ -1,5 +1,6 @@
 set(FDN_SOURCE
     audio_buffer.cpp
+    audio_processor.cpp
     cascaded_filter.cpp
     circular_buffer.cpp
     delay.cpp
@@ -20,7 +21,9 @@ set(FDN_SOURCE
     matrix_gallery.cpp
     matrix_multiplication.cpp
     nupols.cpp
+    oscillator.cpp
     parallel_gains.cpp
+    rng.cpp
     schroeder_allpass.cpp
     upols.cpp
     )
@@ -36,6 +39,7 @@ endif()
 add_library(sfFDN ${FDN_SOURCE})
 target_include_directories(sfFDN PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
 target_link_libraries(sfFDN PUBLIC Eigen3::Eigen PFFFT kissfft)
+target_compile_definitions(sfFDN PUBLIC -DEIGEN_RUNTIME_NO_MALLOC)
 
 if(SF_FDN_USE_VDSP)
     target_link_libraries(sfFDN PUBLIC "-framework Accelerate")
