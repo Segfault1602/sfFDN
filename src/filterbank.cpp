@@ -1,7 +1,6 @@
 #include "filterbank.h"
 
 #include <cassert>
-#include <mdspan>
 
 namespace sfFDN
 {

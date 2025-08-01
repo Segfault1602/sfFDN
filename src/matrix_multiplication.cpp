@@ -244,23 +244,43 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
               in[15] * md_matrix[15, 15];
 }
 
-void MatrixMultiply(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N)
+void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N)
 {
     // assert(in.size() % N == 0 && out.size() == in.size());
 
-    auto md_matrix = std::mdspan(matrix.data(), N, N);
+    // Everything is in col-major order.
 
     const size_t kRowCount = in.size() / N;
+    const size_t kColCount = N;
 
     for (size_t k = 0; k < kRowCount; ++k)
     {
-        const size_t offset = k * N;
+        const size_t offset = k;
         for (size_t i = 0; i < N; ++i)
         {
-            out[i + offset] = 0.0f;
-            for (size_t j = 0; j < N; ++j)
+            out[i * kRowCount + offset] = 0.0f;
+            const size_t kSize = N;
+            const size_t unroll_size = kSize & ~7;
+            int idx = 0;
+            for (; idx < unroll_size; idx += 8)
             {
-                out[i + offset] += in[j + offset] * md_matrix[i, j];
+                const auto in_offset = k + idx * kRowCount;
+                const auto mat_offset = i * kColCount + idx;
+                const auto out_idx = i * kRowCount + offset;
+
+                out[out_idx] += in[in_offset] * matrix[mat_offset] +
+                                in[in_offset + 1 * kRowCount] * matrix[mat_offset + 1] +
+                                in[in_offset + 2 * kRowCount] * matrix[mat_offset + 2] +
+                                in[in_offset + 3 * kRowCount] * matrix[mat_offset + 3] +
+                                in[in_offset + 4 * kRowCount] * matrix[mat_offset + 4] +
+                                in[in_offset + 5 * kRowCount] * matrix[mat_offset + 5] +
+                                in[in_offset + 6 * kRowCount] * matrix[mat_offset + 6] +
+                                in[in_offset + 7 * kRowCount] * matrix[mat_offset + 7];
+            }
+
+            for (; idx < N; ++idx)
+            {
+                out[i * kRowCount + offset] += in[k + idx * kRowCount] * matrix[i * kColCount + idx];
             }
         }
     }

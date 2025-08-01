@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mdspan>
 #include <span>
 #include <vector>
 

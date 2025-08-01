@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <mdspan>
 
 namespace sfFDN
 {

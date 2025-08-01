@@ -1,7 +1,6 @@
 #include "schroeder_allpass.h"
 
 #include <cassert>
-#include <mdspan>
 
 #include <arm_neon.h>
 

@@ -55,31 +55,6 @@ TEST_CASE("MatrixMultiplicationPerf_single")
 {
     constexpr size_t N = 16;
 
-    // Eigen
-    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> eigen_mat(
-        kMatrix16x16.data(), N, N);
-    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> eigen_input(kInput.data(),
-                                                                                                        1, N);
-
-    std::array<float, N> eigen_output_data;
-    Eigen::Map<Eigen::Matrix<float, 1, N>> eigen_output(eigen_output_data.data());
-
-    eigen_output = eigen_input * eigen_mat;
-
-    for (size_t i = 0; i < N; ++i)
-    {
-        CHECK(eigen_output(i) == doctest::Approx(kExpectedOutput[i]));
-    }
-
-    // MatrixMultiplication
-    std::array<float, N> output;
-    sfFDN::MatrixMultiply(kInput, output, kMatrix16x16, N);
-
-    for (size_t i = 0; i < N; ++i)
-    {
-        CHECK(output[i] == doctest::Approx(kExpectedOutput[i]));
-    }
-
     if (IsAligned(kMatrix16x16.data(), 64))
     {
         std::cout << "Data is aligned correctly." << std::endl;
@@ -89,53 +64,45 @@ TEST_CASE("MatrixMultiplicationPerf_single")
         std::cout << "Data is NOT aligned correctly." << std::endl;
     }
 
-    constexpr size_t kIterations = 1000;
+    std::array<float, N> eigen_output_data;
+    Eigen::Map<Eigen::Matrix<float, 1, N>> eigen_output(eigen_output_data.data());
 
     nanobench::Bench bench;
     bench.title("Matrix Multiplication Performance");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(10000);
-    bench.batch(N * kIterations);
-    bench.run("Eigen", [&]() {
+    bench.minEpochIterations(500000);
+
+    {
         Eigen::Map<const Eigen::Matrix<float, N, N>> mat(kMatrix16x16.data());
         Eigen::Map<const Eigen::Matrix<float, 1, N>> input(kInput.data());
-        Eigen::Map<Eigen::Matrix<float, 1, N>> output(eigen_output_data.data());
+        Eigen::Map<Eigen::Matrix<float, 1, N>> output_map(eigen_output_data.data());
+        bench.run("Eigen", [&]() {
+            output_map.noalias() = input * mat;
+            nanobench::doNotOptimizeAway(output_map);
+        });
+    }
 
-        for (size_t i = 0; i < kIterations; ++i)
-        {
-            output = (input * mat).eval();
-            nanobench::doNotOptimizeAway(output);
-        }
-    });
-    bench.run("Eigen_Dynamic", [&]() {
+    {
+
         Eigen::Map<const Eigen::MatrixXf, Eigen::Aligned64> mat(kMatrix16x16.data(), N, N);
         Eigen::Map<const Eigen::RowVectorXf, Eigen::Aligned64> input(kInput.data(), N);
-        Eigen::Map<Eigen::RowVectorXf, Eigen::Aligned64> output(eigen_output_data.data(), N);
+        Eigen::Map<Eigen::RowVectorXf, Eigen::Aligned64> output_map(eigen_output_data.data(), N);
+        bench.run("Eigen_Dynamic", [&]() {
+            output_map.noalias() = input * mat;
+            nanobench::doNotOptimizeAway(output_map);
+        });
+    }
 
-        for (size_t i = 0; i < kIterations; ++i)
-        {
-            output = (input * mat).eval();
-            nanobench::doNotOptimizeAway(output);
-        }
-    });
-
+    std::array<float, N> output;
     bench.run("MatrixMultiply", [&]() {
-        std::array<float, N> output;
-        for (size_t i = 0; i < kIterations; ++i)
-        {
-            sfFDN::MatrixMultiply(kInput, output, kMatrix16x16, 16);
-            nanobench::doNotOptimizeAway(output);
-        }
+        sfFDN::MatrixMultiply_C(kInput, output, kMatrix16x16, 16);
+        nanobench::doNotOptimizeAway(output);
     });
 
     bench.run("MatrixMultiply_unroll", [&]() {
-        std::array<float, N> output;
-        for (size_t i = 0; i < kIterations; ++i)
-        {
-            sfFDN::MatrixMultiply_16(kInput, output, kMatrix16x16);
-            nanobench::doNotOptimizeAway(output);
-        }
+        sfFDN::MatrixMultiply_16(kInput, output, kMatrix16x16);
+        nanobench::doNotOptimizeAway(output);
     });
 }
 
@@ -182,7 +149,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
         {
             in[j] = input[j * kBlockSize + i];
         }
-        sfFDN::MatrixMultiply(in, out, kMatrix16x16, N);
+        sfFDN::MatrixMultiply_C(in, out, kMatrix16x16, N);
 
         for (size_t j = 0; j < N; ++j)
         {
@@ -256,7 +223,7 @@ TEST_CASE("Hadamard")
     std::cout << eigen_output << std::endl;
 
     std::array<float, N> output;
-    sfFDN::MatrixMultiply(kInput, output, kHadamard, N);
+    sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
     std::cout << "Custom Hadamard Output: ";
     for (const auto& val : output)
     {
@@ -311,7 +278,7 @@ TEST_CASE("Hadamard")
         std::array<float, N> output;
         for (size_t i = 0; i < kIterations; ++i)
         {
-            sfFDN::MatrixMultiply(kInput, output, kHadamard, N);
+            sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
             nanobench::doNotOptimizeAway(output);
         }
     });

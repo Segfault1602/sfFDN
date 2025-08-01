@@ -26,6 +26,16 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(uint32_t N)
 
     mat.matrix_ = H;
 
+    mat.matrix_coeffs_.resize(N * N);
+    for (size_t i = 0; i < N; ++i)
+    {
+        for (size_t j = 0; j < N; ++j)
+        {
+            size_t index = i * N + j;
+            mat.matrix_coeffs_[index] = H(j, i);
+        }
+    }
+
     return mat;
 }
 
@@ -44,6 +54,16 @@ ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(std::span<const float> v)
     Eigen::MatrixXf H = I - (2.f * v_normalized * v_normalized.transpose());
 
     mat.matrix_ = H;
+
+    mat.matrix_coeffs_.resize(N * N);
+    for (size_t i = 0; i < N; ++i)
+    {
+        for (size_t j = 0; j < N; ++j)
+        {
+            size_t index = i * N + j;
+            mat.matrix_coeffs_[index] = H(j, i);
+        }
+    }
 
     return mat;
 }
@@ -106,6 +126,10 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == N_);
 
+    // The input and output buffers must not overlap
+    // This is a requirement to avoid memory allocation in Eigen by using noalias()
+    assert(input.Data() != output.Data());
+
     const uint32_t col = N_;
     const uint32_t row = input.SampleCount();
 
@@ -114,15 +138,7 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.Data(), row,
                                                                                                  col);
 
-    // if (input.Data() != output.Data())
-
-    // {
-    // output_map.noalias() = input_map * matrix_;
-    // }
-    // else
-    // {
-    output_map = input_map * matrix_;
-    // }
+    output_map.noalias() = input_map * matrix_;
 }
 
 void ScalarFeedbackMatrix::Print() const

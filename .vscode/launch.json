@@ -6,31 +6,29 @@
     "configurations": [
         {
             "name": "Tests",
-            "type": "cppdbg",
+            "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/Debug/tests",
+            "program": "${workspaceFolder}/build/tests/RelWithDebInfo/tests",
             "args": [
-                "-tc=FDN"
+                "-tc=MatrixMultiply_6"
             ],
-            "stopAtEntry": false,
+            "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
+            "env": [],
+            "runInTerminal": false
         },
         {
             "name": "Perf",
-            "type": "cppdbg",
+            "type": "lldb-dap",
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/RelWithDebInfo/perf",
             "args": [
-                "-tc=ManualHadamard"
+                "-tc=FDNPerf"
             ],
-            "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
+            "stopOnEntry": false,
+            "cwd": "${workspaceFolder}",
+            "env": [],
+            "runInTerminal": false
         }
     ]
 }
