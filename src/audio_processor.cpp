@@ -1,4 +1,4 @@
-#include "audio_processor.h"
+#include "sffdn/audio_processor.h"
 
 #include <cassert>
 
@@ -14,11 +14,11 @@ AudioProcessorChain::AudioProcessorChain(size_t block_size)
     work_buffer_b_.resize(max_work_buffer_size_);
 }
 
-bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor> processor)
+bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor>&& processor)
 {
     if (processors_.empty())
     {
-        processors_.push_back(processor.release());
+        processors_.emplace_back(std::move(processor));
     }
     else
     {
@@ -27,7 +27,7 @@ bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor> processor
             assert("Output channel count of last processor does not match input channel count of new processor.");
             return false;
         }
-        processors_.push_back(processor.release());
+        processors_.emplace_back(std::move(processor));
     }
 
     // Update the maximum work buffer size if necessary
@@ -53,6 +53,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     assert(output.ChannelCount() == processors_.back()->OutputChannelCount());
     assert(input.SampleCount() == output.SampleCount());
     assert(input.SampleCount() == block_size_);
+
     if (processors_.size() == 1)
     {
         processors_[0]->Process(input, output);

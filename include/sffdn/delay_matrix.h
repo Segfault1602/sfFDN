@@ -1,0 +1,53 @@
+// Copyright (C) 2025 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
+#pragma once
+
+#include <span>
+#include <vector>
+
+#include "sffdn/delay.h"
+#include "sffdn/delaybank.h"
+#include "sffdn/feedback_matrix.h"
+
+namespace sfFDN
+{
+/// @brief DelayMatrix implementation as presented in [1].
+///
+/// [1] S. J. Schlecht and E. A. P. Habets, “Dense Reverberation with Delay Feedback Matrices,” in 2019 IEEE Workshop on
+/// Applications of Signal Processing to Audio and Acoustics (WASPAA), Oct. 2019, pp. 150–154.
+/// doi: 10.1109/WASPAA.2019.8937284.
+class DelayMatrix : public FeedbackMatrix
+{
+  public:
+    /// @brief Constructs a DelayMatrix with the specified size and delay values.
+    /// @param N the size of the matrix
+    /// @param delays the delay values for each channel. The size of the delays span must match N.
+    DelayMatrix(uint32_t N, std::span<const uint32_t> delays);
+
+    /// @brief Clears the internal delay buffers.
+    /// This sets all delay buffers to zero.
+    void Clear();
+
+    /// @brief Sets the delays for the matrix.
+    /// @param delays the new delay values for each channel. The size of the delays span must match N.
+    /// @note This will resize the internal delay buffers to match the new delays
+    void SetDelays(std::span<uint32_t> delays);
+
+    /// @brief Sets the mixing matrix for the delay matrix.
+    /// @param mixing_matrix the new mixing matrix
+    /// @note The size of the mixing matrix must be NxN.
+    void SetMatrix(ScalarFeedbackMatrix mixing_matrix);
+
+    /// @brief Processes the input audio buffer through the delay matrix.
+    /// @param input the input audio buffer
+    /// @param output the output audio buffer
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+
+    /// @brief Prints information about the delay matrix. For debugging purposes.
+    void PrintInfo() const;
+
+  private:
+    DelayBank delays_;
+    ScalarFeedbackMatrix mixing_matrix_;
+};
+} // namespace sfFDN

@@ -6,9 +6,7 @@
 #include <sndfile.h>
 #include <vector>
 
-#include "delaya.h"
-#include "delaybank.h"
-#include <delay.h>
+#include "sffdn/sffdn.h"
 
 TEST_SUITE_BEGIN("DelayTests");
 
@@ -24,6 +22,47 @@ TEST_CASE("Delay")
     }
 
     constexpr float expected_output[] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    for (uint32_t i = 0; i < iteration; ++i)
+    {
+        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+    }
+}
+
+TEST_CASE("DelayTapOut")
+{
+    sfFDN::Delay delay(8, 10);
+
+    std::vector<float> output;
+    constexpr uint32_t iteration = 10;
+    for (uint32_t i = 0; i < iteration; ++i)
+    {
+        delay.Tick(i);
+        output.push_back(delay.TapOut(1));
+    }
+
+    constexpr float expected_output[] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    for (uint32_t i = 0; i < iteration; ++i)
+    {
+        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+    }
+}
+
+TEST_CASE("ZeroDelay")
+{
+    sfFDN::Delay delay(0, 10);
+
+    std::vector<float> output;
+    constexpr uint32_t iteration = 10;
+    for (uint32_t i = 0; i < iteration; ++i)
+    {
+        output.push_back(delay.Tick(i));
+
+        CHECK(output[i] == delay.TapOut(0));
+    }
+
+    constexpr float expected_output[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     for (uint32_t i = 0; i < iteration; ++i)
     {
@@ -96,7 +135,7 @@ TEST_CASE("DelayBank")
 
     std::vector<float> output;
 
-    constexpr std::array<float, kNumDelay> impulse = {1, 1, 1, 1};
+    std::array<float, kNumDelay> impulse = {1, 1, 1, 1};
     std::array<float, 4> buffer = {0, 0, 0, 0};
 
     sfFDN::AudioBuffer impulse_buffer(1, kNumDelay, impulse.data());

@@ -15,6 +15,7 @@ UPOLS::UPOLS(size_t block_size, std::span<const float> fir)
     , fft_size_(Math::NextPowerOfTwo(block_size * 2))
     , fft_(fft_size_)
     , inputs_z_index_(0)
+    , samples_needed_(block_size_)
 {
 
     work_buffer_ = fft_.AllocateRealBuffer();
@@ -48,6 +49,8 @@ UPOLS::UPOLS(size_t block_size, std::span<const float> fir)
         std::fill(input_z.begin(), input_z.end(), 0.f);
         inputs_z_.push_back(input_z);
     }
+
+    std::fill(work_buffer_.begin(), work_buffer_.end(), 0.f);
 }
 
 UPOLS::~UPOLS()
@@ -71,6 +74,7 @@ UPOLS::UPOLS(UPOLS&& other)
     , fft_size_(other.fft_size_)
     , fft_(other.fft_size_)
     , inputs_z_index_(other.inputs_z_index_)
+    , samples_needed_(other.samples_needed_)
 {
     work_buffer_ = other.work_buffer_;
     other.work_buffer_ = std::span<float>{};
@@ -128,10 +132,24 @@ std::span<float> UPOLS::PrepareWorkBuffer()
     return work_buffer_.subspan(block_size_, block_size_);
 }
 
+void UPOLS::AddSamples(std::span<const float> input)
+{
+    assert(samples_needed_ >= input.size());
+
+    std::copy(input.begin(), input.end(), work_buffer_.end() - samples_needed_);
+    samples_needed_ -= input.size();
+}
+
+bool UPOLS::IsReady() const
+{
+    return samples_needed_ == 0;
+}
+
 void UPOLS::Process(std::span<float> output)
 {
     assert(output.size() == block_size_);
     assert(work_buffer_.size() == 2 * block_size_);
+    assert(samples_needed_ == 0);
 
     if (inputs_z_index_ == 0)
     {
@@ -158,6 +176,9 @@ void UPOLS::Process(std::span<float> output)
     // Inverse FFT
     fft_.Inverse(spectrum_buffer_, result_buffer_);
     std::copy(result_buffer_.end() - block_size_, result_buffer_.end(), output.begin());
+
+    std::copy(work_buffer_.begin() + block_size_, work_buffer_.end(), work_buffer_.begin());
+    samples_needed_ = block_size_;
 }
 
 void UPOLS::PrintPartition() const

@@ -22,9 +22,9 @@ irLen = FS;
 ir = dss2impz(irLen, m, A, B, C, D, 'absorptionFilters', zAbsorption);
 
 disp('Saving the impulse response ...')
-audiowrite("./tests/fdn_gold_test.wav", ir, FS, "BitsPerSample", 32);
+audiowrite("./tests/data/fdn_gold_test.wav", ir, FS, "BitsPerSample", 32);
 
 ir_transposed = dss2impzTransposed(irLen, m, A, B, C, D, 'absorptionFilters', zAbsorption);
 disp('Saving the transposed impulse response ...')
-audiowrite("./tests/fdn_gold_test_transposed.wav", ir_transposed, FS, "BitsPerSample", 32);
+audiowrite("./tests/data/fdn_gold_test_transposed.wav", ir_transposed, FS, "BitsPerSample", 32);
 disp('Done.')

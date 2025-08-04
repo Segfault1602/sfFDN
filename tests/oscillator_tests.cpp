@@ -7,7 +7,7 @@
 #include <sndfile.h>
 #include <vector>
 
-#include "audio_buffer.h"
+#include "sffdn/sffdn.h"
 
 #include "oscillator.h"
 

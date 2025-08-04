@@ -2,7 +2,7 @@
 
 #include <span>
 
-#include "delaya.h"
+#include "sffdn/delaya.h"
 
 namespace sfFDN
 {

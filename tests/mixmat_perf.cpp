@@ -7,7 +7,8 @@
 #include <iostream>
 #include <random>
 
-#include "feedback_matrix.h"
+#include "sffdn/sffdn.h"
+
 #include "matrix_multiplication.h"
 
 #include "test_utils.h"

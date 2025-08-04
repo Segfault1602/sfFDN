@@ -1,13 +1,14 @@
 #include "doctest.h"
 #include "nanobench.h"
 
-#include "upols.h"
 #include <array>
 #include <iostream>
 
 #include <memory>
 
-#include "filter.h"
+#include "sffdn/sffdn.h"
+#include "upols.h"
+
 #include "filter_coeffs.h"
 
 using namespace ankerl;
@@ -62,7 +63,7 @@ TEST_CASE("UPOLS")
 
     nanobench::Bench bench;
     bench.title("UPOLS perf");
-    bench.batch(kBlockSize);
+    // bench.batch(kBlockSize);
     bench.minEpochIterations(200000);
 
     bench.run("UPOLS", [&] {

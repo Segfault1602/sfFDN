@@ -1,7 +1,7 @@
-#include "delay_matrix.h"
+#include "sffdn/delay_matrix.h"
 
 #include <cassert>
-#include <iostream>
+#include <print>
 
 namespace sfFDN
 {
@@ -42,19 +42,19 @@ void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
 
 void DelayMatrix::PrintInfo() const
 {
-    std::cout << "DelayMatrix Info:" << std::endl;
-    std::cout << "Delays: [";
+    std::println("DelayMatrix Info:");
+    std::println("Delays: [");
     auto delays = delays_.GetDelays();
     for (size_t i = 0; i < delays.size(); ++i)
     {
-        std::cout << delays[i];
+        std::print("{}", delays[i]);
         if (i < delays.size() - 1)
         {
-            std::cout << ", ";
+            std::print(", ");
         }
     }
-    std::cout << "]" << std::endl;
-    std::cout << "Mixing Matrix: ";
+    std::println("]");
+    std::print("Mixing Matrix: ");
     mixing_matrix_.Print();
 }
 

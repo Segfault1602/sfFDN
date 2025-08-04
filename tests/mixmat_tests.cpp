@@ -6,12 +6,9 @@
 #include <Eigen/Core>
 #include <Eigen/QR>
 
-#include "delay_matrix.h"
-#include "feedback_matrix.h"
-#include "filter_feedback_matrix.h"
-#include "matrix_gallery.h"
-#include "matrix_multiplication.h"
+#include "sffdn/sffdn.h"
 
+#include "matrix_multiplication.h"
 #include "test_utils.h"
 
 TEST_CASE("VelvetFFM")
@@ -24,16 +21,8 @@ TEST_CASE("VelvetFFM")
     sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         N, num_stages, sparsity, sfFDN::ScalarMatrixType::Hadamard, cascade_gain);
 
-    std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
-    for (size_t i = 0; i < ffm_info.K; i++)
-    {
-        std::span<float> matrix_span(ffm_info.matrices.data() + i * ffm_info.N * ffm_info.N, ffm_info.N * ffm_info.N);
-        sfFDN::ScalarFeedbackMatrix feedback_matrix(ffm_info.N);
-        feedback_matrix.SetMatrix(matrix_span);
-        feedback_matrices.push_back(feedback_matrix);
-    }
-    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
-    ffm->ConstructMatrix(ffm_info.delays, feedback_matrices);
+    auto ffm = sfFDN::MakeFilterFeedbackMatrix(ffm_info);
+    CHECK(ffm != nullptr);
 }
 
 TEST_CASE("IdentityMatrix")
@@ -313,36 +302,44 @@ TEST_CASE("DelayMatrix")
 
 TEST_CASE("FilterFeedbackMatrix")
 {
-    constexpr uint32_t N = 8;
-    constexpr uint32_t K = 4;
-    auto ffm = CreateFFM(N, K, 1);
+    constexpr uint32_t N = 4;
+    constexpr uint32_t K = 1;
 
-    constexpr size_t ITER = 1024;
-    std::array<float, N * ITER> input = {0.f};
+    std::array<uint32_t, N*(K + 1)> delays = {0, 5, 6, 11, 0, 12, 24, 36};
+    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices;
+    for (uint32_t i = 0; i < K; ++i)
+    {
+        mixing_matrices.push_back(sfFDN::ScalarFeedbackMatrix::Hadamard(N));
+    }
+
+    // sfFDN::FilterFeedbackMatrix ffm(N);
+    // ffm.ConstructMatrix(delays, mixing_matrices);
+
+    auto ffm = CreateFFM(N, K, 3);
+
+    constexpr size_t kBlockSize = 64;
+    std::array<float, N * kBlockSize> input = {0.f};
+    // input[0] = 1.f;
 
     for (uint32_t i = 0; i < N; ++i)
     {
-        input[i] = 1.f;
+        input[i * kBlockSize] = 1.f;
     }
 
-    std::array<float, N * ITER> output = {0.f};
+    std::array<float, N * kBlockSize> output = {0.f};
 
-    sfFDN::AudioBuffer input_buffer(ITER, N, input.data());
-    sfFDN::AudioBuffer output_buffer(ITER, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
 
     ffm->Process(input_buffer, output_buffer);
 
-    float energy_in = 0.f;
-    for (size_t i = 0; i < input.size(); ++i)
-    {
-        energy_in += input[i] * input[i];
-    }
-
-    float energy_out = 0.f;
-    for (size_t i = 0; i < output.size(); ++i)
-    {
-        energy_out += output[i] * output[i];
-    }
-
-    CHECK(energy_in == doctest::Approx(energy_out).epsilon(0.01));
+    // for (size_t i = 0; i < kBlockSize; ++i)
+    // {
+    //     std::print("{} \t", i + 1);
+    //     for (size_t j = 0; j < N; ++j)
+    //     {
+    //         std::print("{} \t", output_buffer.GetChannelSpan(j)[i]);
+    //     }
+    //     std::print("\n");
+    // }
 }

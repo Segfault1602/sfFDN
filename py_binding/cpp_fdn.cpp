@@ -3,9 +3,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 
-#include "fdn.h"
-#include "filter_design.h"
-#include "filter_feedback_matrix.h"
+#include "sffdn/sffdn.h"
 
 namespace nb = nanobind;
 

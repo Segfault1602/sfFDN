@@ -8,9 +8,9 @@
             "name": "Tests",
             "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/RelWithDebInfo/tests",
+            "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=MatrixMultiply_6"
+                "-tc=VelvetFFM"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

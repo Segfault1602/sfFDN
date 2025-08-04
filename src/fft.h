@@ -5,7 +5,9 @@
 #include <memory>
 #include <span>
 
-#include <pffft.h>
+// #include <pffft.h>
+
+struct PFFFT_Setup;
 
 using complex_t = std::complex<float>;
 

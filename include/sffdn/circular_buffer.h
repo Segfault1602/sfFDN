@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
 #pragma once
 
 #include <cstddef>
@@ -7,9 +9,13 @@
 namespace sfFDN
 {
 
+/// @brief Circular buffer used to store audio samples.
+/// The CircularBuffer class is not thread-safe and should not be used in a multi-threaded context.
 class CircularBuffer
 {
   public:
+    /// @brief Constructs a CircularBuffer with the specified size.
+    /// @param size the size of the buffer in samples
     CircularBuffer(size_t size = 32);
     ~CircularBuffer();
 
@@ -24,22 +30,26 @@ class CircularBuffer
 
     /// @brief Write the specified number of samples to the buffer.
     /// @param data the data to write
-    void Write(std::span<const float> data, size_t offset = 0);
+    /// @note If the buffer is full, the oldest samples will be overwritten.
+    void Write(std::span<const float> data);
 
     /// @brief Accumulate the specified number of samples into the buffer.
-    /// @param data
+    /// @param data the data to accumulate
+    /// @param offset the offset from the write pointer to start accumulating
+    /// @note buffer[i] += data[i]
+    /// @note The offset is added to the current write pointer, so it can be used to accumulate at a specific "future"
+    /// position in the buffer.
     void Accumulate(std::span<const float> data, size_t offset = 0);
 
     /// @brief Read the specified number of samples from the buffer.
     /// @param data the buffer to read into
-    /// @param offset the offset from the write pointer to start reading
-    void Read(std::span<float> data, size_t offset = 0);
+    /// @param clear_after_read if true, the read samples will be cleared (set to zero) in the buffer
+    /// @note The `data.size()` most recently written samples will be read.
+    void Read(std::span<float> data, bool clear_after_read = false);
 
-    /// @brief The total size of the buffer.
+    /// @brief The total size, in samples, of the buffer.
     /// @return the size of the buffer
     size_t Size() const;
-
-    void Print() const;
 
   private:
     std::vector<float> buffer_;

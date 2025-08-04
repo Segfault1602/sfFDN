@@ -5,8 +5,9 @@
 
 #include <sndfile.h>
 
+#include "sffdn/sffdn.h"
+
 #include "filter_coeffs.h"
-#include "parallel_gains.h"
 
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity)
 {
@@ -35,16 +36,17 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, u
     std::uniform_real_distribution<float> dis2(0.f, 1.f);
     std::vector<uint32_t> ffm_delays;
     float pulse_size = 1;
-    for (uint32_t k = 0; k < K - 1; ++k)
+    for (uint32_t k = 0; k < K + 1; ++k)
     {
+        float sparsity_factor = (k == 0) ? sparsity : 1;
         for (uint32_t i = 0; i < N; ++i)
         {
             float random = dis2(gen);
-            float shift = std::floor(sparsity_vect[k] * (i + random));
+            float shift = std::floor(sparsity_factor * (i + random));
             shift *= pulse_size;
             ffm_delays.push_back(static_cast<uint32_t>(shift));
         }
-        pulse_size = pulse_size * N * sparsity_vect[k];
+        pulse_size = pulse_size * N * sparsity_factor;
     }
 
     ffm->ConstructMatrix(ffm_delays, mixing_matrices);
@@ -210,4 +212,51 @@ std::vector<float> WriteWavFile(const std::string& filename, const std::vector<f
 
     sf_close(file);
     return data;
+}
+
+std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, size_t block_size)
+{
+    if (!filter)
+    {
+        return {};
+    }
+
+    constexpr size_t kBlockSize = 32;
+    constexpr size_t kMaxSamples = 48000;
+
+    std::array<float, kBlockSize> input = {0.f};
+    input[0] = 1.f; // Start with an impulse
+
+    std::array<float, kBlockSize> output = {0.f};
+
+    std::vector<float> impulse;
+    impulse.reserve(kMaxSamples);
+
+    std::vector<float> level;
+    level.reserve(kMaxSamples);
+
+    sfFDN::OnePoleFilter one_pole_filter;
+    one_pole_filter.SetPole(0.99f);
+
+    for (size_t i = 0; i < kMaxSamples; i += kBlockSize)
+    {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+        filter->Process(input_buffer, output_buffer);
+
+        for (auto sample : output)
+        {
+            impulse.push_back(sample);
+            level.push_back(one_pole_filter.Tick(sample * sample));
+        }
+
+        if (level.back() < 5e-6f) // Threshold to stop the impulse response
+        {
+            break;
+        }
+
+        input[0] = 0.f; // Reset input for the next block
+    }
+
+    return impulse;
 }

@@ -8,12 +8,8 @@
 #include <Eigen/Core>
 #include <sndfile.h>
 
-#include "fdn.h"
-#include "feedback_matrix.h"
 #include "filter_coeffs.h"
-#include "filter_design.h"
-#include "filter_feedback_matrix.h"
-#include "nupols.h"
+#include "sffdn/sffdn.h"
 
 #include "test_utils.h"
 
@@ -104,7 +100,7 @@ TEST_CASE("FDN")
     }
 
     {
-        constexpr const char* expected_output_filename = "./tests/fdn_gold_test.wav";
+        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_test.wav";
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 
@@ -221,7 +217,7 @@ TEST_CASE("FDN_Transposed")
     }
 
     {
-        constexpr const char* expected_output_filename = "./tests/fdn_gold_test_transposed.wav";
+        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_test_transposed.wav";
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 
@@ -279,17 +275,17 @@ TEST_CASE("FDN_FIR")
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
-        auto fir = ReadWavFile("./tests/att_fir_" + std::to_string(delays[i]) + ".wav");
-        auto nupols = std::make_unique<sfFDN::NUPOLS>(block_size, fir, sfFDN::PartitionStrategy::kGardner);
+        auto fir = ReadWavFile("./tests/data/att_fir_" + std::to_string(delays[i]) + ".wav");
+        auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(block_size, fir);
 
-        filter_bank->AddFilter(std::move(nupols));
+        filter_bank->AddFilter(std::move(convolver));
     }
 
     fdn.SetFilterBank(std::move(filter_bank));
 
     {
-        auto eq_fir = ReadWavFile("./tests/equalization_fir.wav");
-        auto tc_filter = std::make_unique<sfFDN::NUPOLS>(block_size, eq_fir, sfFDN::PartitionStrategy::kGardner);
+        auto eq_fir = ReadWavFile("./tests/data/equalization_fir.wav");
+        auto tc_filter = std::make_unique<sfFDN::PartitionedConvolver>(block_size, eq_fir);
         fdn.SetTCFilter(std::move(tc_filter));
     }
 
@@ -309,7 +305,7 @@ TEST_CASE("FDN_FIR")
     WriteWavFile("fdn_fir_test.wav", output);
 
     {
-        constexpr const char* expected_output_filename = "./tests/fdn_gold_fir_test.wav";
+        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_fir_test.wav";
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 

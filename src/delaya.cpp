@@ -1,4 +1,4 @@
-#include "delaya.h"
+#include "sffdn/delaya.h"
 
 #include <cassert>
 #include <iostream>
@@ -6,18 +6,20 @@
 namespace sfFDN
 {
 
-DelayAllpass::DelayAllpass(float delay, unsigned long maxDelay)
+DelayAllpass::DelayAllpass(float delay, uint32_t maxDelay)
 {
     if (delay < 0.5)
     {
         std::cerr << "DelayAllpass::DelayAllpass: delay must be >= 0.5!" << std::endl;
         assert(false);
+        delay = 0.5; // Set to minimum valid value
     }
 
     if (delay > (float)maxDelay)
     {
         std::cerr << "DelayAllpass::DelayAllpass: maxDelay must be > than delay argument!" << std::endl;
         assert(false);
+        delay = maxDelay - 1; // Set to maximum valid value
     }
 
     // Writing before reading allows delays from 0 to length-1.
@@ -44,7 +46,7 @@ void DelayAllpass::Clear()
     apInput_ = 0.0;
 }
 
-void DelayAllpass::SetMaximumDelay(unsigned long delay)
+void DelayAllpass::SetMaximumDelay(uint32_t delay)
 {
     if (delay < buffer_.size())
         return;
@@ -55,7 +57,7 @@ void DelayAllpass::UpdateAlpha(float delay)
 {
     float outPointer = inPoint_ - delay + 1.0; // outPoint chases inpoint
 
-    unsigned long length = buffer_.size();
+    uint32_t length = buffer_.size();
     while (outPointer < 0)
     {
         outPointer += length; // modulo maximum length
@@ -83,7 +85,7 @@ void DelayAllpass::UpdateAlpha(float delay)
 
 void DelayAllpass::SetDelay(float delay)
 {
-    unsigned long length = buffer_.size();
+    uint32_t length = buffer_.size();
     if (delay + 1 > length)
     { // The value is too big.
         std::cerr << "DelayAllpass::setDelay: argument (" << delay << ") greater than maximum!" << std::endl;

@@ -6,8 +6,7 @@
 #include <fstream>
 #include <random>
 
-#include <delay.h>
-#include <delaybank.h>
+#include "sffdn/sffdn.h"
 
 #include "test_utils.h"
 

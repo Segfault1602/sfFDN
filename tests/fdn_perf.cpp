@@ -8,12 +8,8 @@
 #include <span>
 
 #include "array_math.h"
-#include "fdn.h"
-#include "feedback_matrix.h"
 #include "filter_coeffs.h"
-#include "filter_design.h"
-#include "filter_feedback_matrix.h"
-#include "nupols.h"
+#include "sffdn/sffdn.h"
 
 #include "test_utils.h"
 
@@ -44,7 +40,7 @@ TEST_CASE("FDNPerf")
     bench.title("FDN Perf");
     // bench.batch(kBlockSize);
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(100000);
+    bench.minEpochIterations(10000);
 
     bench.run("FDN", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
@@ -76,19 +72,19 @@ TEST_CASE("FDNPerf")
         filter_bank->Process(input_buffer, output_buffer);
     });
 
-    // auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
-    // for (size_t i = 0; i < N; i++)
-    // {
-    //     auto fir = ReadWavFile("./tests/att_fir_1153.wav");
-    //     auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+    auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
+    for (size_t i = 0; i < N; i++)
+    {
+        auto fir = ReadWavFile("./tests/data/att_fir_1153.wav");
+        auto PartitionedConvolver = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir);
 
-    //     fir_filter_bank->AddFilter(std::move(nupols));
-    // }
-    // bench.run("FIR Filter Bank", [&] {
-    //     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
-    //     sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
-    //     fir_filter_bank->Process(input_buffer, output_buffer);
-    // });
+        fir_filter_bank->AddFilter(std::move(PartitionedConvolver));
+    }
+    bench.run("FIR Filter Bank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+        fir_filter_bank->Process(input_buffer, output_buffer);
+    });
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
     bench.run("Mixing Matrix", [&] {
@@ -130,10 +126,10 @@ TEST_CASE("FDNPerf_FIR")
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (size_t i = 0; i < N; i++)
     {
-        auto fir = ReadWavFile("./tests/att_fir_1153.wav");
-        auto nupols = std::make_unique<sfFDN::NUPOLS>(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+        auto fir = ReadWavFile("./tests/data/att_fir_1153.wav");
+        auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir);
 
-        filter_bank->AddFilter(std::move(nupols));
+        filter_bank->AddFilter(std::move(convolver));
     }
 
     fdn->SetFilterBank(std::move(filter_bank));

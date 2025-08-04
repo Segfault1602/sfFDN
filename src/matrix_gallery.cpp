@@ -1,4 +1,4 @@
-#include "matrix_gallery.h"
+#include "sffdn/matrix_gallery.h"
 
 #include <iostream>
 #include <random>
@@ -7,8 +7,6 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 #include <kiss_fft.h>
-
-#include "fft.h"
 
 // Most, if not all, of these matrix generation functions are based on the implementation found in the excellent FDN
 // toolbox https://github.com/SebastianJiroSchlecht/fdnToolbox/blob/master/Generate/fdnMatrixGallery.m
@@ -459,11 +457,11 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(size_t N, size_t K, f
 
     float pulse_size = 1.f;
 
-    matrices.push_back(GenerateMatrix_Internal(N, type, 0));
+    // matrices.push_back(GenerateMatrix_Internal(N, type, 0));
     Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(K);
     sparsity_vec[0] = sparsity;
 
-    for (size_t i = 0; i < K - 1; ++i)
+    for (size_t i = 0; i < K; ++i)
     {
         Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[i], pulse_size);
 
@@ -475,6 +473,10 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(size_t N, size_t K, f
         matrices.push_back(R1);
         delays.insert(delays.end(), shift_left.data(), shift_left.data() + N);
     }
+
+    // Add the last delay stage
+    Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[K - 1], pulse_size);
+    delays.insert(delays.end(), shift_left.data(), shift_left.data() + N);
 
     CascadedFeedbackMatrixInfo info;
     info.N = N;

@@ -1,4 +1,4 @@
-#include "filter.h"
+#include "sffdn/filter.h"
 
 #include <cmath>
 #include <iostream>
@@ -11,45 +11,13 @@ constexpr float TWO_PI = std::numbers::pi_v<float> * 2;
 
 namespace sfFDN
 {
-void Filter::SetGain(float gain)
-{
-    gain_ = gain;
-}
 
-void Filter::SetA(const float (&a)[COEFFICIENT_COUNT])
+OnePoleFilter::OnePoleFilter()
+    : gain_(1.0f)
+    , b0_(1.0f)
+    , a1_(0.0f)
+    , state_{0.0f, 0.0f}
 {
-    for (size_t i = 0; i < COEFFICIENT_COUNT; ++i)
-    {
-        a_[i] = a[i];
-    }
-}
-
-void Filter::SetB(const float (&b)[COEFFICIENT_COUNT])
-{
-    for (size_t i = 0; i < COEFFICIENT_COUNT; ++i)
-    {
-        b_[i] = b[i];
-    }
-}
-
-void Filter::Clear()
-{
-    for (size_t i = 0; i < COEFFICIENT_COUNT; ++i)
-    {
-        outputs_[i] = 0.f;
-        inputs_[i] = 0.f;
-    }
-}
-
-void Filter::ProcessBlock(const float* in, float* out, size_t size)
-{
-    assert(in != nullptr);
-    assert(out != nullptr);
-
-    for (size_t i = 0; i < size; ++i)
-    {
-        out[i] = Tick(in[i]);
-    }
 }
 
 void OnePoleFilter::SetPole(float pole)
@@ -59,14 +27,14 @@ void OnePoleFilter::SetPole(float pole)
     assert(pole <= 1.f && pole >= -1.f);
 
     // Set the b value to 1 - |a| to get a peak gain of 1.
-    b_[0] = 1.f - std::abs(pole);
-    a_[1] = -pole;
+    b0_ = 1.f - std::abs(pole);
+    a1_ = -pole;
 }
 
 void OnePoleFilter::SetCoefficients(float b0, float a1)
 {
-    b_[0] = b0;
-    a_[1] = a1;
+    b0_ = b0;
+    a1_ = a1;
 }
 
 void OnePoleFilter::SetDecayFilter(float decayDb, float timeMs, float samplerate)
@@ -88,9 +56,9 @@ void OnePoleFilter::SetLowpass(float cutoff)
 
 float OnePoleFilter::Tick(float in)
 {
-    outputs_[0] = gain_ * in * b_[0] - outputs_[1] * a_[1];
-    outputs_[1] = outputs_[0];
-    return outputs_[0];
+    state_[0] = gain_ * in * b0_ - state_[1] * a1_;
+    state_[1] = state_[0];
+    return state_[0];
 }
 
 void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output)
@@ -99,9 +67,12 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output)
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
 
-    auto input_buf = input.GetChannelBuffer(0);
-    auto output_buf = output.GetChannelBuffer(0);
-    ProcessBlock(input_buf.Data(), output_buf.Data(), input.SampleCount());
+    auto input_span = input.GetChannelSpan(0);
+    auto output_span = output.GetChannelSpan(0);
+    for (auto i = 0; i < input_span.size(); ++i)
+    {
+        output_span[i] = Tick(input_span[i]);
+    }
 }
 uint32_t OnePoleFilter::InputChannelCount() const
 {

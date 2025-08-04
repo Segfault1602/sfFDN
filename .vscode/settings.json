@@ -67,6 +67,8 @@
         "algorithm": "cpp",
         "hash_map": "cpp",
         "alignedvector3": "cpp",
-        "numeric": "cpp"
+        "numeric": "cpp",
+        "cstddef": "cpp",
+        "functional": "cpp"
     }
 }

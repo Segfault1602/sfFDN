@@ -21,7 +21,9 @@ if(SF_FDN_USE_VDSP)
     target_link_libraries(tests PRIVATE "-framework Accelerate")
 endif()
 
-target_include_directories(tests PRIVATE ${doctest_SOURCE_DIR}/doctest)
+set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+
+target_include_directories(tests PRIVATE ${doctest_SOURCE_DIR}/doctest ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(tests PRIVATE ${COMMON_CXX_FLAGS})
 
 if(NOT WIN32)
@@ -48,7 +50,7 @@ if(SF_FDN_USE_VDSP)
     target_link_libraries(perf PRIVATE "-framework Accelerate")
 endif()
 
-target_include_directories(perf PRIVATE ${doctest_SOURCE_DIR}/doctest)
+target_include_directories(perf PRIVATE ${doctest_SOURCE_DIR}/doctest  ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(perf PRIVATE ${COMMON_CXX_FLAGS})
 
 target_compile_options(perf PRIVATE -O3 $<$<CONFIG:Debug>:-fsanitize=address>)

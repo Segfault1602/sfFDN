@@ -9,7 +9,6 @@
 
 namespace sfFDN
 {
-
 class UPOLS
 {
   public:
@@ -21,6 +20,10 @@ class UPOLS
     void Process(std::span<const float> input, std::span<float> output);
 
     std::span<float> PrepareWorkBuffer();
+
+    void AddSamples(std::span<const float> input);
+    bool IsReady() const;
+
     void Process(std::span<float> output);
 
     void PrintPartition() const;
@@ -37,5 +40,7 @@ class UPOLS
     std::span<float> work_buffer_;
     std::span<complex_t> spectrum_buffer_;
     std::span<float> result_buffer_;
+
+    size_t samples_needed_;
 };
 } // namespace sfFDN

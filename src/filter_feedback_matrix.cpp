@@ -1,39 +1,43 @@
-#include "filter_feedback_matrix.h"
+#include "sffdn/filter_feedback_matrix.h"
 
 #include <cassert>
 #include <iostream>
+#include <print>
 
 namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(uint32_t N)
     : FeedbackMatrix(N)
 {
-    stages_.clear();
-    last_mat_ = ScalarFeedbackMatrix::Eye(N);
+    delays_.clear();
+    matrix_.clear();
 }
 
 void FilterFeedbackMatrix::Clear()
 {
-    for (auto& stage : stages_)
+    for (auto& delay : delays_)
     {
-        stage.Clear();
+        delay.Clear();
     }
 }
 
 void FilterFeedbackMatrix::ConstructMatrix(std::span<uint32_t> delays, std::span<ScalarFeedbackMatrix> mixing_matrices)
 {
-    const uint32_t num_stages = mixing_matrices.size();
-    assert(delays.size() == N_ * (num_stages - 1));
+    const uint32_t num_stages = (delays.size() / N_) - 1;
+    assert(mixing_matrices.size() == num_stages);
 
-    stages_.reserve(num_stages - 1);
-    for (uint32_t i = 0; i < num_stages - 1; ++i)
+    delays_.reserve(num_stages + 1);
+    matrix_.reserve(mixing_matrices.size());
+    for (uint32_t i = 0; i < num_stages + 1; ++i)
     {
         auto stage_delays = delays.subspan(i * N_, N_);
-        stages_.emplace_back(N_, stage_delays);
-        stages_[i].SetMatrix(mixing_matrices[i]);
+        delays_.emplace_back(stage_delays, 128); // TODO: Adjust block size as needed
     }
 
-    last_mat_ = mixing_matrices[num_stages - 1];
+    for (size_t i = 0; i < mixing_matrices.size(); ++i)
+    {
+        matrix_.emplace_back(mixing_matrices[i]);
+    }
 }
 
 void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
@@ -42,30 +46,74 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == N_);
     assert(output.ChannelCount() == N_);
 
-    if (!stages_.empty())
+    if (!delays_.empty())
     {
         // Apply first stage
-        stages_[0].Process(input, output);
+        delays_[0].Process(input, output);
+        matrix_[0].Process(output, output);
 
-        for (uint32_t i = 1; i < stages_.size(); ++i)
+        for (uint32_t i = 1; i < matrix_.size(); ++i)
         {
-            stages_[i].Process(output, output);
+            delays_[i].Process(output, output);
+            matrix_[i].Process(output, output);
         }
-    }
 
-    // Apply last delay stage
-    last_mat_.Process(output, output);
+        // Apply last delays
+        // delays_.back().Process(output, output);
+    }
 }
 
 void FilterFeedbackMatrix::PrintInfo() const
 {
-    std::cout << "FilterFeedbackMatrix Info:" << std::endl;
-    std::cout << "Number of stages: " << stages_.size() << std::endl;
-    std::cout << "Last mixing matrix size: " << last_mat_.GetSize() << std::endl;
-    for (const auto& stage : stages_)
+    std::println("FilterFeedbackMatrix Info:");
+    std::println("Number of stages: {}", delays_.size());
+    for (const auto& delay : delays_)
     {
-        stage.PrintInfo();
+        auto delays = delay.GetDelays();
+        std::println("Delays: [");
+        for (size_t i = 0; i < delays.size(); ++i)
+        {
+            std::print("{}", delays[i]);
+            if (i < delays.size() - 1)
+            {
+                std::print(", ");
+            }
+            std::println("]");
+        }
     }
-    last_mat_.Print();
 }
+
+std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(CascadedFeedbackMatrixInfo& info)
+{
+    if (info.delays.size() % info.N != 0)
+    {
+        std::println(std::cerr, "Delays size must be a multiple of N.");
+        return nullptr;
+    }
+
+    if (info.delays.size() / info.N != info.K + 1)
+    {
+        std::println(std::cerr, "Delays size does not match the expected number of stages.");
+        return nullptr;
+    }
+
+    if (info.matrices.size() != info.K * info.N * info.N)
+    {
+        std::println(std::cerr, "Matrices size does not match the expected size for K stages.");
+        return nullptr;
+    }
+
+    std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
+    for (size_t i = 0; i < info.K; i++)
+    {
+        std::span<float> matrix_span(info.matrices.data() + i * info.N * info.N, info.N * info.N);
+        sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);
+        feedback_matrix.SetMatrix(matrix_span);
+        feedback_matrices.push_back(feedback_matrix);
+    }
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info.N);
+    ffm->ConstructMatrix(info.delays, feedback_matrices);
+    return ffm;
+}
+
 } // namespace sfFDN

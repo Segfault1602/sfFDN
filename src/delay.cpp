@@ -1,4 +1,4 @@
-#include "delay.h"
+#include "sffdn/delay.h"
 
 #include <cassert>
 #include <iostream>
@@ -74,17 +74,42 @@ float Delay::Tick(float input)
     return lastFrame_;
 }
 
+float Delay::TapOut(uint32_t tap) const
+{
+    if (tap >= buffer_.size())
+    {
+        std::cerr << "Delay::TapOut: Tap point exceeds buffer size!\n";
+        assert(false);
+        return 0.0f;
+    }
+
+    uint32_t tap_point = (inPoint_ + buffer_.size() - tap - 1) % buffer_.size();
+    return buffer_[tap_point];
+}
+
 void Delay::Process(const AudioBuffer input, AudioBuffer& output)
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // Delay only supports mono input
 
-    AddNextInputs(input.GetChannelSpan(0));
-    GetNextOutputs(output.GetChannelSpan(0));
+    if (AddNextInputs(input.GetChannelSpan(0)))
+    {
+        GetNextOutputs(output.GetChannelSpan(0));
+    }
+    else
+    {
+        // We could not add all input samples at once, so just process samples one by one.
+        auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
+        for (size_t i = 0; i < input.SampleCount(); ++i)
+        {
+            output_span[i] = Tick(input_span[i]);
+        }
+    }
 }
 
-void Delay::AddNextInputs(std::span<const float> input)
+bool Delay::AddNextInputs(std::span<const float> input)
 {
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
@@ -94,7 +119,7 @@ void Delay::AddNextInputs(std::span<const float> input)
     {
         std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
         assert(false);
-        return;
+        return false;
     }
 
     uint32_t end_point = inPoint_ + input.size();
@@ -114,6 +139,7 @@ void Delay::AddNextInputs(std::span<const float> input)
     }
 
     inPoint_ = (inPoint_ + input.size()) % buffer_.size();
+    return true;
 }
 
 void Delay::GetNextOutputs(std::span<float> output)

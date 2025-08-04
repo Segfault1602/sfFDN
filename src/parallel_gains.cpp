@@ -1,4 +1,4 @@
-#include "parallel_gains.h"
+#include "sffdn/parallel_gains.h"
 
 #include <cassert>
 

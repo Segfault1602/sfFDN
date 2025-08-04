@@ -1,6 +1,6 @@
 #pragma once
 
-#include "audio_buffer.h"
+#include "sffdn/audio_buffer.h"
 
 namespace sfFDN
 {

@@ -4,12 +4,7 @@
 #include <iostream>
 #include <random>
 
-#include "audio_buffer.h"
-#include "filter.h"
-#include "filter_design.h"
-#include "filterbank.h"
-#include "schroeder_allpass.h"
-
+#include "sffdn/sffdn.h"
 #include <sndfile.h>
 
 namespace
@@ -47,10 +42,13 @@ TEST_CASE("OnePoleFilter")
     filter.SetCoefficients(0.1, -0.9);
 
     constexpr size_t size = 8;
-    constexpr std::array<float, size> input = {1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    std::array<float, size> input = {1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
     std::array<float, size> output;
 
-    filter.ProcessBlock(input.data(), output.data(), size);
+    sfFDN::AudioBuffer input_buffer(size, 1, input);
+    sfFDN::AudioBuffer output_buffer(size, 1, output.data());
+
+    filter.Process(input_buffer, output_buffer);
 
     constexpr std::array<float, size> expected_output = {0.1000, 0.0900, 0.0810, 0.0729,
                                                          0.0656, 0.0590, 0.0531, 0.0478};
@@ -207,7 +205,10 @@ TEST_CASE("CascadedBiquads")
     input[0] = 1.f;
     std::array<float, size> output;
 
-    filter.ProcessBlock(input.data(), output.data(), size);
+    sfFDN::AudioBuffer input_buffer(size, 1, input);
+    sfFDN::AudioBuffer output_buffer(size, 1, output.data());
+
+    filter.Process(input_buffer, output_buffer);
 
     REQUIRE(size == kTestSOSExpectedOutput.size());
     for (size_t i = 0; i < kTestSOSExpectedOutput.size(); ++i)

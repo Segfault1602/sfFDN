@@ -1,4 +1,4 @@
-#include "feedback_matrix.h"
+#include "sffdn/feedback_matrix.h"
 
 #include <cassert>
 #include <iostream>
@@ -126,10 +126,6 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == N_);
 
-    // The input and output buffers must not overlap
-    // This is a requirement to avoid memory allocation in Eigen by using noalias()
-    assert(input.Data() != output.Data());
-
     const uint32_t col = N_;
     const uint32_t row = input.SampleCount();
 
@@ -138,7 +134,17 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.Data(), row,
                                                                                                  col);
 
-    output_map.noalias() = input_map * matrix_;
+    // The input and output buffers must not overlap
+    // This is a requirement to avoid memory allocation in Eigen by using noalias()
+    if (input.Data() != output.Data())
+    {
+        output_map.noalias() = input_map * matrix_;
+    }
+    else
+    {
+        // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary buffer
+        output_map = input_map * matrix_;
+    }
 }
 
 void ScalarFeedbackMatrix::Print() const

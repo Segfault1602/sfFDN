@@ -1,4 +1,4 @@
-#include "delaybank.h"
+#include "sffdn/delaybank.h"
 
 #include <cassert>
 #include <cstdint>

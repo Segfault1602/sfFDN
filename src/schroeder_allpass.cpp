@@ -1,8 +1,6 @@
-#include "schroeder_allpass.h"
+#include "sffdn/schroeder_allpass.h"
 
 #include <cassert>
-
-#include <arm_neon.h>
 
 namespace sfFDN
 {

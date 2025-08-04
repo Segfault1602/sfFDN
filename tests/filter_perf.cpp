@@ -5,7 +5,7 @@
 #include <fstream>
 #include <random>
 
-#include <filterbank.h>
+#include "sffdn/sffdn.h"
 
 #include "test_utils.h"
 
@@ -105,7 +105,10 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.batch(kBlockSize);
     bench.minEpochIterations(200000);
 
-    bench.run("CascadedBiquads", [&] { filter_bank.ProcessBlock(input.data(), output.data(), kBlockSize); });
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+
+    bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
 
 TEST_SUITE_END();

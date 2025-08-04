@@ -1,6 +1,5 @@
 #include "doctest.h"
 
-#include "upols.h"
 #include <array>
 #include <iostream>
 
@@ -9,10 +8,10 @@
 #include <span>
 #include <vector>
 
-#include "audio_buffer.h"
-#include "filter.h"
+#include "sffdn/sffdn.h"
+#include "upols.h"
+
 #include "filter_coeffs.h"
-#include "filter_utils.h"
 #include "test_utils.h"
 
 namespace
@@ -42,10 +41,10 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 
 TEST_CASE("UPOLS")
 {
-    constexpr size_t kBlockSize = 128;
+    constexpr size_t kBlockSize = 32;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
+    auto fir = GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
     sfFDN::UPOLS upols(kBlockSize, fir);
@@ -81,9 +80,9 @@ TEST_CASE("UPOLS_Noise")
 
     auto ref_filter = CreateTestFilter();
 
-    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
+    auto fir = GetImpulseResponse(ref_filter.get());
 
-    std::vector<float> input_chirp = ReadWavFile("./tests/chirp.wav");
+    std::vector<float> input_chirp = ReadWavFile("./tests/data/chirp.wav");
     const size_t kInputSize = input_chirp.size();
 
     std::vector<float> filter_output(kInputSize, 0.f);

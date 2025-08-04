@@ -5,7 +5,7 @@
 #include <numeric>
 #include <vector>
 
-#include <parallel_gains.h>
+#include "sffdn/sffdn.h"
 
 TEST_CASE("ParallelGainsInput")
 {

@@ -5,8 +5,7 @@
 #include <span>
 #include <vector>
 
-#include <fdn.h>
-#include <filter_feedback_matrix.h>
+#include "sffdn/sffdn.h"
 
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity);
 
@@ -21,6 +20,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N
 
 std::vector<float> ReadWavFile(const std::string& filename);
 std::vector<float> WriteWavFile(const std::string& filename, const std::vector<float>& data);
+
+std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, size_t block_size = 512);
 
 // From: https://github.com/jatinchowdhury18/FIRBenchmarks/blob/master/src/InnerProdFIR.h
 struct InnerProdFIR

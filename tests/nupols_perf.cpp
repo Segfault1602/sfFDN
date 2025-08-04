@@ -1,13 +1,12 @@
 #include "doctest.h"
 #include "nanobench.h"
 
-#include "nupols.h"
 #include <array>
 #include <iostream>
-
 #include <memory>
 
-#include "filter.h"
+#include "sffdn/sffdn.h"
+
 #include "filter_coeffs.h"
 
 using namespace ankerl;
@@ -39,7 +38,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 }
 } // namespace
 
-TEST_CASE("NUPOLS")
+TEST_CASE("PartitionedConvolver")
 {
     constexpr size_t kBlockSize = 64;
 
@@ -52,7 +51,7 @@ TEST_CASE("NUPOLS")
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
     }
 
-    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+    sfFDN::PartitionedConvolver nupols(kBlockSize, fir);
 
     nupols.DumpInfo();
 
@@ -60,23 +59,16 @@ TEST_CASE("NUPOLS")
     input[0] = 1.f;
     std::vector<float> output(kBlockSize, 0.f);
 
-    constexpr size_t kLoopCount = 50; // The NUPOLS algorithm doesn't do the same amount of work at each iteration, so
-                                      // we run it multiple times to get a better average performance.
-
     nanobench::Bench bench;
-    bench.title("NUPOLS perf");
-    bench.batch(kBlockSize * kLoopCount);
-    bench.minEpochIterations(4000);
+    bench.title("PartitionedConvolver perf");
+    // bench.batch(kBlockSize * kLoopCount);
+    bench.minEpochIterations(200000);
 
-    bench.run("NUPOLS", [&] {
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+    bench.run("PartitionedConvolver", [&] {
         // Process the block
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
-        for (size_t i = 0; i < kLoopCount; ++i)
-        {
-            // Process the block
-            nupols.Process(input_buffer, output_buffer);
-            nanobench::doNotOptimizeAway(output);
-        }
+        nupols.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
     });
 }

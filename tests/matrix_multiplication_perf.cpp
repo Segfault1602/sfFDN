@@ -4,7 +4,7 @@
 #include <array>
 #include <iostream>
 
-#include "matrix_multiplication.h"
+#include <matrix_multiplication.h>
 
 #include <Eigen/Core>
 

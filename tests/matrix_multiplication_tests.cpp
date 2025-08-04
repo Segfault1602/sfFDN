@@ -5,7 +5,8 @@
 #include <span>
 #include <vector>
 
-#include "matrix_gallery.h"
+#include "sffdn/sffdn.h"
+
 #include "matrix_multiplication.h"
 
 #include <Eigen/Core>

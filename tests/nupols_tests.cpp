@@ -1,6 +1,5 @@
 #include "doctest.h"
 
-#include "nupols.h"
 #include <array>
 #include <iostream>
 
@@ -9,10 +8,9 @@
 #include <span>
 #include <vector>
 
-#include "audio_buffer.h"
-#include "filter.h"
+#include "sffdn/sffdn.h"
+
 #include "filter_coeffs.h"
-#include "filter_utils.h"
 #include "test_utils.h"
 
 namespace
@@ -40,15 +38,15 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 }
 } // namespace
 
-TEST_CASE("NUPOLS")
+TEST_CASE("PartitionedConvolver")
 {
     constexpr size_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
+    auto fir = GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
-    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+    sfFDN::PartitionedConvolver PartitionedConvolver(kBlockSize, fir);
 
     InnerProdFIR inner_prod_fir(fir);
 
@@ -62,7 +60,7 @@ TEST_CASE("NUPOLS")
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data() + i * kBlockSize);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
         // Process the block
-        nupols.Process(input_buffer, output_buffer);
+        PartitionedConvolver.Process(input_buffer, output_buffer);
     }
 
     std::vector<float> output_fir(kFirLength + kBlockSize, 0.f);
@@ -84,17 +82,17 @@ TEST_CASE("NUPOLS")
     float snr = 10.f * log10(fir_energy / signal_error);
 }
 
-TEST_CASE("NUPOLS_Noise")
+TEST_CASE("PartitionedConvolver_Noise")
 {
     constexpr size_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
-    auto fir = sfFDN::GetImpulseResponse(ref_filter.get());
+    auto fir = GetImpulseResponse(ref_filter.get());
     const size_t kFirLength = fir.size();
 
     InnerProdFIR inner_prod_fir(fir);
 
-    std::vector<float> input_chirp = ReadWavFile("./tests/chirp.wav");
+    std::vector<float> input_chirp = ReadWavFile("./tests/data/chirp.wav");
     const size_t kInputSize = input_chirp.size();
 
     std::vector<float> filter_output(kInputSize, 0.f);
@@ -104,7 +102,7 @@ TEST_CASE("NUPOLS_Noise")
     std::copy(input_chirp.begin(), input_chirp.end(), filter_output.begin());
     inner_prod_fir.Process(ref_output_buffer);
 
-    sfFDN::NUPOLS nupols(kBlockSize, fir, sfFDN::PartitionStrategy::kGardner);
+    sfFDN::PartitionedConvolver PartitionedConvolver(kBlockSize, fir);
 
     std::vector<float> output(kInputSize, 0.f);
 
@@ -114,7 +112,7 @@ TEST_CASE("NUPOLS_Noise")
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input_chirp.data() + i * kBlockSize);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
         // Process the block
-        nupols.Process(input_buffer, output_buffer);
+        PartitionedConvolver.Process(input_buffer, output_buffer);
     }
 
     float signal_energy = 0.f;

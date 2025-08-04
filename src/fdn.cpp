@@ -1,4 +1,4 @@
-#include "fdn.h"
+#include "sffdn/fdn.h"
 
 #include <Eigen/Core>
 #include <cassert>

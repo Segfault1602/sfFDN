@@ -23,3 +23,4 @@ nanobind_add_module(
     cpp_fdn.cpp
 )
 target_link_libraries(cpp_fdn PRIVATE sfFDN)
+target_include_directories(cpp_fdn PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)

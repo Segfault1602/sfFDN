@@ -1,4 +1,4 @@
-#include "audio_buffer.h"
+#include "sffdn/audio_buffer.h"
 
 #include <cassert>
 #include <cstddef>
@@ -22,24 +22,10 @@ AudioBuffer::AudioBuffer(std::span<float> buffer)
 {
 }
 
-AudioBuffer::AudioBuffer(std::span<const float> buffer)
-    : size_(buffer.size())
-    , channel_count_(1)
-    , buffer_(const_cast<float*>(buffer.data()))
-{
-}
-
-AudioBuffer::AudioBuffer(size_t size, size_t channels, float* buffer)
+AudioBuffer::AudioBuffer(size_t size, size_t channels, float* const buffer)
     : size_(size)
     , channel_count_(channels)
     , buffer_(buffer)
-{
-}
-
-AudioBuffer::AudioBuffer(size_t size, size_t channels, const float* buffer)
-    : size_(size)
-    , channel_count_(channels)
-    , buffer_(const_cast<float*>(buffer))
 {
 }
 
@@ -84,12 +70,6 @@ std::span<float> AudioBuffer::GetChannelSpan(size_t channel)
 }
 
 AudioBuffer AudioBuffer::GetChannelBuffer(size_t channel) const
-{
-    assert(channel < channel_count_);
-    return AudioBuffer(size_, 1, buffer_ + channel * size_);
-}
-
-AudioBuffer AudioBuffer::GetChannelBuffer(size_t channel)
 {
     assert(channel < channel_count_);
     return AudioBuffer(size_, 1, buffer_ + channel * size_);

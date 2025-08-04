@@ -1,13 +1,11 @@
 #include "doctest.h"
 
+#include <cstddef>
 #include <memory>
 #include <print>
 #include <vector>
 
-#include "audio_buffer.h"
-#include "audio_processor.h"
-
-#include "parallel_gains.h"
+#include "sffdn/sffdn.h"
 
 TEST_CASE("AudioProcessorChain")
 {

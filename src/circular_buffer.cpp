@@ -1,4 +1,4 @@
-#include "circular_buffer.h"
+#include "sffdn/circular_buffer.h"
 
 #include <algorithm>
 #include <cassert>
@@ -38,10 +38,10 @@ void CircularBuffer::Clear(size_t count, size_t offset)
     }
 }
 
-void CircularBuffer::Write(std::span<const float> data, size_t offset)
+void CircularBuffer::Write(std::span<const float> data)
 {
     assert(data.size() <= buffer_.size());
-    size_t start = (write_ptr_ + offset) % buffer_.size();
+    size_t start = write_ptr_;
     size_t end = (start + data.size()) % buffer_.size();
 
     if (start < end)
@@ -84,22 +84,32 @@ void CircularBuffer::Accumulate(std::span<const float> data, size_t offset)
     }
 }
 
-void CircularBuffer::Read(std::span<float> data, size_t offset)
+void CircularBuffer::Read(std::span<float> data, bool clear_after_read)
 {
     assert(data.size() <= buffer_.size());
 
-    size_t start = (write_ptr_ + buffer_.size() - offset) % buffer_.size();
+    size_t start = (write_ptr_ + buffer_.size() - data.size()) % buffer_.size();
     size_t end = (start + data.size()) % buffer_.size();
 
     if (start < end)
     {
         std::copy(buffer_.begin() + start, buffer_.begin() + end, data.begin());
+        if (clear_after_read)
+        {
+            std::fill(buffer_.begin() + start, buffer_.begin() + end, 0.f);
+        }
     }
     else
     {
         size_t first_part = buffer_.size() - start;
         std::copy(buffer_.begin() + start, buffer_.end(), data.begin());
         std::copy(buffer_.begin(), buffer_.begin() + end, data.begin() + first_part);
+
+        if (clear_after_read)
+        {
+            std::fill(buffer_.begin() + start, buffer_.end(), 0.f);
+            std::fill(buffer_.begin(), buffer_.begin() + end, 0.f);
+        }
     }
 }
 
@@ -108,14 +118,4 @@ size_t CircularBuffer::Size() const
     return buffer_.size();
 }
 
-void CircularBuffer::Print() const
-{
-    size_t idx = write_ptr_;
-    for (size_t i = 0; i < buffer_.size(); ++i)
-    {
-        std::cout << buffer_[idx] << " ";
-        idx = (idx + 1) % buffer_.size();
-    }
-    std::cout << std::endl;
-}
 } // namespace sfFDN

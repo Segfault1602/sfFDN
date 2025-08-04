@@ -8,7 +8,7 @@
 #include <iostream>
 #include <random>
 
-#include <parallel_gains.h>
+#include "sffdn/sffdn.h"
 
 using namespace ankerl;
 using namespace std::chrono_literals;

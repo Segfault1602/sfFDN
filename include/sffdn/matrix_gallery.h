@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
 #pragma once
 
 #include <span>
