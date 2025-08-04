@@ -264,40 +264,42 @@ TEST_CASE("MatrixAssignment")
 TEST_CASE("DelayMatrix")
 {
     constexpr uint32_t N = 4;
-    constexpr uint32_t delays[] = {0, 1, 3, 2};
-    sfFDN::DelayMatrix delay_matrix(4, delays);
+    constexpr uint32_t delays[] = {11, 11, 2, 6, 10, 14, 17, 8, 2, 6, 19, 5, 10, 19, 1, 13};
+    sfFDN::ScalarFeedbackMatrix mixing_matrix = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+    sfFDN::DelayMatrix delay_matrix(4, delays, mixing_matrix);
 
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
-    delay_matrix.SetMatrix(mix_mat);
-
-    std::array<float, N * 8> input = {0.f};
-
-    for (uint32_t i = 0; i < N; ++i)
-    {
-        input[i] = 1.f;
-    }
-
-    constexpr uint32_t kBlockSize = 8;
+    constexpr size_t kBlockSize = 32;
+    std::array<float, N * kBlockSize> input = {0.f};
     std::array<float, N * kBlockSize> output = {0.f};
+
+    for (auto i = 0; i < N; ++i)
+    {
+        input[i * kBlockSize] = 1.f; // Set the first sample of each channel to 1
+    }
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
     sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
-
     delay_matrix.Process(input_buffer, output_buffer);
 
-    float energy_in = 0.f;
-    for (uint32_t i = 0; i < input.size(); ++i)
-    {
-        energy_in += input[i] * input[i];
-    }
+    const std::array<float, kBlockSize> expected_output_ch1 = {0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 1.0, 0.5, 0, 0, 0, 0,
+                                                               0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,   0,   0, 0, 0, 0};
 
-    float energy_out = 0.f;
-    for (uint32_t i = 0; i < output.size(); ++i)
-    {
-        energy_out += output[i] * output[i];
-    }
+    const std::array<float, kBlockSize> expected_output_ch2 = {
+        0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0, -0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    CHECK(energy_in == doctest::Approx(energy_out));
+    const std::array<float, kBlockSize> expected_output_ch3 = {0, -0.5, 0.5, 0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                               0, 0.5,  0,   -0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    const std::array<float, kBlockSize> expected_output_ch4 = {
+        0, 0, 0, 0, 0, -0.5, 0.5, 0, -0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    for (auto i = 0; i < output_buffer.SampleCount(); ++i)
+    {
+        CHECK(output_buffer.GetChannelSpan(0)[i] == doctest::Approx(expected_output_ch1[i]));
+        CHECK(output_buffer.GetChannelSpan(1)[i] == doctest::Approx(expected_output_ch2[i]));
+        CHECK(output_buffer.GetChannelSpan(2)[i] == doctest::Approx(expected_output_ch3[i]));
+        CHECK(output_buffer.GetChannelSpan(3)[i] == doctest::Approx(expected_output_ch4[i]));
+    }
 }
 
 TEST_CASE("FilterFeedbackMatrix")

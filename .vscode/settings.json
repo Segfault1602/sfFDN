@@ -69,6 +69,7 @@
         "alignedvector3": "cpp",
         "numeric": "cpp",
         "cstddef": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "*.inc": "cpp"
     }
 }

@@ -22,21 +22,11 @@ class DelayMatrix : public FeedbackMatrix
     /// @brief Constructs a DelayMatrix with the specified size and delay values.
     /// @param N the size of the matrix
     /// @param delays the delay values for each channel. The size of the delays span must match N.
-    DelayMatrix(uint32_t N, std::span<const uint32_t> delays);
+    DelayMatrix(uint32_t N, std::span<const uint32_t> delays, ScalarFeedbackMatrix mixing_matrix);
 
     /// @brief Clears the internal delay buffers.
     /// This sets all delay buffers to zero.
     void Clear();
-
-    /// @brief Sets the delays for the matrix.
-    /// @param delays the new delay values for each channel. The size of the delays span must match N.
-    /// @note This will resize the internal delay buffers to match the new delays
-    void SetDelays(std::span<uint32_t> delays);
-
-    /// @brief Sets the mixing matrix for the delay matrix.
-    /// @param mixing_matrix the new mixing matrix
-    /// @note The size of the mixing matrix must be NxN.
-    void SetMatrix(ScalarFeedbackMatrix mixing_matrix);
 
     /// @brief Processes the input audio buffer through the delay matrix.
     /// @param input the input audio buffer
@@ -49,5 +39,11 @@ class DelayMatrix : public FeedbackMatrix
   private:
     DelayBank delays_;
     ScalarFeedbackMatrix mixing_matrix_;
+
+    size_t N_;
+    std::vector<Delay> delay_lines_;
+    std::vector<uint32_t> delay_values_;
+    Eigen::MatrixXf matrix_;
+    Eigen::MatrixXf signal_matrix;
 };
 } // namespace sfFDN

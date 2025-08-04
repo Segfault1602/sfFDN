@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=VelvetFFM"
+                "-tc=DelayMatrix"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

@@ -43,7 +43,7 @@ set(SFFDN_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_sources(sfFDN PRIVATE ${FDN_SOURCE})
 target_include_directories(sfFDN PUBLIC ${SFFDN_INCLUDE_DIRS} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
 target_link_libraries(sfFDN PUBLIC Eigen3::Eigen PFFFT kissfft)
-target_compile_definitions(sfFDN PRIVATE -DEIGEN_RUNTIME_NO_MALLOC)
+target_compile_definitions(sfFDN PUBLIC -DEIGEN_RUNTIME_NO_MALLOC)
 
 
 

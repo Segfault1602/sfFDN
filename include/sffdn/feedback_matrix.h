@@ -58,6 +58,11 @@ class ScalarFeedbackMatrix : public FeedbackMatrix
         return N_;
     }
 
+    float GetCoefficient(size_t row, size_t col) const
+    {
+        return matrix_(row, col);
+    }
+
   private:
     Eigen::MatrixXf matrix_;
     std::vector<float> matrix_coeffs_;
