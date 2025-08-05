@@ -8,13 +8,9 @@
 #include <vector>
 
 #include "audio_processor.h"
-#include "circular_buffer.h"
 
 namespace sfFDN
 {
-
-class PartitionedConvolverSegment;
-
 class PartitionedConvolver : public AudioProcessor
 {
   public:
@@ -35,10 +31,8 @@ class PartitionedConvolver : public AudioProcessor
     }
 
   private:
-    size_t block_size_;
-    CircularBuffer output_buffer_;
-
-    std::vector<std::unique_ptr<PartitionedConvolverSegment>> segments_;
+    class PartitionedConvolverImpl;
+    std::unique_ptr<PartitionedConvolverImpl> impl_;
 };
 
 } // namespace sfFDN

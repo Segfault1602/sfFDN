@@ -73,8 +73,7 @@ class PyFDN
         std::span<float> matrix_span(matrix.data(), matrix.size());
         sfFDN::ScalarFeedbackMatrix mixing_matrix(N_);
         mixing_matrix.SetMatrix(matrix_span);
-        std::unique_ptr<sfFDN::FeedbackMatrix> mixing_matrix_ptr =
-            std::make_unique<sfFDN::ScalarFeedbackMatrix>(mixing_matrix);
+        auto mixing_matrix_ptr = std::make_unique<sfFDN::ScalarFeedbackMatrix>(mixing_matrix);
         fdn_.SetFeedbackMatrix(std::move(mixing_matrix_ptr));
     }
 

@@ -78,7 +78,7 @@ void FDN::SetDelays(const std::span<const uint32_t> delays)
     delay_bank_.SetDelays(delays, block_size_);
 }
 
-void FDN::SetFeedbackMatrix(std::unique_ptr<FeedbackMatrix> mixing_matrix)
+void FDN::SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix)
 {
     mixing_matrix_ = std::move(mixing_matrix);
 }

@@ -1,4 +1,4 @@
-#include "sffdn/circular_buffer.h"
+#include "circular_buffer.h"
 
 #include <algorithm>
 #include <cassert>

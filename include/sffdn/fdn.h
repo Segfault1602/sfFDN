@@ -33,7 +33,7 @@ class FDN : public AudioProcessor
     void SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
     void SetDelays(const std::span<const uint32_t> delays);
 
-    void SetFeedbackMatrix(std::unique_ptr<FeedbackMatrix> mixing_matrix);
+    void SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix);
 
     void SetTCFilter(std::unique_ptr<AudioProcessor> filter);
 
@@ -55,7 +55,7 @@ class FDN : public AudioProcessor
 
     DelayBank delay_bank_;
     std::unique_ptr<AudioProcessor> filter_bank_;
-    std::unique_ptr<FeedbackMatrix> mixing_matrix_;
+    std::unique_ptr<AudioProcessor> mixing_matrix_;
 
     std::unique_ptr<AudioProcessor> input_gains_;
     std::unique_ptr<AudioProcessor> output_gains_;

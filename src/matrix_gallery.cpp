@@ -8,6 +8,8 @@
 #include <Eigen/QR>
 #include <kiss_fft.h>
 
+#include "matrix_gallery_internal.h"
+
 // Most, if not all, of these matrix generation functions are based on the implementation found in the excellent FDN
 // toolbox https://github.com/SebastianJiroSchlecht/fdnToolbox/blob/master/Generate/fdnMatrixGallery.m
 //
@@ -40,25 +42,6 @@ Eigen::MatrixXf createToeplitzMatrix(const Eigen::VectorXf& c, const Eigen::Vect
     return T;
 }
 
-Eigen::MatrixXf RandN(size_t N, uint32_t seed)
-{
-    // Generate random matrix from normal distribution (equivalent to randn(n))
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-
-    Eigen::MatrixXf random_matrix(N, N);
-    for (size_t i = 0; i < N; ++i)
-    {
-        for (size_t j = 0; j < N; ++j)
-        {
-            random_matrix(i, j) = dist(gen);
-        }
-    }
-
-    return random_matrix;
-}
-
 Eigen::VectorXf RandVec(size_t N, uint32_t seed = 0)
 {
     std::random_device rd;
@@ -88,6 +71,150 @@ Eigen::ArrayXf RandArray(size_t N, uint32_t seed = 0)
     }
 
     return random_vector;
+}
+
+Eigen::MatrixXf NestedAllpassMatrix_Internal(size_t N, uint32_t seed, std::span<float> input_gains = std::span<float>(),
+                                             std::span<float> output_gains = std::span<float>())
+{
+    Eigen::VectorXf g(N);
+    std::random_device rd;
+    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+    for (size_t i = 0; i < N; ++i)
+    {
+        g[i] = dist(gen) * 0.2f + 0.6f;
+    }
+
+    std::cout << "g: " << g.transpose() << std::endl;
+
+    Eigen::MatrixXf matrix = Eigen::MatrixXf::Zero(1, 1);
+    matrix(0, 0) = g[0];
+
+    Eigen::VectorXf input_gains_vec = Eigen::VectorXf::Zero(1);
+    input_gains_vec[0] = 1.f - g[0] * g[0];
+
+    Eigen::VectorXf output_gain_vec = Eigen::VectorXf::Zero(1);
+    output_gain_vec[0] = 1.f;
+
+    float direct = -g[0];
+
+    for (size_t i = 1; i < g.size(); ++i)
+    {
+        Eigen::MatrixXf new_matrix = Eigen::MatrixXf::Zero(matrix.rows() + 1, matrix.cols() + 1);
+        new_matrix.topLeftCorner(matrix.rows(), matrix.cols()) = matrix;
+        new_matrix.topRightCorner(input_gains_vec.size(), 1) = input_gains_vec;
+        new_matrix.bottomLeftCorner(1, output_gain_vec.size()) = output_gain_vec.transpose() * g[i];
+        new_matrix(matrix.rows(), matrix.cols()) = direct * g[i];
+
+        matrix = new_matrix;
+
+        input_gains_vec = Eigen::VectorXf::Zero(matrix.cols());
+        input_gains_vec[matrix.cols() - 1] = 1.f - g[i] * g[i];
+
+        Eigen::VectorXf new_output_gain = Eigen::VectorXf::Zero(matrix.rows());
+        new_output_gain(Eigen::seq(0, matrix.rows() - 2)) = output_gain_vec.head(matrix.rows() - 1);
+        new_output_gain[matrix.rows() - 1] = direct;
+        output_gain_vec = new_output_gain;
+
+        direct = -g[i];
+        std::cout << std::endl;
+    }
+
+    if (!input_gains.empty() && input_gains.size() == input_gains_vec.size())
+    {
+        for (size_t i = 0; i < input_gains.size(); ++i)
+        {
+            input_gains[i] = input_gains_vec[i];
+        }
+    }
+
+    if (!output_gains.empty() && output_gains.size() == output_gain_vec.size())
+    {
+        for (size_t i = 0; i < output_gains.size(); ++i)
+        {
+            output_gains[i] = output_gain_vec[i];
+        }
+    }
+
+    return matrix;
+}
+
+Eigen::ArrayXf ShiftMatrixDistribute(size_t N, float sparsity, float pulse_size)
+{
+    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(N, 0, N - 1) + RandArray(N) * 0.99f);
+
+    shift = shift.floor() * pulse_size;
+    return shift;
+}
+
+Eigen::MatrixXf GenerateMatrix_Internal(size_t N, sfFDN::ScalarMatrixType type, uint32_t seed)
+{
+    Eigen::MatrixXf A(N, N);
+    switch (type)
+    {
+    case sfFDN::ScalarMatrixType::Identity:
+        A = Eigen::MatrixXf::Identity(N, N);
+        break;
+    case sfFDN::ScalarMatrixType::Random:
+        A = sfFDN::RandomOrthogonal(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::Householder:
+    {
+        Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
+        v.normalize();
+        A = sfFDN::HouseholderMatrix(v);
+        break;
+    }
+    case sfFDN::ScalarMatrixType::RandomHouseholder:
+    {
+        A = sfFDN::RandomHouseholder(N, seed);
+        break;
+    }
+    case sfFDN::ScalarMatrixType::Hadamard:
+        A = sfFDN::HadamardMatrix(N);
+        break;
+    case sfFDN::ScalarMatrixType::Circulant:
+        A = sfFDN::CirculantMatrix(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::Allpass:
+        A = sfFDN::AllpassMatrix(N, seed);
+        break;
+    case sfFDN::ScalarMatrixType::NestedAllpass:
+        A = NestedAllpassMatrix_Internal(N, seed);
+        break;
+    // case sfFDN::ScalarMatrixType::TinyRotation:
+    //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
+    //     break;
+    default:
+        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << std::endl;
+        A = Eigen::MatrixXf::Zero(N, N);
+    }
+
+    return A;
+}
+
+} // namespace
+
+namespace sfFDN
+{
+
+Eigen::MatrixXf RandN(size_t N, uint32_t seed)
+{
+    // Generate random matrix from normal distribution (equivalent to randn(n))
+    std::random_device rd;
+    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::normal_distribution<float> dist(0.0f, 1.0f);
+
+    Eigen::MatrixXf random_matrix(N, N);
+    for (size_t i = 0; i < N; ++i)
+    {
+        for (size_t j = 0; j < N; ++j)
+        {
+            random_matrix(i, j) = dist(gen);
+        }
+    }
+
+    return random_matrix;
 }
 
 Eigen::MatrixXf RandomOrthogonal(size_t N, uint32_t seed)
@@ -270,146 +397,6 @@ Eigen::MatrixXf AllpassMatrix(size_t N, uint32_t seed)
 
     return C;
 }
-
-Eigen::MatrixXf NestedAllpassMatrix_Internal(size_t N, uint32_t seed, std::span<float> input_gains = std::span<float>(),
-                                             std::span<float> output_gains = std::span<float>())
-{
-    Eigen::VectorXf g(N);
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
-    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-    for (size_t i = 0; i < N; ++i)
-    {
-        g[i] = dist(gen) * 0.2f + 0.6f;
-    }
-
-    std::cout << "g: " << g.transpose() << std::endl;
-
-    Eigen::MatrixXf matrix = Eigen::MatrixXf::Zero(1, 1);
-    matrix(0, 0) = g[0];
-
-    Eigen::VectorXf input_gains_vec = Eigen::VectorXf::Zero(1);
-    input_gains_vec[0] = 1.f - g[0] * g[0];
-
-    Eigen::VectorXf output_gain_vec = Eigen::VectorXf::Zero(1);
-    output_gain_vec[0] = 1.f;
-
-    float direct = -g[0];
-
-    for (size_t i = 1; i < g.size(); ++i)
-    {
-        Eigen::MatrixXf new_matrix = Eigen::MatrixXf::Zero(matrix.rows() + 1, matrix.cols() + 1);
-        new_matrix.topLeftCorner(matrix.rows(), matrix.cols()) = matrix;
-        new_matrix.topRightCorner(input_gains_vec.size(), 1) = input_gains_vec;
-        new_matrix.bottomLeftCorner(1, output_gain_vec.size()) = output_gain_vec.transpose() * g[i];
-        new_matrix(matrix.rows(), matrix.cols()) = direct * g[i];
-
-        matrix = new_matrix;
-
-        input_gains_vec = Eigen::VectorXf::Zero(matrix.cols());
-        input_gains_vec[matrix.cols() - 1] = 1.f - g[i] * g[i];
-
-        Eigen::VectorXf new_output_gain = Eigen::VectorXf::Zero(matrix.rows());
-        new_output_gain(Eigen::seq(0, matrix.rows() - 2)) = output_gain_vec.head(matrix.rows() - 1);
-        new_output_gain[matrix.rows() - 1] = direct;
-        output_gain_vec = new_output_gain;
-
-        direct = -g[i];
-        std::cout << std::endl;
-    }
-
-    if (!input_gains.empty() && input_gains.size() == input_gains_vec.size())
-    {
-        for (size_t i = 0; i < input_gains.size(); ++i)
-        {
-            input_gains[i] = input_gains_vec[i];
-        }
-    }
-
-    if (!output_gains.empty() && output_gains.size() == output_gain_vec.size())
-    {
-        for (size_t i = 0; i < output_gains.size(); ++i)
-        {
-            output_gains[i] = output_gain_vec[i];
-        }
-    }
-
-    return matrix;
-}
-
-Eigen::MatrixXf TinyRotationMatrix(size_t N, float delta, float spread, uint32_t seed)
-{
-    Eigen::MatrixXf log_matrix = RandN(N, seed);
-
-    Eigen::MatrixXf skew_symmetric = (log_matrix - log_matrix.transpose()) / 2;
-
-    // Get the eigenvalues and eigenvectors
-    // [v,e] = eig(skewSymmetric);
-    Eigen::EigenSolver<Eigen::MatrixXf> es(skew_symmetric, true);
-    Eigen::MatrixXcf v = es.eigenvectors();
-    Eigen::VectorXcf e = es.eigenvalues();
-
-    return Eigen::MatrixXf::Identity(N, N);
-}
-
-Eigen::ArrayXf ShiftMatrixDistribute(size_t N, float sparsity, float pulse_size)
-{
-    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(N, 0, N - 1) + RandArray(N) * 0.99f);
-
-    shift = shift.floor() * pulse_size;
-    return shift;
-}
-
-Eigen::MatrixXf GenerateMatrix_Internal(size_t N, sfFDN::ScalarMatrixType type, uint32_t seed)
-{
-    Eigen::MatrixXf A(N, N);
-    switch (type)
-    {
-    case sfFDN::ScalarMatrixType::Identity:
-        A = Eigen::MatrixXf::Identity(N, N);
-        break;
-    case sfFDN::ScalarMatrixType::Random:
-        A = RandomOrthogonal(N, seed);
-        break;
-    case sfFDN::ScalarMatrixType::Householder:
-    {
-        Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
-        v.normalize();
-        A = HouseholderMatrix(v);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::RandomHouseholder:
-    {
-        A = RandomHouseholder(N, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Hadamard:
-        A = HadamardMatrix(N);
-        break;
-    case sfFDN::ScalarMatrixType::Circulant:
-        A = CirculantMatrix(N, seed);
-        break;
-    case sfFDN::ScalarMatrixType::Allpass:
-        A = AllpassMatrix(N, seed);
-        break;
-    case sfFDN::ScalarMatrixType::NestedAllpass:
-        A = NestedAllpassMatrix_Internal(N, seed);
-        break;
-    // case sfFDN::ScalarMatrixType::TinyRotation:
-    //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
-    //     break;
-    default:
-        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << std::endl;
-        A = Eigen::MatrixXf::Zero(N, N);
-    }
-
-    return A;
-}
-
-} // namespace
-
-namespace sfFDN
-{
 
 std::vector<float> GenerateMatrix(size_t N, ScalarMatrixType type, uint32_t seed)
 {

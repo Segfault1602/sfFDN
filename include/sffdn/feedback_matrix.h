@@ -3,15 +3,13 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <span>
-
-#include <Eigen/Core>
 
 #include "audio_processor.h"
 
 namespace sfFDN
 {
-
 class FeedbackMatrix : public AudioProcessor
 {
   public:
@@ -36,36 +34,37 @@ class FeedbackMatrix : public AudioProcessor
     uint32_t N_;
 };
 
-class ScalarFeedbackMatrix : public FeedbackMatrix
+class ScalarFeedbackMatrix : public AudioProcessor
 {
   public:
     ScalarFeedbackMatrix(uint32_t N = 4);
-    virtual ~ScalarFeedbackMatrix() = default;
+    virtual ~ScalarFeedbackMatrix() override;
+
+    ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other);
+    ScalarFeedbackMatrix& operator=(const ScalarFeedbackMatrix& other);
 
     static ScalarFeedbackMatrix Householder(uint32_t N);
     static ScalarFeedbackMatrix Householder(std::span<const float> v);
     static ScalarFeedbackMatrix Hadamard(uint32_t N);
     static ScalarFeedbackMatrix Eye(uint32_t N);
 
-    void SetMatrix(const std::span<const float> matrix);
+    bool SetMatrix(const std::span<const float> matrix);
 
     virtual void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
     void Print() const;
 
-    uint32_t GetSize() const
-    {
-        return N_;
-    }
+    uint32_t GetSize() const;
 
-    float GetCoefficient(size_t row, size_t col) const
-    {
-        return matrix_(row, col);
-    }
+    float GetCoefficient(size_t row, size_t col) const;
+
+    uint32_t InputChannelCount() const override;
+
+    uint32_t OutputChannelCount() const override;
 
   private:
-    Eigen::MatrixXf matrix_;
-    std::vector<float> matrix_coeffs_;
+    class ScalarFeedbackMatrixImpl;
+    std::unique_ptr<ScalarFeedbackMatrixImpl> impl_;
 };
 
 } // namespace sfFDN

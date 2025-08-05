@@ -7,7 +7,7 @@
 namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(uint32_t N)
-    : FeedbackMatrix(N)
+    : N_(N)
 {
     delays_.clear();
     matrix_.clear();
@@ -21,7 +21,8 @@ void FilterFeedbackMatrix::Clear()
     }
 }
 
-void FilterFeedbackMatrix::ConstructMatrix(std::span<uint32_t> delays, std::span<ScalarFeedbackMatrix> mixing_matrices)
+void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
+                                           std::span<const ScalarFeedbackMatrix> mixing_matrices)
 {
     const uint32_t num_stages = (delays.size() / N_) - 1;
     assert(mixing_matrices.size() == num_stages);
@@ -83,7 +84,7 @@ void FilterFeedbackMatrix::PrintInfo() const
     }
 }
 
-std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(CascadedFeedbackMatrixInfo& info)
+std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
 {
     if (info.delays.size() % info.N != 0)
     {
@@ -106,7 +107,7 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(CascadedFeedbackM
     std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
     for (size_t i = 0; i < info.K; i++)
     {
-        std::span<float> matrix_span(info.matrices.data() + i * info.N * info.N, info.N * info.N);
+        std::span<const float> matrix_span(info.matrices.data() + i * info.N * info.N, info.N * info.N);
         sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);
         feedback_matrix.SetMatrix(matrix_span);
         feedback_matrices.push_back(feedback_matrix);

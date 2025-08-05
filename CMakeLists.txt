@@ -5,9 +5,7 @@ project(sfFDN)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(SF_FDN_USE_VDSP "Use VDSP for DSP operations" OFF)
-
-set(COMMON_CXX_FLAGS $<$<CONFIG:Release>:-O3> -fno-omit-frame-pointer)
+option(SF_FDN_USE_VDSP "Use VDSP for DSP operations" ON)
 
 include(./fetch_deps.cmake)
 

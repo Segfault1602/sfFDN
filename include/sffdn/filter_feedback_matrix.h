@@ -13,16 +13,14 @@
 namespace sfFDN
 {
 
-class FilterFeedbackMatrix : public FeedbackMatrix
+class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
     FilterFeedbackMatrix(uint32_t N);
 
     void Clear();
-    // void SetDelays(std::span<uint32_t> delays);
-    // void SetMatrices(std::span<ScalarFeedbackMatrix> mixing_matrices);
 
-    void ConstructMatrix(std::span<uint32_t> delays, std::span<ScalarFeedbackMatrix> mixing_matrices);
+    void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
@@ -39,10 +37,11 @@ class FilterFeedbackMatrix : public FeedbackMatrix
     void PrintInfo() const;
 
   private:
+    uint32_t N_;
     std::vector<DelayBank> delays_;
     std::vector<ScalarFeedbackMatrix> matrix_;
 };
 
-std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(CascadedFeedbackMatrixInfo& info);
+std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info);
 
 } // namespace sfFDN
