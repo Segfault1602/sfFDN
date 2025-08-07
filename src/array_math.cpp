@@ -1,9 +1,7 @@
 #include "array_math.h"
 
 #include <cassert>
-#include <experimental/simd>
-
-#include <arm_neon.h>
+#include <cstdint>
 
 namespace sfFDN
 {

@@ -260,6 +260,9 @@ TEST_CASE("MatrixAssignment")
 
 TEST_CASE("DelayMatrix")
 {
+#ifndef __cpp_lib_mdspan
+    SKIP();
+#endif
     constexpr uint32_t N = 4;
     constexpr uint32_t delays[] = {11, 11, 2, 6, 10, 14, 17, 8, 2, 6, 19, 5, 10, 19, 1, 13};
     sfFDN::ScalarFeedbackMatrix mixing_matrix = sfFDN::ScalarFeedbackMatrix::Hadamard(N);

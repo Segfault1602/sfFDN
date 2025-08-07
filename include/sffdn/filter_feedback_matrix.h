@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <span>
+#include <cstdint>
 #include <vector>
 
 #include "delaybank.h"

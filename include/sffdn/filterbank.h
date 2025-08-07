@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <span>
 #include <vector>
+#include <cstdint>
 
 #include "audio_processor.h"
 #include "filter.h"

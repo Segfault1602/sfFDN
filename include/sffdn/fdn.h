@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <span>
+#include <cstdint>
 
 #include "audio_buffer.h"
 #include "audio_processor.h"

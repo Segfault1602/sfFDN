@@ -41,5 +41,7 @@ imgui.ini
 /xcode
 /.cache
 /.perf
+/perf
+/.venv
 
 *.wav

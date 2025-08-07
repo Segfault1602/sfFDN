@@ -3,6 +3,7 @@
 #pragma once
 
 #include <span>
+#include <cstdint>
 
 #include "sffdn/feedback_matrix.h"
 

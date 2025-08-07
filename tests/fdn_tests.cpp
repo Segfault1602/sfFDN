@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <iostream>
+#include <cmath>
 #include <span>
 
 #include <sndfile.h>
@@ -123,7 +124,7 @@ TEST_CASE("FDN")
             signal_energy += expected_output[i] * expected_output[i];
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
-        float snr = 10.f * log10(signal_energy / signal_error);
+        float snr = 10.f * std::log10(signal_energy / signal_error);
         std::cout << "FDN SNR: " << snr << " dB" << std::endl;
     }
 }
@@ -328,8 +329,7 @@ TEST_CASE("FDN_FIR")
             signal_energy += expected_output[i] * expected_output[i];
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
-        float snr = 10.f * log10(signal_energy / signal_error);
-        // std::cout << "FDN SNR: " << snr << " dB" << std::endl;
+        float snr = 10.f * std::log10(signal_energy / signal_error);
         SUCCEED("FDN SNR: " << snr << " dB");
     }
 }

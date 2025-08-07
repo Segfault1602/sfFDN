@@ -2,8 +2,13 @@
 
 #include <cassert>
 #include <iostream>
-#include <mdspan>
 #include <print>
+
+#ifdef __cpp_lib_mdspan
+#include <mdspan>
+#else
+#pragma message("C++23 mdspan support is required for delay matrix. Please enable C++23 in your compiler settings.")
+#endif
 
 #include <Eigen/Core>
 
@@ -60,6 +65,7 @@ class DelayMatrix::DelayMatrixImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == delay_lines_.size());
 
+        #ifdef __cpp_lib_mdspan
         auto delay_mdspan = std::mdspan(delay_values_.data(), N_, N_);
 
         for (auto i = 0; i < input.SampleCount(); ++i)
@@ -86,6 +92,7 @@ class DelayMatrix::DelayMatrixImpl
                 output.GetChannelSpan(j)[i] = result[j];
             }
         }
+        #endif
     }
 
     uint32_t InputChannelCount() const

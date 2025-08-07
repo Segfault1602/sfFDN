@@ -2,7 +2,13 @@
 
 #include <cassert>
 #include <iostream>
+#include <cmath>
+
+#ifdef __cpp_lib_mdspan
 #include <mdspan>
+#else
+#pragma message("C++23 mdspan support is required for matrix multiplication. Please enable C++20 in your compiler settings.")
+#endif
 
 namespace
 {
@@ -139,6 +145,7 @@ void WalshHadamardTransform(std::span<float> inout)
 void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
                        const std::span<const float, 16 * 16> matrix)
 {
+#ifdef __cpp_lib_mdspan
     auto md_matrix = std::mdspan(matrix.data(), 16, 16);
 
     out[0] = in[0] * md_matrix[0, 0] + in[1] * md_matrix[0, 1] + in[2] * md_matrix[0, 2] + in[3] * md_matrix[0, 3] +
@@ -242,6 +249,7 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
               in[9] * md_matrix[15, 9] + in[10] * md_matrix[15, 10] + in[11] * md_matrix[15, 11] +
               in[12] * md_matrix[15, 12] + in[13] * md_matrix[15, 13] + in[14] * md_matrix[15, 14] +
               in[15] * md_matrix[15, 15];
+#endif
 }
 
 void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t N)

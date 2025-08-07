@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include <cstdint>
 
 #include "audio_processor.h"
 

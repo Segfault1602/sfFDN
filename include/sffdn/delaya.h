@@ -3,6 +3,7 @@
 #pragma once
 
 #include <vector>
+#include <cstdint>
 
 #include "sffdn/audio_buffer.h"
 

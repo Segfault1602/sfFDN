@@ -143,7 +143,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         {
             segments_[i]->PrintPartition();
         }
-        std::println();
+        std::println("");
     }
 
   private:

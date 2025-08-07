@@ -4,6 +4,7 @@
 
 #include <span>
 #include <vector>
+#include <cstdint>
 
 namespace sfFDN
 {

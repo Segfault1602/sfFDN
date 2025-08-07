@@ -41,6 +41,9 @@ TEST_CASE("FFT")
             {
                 REQUIRE_THAT(input_buffer[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
             }
+
+            fft.FreeBuffer(input_buffer.data());
+            fft.FreeBuffer(output_buffer.data());
         }
     }
 }
