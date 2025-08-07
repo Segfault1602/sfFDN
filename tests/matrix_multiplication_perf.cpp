@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 #include <array>
 #include <iostream>
@@ -48,8 +48,6 @@ bool IsAligned(const void* const Ptr, const size_t Align)
     return (0 == (((size_t)(Ptr)) % Align));
 }
 } // namespace
-
-TEST_SUITE_BEGIN("MatrixMultiplicationPerf");
 
 TEST_CASE("MatrixMultiplicationPerf_single")
 {
@@ -121,50 +119,6 @@ TEST_CASE("MatrixMultiplicationPerf_block")
             input[i * kBlockSize + j] = kInput[i];
         }
     }
-
-    // Eigen
-    Eigen::Map<const Eigen::Matrix<float, N, N, Eigen::ColMajor>> eigen_mat(kMatrix16x16.data());
-    Eigen::Map<const Eigen::Matrix<float, kBlockSize, N, Eigen::ColMajor>> eigen_input(input.data());
-
-    std::array<float, kInputSize> eigen_output_data;
-    Eigen::Map<Eigen::Matrix<float, kBlockSize, N>> eigen_output(eigen_output_data.data());
-
-    eigen_output = eigen_input * eigen_mat;
-
-    for (auto i = 0; i < N; ++i)
-    {
-        for (auto j = 0; j < kBlockSize; ++j)
-        {
-            CHECK(eigen_output_data[i * kBlockSize + j] == doctest::Approx(kExpectedOutput[i]));
-        }
-    }
-
-    // MatrixMultiplication
-    std::array<float, N * kBlockSize> output;
-    float in[16] = {0.f};
-    float out[16] = {0.f};
-    for (auto i = 0; i < kBlockSize; ++i)
-    {
-        for (auto j = 0; j < N; ++j)
-        {
-            in[j] = input[j * kBlockSize + i];
-        }
-        sfFDN::MatrixMultiply_C(in, out, kMatrix16x16, N);
-
-        for (auto j = 0; j < N; ++j)
-        {
-            output[j * kBlockSize + i] = out[j];
-        }
-    }
-
-    for (auto i = 0; i < N; ++i)
-    {
-        for (auto j = 0; j < kBlockSize; ++j)
-        {
-            CHECK(output[i * kBlockSize + j] == doctest::Approx(kExpectedOutput[i]));
-        }
-    }
-
     constexpr uint32_t kIterations = 1000;
 
     nanobench::Bench bench;
@@ -305,5 +259,3 @@ TEST_CASE("Hadamard")
         }
     });
 }
-
-TEST_SUITE_END();

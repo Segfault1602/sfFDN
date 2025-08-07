@@ -1,7 +1,8 @@
-#include <doctest.h>
-
 #include <array>
 #include <print>
+
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <sffdn/sffdn.h>
 
@@ -54,7 +55,7 @@ TEST_CASE("TwoFilter")
         //     std::print("\n");
         // }
         // std::print("{} ", coeffs[i]);
-        CHECK(coeffs[i] == doctest::Approx(expected_sos[i]).epsilon(1e-7));
+        REQUIRE(coeffs[i] == Catch::Approx(expected_sos[i]).epsilon(1e-7));
     }
 }
 
@@ -81,7 +82,7 @@ TEST_CASE("Polyval")
 
     for (int i = 0; i < result.size(); ++i)
     {
-        CHECK(result[i].imag() == doctest::Approx(expected[i].imag()).epsilon(1e-7));
-        CHECK(result[i].real() == doctest::Approx(expected[i].real()).epsilon(1e-7));
+        REQUIRE(result[i].imag() == Catch::Approx(expected[i].imag()).epsilon(1e-7));
+        REQUIRE(result[i].real() == Catch::Approx(expected[i].real()).epsilon(1e-7));
     }
 }

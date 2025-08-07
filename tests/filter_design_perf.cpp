@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 using namespace ankerl;
 using namespace std::chrono_literals;

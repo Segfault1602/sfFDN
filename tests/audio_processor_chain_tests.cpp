@@ -1,4 +1,5 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -25,12 +26,12 @@ TEST_CASE("AudioProcessorChain")
     output_gains->SetGains(out_gains);
 
     chain.AddProcessor(std::move(input_gains));
-    CHECK(chain.OutputChannelCount() == N);
+    REQUIRE(chain.OutputChannelCount() == N);
 
     chain.AddProcessor(std::move(output_gains));
 
-    CHECK(chain.InputChannelCount() == 1);
-    CHECK(chain.OutputChannelCount() == 1);
+    REQUIRE(chain.InputChannelCount() == 1);
+    REQUIRE(chain.OutputChannelCount() == 1);
 
     std::vector<float> input(kBlockSize, 1.f);
     std::vector<float> output(kBlockSize, 0.f);
@@ -39,8 +40,8 @@ TEST_CASE("AudioProcessorChain")
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
     chain.Process(input_buffer, output_buffer);
 
-    for (auto i = 0; i < output.size(); ++i)
+    for (float& i : output)
     {
-        CHECK(output[i] == doctest::Approx(5.f));
+        REQUIRE_THAT(i, Catch::Matchers::WithinAbs(5.f, 0.0001));
     }
 }

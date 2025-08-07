@@ -1,8 +1,9 @@
-#include "doctest.h"
-
 #include <array>
 #include <format>
 #include <random>
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "fft.h"
 
@@ -13,7 +14,7 @@ TEST_CASE("FFT")
     for (auto fft_size : kFFTSize)
     {
         auto subcase_name = std::format("FFT size: {}", fft_size);
-        SUBCASE(subcase_name.c_str())
+        SECTION(subcase_name.c_str())
         {
             sfFDN::FFT fft(fft_size);
 
@@ -38,7 +39,7 @@ TEST_CASE("FFT")
             const float scale = 1.0f / static_cast<float>(fft_size);
             for (auto i = 0; i < input_buffer.size(); ++i)
             {
-                CHECK(input_buffer[i] * scale == doctest::Approx(expected_buffer[i]));
+                REQUIRE_THAT(input_buffer[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
             }
         }
     }

@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 #include <array>
 #include <filesystem>
@@ -12,8 +12,6 @@
 
 using namespace ankerl;
 using namespace std::chrono_literals;
-
-TEST_SUITE_BEGIN("ParallelGains");
 
 TEST_CASE("ParallelInputGainsPerf")
 {
@@ -96,5 +94,3 @@ TEST_CASE("ParallelOutputGainsPerf")
     std::ofstream render_out(filepath);
     bench.render(ankerl::nanobench::templates::json(), render_out);
 }
-
-TEST_SUITE_END();

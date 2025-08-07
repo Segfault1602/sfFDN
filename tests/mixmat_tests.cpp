@@ -1,10 +1,7 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include <iostream>
-#include <random>
-
-#include <Eigen/Core>
-#include <Eigen/QR>
+#include <limits>
 
 #include "sffdn/sffdn.h"
 
@@ -22,7 +19,7 @@ TEST_CASE("VelvetFFM")
         N, num_stages, sparsity, sfFDN::ScalarMatrixType::Hadamard, cascade_gain);
 
     auto ffm = sfFDN::MakeFilterFeedbackMatrix(ffm_info);
-    CHECK(ffm != nullptr);
+    REQUIRE(ffm != nullptr);
 }
 
 TEST_CASE("IdentityMatrix")
@@ -41,10 +38,10 @@ TEST_CASE("IdentityMatrix")
 
     for (auto i = 0; i < input.size(); i += N)
     {
-        CHECK(input[i] == output[i]);
-        CHECK(input[i + 1] == output[i + 1]);
-        CHECK(input[i + 2] == output[i + 2]);
-        CHECK(input[i + 3] == output[i + 3]);
+        REQUIRE(input[i] == output[i]);
+        REQUIRE(input[i + 1] == output[i + 1]);
+        REQUIRE(input[i + 2] == output[i + 2]);
+        REQUIRE(input[i + 3] == output[i + 3]);
     }
 
     float energy_in = 0.f;
@@ -59,7 +56,7 @@ TEST_CASE("IdentityMatrix")
         energy_out += output[i] * output[i];
     }
 
-    CHECK(energy_in == doctest::Approx(energy_out).epsilon(0.01));
+    REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
 }
 
 TEST_CASE("Householder")
@@ -92,7 +89,7 @@ TEST_CASE("Householder")
 
     for (auto i = 0; i < input.size(); i += N)
     {
-        CHECK(expected[i] == doctest::Approx(output[i]).epsilon(0.01));
+        REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
 
     float energy_in = 0.f;
@@ -107,12 +104,12 @@ TEST_CASE("Householder")
         energy_out += output[i] * output[i];
     }
 
-    CHECK(energy_in == doctest::Approx(energy_out).epsilon(0.01));
+    REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
 }
 
-TEST_CASE("Hadamard")
+TEST_CASE("FeedbackMatrixHadamard")
 {
-    SUBCASE("Hadamard_4")
+    SECTION("Hadamard_4")
     {
         constexpr uint32_t N = 4;
         auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
@@ -129,11 +126,11 @@ TEST_CASE("Hadamard")
 
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
     }
 
-    SUBCASE("Hadamard_8")
+    SECTION("Hadamard_8")
     {
         constexpr uint32_t N = 8;
         auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
@@ -151,11 +148,11 @@ TEST_CASE("Hadamard")
 
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
     }
 
-    SUBCASE("Hadamard_16")
+    SECTION("Hadamard_16")
     {
         constexpr uint32_t N = 16;
         auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
@@ -172,12 +169,12 @@ TEST_CASE("Hadamard")
 
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
     }
 }
 
-TEST_CASE("Inplace" * doctest::skip(true))
+TEST_CASE("Inplace")
 {
     constexpr uint32_t N = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -204,7 +201,7 @@ TEST_CASE("Inplace" * doctest::skip(true))
 
     for (auto i = 0; i < input.size(); i += N)
     {
-        CHECK(expected[i] == doctest::Approx(input[i]).epsilon(0.01));
+        REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -238,7 +235,7 @@ TEST_CASE("Hadamard_Block")
 
     for (auto i = 0; i < input.size(); i += N)
     {
-        CHECK(expected[i] == doctest::Approx(output[i]).epsilon(0.01));
+        REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -295,10 +292,14 @@ TEST_CASE("DelayMatrix")
 
     for (auto i = 0; i < output_buffer.SampleCount(); ++i)
     {
-        CHECK(output_buffer.GetChannelSpan(0)[i] == doctest::Approx(expected_output_ch1[i]));
-        CHECK(output_buffer.GetChannelSpan(1)[i] == doctest::Approx(expected_output_ch2[i]));
-        CHECK(output_buffer.GetChannelSpan(2)[i] == doctest::Approx(expected_output_ch3[i]));
-        CHECK(output_buffer.GetChannelSpan(3)[i] == doctest::Approx(expected_output_ch4[i]));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(0)[i],
+                     Catch::Matchers::WithinAbs(expected_output_ch1[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(1)[i],
+                     Catch::Matchers::WithinAbs(expected_output_ch2[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(2)[i],
+                     Catch::Matchers::WithinAbs(expected_output_ch3[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(3)[i],
+                     Catch::Matchers::WithinAbs(expected_output_ch4[i], std::numeric_limits<float>::epsilon()));
     }
 }
 

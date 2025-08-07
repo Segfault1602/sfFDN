@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
 #include <format>
@@ -12,8 +12,6 @@
 
 using namespace ankerl;
 using namespace std::chrono_literals;
-
-TEST_SUITE_BEGIN("Delays");
 
 // TEST_CASE("Delay")
 // {
@@ -136,5 +134,3 @@ TEST_CASE("DelayBank_BlockSize")
         });
     }
 }
-
-TEST_SUITE_END();

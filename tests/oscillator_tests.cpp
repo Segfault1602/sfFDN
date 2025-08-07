@@ -1,4 +1,5 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
 #include <cmath>
@@ -47,6 +48,6 @@ TEST_CASE("SineWave")
     for (auto i = 0; i < kOutputSize; ++i)
     {
         float expected_value = std::sinf(kPhaseIncrement * i);
-        CHECK(output[i] == doctest::Approx(expected_value).epsilon(1e-4));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_value, 1e-4));
     }
 }

@@ -1,13 +1,10 @@
-#include <doctest.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <numeric>
 #include <vector>
 
 #include <array_math.h>
-
-using namespace sfFDN;
-
-TEST_SUITE_BEGIN("ArrayMath");
 
 TEST_CASE("Accumulate")
 {
@@ -18,10 +15,10 @@ TEST_CASE("Accumulate")
     std::vector<float> b(N, 0.f);
     std::iota(b.begin(), b.end(), 1.f); // Fill with 1, 2, ..., N
 
-    ArrayMath::Accumulate(a, b);
+    sfFDN::ArrayMath::Accumulate(a, b);
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(a[i] == doctest::Approx(i + b[i]));
+        REQUIRE_THAT(a[i], Catch::Matchers::WithinAbs(i + b[i], 0.0001));
     }
 }
 
@@ -32,10 +29,10 @@ TEST_CASE("Add")
     std::vector<float> b(N, 2.f);
     std::vector<float> out(N, 0.f);
 
-    ArrayMath::Add(a, b, out);
+    sfFDN::ArrayMath::Add(a, b, out);
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(out[i] == doctest::Approx(3.f));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(3.f, 0.0001));
     }
 }
 
@@ -45,10 +42,10 @@ TEST_CASE("Scale")
     std::vector<float> a(N, 1.f);
     std::vector<float> out(N, 0.f);
 
-    ArrayMath::Scale(a, 2.f, out);
+    sfFDN::ArrayMath::Scale(a, 2.f, out);
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(out[i] == doctest::Approx(2.f));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
     }
 }
 
@@ -59,10 +56,10 @@ TEST_CASE("ScaleAdd")
     std::vector<float> b(N, 2.f);
     std::vector<float> out(N, 0.f);
 
-    ArrayMath::ScaleAdd(a, 2.f, b, out);
+    sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(out[i] == doctest::Approx(4.f));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(4.f, 0.0001));
     }
 }
 
@@ -72,11 +69,9 @@ TEST_CASE("ScaleAccumulate")
     std::vector<float> a(N, 1.f);
     std::vector<float> out(N, 0.f);
 
-    ArrayMath::ScaleAccumulate(a, 2.f, out);
+    sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, out);
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(out[i] == doctest::Approx(2.f));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
     }
 }
-
-TEST_SUITE_END();

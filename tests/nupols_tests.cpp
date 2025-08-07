@@ -1,4 +1,5 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
 #include <iostream>
@@ -72,11 +73,11 @@ TEST_CASE("PartitionedConvolver")
     float signal_error = 0.f;
     for (auto i = 0; i < kFirLength; ++i)
     {
-        CHECK(output[i] == doctest::Approx(fir[i]));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(fir[i], 1e-5));
         fir_energy += fir[i] * fir[i];
         signal_error += (output[i] - fir[i]) * (output[i] - fir[i]);
 
-        CHECK(output_fir[i] == doctest::Approx(output[i]));
+        REQUIRE_THAT(output_fir[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
     }
 
     float snr = 10.f * log10(fir_energy / signal_error);
@@ -120,7 +121,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     float max_error = 0.f;
     for (auto i = 0; i < kInputSize - kBlockSize; ++i)
     {
-        CHECK(output[i] == doctest::Approx(filter_output[i]));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(filter_output[i], 1e-5));
         signal_energy += filter_output[i] * filter_output[i];
         signal_error += (output[i] - filter_output[i]) * (output[i] - filter_output[i]);
         max_error = std::max(max_error, std::abs(output[i] - filter_output[i]));

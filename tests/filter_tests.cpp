@@ -1,11 +1,10 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include <iomanip>
-#include <iostream>
-#include <random>
+#include <limits>
+#include <sndfile.h>
 
 #include "sffdn/sffdn.h"
-#include <sndfile.h>
 
 namespace
 {
@@ -55,7 +54,7 @@ TEST_CASE("OnePoleFilter")
 
     for (auto i = 0; i < size; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
 }
 
@@ -72,7 +71,7 @@ TEST_CASE("SchroederAllpass")
     for (auto i = 0; i < size; ++i)
     {
         float out = filter.Tick(input[i]);
-        CHECK(out == doctest::Approx(expected_output[i]).epsilon(0.0001));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
 
     sfFDN::SchroederAllpass filter_block(5, 0.9);
@@ -81,7 +80,7 @@ TEST_CASE("SchroederAllpass")
 
     for (auto i = 0; i < size; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
 }
 
@@ -117,19 +116,23 @@ TEST_CASE("SchroederAllpassSection")
 
     for (auto j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[0 * kBlockSize + j] == doctest::Approx(out0_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[0 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(out0_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (auto j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[1 * kBlockSize + j] == doctest::Approx(out1_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[1 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(out1_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (auto j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[2 * kBlockSize + j] == doctest::Approx(out2_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[2 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(out2_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (auto j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[3 * kBlockSize + j] == doctest::Approx(out3_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[3 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(out3_expected[j], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -169,7 +172,7 @@ TEST_CASE("FilterBank")
 
     for (auto i = 0; i < expected_output.size(); ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
 }
 
@@ -202,6 +205,6 @@ TEST_CASE("CascadedBiquads")
     REQUIRE(size == kTestSOSExpectedOutput.size());
     for (auto i = 0; i < kTestSOSExpectedOutput.size(); ++i)
     {
-        CHECK(output[i] == doctest::Approx(kTestSOSExpectedOutput[i]).epsilon(0.0001));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(kTestSOSExpectedOutput[i], 0.0001));
     }
 }

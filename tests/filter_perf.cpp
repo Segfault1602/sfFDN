@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -11,8 +11,6 @@
 
 using namespace ankerl;
 using namespace std::chrono_literals;
-
-TEST_SUITE_BEGIN("Filters");
 
 TEST_CASE("FilterBankPerf")
 {
@@ -110,5 +108,3 @@ TEST_CASE("CascadedBiquadsPerf")
 
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
-
-TEST_SUITE_END();

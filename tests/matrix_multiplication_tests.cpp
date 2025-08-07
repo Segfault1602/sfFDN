@@ -1,7 +1,8 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
-#include <iostream>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -35,12 +36,10 @@ void TestMatrixMultiply_Eye()
 
     for (auto i = 0; i < N; ++i)
     {
-        CHECK(input[i] == doctest::Approx(output[i]));
+        REQUIRE_THAT(input[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
 }
 } // namespace
-
-TEST_SUITE_BEGIN("MatrixMultiplication");
 
 TEST_CASE("Identity")
 {
@@ -81,7 +80,7 @@ TEST_CASE("MatrixMultiply")
 
             for (auto i = 0; i < output.size(); ++i)
             {
-                CHECK(expected_output[i] == doctest::Approx(output[i]));
+                REQUIRE_THAT(expected_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
             }
         }
     }
@@ -124,14 +123,15 @@ TEST_CASE("MatrixMultiply_6")
     {
         for (auto j = 0; j < N; ++j)
         {
-            CHECK(expected(i, j) == doctest::Approx(output[i + j * kRowCount]));
+            REQUIRE_THAT(expected(i, j),
+                         Catch::Matchers::WithinAbs(output[i + j * kRowCount], std::numeric_limits<float>::epsilon()));
         }
     }
 }
 
 TEST_CASE("Hadamard")
 {
-    SUBCASE("Hadamard_4")
+    SECTION("Hadamard_4")
     {
         constexpr uint32_t N = 4;
 
@@ -142,17 +142,17 @@ TEST_CASE("Hadamard")
         sfFDN::HadamardMultiply(input, output);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
 
         sfFDN::WalshHadamardTransform(input);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(input[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
         }
     }
 
-    SUBCASE("Hadamard_8")
+    SECTION("Hadamard_8")
     {
         constexpr uint32_t N = 8;
 
@@ -165,17 +165,17 @@ TEST_CASE("Hadamard")
         sfFDN::HadamardMultiply(input, output);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
         }
 
         sfFDN::WalshHadamardTransform(input);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(input[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], 1e-6));
         }
     }
 
-    SUBCASE("Hadamard_16")
+    SECTION("Hadamard_16")
     {
         constexpr uint32_t N = 16;
 
@@ -187,15 +187,13 @@ TEST_CASE("Hadamard")
         sfFDN::HadamardMultiply(input, output);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(output[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
 
         sfFDN::WalshHadamardTransform(input);
         for (auto i = 0; i < input.size(); i += N)
         {
-            CHECK(expected[i] == doctest::Approx(input[i]));
+            REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
         }
     }
 }
-
-TEST_SUITE_END();

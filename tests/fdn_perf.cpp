@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -15,8 +15,6 @@
 
 using namespace ankerl;
 using namespace std::chrono_literals;
-
-TEST_SUITE_BEGIN("FDN");
 
 TEST_CASE("FDNPerf")
 {
@@ -327,5 +325,3 @@ TEST_CASE("FDNPerf_OrderFFM")
 
     std::cout << bench.complexityBigO() << std::endl;
 }
-
-TEST_SUITE_END();

@@ -1,5 +1,6 @@
+find_package(Catch2 3 REQUIRED)
+
 set(TEST_SOURCE
-    main.cpp
     audio_processor_chain_tests.cpp
     array_math_tests.cpp
     delay_tests.cpp
@@ -16,11 +17,11 @@ set(TEST_SOURCE
     test_utils.cpp)
 
 add_executable(tests ${TEST_SOURCE})
-target_link_libraries(tests PRIVATE sfFDN doctest sndfile Eigen3::Eigen)
+target_link_libraries(tests PRIVATE sfFDN Catch2::Catch2WithMain SndFile::sndfile Eigen3::Eigen)
 
 set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
-target_include_directories(tests PRIVATE ${doctest_SOURCE_DIR}/doctest ${SFFDN_INTERNAL_INCLUDE_DIRS})
+target_include_directories(tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(tests PRIVATE -fno-omit-frame-pointer)
 target_compile_features(tests PRIVATE cxx_std_23)
 
@@ -29,8 +30,11 @@ if(NOT WIN32)
     target_link_options(tests PRIVATE -fsanitize=address)
 endif()
 
+include(CTest)
+include(Catch)
+catch_discover_tests(tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 set(PERF_SOURCE
-    main.cpp
     fdn_perf.cpp
     filter_perf.cpp
     filter_design_perf.cpp
@@ -43,9 +47,9 @@ set(PERF_SOURCE
     nupols_perf.cpp
     test_utils.cpp)
 add_executable(perf ${PERF_SOURCE})
-target_link_libraries(perf PRIVATE sfFDN nanobench sndfile Eigen3::Eigen)
+target_link_libraries(perf PRIVATE sfFDN nanobench Catch2::Catch2WithMain SndFile::sndfile Eigen3::Eigen)
 
-target_include_directories(perf PRIVATE ${doctest_SOURCE_DIR}/doctest  ${SFFDN_INTERNAL_INCLUDE_DIRS})
+target_include_directories(perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(perf PRIVATE -fno-omit-frame-pointer)
 target_compile_features(perf PRIVATE cxx_std_23)
 

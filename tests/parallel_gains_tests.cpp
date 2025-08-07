@@ -1,4 +1,5 @@
-#include "doctest.h"
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <array>
 #include <iostream>
@@ -29,10 +30,10 @@ TEST_CASE("ParallelGainsInput")
                                        2, 2.5,  3,   3.5,  4,   4.5,  0,   0.75, 1.5, 2.25, 3,   3.75, 4.5, 5.25,
                                        6, 6.75, 0,   1.f,  2.f, 3.f,  4.f, 5.f,  6.f, 7.f,  8.f, 9.f};
 
-    CHECK(output.size() == expected_out.size());
+    REQUIRE(output.size() == expected_out.size());
     for (auto i = 0; i < output.size(); ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_out[i]));
+        REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
 }
 
@@ -61,10 +62,10 @@ TEST_CASE("ParallelGainsOutput")
     parallel_gains.Process(input_buffer, output_buffer);
 
     std::vector<float> expected_out = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18};
-    CHECK(output.size() == expected_out.size());
+    REQUIRE(output.size() == expected_out.size());
 
     for (auto i = 0; i < output.size(); ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_out[i]));
+        REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
 }

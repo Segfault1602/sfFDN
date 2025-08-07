@@ -1,12 +1,10 @@
-#include "doctest.h"
 #include "nanobench.h"
+#include <catch2/catch_test_macros.hpp>
 
 using namespace ankerl;
 using namespace std::chrono_literals;
 
 #include <array_math.h>
-
-TEST_SUITE_BEGIN("ArrayMath");
 
 TEST_CASE("Accumulate")
 {
@@ -84,5 +82,3 @@ TEST_CASE("ScaleAdd")
         }
     });
 }
-
-TEST_SUITE_END();

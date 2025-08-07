@@ -1,11 +1,9 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include <fstream>
 #include <iostream>
-#include <random>
 #include <span>
 
-#include <Eigen/Core>
 #include <sndfile.h>
 
 #include "filter_coeffs.h"
@@ -104,24 +102,24 @@ TEST_CASE("FDN")
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 
-        CHECK(expected_output_file != nullptr);
+        REQUIRE(expected_output_file != nullptr);
 
-        CHECK(sfinfo.channels == 1);
-        CHECK(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.channels == 1);
+        REQUIRE(sfinfo.samplerate == SR);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
-        CHECK(read == sfinfo.frames);
+        REQUIRE(read == sfinfo.frames);
         sf_close(expected_output_file);
 
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t check_limit = std::min(output.size(), expected_output.size());
+        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < check_limit; ++i)
+        for (auto i = 0; i < REQUIRE_limit; ++i)
         {
-            CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
+            REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
             signal_energy += expected_output[i] * expected_output[i];
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
@@ -221,19 +219,19 @@ TEST_CASE("FDN_Transposed")
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 
-        CHECK(expected_output_file != nullptr);
+        REQUIRE(expected_output_file != nullptr);
 
-        CHECK(sfinfo.channels == 1);
-        CHECK(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.channels == 1);
+        REQUIRE(sfinfo.samplerate == SR);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
-        CHECK(read == sfinfo.frames);
+        REQUIRE(read == sfinfo.frames);
         sf_close(expected_output_file);
 
         for (auto i = 0; i < 1000; ++i)
         {
-            CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
+            REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 5e-4));
         }
     }
 }
@@ -241,7 +239,7 @@ TEST_CASE("FDN_Transposed")
 TEST_CASE("FDN_FIR")
 {
     constexpr uint32_t SR = 48000;
-    constexpr float SIMULATION_TIME = 0.01;
+    constexpr float SIMULATION_TIME = 0.01f;
     constexpr uint32_t block_size = 64;
     constexpr uint32_t ITER = ((SR / block_size) + 1) * block_size;
     constexpr uint32_t N = 6;
@@ -309,28 +307,29 @@ TEST_CASE("FDN_FIR")
         SF_INFO sfinfo;
         SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
 
-        CHECK(expected_output_file != nullptr);
+        REQUIRE(expected_output_file != nullptr);
 
-        CHECK(sfinfo.channels == 1);
-        CHECK(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.channels == 1);
+        REQUIRE(sfinfo.samplerate == SR);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
-        CHECK(read == sfinfo.frames);
+        REQUIRE(read == sfinfo.frames);
         sf_close(expected_output_file);
 
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t check_limit = std::min(output.size(), expected_output.size());
+        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < check_limit; ++i)
+        for (auto i = 0; i < REQUIRE_limit; ++i)
         {
-            CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
+            REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 5e-4));
             signal_energy += expected_output[i] * expected_output[i];
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
         float snr = 10.f * log10(signal_energy / signal_error);
-        std::cout << "FDN SNR: " << snr << " dB" << std::endl;
+        // std::cout << "FDN SNR: " << snr << " dB" << std::endl;
+        SUCCEED("FDN SNR: " << snr << " dB");
     }
 }

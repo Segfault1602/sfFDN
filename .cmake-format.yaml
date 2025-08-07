@@ -1,4 +1,6 @@
 # Configuration file for cmake-format
-line_width: 100
+line_width: 120
 tab_size: 4
 use_tabchars: False
+autosort: True
+dangle_parens: True

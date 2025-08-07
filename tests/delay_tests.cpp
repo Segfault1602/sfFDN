@@ -1,14 +1,13 @@
-#include "doctest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
-#include <iostream>
+#include <limits>
 #include <numeric>
 #include <sndfile.h>
 #include <vector>
 
 #include "sffdn/sffdn.h"
-
-TEST_SUITE_BEGIN("DelayTests");
 
 TEST_CASE("Delay")
 {
@@ -25,7 +24,7 @@ TEST_CASE("Delay")
 
     for (uint32_t i = 0; i < iteration; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -45,7 +44,7 @@ TEST_CASE("DelayTapOut")
 
     for (uint32_t i = 0; i < iteration; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -59,14 +58,14 @@ TEST_CASE("ZeroDelay")
     {
         output.push_back(delay.Tick(i));
 
-        CHECK(output[i] == delay.TapOut(0));
+        REQUIRE(output[i] == delay.TapOut(0));
     }
 
     constexpr float expected_output[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     for (uint32_t i = 0; i < iteration; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -85,7 +84,7 @@ TEST_CASE("DelayA")
 
     for (uint32_t i = 0; i < iteration; ++i)
     {
-        CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.01));
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-2));
     }
 }
 
@@ -113,7 +112,8 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
 
     for (uint32_t i = 0; i < block_size; ++i)
     {
-        CHECK(output_block[i] == doctest::Approx(output_sample[i]));
+        REQUIRE_THAT(output_block[i],
+                     Catch::Matchers::WithinAbs(output_sample[i], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -165,13 +165,17 @@ TEST_CASE("DelayBank")
     constexpr std::array<float, 10> delay2_expected = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0};
     constexpr std::array<float, 10> delay3_expected = {0, 0, 0, 0, 0, 1, 0, 0, 0, 0};
 
-    CHECK(output.size() == 40);
+    REQUIRE(output.size() == 40);
     for (uint32_t i = 0; i < output.size(); i += 4)
     {
-        CHECK(output[i] == doctest::Approx(delay0_expected[i / 4]).epsilon(0.01));
-        CHECK(output[i + 1] == doctest::Approx(delay1_expected[i / 4]).epsilon(0.01));
-        CHECK(output[i + 2] == doctest::Approx(delay2_expected[i / 4]).epsilon(0.01));
-        CHECK(output[i + 3] == doctest::Approx(delay3_expected[i / 4]).epsilon(0.01));
+        REQUIRE_THAT(output[i],
+                     Catch::Matchers::WithinAbs(delay0_expected[i / 4], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output[i + 1],
+                     Catch::Matchers::WithinAbs(delay1_expected[i / 4], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output[i + 2],
+                     Catch::Matchers::WithinAbs(delay2_expected[i / 4], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output[i + 3],
+                     Catch::Matchers::WithinAbs(delay3_expected[i / 4], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -203,19 +207,23 @@ TEST_CASE("DelayBankBlock")
 
     for (uint32_t j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[0 * kBlockSize + j] == doctest::Approx(delay0_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[0 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(delay0_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (uint32_t j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[1 * kBlockSize + j] == doctest::Approx(delay1_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[1 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(delay1_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (uint32_t j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[2 * kBlockSize + j] == doctest::Approx(delay2_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[2 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(delay2_expected[j], std::numeric_limits<float>::epsilon()));
     }
     for (uint32_t j = 0; j < kBlockSize; ++j)
     {
-        CHECK(output[3 * kBlockSize + j] == doctest::Approx(delay3_expected[j]).epsilon(0.01));
+        REQUIRE_THAT(output[3 * kBlockSize + j],
+                     Catch::Matchers::WithinAbs(delay3_expected[j], std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -247,11 +255,13 @@ TEST_CASE("DelayBankProcess")
 
     for (uint32_t i = 0; i < kBlockSize; ++i)
     {
-        CHECK(buffer_audio.GetChannelSpan(0)[i] == doctest::Approx(delay0_expected[i]));
-        CHECK(buffer_audio.GetChannelSpan(1)[i] == doctest::Approx(delay1_expected[i]));
-        CHECK(buffer_audio.GetChannelSpan(2)[i] == doctest::Approx(delay2_expected[i]));
-        CHECK(buffer_audio.GetChannelSpan(3)[i] == doctest::Approx(delay3_expected[i]));
+        REQUIRE_THAT(buffer_audio.GetChannelSpan(0)[i],
+                     Catch::Matchers::WithinAbs(delay0_expected[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(buffer_audio.GetChannelSpan(1)[i],
+                     Catch::Matchers::WithinAbs(delay1_expected[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(buffer_audio.GetChannelSpan(2)[i],
+                     Catch::Matchers::WithinAbs(delay2_expected[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(buffer_audio.GetChannelSpan(3)[i],
+                     Catch::Matchers::WithinAbs(delay3_expected[i], std::numeric_limits<float>::epsilon()));
     }
 }
-
-TEST_SUITE_END(); // DelayTests
