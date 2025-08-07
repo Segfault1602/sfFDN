@@ -93,7 +93,7 @@ void ParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffe
     assert(output.ChannelCount() == gains_.size());
     assert(input.SampleCount() == output.SampleCount());
 
-    for (size_t i = 0; i < gains_.size(); i++)
+    for (auto i = 0; i < gains_.size(); i++)
     {
         ArrayMath::Scale(input.GetChannelSpan(0), gains_[i], output.GetChannelSpan(i));
     }
@@ -105,7 +105,7 @@ void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuf
     assert(input.ChannelCount() == gains_.size());
     assert(output.ChannelCount() == 1);
 
-    for (size_t i = 0; i < gains_.size(); i++)
+    for (auto i = 0; i < gains_.size(); i++)
     {
         ArrayMath::ScaleAccumulate(input.GetChannelSpan(i), gains_[i], output.GetChannelSpan(0));
     }
@@ -117,7 +117,7 @@ void ParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& 
     assert(input.ChannelCount() == gains_.size());
     assert(output.ChannelCount() == gains_.size());
 
-    for (size_t i = 0; i < gains_.size(); i++)
+    for (auto i = 0; i < gains_.size(); i++)
     {
         ArrayMath::Scale(input.GetChannelSpan(i), gains_[i], output.GetChannelSpan(i));
     }

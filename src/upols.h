@@ -12,7 +12,7 @@ namespace sfFDN
 class UPOLS
 {
   public:
-    UPOLS(size_t block_size, std::span<const float> fir);
+    UPOLS(uint32_t block_size, std::span<const float> fir);
     ~UPOLS();
 
     UPOLS(UPOLS&& other);
@@ -29,18 +29,18 @@ class UPOLS
     void PrintPartition() const;
 
   private:
-    size_t block_size_;
-    size_t fft_size_;
+    uint32_t block_size_;
+    uint32_t fft_size_;
     FFT fft_;
 
     std::vector<std::span<complex_t>> filters_z_;
     std::vector<std::span<complex_t>> inputs_z_; // Frequency domain delay line
-    size_t inputs_z_index_;
+    uint32_t inputs_z_index_;
 
     std::span<float> work_buffer_;
     std::span<complex_t> spectrum_buffer_;
     std::span<float> result_buffer_;
 
-    size_t samples_needed_;
+    uint32_t samples_needed_;
 };
 } // namespace sfFDN

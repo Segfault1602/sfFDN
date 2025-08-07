@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -38,9 +37,7 @@ class AudioProcessorChain : public AudioProcessor
     /// @brief Constructs an AudioProcessorChain with a specified block size.
     /// @param block_size The size of the audio blocks to process.
     /// @note The block size is used to allocate internal buffers for processing.
-    AudioProcessorChain(size_t block_size);
-
-    ~AudioProcessorChain() override = default;
+    AudioProcessorChain(uint32_t block_size);
 
     /// @brief Adds an audio processor to the chain.
     /// @param processor A unique pointer to the audio processor to add.
@@ -64,11 +61,11 @@ class AudioProcessorChain : public AudioProcessor
     uint32_t OutputChannelCount() const override;
 
   private:
-    size_t block_size_ = 0;
+    uint32_t block_size_ = 0;
     std::vector<std::unique_ptr<AudioProcessor>> processors_;
 
     std::vector<float> work_buffer_a_;
     std::vector<float> work_buffer_b_;
-    size_t max_work_buffer_size_ = 0;
+    uint32_t max_work_buffer_size_ = 0;
 };
 } // namespace sfFDN

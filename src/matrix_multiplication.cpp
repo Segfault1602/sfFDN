@@ -36,7 +36,7 @@ void HadamardMultiply_8(std::span<const float> in, std::span<float> out)
     out[7] = in[0] - in[1] - in[2] + in[3] - in[4] + in[5] + in[6] - in[7];
 
     constexpr float normalizationFactor = 0.353553390593274f; // 1.f / std::sqrt(8.f);
-    for (size_t i = 0; i < 8; ++i)
+    for (auto i = 0; i < 8; ++i)
     {
         out[i] *= normalizationFactor;
     }
@@ -113,13 +113,13 @@ void HadamardMultiply(const std::span<const float> input, std::span<float> outpu
 void WalshHadamardTransform(std::span<float> inout)
 {
     assert(inout.size() == 4 || inout.size() == 8 || inout.size() == 16);
-    const size_t N = inout.size();
+    const uint32_t N = inout.size();
 
-    for (size_t h = 1; h < N; h *= 2)
+    for (auto h = 1; h < N; h *= 2)
     {
-        for (size_t i = 0; i < N; i += 2 * h)
+        for (auto i = 0; i < N; i += 2 * h)
         {
-            for (size_t j = 0; j < h; ++j)
+            for (auto j = 0; j < h; ++j)
             {
                 const float a = inout[i + j];
                 const float b = inout[i + j + h];
@@ -130,7 +130,7 @@ void WalshHadamardTransform(std::span<float> inout)
     }
 
     const float normalizationFactor = 1.f / std::sqrt(static_cast<float>(N));
-    for (size_t i = 0; i < inout.size(); ++i)
+    for (auto i = 0; i < inout.size(); ++i)
     {
         inout[i] *= normalizationFactor;
     }
@@ -244,23 +244,23 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
               in[15] * md_matrix[15, 15];
 }
 
-void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N)
+void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t N)
 {
     // assert(in.size() % N == 0 && out.size() == in.size());
 
     // Everything is in col-major order.
 
-    const size_t kRowCount = in.size() / N;
-    const size_t kColCount = N;
+    const uint32_t kRowCount = in.size() / N;
+    const uint32_t kColCount = N;
 
-    for (size_t k = 0; k < kRowCount; ++k)
+    for (auto k = 0; k < kRowCount; ++k)
     {
-        const size_t offset = k;
-        for (size_t i = 0; i < N; ++i)
+        const uint32_t offset = k;
+        for (auto i = 0; i < N; ++i)
         {
             out[i * kRowCount + offset] = 0.0f;
-            const size_t kSize = N;
-            const size_t unroll_size = kSize & ~7;
+            const uint32_t kSize = N;
+            const uint32_t unroll_size = kSize & ~7;
             int idx = 0;
             for (; idx < unroll_size; idx += 8)
             {

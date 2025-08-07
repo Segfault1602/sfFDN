@@ -16,11 +16,11 @@ TEST_SUITE_BEGIN("Filters");
 
 TEST_CASE("FilterBankPerf")
 {
-    constexpr size_t N = 16;
+    constexpr uint32_t N = 16;
 
     auto filter_bank = GetFilterBank(N, 11);
 
-    constexpr size_t kSampleToProcess = 32768;
+    constexpr uint32_t kSampleToProcess = 32768;
 
     nanobench::Bench bench;
     bench.title("FilterBank perf");
@@ -34,17 +34,17 @@ TEST_CASE("FilterBankPerf")
     for (const auto& block_size : kBlockSizes)
     {
         std::vector<float> input(block_size * N, 0);
-        for (size_t i = 0; i < input.size(); ++i)
+        for (auto i = 0; i < input.size(); ++i)
         {
             input[i] = static_cast<float>(rand()) / RAND_MAX;
         }
         std::vector<float> output(block_size * N, 0);
 
         bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
-            const size_t num_blocks = kSampleToProcess / block_size;
+            const uint32_t num_blocks = kSampleToProcess / block_size;
             assert(kSampleToProcess % block_size == 0);
 
-            for (size_t i = 0; i < num_blocks; ++i)
+            for (auto i = 0; i < num_blocks; ++i)
             {
                 sfFDN::AudioBuffer input_buffer(block_size, N, input);
                 sfFDN::AudioBuffer output_buffer(block_size, N, output);
@@ -75,7 +75,7 @@ TEST_CASE("CascadedBiquadsPerf")
 
     sfFDN::CascadedBiquads filter_bank;
     std::vector<float> coeffs;
-    for (size_t i = 0; i < sos.size(); i++)
+    for (auto i = 0; i < sos.size(); i++)
     {
         coeffs.push_back(sos[i][0] / sos[i][3]);
         coeffs.push_back(sos[i][1] / sos[i][3]);
@@ -86,14 +86,14 @@ TEST_CASE("CascadedBiquadsPerf")
 
     filter_bank.SetCoefficients(sos.size(), coeffs);
 
-    constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
+    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kBlockSize = 128;
     std::vector<float> input(kBlockSize, 0);
 
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (size_t i = 0; i < input.size(); ++i)
+    for (auto i = 0; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }

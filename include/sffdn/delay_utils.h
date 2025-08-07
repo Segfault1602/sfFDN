@@ -9,7 +9,7 @@ namespace sfFDN
 {
 
 /// @brief Types of delay length distributions.
-enum class DelayLengthType
+enum class DelayLengthType : uint8_t
 {
     /// @brief Delay lengths are generated randomly within the specified range based on a uniform distribution.
     Random = 0,
@@ -28,7 +28,7 @@ enum class DelayLengthType
     SteamAudio = 5,
 
     /// @brief The total number of delay length types.
-    Count,
+    Count = 6,
 };
 
 /// @brief Generates a list of delay lengths based on the specified parameters.

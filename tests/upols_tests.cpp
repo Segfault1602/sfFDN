@@ -22,7 +22,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
-    for (size_t j = 0; j < sos.size(); j++)
+    for (auto j = 0; j < sos.size(); j++)
     {
         auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
         auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
@@ -41,11 +41,11 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 
 TEST_CASE("UPOLS")
 {
-    constexpr size_t kBlockSize = 32;
+    constexpr uint32_t kBlockSize = 32;
 
     auto ref_filter = CreateTestFilter();
     auto fir = GetImpulseResponse(ref_filter.get());
-    const size_t kFirLength = fir.size();
+    const uint32_t kFirLength = fir.size();
 
     sfFDN::UPOLS upols(kBlockSize, fir);
 
@@ -53,8 +53,8 @@ TEST_CASE("UPOLS")
     input[0] = 1.f;
     std::vector<float> output(kFirLength + kBlockSize, 0.f);
 
-    const size_t kBlockCount = kFirLength / kBlockSize;
-    for (size_t i = 0; i < kBlockCount; ++i)
+    const uint32_t kBlockCount = kFirLength / kBlockSize;
+    for (auto i = 0; i < kBlockCount; ++i)
     {
         auto input_span = std::span<float>(input.data() + i * kBlockSize, kBlockSize);
         auto output_span = std::span<float>(output.data() + i * kBlockSize, kBlockSize);
@@ -64,7 +64,7 @@ TEST_CASE("UPOLS")
 
     float fir_energy = 0.f;
     float signal_error = 0.f;
-    for (size_t i = 0; i < kFirLength; ++i)
+    for (auto i = 0; i < kFirLength; ++i)
     {
         CHECK(output[i] == doctest::Approx(fir[i]));
         fir_energy += fir[i] * fir[i];
@@ -76,14 +76,14 @@ TEST_CASE("UPOLS")
 
 TEST_CASE("UPOLS_Noise")
 {
-    constexpr size_t kBlockSize = 128;
+    constexpr uint32_t kBlockSize = 128;
 
     auto ref_filter = CreateTestFilter();
 
     auto fir = GetImpulseResponse(ref_filter.get());
 
     std::vector<float> input_chirp = ReadWavFile("./tests/data/chirp.wav");
-    const size_t kInputSize = input_chirp.size();
+    const uint32_t kInputSize = input_chirp.size();
 
     std::vector<float> filter_output(kInputSize, 0.f);
     // Filter the input noise with the IIR filter
@@ -100,8 +100,8 @@ TEST_CASE("UPOLS_Noise")
 
     std::vector<float> output(kInputSize, 0.f);
 
-    const size_t kBlockCount = kInputSize / kBlockSize;
-    for (size_t i = 0; i < kBlockCount; ++i)
+    const uint32_t kBlockCount = kInputSize / kBlockSize;
+    for (auto i = 0; i < kBlockCount; ++i)
     {
         auto input_span = std::span<float>(input_chirp.data() + i * kBlockSize, kBlockSize);
         auto output_span = std::span<float>(output.data() + i * kBlockSize, kBlockSize);
@@ -112,7 +112,7 @@ TEST_CASE("UPOLS_Noise")
     float signal_energy = 0.f;
     float signal_error = 0.f;
     float max_error = 0.f;
-    for (size_t i = 0; i < kInputSize - kBlockSize; ++i)
+    for (auto i = 0; i < kInputSize - kBlockSize; ++i)
     {
         CHECK(output[i] == doctest::Approx(filter_output[i]));
         signal_energy += filter_output[i] * filter_output[i];

@@ -39,5 +39,7 @@ imgui.ini
 
 /build
 /xcode
+/.cache
+/.perf
 
 *.wav

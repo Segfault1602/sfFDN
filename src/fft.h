@@ -2,7 +2,6 @@
 
 #include <complex>
 #include <cstddef>
-#include <memory>
 #include <span>
 
 // #include <pffft.h>
@@ -16,27 +15,29 @@ namespace sfFDN
 class FFT
 {
   public:
-    FFT(size_t fft_size);
+    FFT(uint32_t fft_size);
     ~FFT();
 
-    size_t GetNearestTransformSize(size_t fft_size) const;
+    FFT(const FFT&) = delete;
+    FFT& operator=(const FFT&) = delete;
+    FFT(FFT&&) = delete;
+    FFT& operator=(FFT&&) = delete;
 
     void Forward(std::span<float> input, std::span<complex_t> spectrum);
     void Inverse(std::span<complex_t> spectrum, std::span<float> output);
 
     void ConvolveAccumulate(std::span<complex_t> dft_a, std::span<complex_t> dft_b, std::span<complex_t> dft_ab);
 
-    void FreeBuffer(void* buffer);
-
     void Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_spectrum, bool forward);
 
-    std::span<float> AllocateRealBuffer();
-    std::span<complex_t> AllocateComplexBuffer();
+    [[nodiscard]] std::span<float> AllocateRealBuffer() const;
+    [[nodiscard]] std::span<complex_t> AllocateComplexBuffer() const;
+    static void FreeBuffer(void* buffer);
 
   private:
     PFFFT_Setup* setup_;
-    size_t fft_size_;
-    size_t complex_sample_count_;
+    uint32_t fft_size_;
+    uint32_t complex_sample_count_;
     float* work_buffer_;
 };
 } // namespace sfFDN

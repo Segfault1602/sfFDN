@@ -12,7 +12,7 @@ static std::chrono::milliseconds g_elapsed_time{0};
 class PyFDN
 {
   public:
-    PyFDN(size_t N, size_t SR, size_t block_size = 512, bool transpose = false)
+    PyFDN(uint32_t N, uint32_t SR, uint32_t block_size = 512, bool transpose = false)
         : fdn_(N, block_size, transpose)
         , N_(N)
         , block_size_(block_size)
@@ -77,7 +77,7 @@ class PyFDN
         fdn_.SetFeedbackMatrix(std::move(mixing_matrix_ptr));
     }
 
-    void SetFilterFeedbackMatrix(size_t K, const nb::ndarray<size_t, nb::shape<-1, -1>>& delays,
+    void SetFilterFeedbackMatrix(uint32_t K, const nb::ndarray<uint32_t, nb::shape<-1, -1>>& delays,
                                  const nb::ndarray<float, nb::shape<-1, -1, -1>>& matrix)
     {
         if (delays.ndim() != 2)
@@ -98,9 +98,9 @@ class PyFDN
         }
 
         std::vector<uint32_t> delays_vector;
-        for (size_t i = 0; i < delays.shape(0); i++)
+        for (auto i = 0; i < delays.shape(0); i++)
         {
-            for (size_t j = 0; j < delays.shape(1); j++)
+            for (auto j = 0; j < delays.shape(1); j++)
             {
                 delays_vector.push_back(delays(i, j));
             }
@@ -109,7 +109,7 @@ class PyFDN
         auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N_);
 
         std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
-        for (size_t i = 0; i < matrix.shape(0); i++)
+        for (auto i = 0; i < matrix.shape(0); i++)
         {
             std::span<float> matrix_span(matrix.data() + i * N_ * N_, N_ * N_);
             sfFDN::ScalarFeedbackMatrix feedback_matrix(N_);
@@ -134,7 +134,7 @@ class PyFDN
         }
 
         auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-        for (size_t i = 0; i < N_; i++)
+        for (auto i = 0; i < N_; i++)
         {
             auto filter = std::make_unique<sfFDN::OnePoleFilter>();
             float b = 0.f;
@@ -155,10 +155,10 @@ class PyFDN
         }
 
         auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-        for (size_t n = 0; n < sos_array.shape(0); n++)
+        for (auto n = 0; n < sos_array.shape(0); n++)
         {
             std::vector<float> coeffs;
-            for (size_t i = 0; i < sos_array.shape(1); i++)
+            for (auto i = 0; i < sos_array.shape(1); i++)
             {
                 assert(sos_array.shape(2) == 6);
                 coeffs.push_back(sos_array(n, i, 0) / sos_array(n, i, 3));
@@ -178,7 +178,7 @@ class PyFDN
     void SetTCFilter(const nb::ndarray<float, nb::shape<-1, 6>>& sos)
     {
         std::vector<float> coeffs;
-        for (size_t i = 0; i < sos.shape(0); i++)
+        for (auto i = 0; i < sos.shape(0); i++)
         {
             assert(sos.shape(1) == 6);
             coeffs.push_back(sos(i, 0) / sos(i, 3));
@@ -206,13 +206,13 @@ class PyFDN
         }
 
         std::vector<uint32_t> delays_vector;
-        for (size_t i = 0; i < delays.size(); i++)
+        for (auto i = 0; i < delays.size(); i++)
         {
             if (delays.data()[i] < 0)
             {
                 throw std::runtime_error("Delays must be non-negative");
             }
-            delays_vector.push_back(static_cast<size_t>(delays.data()[i]));
+            delays_vector.push_back(static_cast<uint32_t>(delays.data()[i]));
         }
 
         fdn_.SetDelays(delays_vector);
@@ -221,14 +221,14 @@ class PyFDN
     nb::ndarray<nb::numpy, float, nb::ndim<1>> GetImpulseResponse(float duration)
     {
         auto start = std::chrono::high_resolution_clock::now();
-        const size_t output_size = SR_ * duration;
+        const uint32_t output_size = SR_ * duration;
         float* data = new float[output_size];
 
         std::vector<float> input(output_size, 0.f);
 
         input[0] = 1.f;
 
-        for (size_t i = 0; i < input.size(); i += block_size_)
+        for (auto i = 0; i < input.size(); i += block_size_)
         {
             sfFDN::AudioBuffer input_buffer(block_size_, 1, input.data() + i);
             sfFDN::AudioBuffer output_buffer(block_size_, 1, data + i);
@@ -252,11 +252,11 @@ class PyFDN
     nb::ndarray<nb::numpy, float, nb::ndim<1>> ProcessAudio(nb::ndarray<float, nb::shape<-1>>& input)
     {
         auto start = std::chrono::high_resolution_clock::now();
-        const size_t output_size = input.size();
+        const uint32_t output_size = input.size();
         float* data = new float[output_size];
         float* input_data = input.data();
 
-        for (size_t i = 0; i < input.size(); i += block_size_)
+        for (auto i = 0; i < input.size(); i += block_size_)
         {
             sfFDN::AudioBuffer input_buffer(block_size_, 1, input_data + i);
             sfFDN::AudioBuffer output_buffer(block_size_, 1, data + i);
@@ -279,15 +279,15 @@ class PyFDN
 
   private:
     sfFDN::FDN fdn_;
-    size_t N_;
-    size_t block_size_;
-    size_t SR_;
+    uint32_t N_;
+    uint32_t block_size_;
+    uint32_t SR_;
 };
 
 NB_MODULE(cpp_fdn, m)
 {
     nb::class_<PyFDN>(m, "FDN")
-        .def(nb::init<size_t, size_t, size_t, bool>(), nb::arg("N"), nb::arg("SR"), nb::arg("block_size") = 512,
+        .def(nb::init<uint32_t, uint32_t, uint32_t, bool>(), nb::arg("N"), nb::arg("SR"), nb::arg("block_size") = 512,
              nb::arg("transpose") = false)
         .def("set_input_gains", &PyFDN::SetInputGains)
         .def("set_output_gains", &PyFDN::SetOutputGains)

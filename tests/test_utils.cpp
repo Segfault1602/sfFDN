@@ -86,8 +86,8 @@ std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order)
 std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
 {
     std::vector<float> coeffs;
-    size_t filter_order = k_h001_EqualizationSOS.size();
-    for (size_t i = 0; i < filter_order; i++)
+    uint32_t filter_order = k_h001_EqualizationSOS.size();
+    for (auto i = 0; i < filter_order; i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -134,7 +134,7 @@ std::vector<uint32_t> GetDefaultDelays(uint32_t N)
     return delays;
 }
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N)
+std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t SR, uint32_t block_size, uint32_t N)
 {
     assert(N <= 32);
 
@@ -151,8 +151,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N
     fdn->SetFilterBank(std::move(filter_bank));
 
     std::vector<float> coeffs;
-    size_t filter_order = k_h001_EqualizationSOS.size();
-    for (size_t i = 0; i < filter_order; i++)
+    uint32_t filter_order = k_h001_EqualizationSOS.size();
+    for (auto i = 0; i < filter_order; i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -214,15 +214,15 @@ std::vector<float> WriteWavFile(const std::string& filename, const std::vector<f
     return data;
 }
 
-std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, size_t block_size)
+std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, uint32_t block_size)
 {
     if (!filter)
     {
         return {};
     }
 
-    constexpr size_t kBlockSize = 32;
-    constexpr size_t kMaxSamples = 48000;
+    constexpr uint32_t kBlockSize = 32;
+    constexpr uint32_t kMaxSamples = 48000;
 
     std::array<float, kBlockSize> input = {0.f};
     input[0] = 1.f; // Start with an impulse
@@ -238,7 +238,7 @@ std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, size_t bloc
     sfFDN::OnePoleFilter one_pole_filter;
     one_pole_filter.SetPole(0.99f);
 
-    for (size_t i = 0; i < kMaxSamples; i += kBlockSize)
+    for (auto i = 0; i < kMaxSamples; i += kBlockSize)
     {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);

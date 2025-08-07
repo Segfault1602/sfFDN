@@ -96,8 +96,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
                 if (attempts > 1000) // Prevent infinite loop in case of no valid primes between min_delay and max_delay
                 {
                     std::cerr << "[sfFDN::GetDelayLengths]: Warning: No valid primes found in the specified range "
-                                 "after 1000 attempts."
-                              << std::endl;
+                                 "after 1000 attempts.\n";
                     break;
                 }
             }
@@ -159,7 +158,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         break;
     }
     default:
-        std::cerr << "[sfFDN::GetDelayLengths]: Unknown delay length type." << std::endl;
+        std::cerr << "[sfFDN::GetDelayLengths]: Unknown delay length type.\n";
         break;
     }
 

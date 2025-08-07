@@ -20,7 +20,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
-    for (size_t j = 0; j < sos.size(); j++)
+    for (auto j = 0; j < sos.size(); j++)
     {
         auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
         auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
@@ -40,12 +40,12 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 
 TEST_CASE("PartitionedConvolver")
 {
-    constexpr size_t kBlockSize = 64;
+    constexpr uint32_t kBlockSize = 64;
 
-    constexpr size_t kFirLength = 4096;
+    constexpr uint32_t kFirLength = 4096;
     auto ref_filter = CreateTestFilter();
     std::vector<float> fir(kFirLength, 0.f);
-    for (size_t i = 0; i < kFirLength; ++i)
+    for (auto i = 0; i < kFirLength; ++i)
     {
         // Fill the FIR filter with some test coefficients
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients

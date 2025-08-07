@@ -6,14 +6,6 @@
 namespace sfFDN
 {
 
-DelayBank::DelayBank(unsigned long delayCount, unsigned long maxDelay)
-{
-    for (uint32_t i = 0; i < delayCount; i++)
-    {
-        delays_.emplace_back(1, maxDelay);
-    }
-}
-
 DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
 {
     for (uint32_t i = 0; i < delays.size(); i++)
@@ -48,7 +40,7 @@ uint32_t DelayBank::OutputChannelCount() const
 
 void DelayBank::SetDelays(const std::span<const uint32_t> delays, uint32_t block_size)
 {
-    assert(delays.size() == delays_.size());
+    delays_.resize(delays.size());
     for (uint32_t i = 0; i < delays.size(); i++)
     {
         delays_[i].SetMaximumDelay(delays[i] + block_size);

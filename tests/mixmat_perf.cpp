@@ -18,9 +18,9 @@ using namespace std::chrono_literals;
 
 TEST_CASE("MixMatPerf")
 {
-    constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
-    constexpr size_t N = 16;
+    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t N = 16;
 
     std::cout << "BLOCK SIZE: " << kBlockSize << std::endl;
     std::cout << "N: " << N << std::endl;
@@ -32,7 +32,7 @@ TEST_CASE("MixMatPerf")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (size_t i = 0; i < input.size(); ++i)
+    for (auto i = 0; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -65,21 +65,21 @@ TEST_CASE("Matrix_Order")
 {
     constexpr std::array order = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
 
-    constexpr size_t block_size = 4;
-    constexpr size_t ITER = 94;
+    constexpr uint32_t block_size = 4;
+    constexpr uint32_t ITER = 94;
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
     // bench.timeUnit(1ms, "ms");
     bench.warmup(100);
 
-    for (size_t i = 0; i < order.size(); ++i)
+    for (auto i = 0; i < order.size(); ++i)
     {
-        const size_t N = order[i];
+        const uint32_t N = order[i];
         bench.minEpochIterations(4000000 / N);
         // fill input with random values
         std::vector<float> input(N * block_size, 0.f);
-        for (size_t i = 0; i < input.size(); ++i)
+        for (auto i = 0; i < input.size(); ++i)
         {
             input[i] = static_cast<float>(rand()) / RAND_MAX;
         }
@@ -98,11 +98,11 @@ TEST_CASE("Matrix_Order")
 
 TEST_CASE("FFMPerf_Order")
 {
-    constexpr size_t N = 8;
-    constexpr size_t max_stage = 8;
+    constexpr uint32_t N = 8;
+    constexpr uint32_t max_stage = 8;
 
-    constexpr size_t block_size = 512;
-    constexpr size_t ITER = 94;
+    constexpr uint32_t block_size = 512;
+    constexpr uint32_t ITER = 94;
 
     nanobench::Bench bench;
     bench.title("Filter Feedback Matrix");
@@ -110,13 +110,13 @@ TEST_CASE("FFMPerf_Order")
     bench.timeUnit(1ms, "ms");
     // bench.relative(true);
 
-    for (size_t i = 1; i < max_stage; ++i)
+    for (auto i = 1; i < max_stage; ++i)
     {
-        size_t K = i;
+        uint32_t K = i;
 
         // fill input with random values
         std::vector<float> input(N * block_size, 0.f);
-        for (size_t i = 0; i < input.size(); ++i)
+        for (auto i = 0; i < input.size(); ++i)
         {
             input[i] = static_cast<float>(rand()) / RAND_MAX;
         }
@@ -129,7 +129,7 @@ TEST_CASE("FFMPerf_Order")
 
         bench.complexityN(i).run("FFM - Stage " + std::to_string(i), [&] {
             ffm->Clear();
-            for (size_t i = 0; i < ITER; ++i)
+            for (auto i = 0; i < ITER; ++i)
             {
                 ffm->Process(input_buffer, output_buffer);
             }

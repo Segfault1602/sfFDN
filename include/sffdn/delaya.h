@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <span>
 #include <vector>
 
 #include "sffdn/audio_buffer.h"
@@ -17,8 +16,6 @@ class DelayAllpass
     /// @param delay The initial delay in samples. This value must be >= 0.5.
     /// @param maxDelay The maximum delay in samples.
     DelayAllpass(float delay = 0.5, uint32_t maxDelay = 4095);
-
-    ~DelayAllpass();
 
     /// @brief Clears all internal states of the delay line.
     void Clear(void);
@@ -54,17 +51,17 @@ class DelayAllpass
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
   protected:
-    uint32_t inPoint_;
-    uint32_t outPoint_;
+    uint32_t in_point_;
+    uint32_t out_point_;
     float delay_;
     float alpha_;
     float coeff_;
-    float apInput_;
-    float nextOutput_;
-    bool doNextOut_;
+    float ap_input_;
+    float next_output_;
+    bool do_next_out_;
 
     std::vector<float> buffer_;
-    float lastFrame_;
+    float last_frame_;
     float gain_;
 
   private:

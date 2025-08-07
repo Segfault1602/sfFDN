@@ -15,7 +15,7 @@ namespace sfFDN
 class DelayMatrix::DelayMatrixImpl
 {
   public:
-    DelayMatrixImpl(size_t N, std::span<const uint32_t> delays, ScalarFeedbackMatrix mixing_matrix)
+    DelayMatrixImpl(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix)
         : N_(N)
     {
         assert(delays.size() == N * N);
@@ -24,20 +24,20 @@ class DelayMatrix::DelayMatrixImpl
         delay_lines_.reserve(N);
 
         std::vector<uint32_t> max_delays(N, 0);
-        for (size_t i = 0; i < N; ++i)
+        for (auto i = 0; i < N; ++i)
         {
-            for (size_t j = 0; j < N; ++j)
+            for (auto j = 0; j < N; ++j)
             {
-                max_delays[i] = std::max(max_delays[i], delays[i * N + j]);
+                max_delays[i] = std::max(max_delays[i], delays[(i * N) + j]);
             }
 
             delay_lines_.emplace_back(max_delays[i], max_delays[i]);
         }
 
         matrix_ = Eigen::MatrixXf::Zero(N, N);
-        for (size_t i = 0; i < N; ++i)
+        for (auto i = 0; i < N; ++i)
         {
-            for (size_t j = 0; j < N; ++j)
+            for (auto j = 0; j < N; ++j)
             {
                 matrix_(i, j) = mixing_matrix.GetCoefficient(i, j);
             }
@@ -62,18 +62,18 @@ class DelayMatrix::DelayMatrixImpl
 
         auto delay_mdspan = std::mdspan(delay_values_.data(), N_, N_);
 
-        for (size_t i = 0; i < input.SampleCount(); ++i)
+        for (auto i = 0; i < input.SampleCount(); ++i)
         {
             // Add input samples to the delay lines
-            for (size_t j = 0; j < input.ChannelCount(); ++j)
+            for (auto j = 0; j < input.ChannelCount(); ++j)
             {
                 delay_lines_[j].Tick(input.GetChannelSpan(j)[i]);
             }
 
             // Fill the signal matrix with the current outputs from the delay lines
-            for (size_t j = 0; j < N_; ++j)
+            for (auto j = 0; j < N_; ++j)
             {
-                for (size_t k = 0; k < N_; ++k)
+                for (auto k = 0; k < N_; ++k)
                 {
                     signal_matrix_(j, k) = delay_lines_[j].TapOut(delay_mdspan[j, k]);
                 }
@@ -81,7 +81,7 @@ class DelayMatrix::DelayMatrixImpl
 
             auto result = signal_matrix_.cwiseProduct(matrix_).colwise().sum();
 
-            for (size_t j = 0; j < output.ChannelCount(); ++j)
+            for (auto j = 0; j < output.ChannelCount(); ++j)
             {
                 output.GetChannelSpan(j)[i] = result[j];
             }
@@ -104,21 +104,21 @@ class DelayMatrix::DelayMatrixImpl
         std::println("Delays:");
         Eigen::Map<const Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic>> delay_matrix(delay_values_.data(), N_,
                                                                                                N_);
-        std::cout << delay_matrix << std::endl;
+        std::cout << delay_matrix << '\n';
 
         std::println("Mixing Matrix:");
-        std::cout << signal_matrix_ << std::endl;
+        std::cout << signal_matrix_ << "\n";
     }
 
   private:
-    size_t N_;
+    uint32_t N_;
     std::vector<Delay> delay_lines_;
     std::vector<uint32_t> delay_values_;
     Eigen::MatrixXf matrix_;
     Eigen::MatrixXf signal_matrix_;
 };
 
-DelayMatrix::DelayMatrix(uint32_t N, std::span<const uint32_t> delays, ScalarFeedbackMatrix mixing_matrix)
+DelayMatrix::DelayMatrix(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix)
 {
     impl_ = std::make_unique<DelayMatrixImpl>(N, delays, mixing_matrix);
 }

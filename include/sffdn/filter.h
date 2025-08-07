@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <vector>
 
@@ -20,7 +18,6 @@ class OnePoleFilter : public AudioProcessor
 {
   public:
     OnePoleFilter();
-    ~OnePoleFilter() override = default;
 
     /// @brief Set the pole of the filter.
     /// @param pole The pole of the filter.
@@ -52,14 +49,13 @@ class OnePoleFilter : public AudioProcessor
   private:
     float gain_;
     float b0_, a1_;
-    float state_[2];
+    std::array<float, 2> state_;
 };
 
 class CascadedBiquads : public AudioProcessor
 {
   public:
     CascadedBiquads();
-    ~CascadedBiquads() override;
 
     void Clear();
 
@@ -75,7 +71,6 @@ class CascadedBiquads : public AudioProcessor
 
     void dump_coeffs();
 
-  private:
     struct IIRCoeffs
     {
         float b0, b1, b2, a1, a2;
@@ -86,6 +81,7 @@ class CascadedBiquads : public AudioProcessor
         float s0, s1;
     };
 
+  private:
     uint32_t stage_;
     std::vector<IIRState> states_;
     std::vector<IIRCoeffs> coeffs_;

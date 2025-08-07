@@ -20,14 +20,21 @@ class DelayBank : public AudioProcessor
 {
   public:
     /// @brief Constructs a delay bank with a specified number of delays and maximum delay.
-    DelayBank(unsigned long delayCount, unsigned long maxDelay = 4096);
+    // DelayBank(uint32_t delayCount, uint32_t maxDelay = 4095);
+    DelayBank() = default;
 
     /// @brief Constructs a delay bank with a specified set of delays and block size.
     /// @param delays A span of delay values for each channel.
     /// @param block_size The size of the audio blocks to be processed in the main loop.
     /// @note block_size is used to determine the optimal size of the internal buffers for each delay line.
     DelayBank(std::span<const uint32_t> delays, uint32_t block_size);
+
     ~DelayBank() = default;
+
+    DelayBank(const DelayBank&) = delete;
+    DelayBank& operator=(const DelayBank&) = delete;
+    DelayBank(DelayBank&&) = default;
+    DelayBank& operator=(DelayBank&&) = default;
 
     /// @brief Clears all internal states of the delay bank.
     void Clear();

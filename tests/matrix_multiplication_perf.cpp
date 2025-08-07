@@ -53,7 +53,7 @@ TEST_SUITE_BEGIN("MatrixMultiplicationPerf");
 
 TEST_CASE("MatrixMultiplicationPerf_single")
 {
-    constexpr size_t N = 16;
+    constexpr uint32_t N = 16;
 
     if (IsAligned(kMatrix16x16.data(), 64))
     {
@@ -108,15 +108,15 @@ TEST_CASE("MatrixMultiplicationPerf_single")
 
 TEST_CASE("MatrixMultiplicationPerf_block")
 {
-    constexpr size_t N = 16;
-    constexpr size_t kBlockSize = 4;
+    constexpr uint32_t N = 16;
+    constexpr uint32_t kBlockSize = 4;
 
-    constexpr size_t kInputSize = N * kBlockSize;
+    constexpr uint32_t kInputSize = N * kBlockSize;
 
     std::array<float, kInputSize> input;
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
-        for (size_t j = 0; j < kBlockSize; ++j)
+        for (auto j = 0; j < kBlockSize; ++j)
         {
             input[i * kBlockSize + j] = kInput[i];
         }
@@ -131,9 +131,9 @@ TEST_CASE("MatrixMultiplicationPerf_block")
 
     eigen_output = eigen_input * eigen_mat;
 
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
-        for (size_t j = 0; j < kBlockSize; ++j)
+        for (auto j = 0; j < kBlockSize; ++j)
         {
             CHECK(eigen_output_data[i * kBlockSize + j] == doctest::Approx(kExpectedOutput[i]));
         }
@@ -143,29 +143,29 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     std::array<float, N * kBlockSize> output;
     float in[16] = {0.f};
     float out[16] = {0.f};
-    for (size_t i = 0; i < kBlockSize; ++i)
+    for (auto i = 0; i < kBlockSize; ++i)
     {
-        for (size_t j = 0; j < N; ++j)
+        for (auto j = 0; j < N; ++j)
         {
             in[j] = input[j * kBlockSize + i];
         }
         sfFDN::MatrixMultiply_C(in, out, kMatrix16x16, N);
 
-        for (size_t j = 0; j < N; ++j)
+        for (auto j = 0; j < N; ++j)
         {
             output[j * kBlockSize + i] = out[j];
         }
     }
 
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
-        for (size_t j = 0; j < kBlockSize; ++j)
+        for (auto j = 0; j < kBlockSize; ++j)
         {
             CHECK(output[i * kBlockSize + j] == doctest::Approx(kExpectedOutput[i]));
         }
     }
 
-    constexpr size_t kIterations = 1000;
+    constexpr uint32_t kIterations = 1000;
 
     nanobench::Bench bench;
     bench.title("Matrix Multiplication Performance - Block");
@@ -180,7 +180,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
         std::array<float, kInputSize> eigen_output_data;
         Eigen::Map<Eigen::Matrix<float, kBlockSize, N>> output(eigen_output_data.data());
 
-        for (size_t i = 0; i < kIterations; ++i)
+        for (auto i = 0; i < kIterations; ++i)
         {
             output = eigen_input * mat;
             nanobench::doNotOptimizeAway(output);
@@ -190,7 +190,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
 
 TEST_CASE("Hadamard")
 {
-    constexpr size_t N = 16;
+    constexpr uint32_t N = 16;
 
     std::array<float, N * N> kHadamard = {
         1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  -1, 1,  -1, 1,  -1, 1,  -1, 1,  -1,
@@ -205,7 +205,7 @@ TEST_CASE("Hadamard")
         1,  1,  1,  1,  -1, -1, 1,  -1, -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  -1, -1, 1,
     };
 
-    for (size_t i = 0; i < N * N; ++i)
+    for (auto i = 0; i < N * N; ++i)
     {
         kHadamard[i] *= 0.25f; // Scale down to avoid overflow in multiplication
     }
@@ -240,7 +240,7 @@ TEST_CASE("Hadamard")
     std::cout << std::endl;
 
     std::array<float, N> inout;
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
         inout[i] = kInput[i];
     }
@@ -252,7 +252,7 @@ TEST_CASE("Hadamard")
     }
     std::cout << std::endl;
 
-    constexpr size_t kIterations = 1000;
+    constexpr uint32_t kIterations = 1000;
     nanobench::Bench bench;
     bench.title("Hadamard Multiplication Performance");
     // bench.timeUnit(1us, "us");
@@ -267,7 +267,7 @@ TEST_CASE("Hadamard")
         std::array<float, N> eigen_output_data;
         Eigen::Map<Eigen::RowVectorXf> eigen_output(eigen_output_data.data(), N);
 
-        for (size_t i = 0; i < kIterations; ++i)
+        for (auto i = 0; i < kIterations; ++i)
         {
             eigen_output = eigen_input * eigen_mat;
             nanobench::doNotOptimizeAway(eigen_output);
@@ -276,7 +276,7 @@ TEST_CASE("Hadamard")
 
     bench.run("MatrixMultiply", [&]() {
         std::array<float, N> output;
-        for (size_t i = 0; i < kIterations; ++i)
+        for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
             nanobench::doNotOptimizeAway(output);
@@ -285,7 +285,7 @@ TEST_CASE("Hadamard")
 
     bench.run("HadamardMultiply", [&]() {
         std::array<float, N> output;
-        for (size_t i = 0; i < kIterations; ++i)
+        for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::HadamardMultiply(kInput, output);
             nanobench::doNotOptimizeAway(output);
@@ -294,11 +294,11 @@ TEST_CASE("Hadamard")
 
     bench.run("WalshHadamardTransform", [&]() {
         std::array<float, N> inout;
-        for (size_t i = 0; i < N; ++i)
+        for (auto i = 0; i < N; ++i)
         {
             inout[i] = kInput[i];
         }
-        for (size_t i = 0; i < kIterations; ++i)
+        for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::WalshHadamardTransform(inout);
             nanobench::doNotOptimizeAway(inout);

@@ -2,23 +2,20 @@
 
 #include <pffft.h>
 
+#include <algorithm>
 #include <cassert>
 #include <format>
-#include <iostream>
-#include <memory>
-
-#include "array_math.h"
 
 namespace sfFDN
 {
 
-FFT::FFT(size_t fft_size)
+FFT::FFT(uint32_t fft_size)
+    : fft_size_(fft_size)
+    , complex_sample_count_(fft_size / 2)
 {
-    fft_size_ = fft_size;
-    complex_sample_count_ = (fft_size / 2);
 
     setup_ = pffft_new_setup(fft_size_, PFFFT_REAL);
-    if (!setup_)
+    if (setup_ == nullptr)
     {
         throw std::runtime_error(std::format("FFT size ({}) is unsuitable for PFFFT", fft_size_));
     }
@@ -28,13 +25,13 @@ FFT::FFT(size_t fft_size)
 
 FFT::~FFT()
 {
-    if (setup_)
+    if (setup_ != nullptr)
     {
         pffft_destroy_setup(setup_);
         setup_ = nullptr;
     }
 
-    if (work_buffer_)
+    if (work_buffer_ != nullptr)
     {
         pffft_aligned_free(work_buffer_);
         work_buffer_ = nullptr;
@@ -69,7 +66,7 @@ void FFT::ConvolveAccumulate(std::span<complex_t> dft_a, std::span<complex_t> df
 
     pffft_zconvolve_accumulate(setup_, reinterpret_cast<const float*>(dft_a.data()),
                                reinterpret_cast<const float*>(dft_b.data()), reinterpret_cast<float*>(dft_ab.data()),
-                               1.0f / fft_size_);
+                               1.0f / static_cast<float>(fft_size_));
 }
 
 void FFT::Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_spectrum, bool forward)
@@ -83,25 +80,25 @@ void FFT::Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_
                    reinterpret_cast<float*>(reordered_spectrum.data()), forward ? PFFFT_FORWARD : PFFFT_BACKWARD);
 }
 
-std::span<float> FFT::AllocateRealBuffer()
+std::span<float> FFT::AllocateRealBuffer() const
 {
     auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);
-    std::fill(mem.begin(), mem.end(), 0.f);
+    std::ranges::fill(mem, 0.f);
     return mem;
 }
 
-std::span<complex_t> FFT::AllocateComplexBuffer()
+std::span<complex_t> FFT::AllocateComplexBuffer() const
 {
     auto mem =
         std::span<complex_t>(static_cast<complex_t*>(pffft_aligned_malloc(complex_sample_count_ * sizeof(complex_t))),
                              complex_sample_count_);
-    std::fill(mem.begin(), mem.end(), complex_t{0.f, 0.f});
+    std::ranges::fill(mem, complex_t{0.f, 0.f});
     return mem;
 }
 
 void FFT::FreeBuffer(void* buffer)
 {
-    if (!buffer)
+    if (buffer == nullptr)
     {
         return;
     }

@@ -3,19 +3,19 @@
 namespace sfFDN
 {
 
-bool Math::IsPowerOfTwo(size_t n)
+bool Math::IsPowerOfTwo(uint32_t n)
 {
     return n && !(n & (n - 1));
 }
 
-size_t Math::NextPowerOfTwo(size_t n)
+uint32_t Math::NextPowerOfTwo(uint32_t n)
 {
     if (n == 0)
     {
         return 1;
     }
     --n;
-    for (size_t i = 1; i < sizeof(size_t) * 8; i <<= 1)
+    for (auto i = 1; i < sizeof(uint32_t) * 8; i <<= 1)
     {
         n |= n >> i;
     }

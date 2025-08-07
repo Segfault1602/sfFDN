@@ -4,7 +4,6 @@
 #include <iostream>
 
 #include "matrix_gallery_internal.h"
-#include "matrix_multiplication.h"
 
 namespace sfFDN
 {
@@ -12,15 +11,13 @@ namespace sfFDN
 class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 {
   public:
-    ScalarFeedbackMatrixImpl(uint32_t N = 4)
+    explicit ScalarFeedbackMatrixImpl(uint32_t N)
         : N_(N)
     {
         matrix_.setIdentity(N_, N_);
     }
 
-    ~ScalarFeedbackMatrixImpl() = default;
-
-    void SetMatrix(Eigen::MatrixXf matrix)
+    void SetMatrix(const Eigen::MatrixXf& matrix)
     {
         assert(matrix.rows() == matrix.cols());
         N_ = matrix.rows();
@@ -57,7 +54,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
     void Print() const
     {
-        std::cout << matrix_ << std::endl;
+        std::cout << matrix_ << '\n';
     }
 
     uint32_t GetSize() const
@@ -65,7 +62,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         return N_;
     }
 
-    float GetCoefficient(size_t row, size_t col) const
+    float GetCoefficient(uint32_t row, uint32_t col) const
     {
         return matrix_(row, col);
     }
@@ -166,13 +163,25 @@ ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(const ScalarFeedbackMatrix
     return *this;
 }
 
-ScalarFeedbackMatrix::~ScalarFeedbackMatrix()
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept
+    : impl_(std::move(other.impl_))
 {
 }
 
+ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(ScalarFeedbackMatrix&& other) noexcept
+{
+    if (this != &other)
+    {
+        impl_ = std::move(other.impl_);
+    }
+    return *this;
+}
+
+ScalarFeedbackMatrix::~ScalarFeedbackMatrix() = default;
+
 bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
 {
-    auto N = std::sqrt(matrix.size());
+    auto N = static_cast<uint32_t>(std::sqrt(matrix.size()));
     if (N * N != matrix.size() || N == 0)
     {
         std::print(std::cerr, "Only square matrices are supported!\n");
@@ -200,7 +209,7 @@ uint32_t ScalarFeedbackMatrix::GetSize() const
     return impl_->GetSize();
 }
 
-float ScalarFeedbackMatrix::GetCoefficient(size_t row, size_t col) const
+float ScalarFeedbackMatrix::GetCoefficient(uint32_t row, uint32_t col) const
 {
     return impl_->GetCoefficient(row, col);
 }

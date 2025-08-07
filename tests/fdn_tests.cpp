@@ -15,11 +15,11 @@
 
 TEST_CASE("FDN")
 {
-    constexpr size_t SR = 48000;
+    constexpr uint32_t SR = 48000;
     constexpr float SIMULATION_TIME = 0.01;
-    constexpr size_t block_size = 8;
-    constexpr size_t ITER = ((SR / block_size) + 1) * block_size;
-    constexpr size_t N = 6;
+    constexpr uint32_t block_size = 8;
+    constexpr uint32_t ITER = ((SR / block_size) + 1) * block_size;
+    constexpr uint32_t N = 6;
     constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
                                                   -0.38236806, -0.057921566, -0.39115807};
     constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
@@ -48,13 +48,13 @@ TEST_CASE("FDN")
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (size_t i = 0; i < N; i++)
+    for (auto i = 0; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS[i];
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
-        for (size_t j = 0; j < sos.size(); j++)
+        for (auto j = 0; j < sos.size(); j++)
         {
             auto b = std::span<const float>(&sos[j][0], 3);
             auto a = std::span<const float>(&sos[j][3], 3);
@@ -73,7 +73,7 @@ TEST_CASE("FDN")
     fdn.SetFilterBank(std::move(filter_bank));
 
     std::vector<float> coeffs;
-    for (size_t i = 0; i < k_h001_EqualizationSOS.size(); i++)
+    for (auto i = 0; i < k_h001_EqualizationSOS.size(); i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -91,7 +91,7 @@ TEST_CASE("FDN")
 
     input[0] = 1.f;
 
-    for (size_t i = 0; i < input.size(); i += block_size)
+    for (auto i = 0; i < input.size(); i += block_size)
     {
         sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
         sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
@@ -117,9 +117,9 @@ TEST_CASE("FDN")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        size_t check_limit = std::min(output.size(), expected_output.size());
+        uint32_t check_limit = std::min(output.size(), expected_output.size());
 
-        for (size_t i = 0; i < check_limit; ++i)
+        for (auto i = 0; i < check_limit; ++i)
         {
             CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -132,11 +132,11 @@ TEST_CASE("FDN")
 
 TEST_CASE("FDN_Transposed")
 {
-    constexpr size_t SR = 48000;
+    constexpr uint32_t SR = 48000;
     constexpr float SIMULATION_TIME = 0.01;
     constexpr uint32_t N = 6;
     constexpr uint32_t block_size = 512;
-    constexpr size_t ITER = ((SR / block_size) + 1) * block_size;
+    constexpr uint32_t ITER = ((SR / block_size) + 1) * block_size;
     constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
                                                   -0.38236806, -0.057921566, -0.39115807};
     constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
@@ -165,13 +165,13 @@ TEST_CASE("FDN_Transposed")
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (size_t i = 0; i < N; i++)
+    for (auto i = 0; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS[i];
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
-        for (size_t j = 0; j < sos.size(); j++)
+        for (auto j = 0; j < sos.size(); j++)
         {
             auto b = std::span<const float>(&sos[j][0], 3);
             auto a = std::span<const float>(&sos[j][3], 3);
@@ -190,7 +190,7 @@ TEST_CASE("FDN_Transposed")
     fdn.SetFilterBank(std::move(filter_bank));
 
     std::vector<float> coeffs;
-    for (size_t i = 0; i < k_h001_EqualizationSOS.size(); i++)
+    for (auto i = 0; i < k_h001_EqualizationSOS.size(); i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -208,7 +208,7 @@ TEST_CASE("FDN_Transposed")
 
     input[0] = 1.f;
 
-    for (size_t i = 0; i < input.size(); i += block_size)
+    for (auto i = 0; i < input.size(); i += block_size)
     {
         sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
         sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
@@ -231,7 +231,7 @@ TEST_CASE("FDN_Transposed")
         CHECK(read == sfinfo.frames);
         sf_close(expected_output_file);
 
-        for (size_t i = 0; i < 1000; ++i)
+        for (auto i = 0; i < 1000; ++i)
         {
             CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
         }
@@ -240,10 +240,10 @@ TEST_CASE("FDN_Transposed")
 
 TEST_CASE("FDN_FIR")
 {
-    constexpr size_t SR = 48000;
+    constexpr uint32_t SR = 48000;
     constexpr float SIMULATION_TIME = 0.01;
     constexpr uint32_t block_size = 64;
-    constexpr size_t ITER = ((SR / block_size) + 1) * block_size;
+    constexpr uint32_t ITER = ((SR / block_size) + 1) * block_size;
     constexpr uint32_t N = 6;
     constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
                                                   -0.38236806, -0.057921566, -0.39115807};
@@ -273,7 +273,7 @@ TEST_CASE("FDN_FIR")
     fdn.SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (size_t i = 0; i < N; i++)
+    for (auto i = 0; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/data/att_fir_" + std::to_string(delays[i]) + ".wav");
         auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(block_size, fir);
@@ -294,7 +294,7 @@ TEST_CASE("FDN_FIR")
 
     input[0] = 1.f;
 
-    for (size_t i = 0; i < input.size(); i += block_size)
+    for (auto i = 0; i < input.size(); i += block_size)
     {
         sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
         sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
@@ -322,9 +322,9 @@ TEST_CASE("FDN_FIR")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        size_t check_limit = std::min(output.size(), expected_output.size());
+        uint32_t check_limit = std::min(output.size(), expected_output.size());
 
-        for (size_t i = 0; i < check_limit; ++i)
+        for (auto i = 0; i < check_limit; ++i)
         {
             CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(5e-4));
             signal_energy += expected_output[i] * expected_output[i];

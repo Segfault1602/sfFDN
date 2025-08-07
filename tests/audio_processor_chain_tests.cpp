@@ -9,8 +9,8 @@
 
 TEST_CASE("AudioProcessorChain")
 {
-    constexpr size_t N = 4;
-    constexpr size_t kBlockSize = 4;
+    constexpr uint32_t N = 4;
+    constexpr uint32_t kBlockSize = 4;
 
     sfFDN::AudioProcessorChain chain(kBlockSize);
 
@@ -39,7 +39,7 @@ TEST_CASE("AudioProcessorChain")
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
     chain.Process(input_buffer, output_buffer);
 
-    for (size_t i = 0; i < output.size(); ++i)
+    for (auto i = 0; i < output.size(); ++i)
     {
         CHECK(output[i] == doctest::Approx(5.f));
     }

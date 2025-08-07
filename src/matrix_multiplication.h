@@ -21,6 +21,6 @@ void MatrixMultiply_16(const std::span<const float, 16> input, std::span<float, 
 /// @param out k x N output matrix in column-major order
 /// @param matrix N x N transformation matrix in column-major order
 /// @param N size of the transformation matrix (N x N)
-void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, size_t N);
+void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t N);
 
 } // namespace sfFDN

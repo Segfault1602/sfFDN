@@ -41,7 +41,7 @@ TEST_CASE("OnePoleFilter")
     sfFDN::OnePoleFilter filter;
     filter.SetCoefficients(0.1, -0.9);
 
-    constexpr size_t size = 8;
+    constexpr uint32_t size = 8;
     std::array<float, size> input = {1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
     std::array<float, size> output;
 
@@ -53,34 +53,23 @@ TEST_CASE("OnePoleFilter")
     constexpr std::array<float, size> expected_output = {0.1000, 0.0900, 0.0810, 0.0729,
                                                          0.0656, 0.0590, 0.0531, 0.0478};
 
-    for (size_t i = 0; i < size; ++i)
+    for (auto i = 0; i < size; ++i)
     {
         CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
     }
-}
-
-TEST_CASE("TwoFilter")
-{
-    constexpr size_t kNBands = 10;
-    constexpr float kSR = 48000.f;
-    std::array<float, kNBands> t60s = {0.228581607341766f, 0.228581607341766f, 0.256176093220711f, 0.284963846206665f,
-                                       0.268932670354843f, 0.321109890937805f, 0.329257786273956f, 0.340315490961075f,
-                                       0.258857980370522f, 0.125823333859444f};
-
-    sfFDN::GetTwoFilter(t60s, 593, kSR);
 }
 
 TEST_CASE("SchroederAllpass")
 {
     sfFDN::SchroederAllpass filter(5, 0.9);
 
-    constexpr size_t size = 18;
+    constexpr uint32_t size = 18;
     std::array<float, size> input = {0.f};
     input[0] = 1.f;
     constexpr std::array<float, size> expected_output = {0.9, 0,      0, 0, 0, 0.19, 0,      0, 0,
                                                          0,   -0.171, 0, 0, 0, 0,    0.1539, 0, 0};
 
-    for (size_t i = 0; i < size; ++i)
+    for (auto i = 0; i < size; ++i)
     {
         float out = filter.Tick(input[i]);
         CHECK(out == doctest::Approx(expected_output[i]).epsilon(0.0001));
@@ -90,7 +79,7 @@ TEST_CASE("SchroederAllpass")
     std::array<float, size> output;
     filter_block.ProcessBlock(input, output);
 
-    for (size_t i = 0; i < size; ++i)
+    for (auto i = 0; i < size; ++i)
     {
         CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
     }
@@ -126,19 +115,19 @@ TEST_CASE("SchroederAllpassSection")
     constexpr std::array<float, kBlockSize> out2_expected = {0.7, 0, 0, 0, 0.51, 0, 0, 0};
     constexpr std::array<float, kBlockSize> out3_expected = {0.6, 0, 0, 0, 0, 0.64, 0, 0};
 
-    for (size_t j = 0; j < kBlockSize; ++j)
+    for (auto j = 0; j < kBlockSize; ++j)
     {
         CHECK(output[0 * kBlockSize + j] == doctest::Approx(out0_expected[j]).epsilon(0.01));
     }
-    for (size_t j = 0; j < kBlockSize; ++j)
+    for (auto j = 0; j < kBlockSize; ++j)
     {
         CHECK(output[1 * kBlockSize + j] == doctest::Approx(out1_expected[j]).epsilon(0.01));
     }
-    for (size_t j = 0; j < kBlockSize; ++j)
+    for (auto j = 0; j < kBlockSize; ++j)
     {
         CHECK(output[2 * kBlockSize + j] == doctest::Approx(out2_expected[j]).epsilon(0.01));
     }
-    for (size_t j = 0; j < kBlockSize; ++j)
+    for (auto j = 0; j < kBlockSize; ++j)
     {
         CHECK(output[3 * kBlockSize + j] == doctest::Approx(out3_expected[j]).epsilon(0.01));
     }
@@ -146,12 +135,12 @@ TEST_CASE("SchroederAllpassSection")
 
 TEST_CASE("FilterBank")
 {
-    constexpr size_t N = 4;
-    constexpr size_t kBlockSize = 8;
+    constexpr uint32_t N = 4;
+    constexpr uint32_t kBlockSize = 8;
     sfFDN::FilterBank filter_bank;
 
     float pole = 0.9;
-    for (size_t i = 0; i < N; i++)
+    for (auto i = 0; i < N; i++)
     {
         auto filter = std::make_unique<sfFDN::OnePoleFilter>();
         filter->SetCoefficients(1 - pole, -pole);
@@ -161,7 +150,7 @@ TEST_CASE("FilterBank")
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
         input[i * kBlockSize] = 1.f;
     }
@@ -178,7 +167,7 @@ TEST_CASE("FilterBank")
                                           0.3000, 0.2100, 0.1470, 0.1029, 0.0720,  0.0504,   0.0353,    0.0247,
                                           0.4000, 0.2400, 0.1440, 0.0864, 0.0518,  0.0311,   0.0187,    0.0112};
 
-    for (size_t i = 0; i < expected_output.size(); ++i)
+    for (auto i = 0; i < expected_output.size(); ++i)
     {
         CHECK(output[i] == doctest::Approx(expected_output[i]).epsilon(0.0001));
     }
@@ -189,7 +178,7 @@ TEST_CASE("CascadedBiquads")
     sfFDN::CascadedBiquads filter;
 
     std::vector<float> coeffs;
-    for (size_t i = 0; i < kTestSOS.size(); i++)
+    for (auto i = 0; i < kTestSOS.size(); i++)
     {
         coeffs.push_back(kTestSOS[i][0] / kTestSOS[i][3]);
         coeffs.push_back(kTestSOS[i][1] / kTestSOS[i][3]);
@@ -200,7 +189,7 @@ TEST_CASE("CascadedBiquads")
 
     filter.SetCoefficients(kTestSOS.size(), coeffs);
 
-    constexpr size_t size = 32;
+    constexpr uint32_t size = 32;
     std::array<float, size> input = {0};
     input[0] = 1.f;
     std::array<float, size> output;
@@ -211,7 +200,7 @@ TEST_CASE("CascadedBiquads")
     filter.Process(input_buffer, output_buffer);
 
     REQUIRE(size == kTestSOSExpectedOutput.size());
-    for (size_t i = 0; i < kTestSOSExpectedOutput.size(); ++i)
+    for (auto i = 0; i < kTestSOSExpectedOutput.size(); ++i)
     {
         CHECK(output[i] == doctest::Approx(kTestSOSExpectedOutput[i]).epsilon(0.0001));
     }

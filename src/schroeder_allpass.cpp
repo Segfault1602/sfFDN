@@ -42,13 +42,13 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
 
     for (uint32_t i = 0; i < unroll_size; i += 4)
     {
-        float del_out[4];
+        std::array<float, 4> del_out;
         delay_.GetNextOutputs(del_out);
 
-        float v_n0 = in[i] - g_ * del_out[0];
-        float v_n1 = in[i + 1] - g_ * del_out[1];
-        float v_n2 = in[i + 2] - g_ * del_out[2];
-        float v_n3 = in[i + 3] - g_ * del_out[3];
+        float v_n0 = in[i] - (g_ * del_out[0]);
+        float v_n1 = in[i + 1] - (g_ * del_out[1]);
+        float v_n2 = in[i + 2] - (g_ * del_out[2]);
+        float v_n3 = in[i + 3] - (g_ * del_out[3]);
 
         delay_.AddNextInputs({{v_n0, v_n1, v_n2, v_n3}});
 

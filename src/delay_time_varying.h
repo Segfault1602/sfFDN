@@ -9,12 +9,12 @@ namespace sfFDN
 class DelayTimeVarying
 {
   public:
-    DelayTimeVarying(float delay = 0.5, unsigned long maxDelay = 4095, size_t samplerate = 48000);
+    DelayTimeVarying(float delay = 0.5, uint32_t maxDelay = 4095, uint32_t samplerate = 48000);
     ~DelayTimeVarying() = default;
 
     void Clear(void);
 
-    void SetMaximumDelay(unsigned long delay);
+    void SetMaximumDelay(uint32_t delay);
     void SetDelay(float delay);
 
     void SetMod(float freq, float depth);
@@ -30,7 +30,7 @@ class DelayTimeVarying
     DelayAllpass delayA_;
     float delay_;
 
-    size_t samplerate_;
+    uint32_t samplerate_;
 
     float mod_freq_;
     float mod_depth_;

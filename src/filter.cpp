@@ -1,7 +1,7 @@
 #include "sffdn/filter.h"
 
 #include <cmath>
-#include <iostream>
+
 #include <numbers>
 
 namespace

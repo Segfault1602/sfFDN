@@ -12,26 +12,21 @@ void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
 {
     assert(a.size() == b.size());
 
-    size_t block_count = a.size() / 4;
-    float* a_ptr = a.data();
-    const float* b_ptr = b.data();
-
-    while (block_count > 0)
+    const uint32_t unroll_size = a.size() & ~3;
+    int idx = 0;
+    while (idx < unroll_size)
     {
-        a_ptr[0] += b_ptr[0];
-        a_ptr[1] += b_ptr[1];
-        a_ptr[2] += b_ptr[2];
-        a_ptr[3] += b_ptr[3];
-        a_ptr += 4;
-        b_ptr += 4;
-        --block_count;
+        a[idx + 0] += b[idx + 0];
+        a[idx + 1] += b[idx + 1];
+        a[idx + 2] += b[idx + 2];
+        a[idx + 3] += b[idx + 3];
+        idx += 4;
     }
 
-    size_t remainder = a.size() % 4;
-    while (remainder > 0)
+    while (idx < a.size())
     {
-        *a_ptr++ += *b_ptr++;
-        --remainder;
+        a[idx] += b[idx];
+        ++idx;
     }
 }
 
@@ -40,27 +35,20 @@ void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::spa
     assert(a.size() == b.size());
     assert(a.size() == out.size());
 
-    size_t block_count = a.size() / 4;
-    const float* a_ptr = a.data();
-    const float* b_ptr = b.data();
-    float* out_ptr = out.data();
-
-    while (block_count > 0)
+    const uint32_t unroll_size = a.size() & ~3;
+    int idx = 0;
+    while (idx < unroll_size)
     {
-        out_ptr[0] = a_ptr[0] + b_ptr[0];
-        out_ptr[1] = a_ptr[1] + b_ptr[1];
-        out_ptr[2] = a_ptr[2] + b_ptr[2];
-        out_ptr[3] = a_ptr[3] + b_ptr[3];
-        out_ptr += 4;
-        a_ptr += 4;
-        b_ptr += 4;
-        --block_count;
+        out[idx + 0] = a[idx + 0] + b[idx + 0];
+        out[idx + 1] = a[idx + 1] + b[idx + 1];
+        out[idx + 2] = a[idx + 2] + b[idx + 2];
+        out[idx + 3] = a[idx + 3] + b[idx + 3];
+        idx += 4;
     }
-    size_t remainder = a.size() % 4;
-    while (remainder > 0)
+    while (idx < a.size())
     {
-        *out_ptr++ = *a_ptr++ + *b_ptr++;
-        --remainder;
+        out[idx] = a[idx] + b[idx];
+        ++idx;
     }
 }
 
@@ -68,26 +56,21 @@ void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> 
 {
     assert(a.size() == out.size());
 
-    size_t block_count = a.size() / 4;
-    const float* a_ptr = a.data();
-    float* out_ptr = out.data();
-
-    while (block_count > 0)
+    const uint32_t unroll_size = a.size() & ~3;
+    int idx = 0;
+    while (idx < unroll_size)
     {
-        out_ptr[0] = a_ptr[0] * b;
-        out_ptr[1] = a_ptr[1] * b;
-        out_ptr[2] = a_ptr[2] * b;
-        out_ptr[3] = a_ptr[3] * b;
-        out_ptr += 4;
-        a_ptr += 4;
-        --block_count;
+        out[idx + 0] = a[idx + 0] * b;
+        out[idx + 1] = a[idx + 1] * b;
+        out[idx + 2] = a[idx + 2] * b;
+        out[idx + 3] = a[idx + 3] * b;
+        idx += 4;
     }
 
-    size_t remainder = a.size() % 4;
-    while (remainder > 0)
+    while (idx < a.size())
     {
-        *out_ptr++ = *a_ptr++ * b;
-        --remainder;
+        out[idx] = a[idx] * b;
+        ++idx;
     }
 }
 
@@ -96,55 +79,43 @@ void ArrayMath::ScaleAdd(std::span<const float> a, const float b, std::span<cons
     assert(a.size() == c.size());
     assert(a.size() == out.size());
 
-    size_t block_count = a.size() / 4;
-    const float* a_ptr = a.data();
-    const float* c_ptr = c.data();
-    float* out_ptr = out.data();
-    while (block_count > 0)
+    const uint32_t unroll_size = a.size() & ~3;
+    int idx = 0;
+    while (idx < unroll_size)
     {
-        out_ptr[0] = a_ptr[0] * b + c_ptr[0];
-        out_ptr[1] = a_ptr[1] * b + c_ptr[1];
-        out_ptr[2] = a_ptr[2] * b + c_ptr[2];
-        out_ptr[3] = a_ptr[3] * b + c_ptr[3];
-        out_ptr += 4;
-        a_ptr += 4;
-        c_ptr += 4;
-        --block_count;
+        out[idx + 0] = a[idx + 0] * b + c[idx + 0];
+        out[idx + 1] = a[idx + 1] * b + c[idx + 1];
+        out[idx + 2] = a[idx + 2] * b + c[idx + 2];
+        out[idx + 3] = a[idx + 3] * b + c[idx + 3];
+        idx += 4;
     }
 
-    size_t remainder = a.size() % 4;
-    while (remainder > 0)
+    while (idx < a.size())
     {
-        *out_ptr++ = *a_ptr++ * b + *c_ptr++;
-        --remainder;
+        out[idx] = a[idx] * b + c[idx];
+        ++idx;
     }
-    assert(out_ptr == out.data() + out.size());
 }
 
 void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out)
 {
     assert(a.size() == out.size());
 
-    size_t block_count = a.size() / 4;
-    const float* a_ptr = a.data();
-    float* out_ptr = out.data();
-
-    while (block_count > 0)
+    const uint32_t unroll_size = a.size() & ~3;
+    int idx = 0;
+    while (idx < unroll_size)
     {
-        out_ptr[0] += a_ptr[0] * b;
-        out_ptr[1] += a_ptr[1] * b;
-        out_ptr[2] += a_ptr[2] * b;
-        out_ptr[3] += a_ptr[3] * b;
-        out_ptr += 4;
-        a_ptr += 4;
-        --block_count;
+        out[idx + 0] += a[idx + 0] * b;
+        out[idx + 1] += a[idx + 1] * b;
+        out[idx + 2] += a[idx + 2] * b;
+        out[idx + 3] += a[idx + 3] * b;
+        idx += 4;
     }
 
-    size_t remainder = a.size() % 4;
-    while (remainder > 0)
+    while (idx < a.size())
     {
-        *out_ptr++ += *a_ptr++ * b;
-        --remainder;
+        out[idx] += a[idx] * b;
+        ++idx;
     }
 }
 } // namespace sfFDN

@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "sffdn/audio_buffer.h"
-#include "sffdn/audio_processor.h"
 
 namespace sfFDN
 {
@@ -22,6 +21,11 @@ class Delay
 
     ~Delay();
 
+    Delay(const Delay&) = delete;
+    Delay& operator=(const Delay&) = delete;
+    Delay(Delay&&) = default;
+    Delay& operator=(Delay&&) = default;
+
     /// @brief Clears the delay line, resetting the internal buffer. The delay value remains unchanged.
     void Clear();
 
@@ -29,7 +33,7 @@ class Delay
     /// @param delay The maximum delay in samples.
     /// @note This can increase the size of the internal buffer if the new maximum delay is larger than the current
     /// buffer size.
-    void SetMaximumDelay(unsigned long delay);
+    void SetMaximumDelay(uint32_t delay);
 
     /// @brief Sets the delay for the delay line.
     /// @param delay The delay in samples.

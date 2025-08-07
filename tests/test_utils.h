@@ -17,12 +17,12 @@ std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t N);
 std::vector<uint32_t> GetDefaultDelays(uint32_t N);
 std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter();
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(size_t SR, uint32_t block_size, uint32_t N);
+std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t SR, uint32_t block_size, uint32_t N);
 
 std::vector<float> ReadWavFile(const std::string& filename);
 std::vector<float> WriteWavFile(const std::string& filename, const std::vector<float>& data);
 
-std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, size_t block_size = 512);
+std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, uint32_t block_size = 512);
 
 // From: https://github.com/jatinchowdhury18/FIRBenchmarks/blob/master/src/InnerProdFIR.h
 struct InnerProdFIR

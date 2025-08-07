@@ -1,86 +1,95 @@
 #include "sffdn/delaya.h"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <print>
 
 namespace sfFDN
 {
 
 DelayAllpass::DelayAllpass(float delay, uint32_t maxDelay)
+    : out_point_(0)
+    , in_point_(0)
+    , alpha_(0.0f)
+    , coeff_(0.0f)
+    , delay_(0.0f)
+    , next_output_(0.0f)
 {
-    if (delay < 0.5)
+    if (delay < 0.5f)
     {
-        std::cerr << "DelayAllpass::DelayAllpass: delay must be >= 0.5!" << std::endl;
+        std::println(std::cerr, "DelayAllpass::DelayAllpass: delay must be >= 0.5!");
         assert(false);
-        delay = 0.5; // Set to minimum valid value
+        delay = 0.5f; // Set to minimum valid value
     }
 
     if (delay > (float)maxDelay)
     {
-        std::cerr << "DelayAllpass::DelayAllpass: maxDelay must be > than delay argument!" << std::endl;
+        std::println(std::cerr, "DelayAllpass::DelayAllpass: maxDelay must be > than delay argument!");
         assert(false);
         delay = maxDelay - 1; // Set to maximum valid value
     }
 
     // Writing before reading allows delays from 0 to length-1.
     if (maxDelay + 1 > buffer_.size())
+    {
         buffer_.resize(maxDelay + 1, 0.0);
+    }
 
-    inPoint_ = 0;
+    in_point_ = 0;
     this->SetDelay(delay);
-    apInput_ = 0.0;
-    doNextOut_ = true;
+    ap_input_ = 0.0;
+    do_next_out_ = true;
     gain_ = 1.0;
-    lastFrame_ = 0.0;
-}
-
-DelayAllpass::~DelayAllpass()
-{
+    last_frame_ = 0.0;
 }
 
 void DelayAllpass::Clear()
 {
-    for (unsigned int i = 0; i < buffer_.size(); i++)
-        buffer_[i] = 0.0;
-    lastFrame_ = 0.0;
-    apInput_ = 0.0;
+    std::ranges::fill(buffer_, 0.0f);
+    last_frame_ = 0.0;
+    ap_input_ = 0.0;
 }
 
 void DelayAllpass::SetMaximumDelay(uint32_t delay)
 {
     if (delay < buffer_.size())
+    {
         return;
+    }
     buffer_.resize(delay + 1, 0.0);
 }
 
 void DelayAllpass::UpdateAlpha(float delay)
 {
-    float outPointer = inPoint_ - delay + 1.0; // outPoint chases inpoint
+    float outPointer = in_point_ - delay + 1.0f;
 
     uint32_t length = buffer_.size();
     while (outPointer < 0)
     {
-        outPointer += length; // modulo maximum length
+        outPointer += length;
     }
 
-    outPoint_ = (long)outPointer; // integer part
-    if (outPoint_ == length)
+    out_point_ = static_cast<uint32_t>(outPointer);
+    if (out_point_ == length)
     {
-        outPoint_ = 0;
+        out_point_ = 0;
     }
-    alpha_ = 1.0 + outPoint_ - outPointer; // fractional part
+    alpha_ = 1.0f + out_point_ - outPointer;
 
-    if (alpha_ < 0.5)
+    if (alpha_ < 0.5f)
     {
         // The optimal range for alpha is about 0.5 - 1.5 in order to
         // achieve the flattest phase delay response.
-        outPoint_ += 1;
-        if (outPoint_ >= length)
-            outPoint_ -= length;
-        alpha_ += (float)1.0;
+        out_point_ += 1;
+        if (out_point_ >= length)
+        {
+            out_point_ -= length;
+        }
+        alpha_ += 1.0f;
     }
 
-    coeff_ = (1.0 - alpha_) / (1.0 + alpha_); // coefficient for allpass
+    coeff_ = (1.0f - alpha_) / (1.0f + alpha_);
 }
 
 void DelayAllpass::SetDelay(float delay)
@@ -88,14 +97,14 @@ void DelayAllpass::SetDelay(float delay)
     uint32_t length = buffer_.size();
     if (delay + 1 > length)
     { // The value is too big.
-        std::cerr << "DelayAllpass::setDelay: argument (" << delay << ") greater than maximum!" << std::endl;
+        std::println(std::cerr, "DelayAllpass::setDelay: argument ({}) greater than maximum!", delay);
         assert(false);
         return;
     }
 
     if (delay < 0.5)
     {
-        std::cerr << "DelayAllpass::setDelay: argument (" << delay << ") less than 0.5 not possible!" << std::endl;
+        std::println(std::cerr, "DelayAllpass::setDelay: argument ({}) less than 0.5 not possible!", delay);
         assert(false);
         return;
     }
@@ -106,34 +115,38 @@ void DelayAllpass::SetDelay(float delay)
 
 float DelayAllpass::NextOut()
 {
-    if (doNextOut_)
+    if (do_next_out_)
     {
         // Do allpass interpolation delay.
-        nextOutput_ = -coeff_ * lastFrame_;
-        nextOutput_ += apInput_ + (coeff_ * buffer_[outPoint_]);
-        doNextOut_ = false;
+        next_output_ = -coeff_ * last_frame_;
+        next_output_ += ap_input_ + (coeff_ * buffer_[out_point_]);
+        do_next_out_ = false;
     }
 
-    return nextOutput_;
+    return next_output_;
 }
 
 float DelayAllpass::Tick(float input)
 {
-    buffer_[inPoint_++] = input * gain_;
+    buffer_[in_point_++] = input * gain_;
 
     // Increment input pointer modulo length.
-    if (inPoint_ == buffer_.size())
-        inPoint_ = 0;
+    if (in_point_ == buffer_.size())
+    {
+        in_point_ = 0;
+    }
 
-    lastFrame_ = NextOut();
-    doNextOut_ = true;
+    last_frame_ = NextOut();
+    do_next_out_ = true;
 
     // Save the allpass input and increment modulo length.
-    apInput_ = buffer_[outPoint_++];
-    if (outPoint_ == buffer_.size())
-        outPoint_ = 0;
+    ap_input_ = buffer_[out_point_++];
+    if (out_point_ == buffer_.size())
+    {
+        out_point_ = 0;
+    }
 
-    return lastFrame_;
+    return last_frame_;
 }
 
 void DelayAllpass::Process(const AudioBuffer& input, AudioBuffer& output)
@@ -145,7 +158,7 @@ void DelayAllpass::Process(const AudioBuffer& input, AudioBuffer& output)
     auto input_span = input.GetChannelSpan(0);
     auto output_span = output.GetChannelSpan(0);
 
-    for (size_t i = 0; i < input_span.size(); i++)
+    for (auto i = 0; i < input_span.size(); i++)
     {
         output_span[i] = Tick(input_span[i]);
     }

@@ -1,17 +1,17 @@
 #include "sffdn/fdn.h"
 
-#include <Eigen/Core>
 #include <cassert>
-#include <chrono>
 #include <iostream>
+#include <print>
 
 #include "array_math.h"
+#include "sffdn/feedback_matrix.h"
+#include "sffdn/parallel_gains.h"
 
 namespace sfFDN
 {
 FDN::FDN(uint32_t N, uint32_t block_size, bool transpose)
-    : delay_bank_(N)
-    , filter_bank_(nullptr)
+    : filter_bank_(nullptr)
     , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(N))
     , N_(N)
     , block_size_(block_size)
@@ -25,24 +25,50 @@ FDN::FDN(uint32_t N, uint32_t block_size, bool transpose)
     output_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::DeMultiplexed);
 }
 
-void FDN::SetInputGains(std::unique_ptr<AudioProcessor> gains)
+bool FDN::SetInputGains(std::unique_ptr<AudioProcessor> gains)
 {
+    if (gains->InputChannelCount() != 1 || gains->OutputChannelCount() != N_)
+    {
+        std::println(std::cerr, "Input gains must have 1 input and {} output channels.", N_);
+        return false;
+    }
+
     input_gains_ = std::move(gains);
+    return true;
 }
 
-void FDN::SetInputGains(std::span<const float> gains)
+bool FDN::SetInputGains(std::span<const float> gains)
 {
+    if (gains.size() != N_)
+    {
+        std::println(std::cerr, "Input gains must have {} elements.", N_);
+        return false;
+    }
     input_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::Multiplexed, gains);
+    return true;
 }
 
-void FDN::SetOutputGains(std::unique_ptr<AudioProcessor> gains)
+bool FDN::SetOutputGains(std::unique_ptr<AudioProcessor> gains)
 {
+    if (gains->InputChannelCount() != N_ || gains->OutputChannelCount() != 1)
+    {
+        std::println(std::cerr, "Output gains must have {} input and 1 output channels.", N_);
+        return false;
+    }
+
     output_gains_ = std::move(gains);
+    return true;
 }
 
-void FDN::SetOutputGains(std::span<const float> gains)
+bool FDN::SetOutputGains(std::span<const float> gains)
 {
+    if (gains.size() != N_)
+    {
+        std::println(std::cerr, "Output gains must have {} elements.", N_);
+        return false;
+    }
     output_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::DeMultiplexed, gains);
+    return true;
 }
 
 void FDN::SetDirectGain(float gain)
@@ -54,7 +80,7 @@ void FDN::SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank)
 {
     if (filter_bank->InputChannelCount() != N_ || filter_bank->OutputChannelCount() != N_)
     {
-        std::cerr << "Filter bank must have " << N_ << " input and output channels." << std::endl;
+        std::println(std::cerr, "Filter bank must have {} input and output channels.", N_);
         return;
     }
     filter_bank_ = std::move(filter_bank);
@@ -66,12 +92,12 @@ void FDN::SetDelays(const std::span<const uint32_t> delays)
     {
         if (delay == 0)
         {
-            std::cerr << "Delay cannot be zero." << std::endl;
+            std::println(std::cerr, "Delay cannot be zero.");
             return;
         }
         if (delay < block_size_)
         {
-            std::cerr << "Delay must be at least as long as the block size (" << block_size_ << ")." << std::endl;
+            std::println(std::cerr, "Delay must be at least as long as the block size ({}).", block_size_);
             return;
         }
     }

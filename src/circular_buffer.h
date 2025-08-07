@@ -16,17 +16,17 @@ class CircularBuffer
   public:
     /// @brief Constructs a CircularBuffer with the specified size.
     /// @param size the size of the buffer in samples
-    CircularBuffer(size_t size = 32);
+    CircularBuffer(uint32_t size = 32);
     ~CircularBuffer();
 
     /// @brief Advance the write pointer by the specified number of samples.
     /// @param count the number of samples to advance
-    void Advance(size_t count);
+    void Advance(uint32_t count);
 
     /// @brief Clear (set to zero) the specified number of samples in the buffer.
     /// @param count the number of samples to clear
     /// @param offset the offset from the write pointer to start clearing
-    void Clear(size_t count, size_t offset = 0);
+    void Clear(uint32_t count, uint32_t offset = 0);
 
     /// @brief Write the specified number of samples to the buffer.
     /// @param data the data to write
@@ -39,7 +39,7 @@ class CircularBuffer
     /// @note buffer[i] += data[i]
     /// @note The offset is added to the current write pointer, so it can be used to accumulate at a specific "future"
     /// position in the buffer.
-    void Accumulate(std::span<const float> data, size_t offset = 0);
+    void Accumulate(std::span<const float> data, uint32_t offset = 0);
 
     /// @brief Read the specified number of samples from the buffer.
     /// @param data the buffer to read into
@@ -49,10 +49,10 @@ class CircularBuffer
 
     /// @brief The total size, in samples, of the buffer.
     /// @return the size of the buffer
-    size_t Size() const;
+    uint32_t Size() const;
 
   private:
     std::vector<float> buffer_;
-    size_t write_ptr_;
+    uint32_t write_ptr_;
 };
 } // namespace sfFDN

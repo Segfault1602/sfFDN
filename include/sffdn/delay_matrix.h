@@ -3,7 +3,6 @@
 #pragma once
 
 #include <span>
-#include <vector>
 
 #include "sffdn/feedback_matrix.h"
 
@@ -20,9 +19,14 @@ class DelayMatrix : public AudioProcessor
     /// @brief Constructs a DelayMatrix with the specified size and delay values.
     /// @param N the size of the matrix
     /// @param delays the delay values for each channel. The size of the delays span must match N.
-    DelayMatrix(uint32_t N, std::span<const uint32_t> delays, ScalarFeedbackMatrix mixing_matrix);
+    DelayMatrix(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix);
 
-    ~DelayMatrix();
+    ~DelayMatrix() override;
+
+    DelayMatrix(const DelayMatrix&) = delete;
+    DelayMatrix& operator=(const DelayMatrix&) = delete;
+    DelayMatrix(DelayMatrix&&) = default;
+    DelayMatrix& operator=(DelayMatrix&&) = default;
 
     /// @brief Clears the internal delay buffers.
     /// This sets all delay buffers to zero.

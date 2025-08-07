@@ -1,13 +1,10 @@
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
 
-namespace sfFDN
+namespace sfFDN::Math
 {
-namespace Math
-{
-bool IsPowerOfTwo(size_t n);
+bool IsPowerOfTwo(uint32_t n);
 
-size_t NextPowerOfTwo(size_t n);
-} // namespace Math
-} // namespace sfFDN
+uint32_t NextPowerOfTwo(uint32_t n);
+} // namespace sfFDN::Math

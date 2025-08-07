@@ -28,7 +28,7 @@ class FilterBank : public AudioProcessor
     uint32_t OutputChannelCount() const override;
 
   private:
-    std::vector<AudioProcessor*> filters_;
+    std::vector<std::unique_ptr<AudioProcessor>> filters_;
 };
 
 } // namespace sfFDN

@@ -1,14 +1,24 @@
 cmake_minimum_required(VERSION 3.25)
-set(CMAKE_CXX_STANDARD 23)
 
-project(sfFDN)
+project(sfFDN LANGUAGES CXX C VERSION 0.1.1)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(SF_FDN_USE_VDSP "Use VDSP for DSP operations" ON)
+option(SF_FDN_USE_VDSP "Use VDSP for DSP operations" OFF)
 
 include(./fetch_deps.cmake)
 
 add_subdirectory(src)
 add_subdirectory(tests)
 add_subdirectory(py_binding)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/sfFDN"
+)

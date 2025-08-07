@@ -34,7 +34,7 @@ void Delay::Clear()
     std::fill(buffer_.begin(), buffer_.end(), 0.0f);
 }
 
-void Delay::SetMaximumDelay(unsigned long delay)
+void Delay::SetMaximumDelay(uint32_t delay)
 {
     if (delay < buffer_.size())
         return;
@@ -102,7 +102,7 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output)
         // We could not add all input samples at once, so just process samples one by one.
         auto input_span = input.GetChannelSpan(0);
         auto output_span = output.GetChannelSpan(0);
-        for (size_t i = 0; i < input.SampleCount(); ++i)
+        for (auto i = 0; i < input.SampleCount(); ++i)
         {
             output_span[i] = Tick(input_span[i]);
         }

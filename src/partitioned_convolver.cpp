@@ -3,7 +3,6 @@
 #include <cassert>
 #include <print>
 
-#include "array_math.h"
 #include "circular_buffer.h"
 #include "upols.h"
 
@@ -13,54 +12,43 @@ namespace sfFDN
 class PartitionedConvolverSegment
 {
   public:
-    PartitionedConvolverSegment(size_t parent_block_size, size_t block_size, size_t delay, std::span<const float> fir);
-    ~PartitionedConvolverSegment() = default;
-    PartitionedConvolverSegment(PartitionedConvolverSegment&& other);
+    PartitionedConvolverSegment(uint32_t parent_block_size, uint32_t block_size, uint32_t delay,
+                                std::span<const float> fir);
 
-    size_t GetDelay() const;
-    void Process(std::span<const float> input, CircularBuffer& output_buffer, size_t new_sample_count);
+    uint32_t GetDelay() const;
+    void Process(std::span<const float> input, CircularBuffer& output_buffer);
 
     void PrintPartition() const;
 
   private:
     UPOLS upols_;
-    const size_t delay_;
-    size_t block_size_;
+    uint32_t delay_;
+    uint32_t block_size_;
 
-    size_t deadline_offset_;
+    uint32_t deadline_offset_;
 
     std::vector<float> output_buffer_;
 };
 
-PartitionedConvolverSegment::PartitionedConvolverSegment(size_t parent_block_size, size_t block_size, size_t delay,
-                                                         std::span<const float> fir)
+PartitionedConvolverSegment::PartitionedConvolverSegment(uint32_t parent_block_size, uint32_t block_size,
+                                                         uint32_t delay, std::span<const float> fir)
     : upols_(block_size, fir)
     , delay_(delay)
     , block_size_(block_size)
 {
     output_buffer_.resize(block_size, 0.f);
 
-    size_t a = block_size / parent_block_size;
+    uint32_t a = block_size / parent_block_size;
     assert(delay >= parent_block_size * (a - 1));
     deadline_offset_ = delay - parent_block_size * (a - 1);
 }
 
-PartitionedConvolverSegment::PartitionedConvolverSegment(PartitionedConvolverSegment&& other)
-    : upols_(std::move(other.upols_))
-    , delay_(other.delay_)
-{
-    output_buffer_ = std::move(other.output_buffer_);
-    block_size_ = other.block_size_;
-    deadline_offset_ = other.deadline_offset_;
-}
-
-size_t PartitionedConvolverSegment::GetDelay() const
+uint32_t PartitionedConvolverSegment::GetDelay() const
 {
     return delay_;
 }
 
-void PartitionedConvolverSegment::Process(std::span<const float> input, CircularBuffer& output_buffer,
-                                          size_t new_sample_count)
+void PartitionedConvolverSegment::Process(std::span<const float> input, CircularBuffer& output_buffer)
 {
     upols_.AddSamples(input);
 
@@ -81,25 +69,24 @@ void PartitionedConvolverSegment::PrintPartition() const
 class PartitionedConvolver::PartitionedConvolverImpl
 {
   public:
-    PartitionedConvolverImpl(size_t block_size, std::span<const float> fir)
+    PartitionedConvolverImpl(uint32_t block_size, std::span<const float> fir)
         : block_size_(block_size)
-        , segments_()
     {
-        size_t circ_buffer_size = fir.size();
+        uint32_t circ_buffer_size = fir.size();
         if (circ_buffer_size % block_size != 0)
         {
             circ_buffer_size += block_size - (circ_buffer_size % block_size);
         }
         output_buffer_ = CircularBuffer(circ_buffer_size);
 
-        size_t segment_block_size = block_size;
-        size_t fir_offset = 0;
+        uint32_t segment_block_size = block_size;
+        uint32_t fir_offset = 0;
         while (fir_offset < fir.size())
         {
             // max out at 8192 for no particular reason
             if (segment_block_size == 8192)
             {
-                size_t segment_size = fir.size() - fir_offset;
+                uint32_t segment_size = fir.size() - fir_offset;
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
                 fir_offset += segment_size;
@@ -109,8 +96,9 @@ class PartitionedConvolver::PartitionedConvolverImpl
             {
                 // The original Gardner paper uses a factor of 2, but I found that using a factor of 4
                 // gives better performance for my implementation.
-                constexpr size_t kRepCount = 8;
-                size_t segment_size = std::min(segment_block_size * kRepCount, fir.size() - fir_offset);
+                constexpr uint32_t kRepCount = 8;
+                uint32_t segment_size =
+                    std::min(segment_block_size * kRepCount, static_cast<uint32_t>(fir.size()) - fir_offset);
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
                 fir_offset += segment_size;
@@ -129,7 +117,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         // Process each segment
         for (auto& segment : segments_)
         {
-            segment->Process(input.GetChannelSpan(0), output_buffer_, input.SampleCount());
+            segment->Process(input.GetChannelSpan(0), output_buffer_);
         }
 
         output_buffer_.Advance(output.SampleCount());
@@ -143,7 +131,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         std::println("Block size: {}", block_size_);
         std::println("Number of segments: {}", segments_.size());
         std::println("Segment delays:");
-        for (size_t i = 0; i < segments_.size(); ++i)
+        for (auto i = 0; i < segments_.size(); ++i)
         {
             const auto& segment = segments_[i];
             {
@@ -151,7 +139,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
             }
         }
 
-        for (size_t i = 0; i < segments_.size(); ++i)
+        for (auto i = 0; i < segments_.size(); ++i)
         {
             segments_[i]->PrintPartition();
         }
@@ -159,13 +147,13 @@ class PartitionedConvolver::PartitionedConvolverImpl
     }
 
   private:
-    size_t block_size_;
+    uint32_t block_size_;
     CircularBuffer output_buffer_;
 
     std::vector<std::unique_ptr<PartitionedConvolverSegment>> segments_;
 };
 
-PartitionedConvolver::PartitionedConvolver(size_t block_size, std::span<const float> fir)
+PartitionedConvolver::PartitionedConvolver(uint32_t block_size, std::span<const float> fir)
 {
     impl_ = std::make_unique<PartitionedConvolverImpl>(block_size, fir);
 }

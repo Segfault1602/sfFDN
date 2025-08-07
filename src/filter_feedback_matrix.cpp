@@ -35,7 +35,7 @@ void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
         delays_.emplace_back(stage_delays, 128); // TODO: Adjust block size as needed
     }
 
-    for (size_t i = 0; i < mixing_matrices.size(); ++i)
+    for (auto i = 0; i < mixing_matrices.size(); ++i)
     {
         matrix_.emplace_back(mixing_matrices[i]);
     }
@@ -72,7 +72,7 @@ void FilterFeedbackMatrix::PrintInfo() const
     {
         auto delays = delay.GetDelays();
         std::println("Delays: [");
-        for (size_t i = 0; i < delays.size(); ++i)
+        for (auto i = 0; i < delays.size(); ++i)
         {
             std::print("{}", delays[i]);
             if (i < delays.size() - 1)
@@ -105,7 +105,7 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFee
     }
 
     std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
-    for (size_t i = 0; i < info.K; i++)
+    for (auto i = 0; i < info.K; i++)
     {
         std::span<const float> matrix_span(info.matrices.data() + i * info.N * info.N, info.N * info.N);
         sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);

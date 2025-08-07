@@ -10,38 +10,17 @@
 
 namespace sfFDN
 {
-class FeedbackMatrix : public AudioProcessor
-{
-  public:
-    FeedbackMatrix(uint32_t N)
-        : N_(N) {};
-
-    virtual ~FeedbackMatrix() = default;
-
-    // virtual void Process(const AudioBuffer& input, AudioBuffer& output) = 0;
-
-    uint32_t InputChannelCount() const override
-    {
-        return N_;
-    }
-
-    uint32_t OutputChannelCount() const override
-    {
-        return N_;
-    }
-
-  protected:
-    uint32_t N_;
-};
-
 class ScalarFeedbackMatrix : public AudioProcessor
 {
   public:
-    ScalarFeedbackMatrix(uint32_t N = 4);
-    virtual ~ScalarFeedbackMatrix() override;
+    explicit ScalarFeedbackMatrix(uint32_t N = 4);
+    ~ScalarFeedbackMatrix() override;
 
     ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other);
     ScalarFeedbackMatrix& operator=(const ScalarFeedbackMatrix& other);
+
+    ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept;
+    ScalarFeedbackMatrix& operator=(ScalarFeedbackMatrix&& other) noexcept;
 
     static ScalarFeedbackMatrix Householder(uint32_t N);
     static ScalarFeedbackMatrix Householder(std::span<const float> v);
@@ -50,13 +29,13 @@ class ScalarFeedbackMatrix : public AudioProcessor
 
     bool SetMatrix(const std::span<const float> matrix);
 
-    virtual void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
     void Print() const;
 
     uint32_t GetSize() const;
 
-    float GetCoefficient(size_t row, size_t col) const;
+    float GetCoefficient(uint32_t row, uint32_t col) const;
 
     uint32_t InputChannelCount() const override;
 

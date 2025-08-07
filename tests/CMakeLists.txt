@@ -7,6 +7,7 @@ set(TEST_SOURCE
     mixmat_tests.cpp
     matrix_multiplication_tests.cpp
     fdn_tests.cpp
+    filter_design_tests.cpp
     fft_tests.cpp
     oscillator_tests.cpp
     upols_tests.cpp
@@ -21,6 +22,7 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 target_include_directories(tests PRIVATE ${doctest_SOURCE_DIR}/doctest ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(tests PRIVATE -fno-omit-frame-pointer)
+target_compile_features(tests PRIVATE cxx_std_23)
 
 if(NOT WIN32)
     target_compile_options(tests PRIVATE -fno-omit-frame-pointer -fsanitize=address)
@@ -31,6 +33,7 @@ set(PERF_SOURCE
     main.cpp
     fdn_perf.cpp
     filter_perf.cpp
+    filter_design_perf.cpp
     delay_perf.cpp
     array_math_perf.cpp
     mixmat_perf.cpp
@@ -44,6 +47,7 @@ target_link_libraries(perf PRIVATE sfFDN nanobench sndfile Eigen3::Eigen)
 
 target_include_directories(perf PRIVATE ${doctest_SOURCE_DIR}/doctest  ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_options(perf PRIVATE -fno-omit-frame-pointer)
+target_compile_features(perf PRIVATE cxx_std_23)
 
 target_compile_options(perf PRIVATE -O3 $<$<CONFIG:Debug>:-fsanitize=address>)
 target_link_options(perf PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)

@@ -3,7 +3,6 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <vector>
 
@@ -12,7 +11,7 @@
 namespace sfFDN
 {
 
-enum class ParallelGainsMode
+enum class ParallelGainsMode : uint8_t
 {
     Multiplexed,   // Process input as a single channel and output to multiple channels
     DeMultiplexed, // Process each input channel separately and output to multiple channels

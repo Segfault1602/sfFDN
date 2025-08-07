@@ -13,17 +13,17 @@
 
 namespace
 {
-template <size_t N>
+template <uint32_t N>
 void TestMatrixMultiply_Eye()
 {
     std::vector<float> matrix(N * N, 0.f);
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
         matrix[i + i * N] = 1.f;
     }
 
     std::vector<float> input(N, 0.f);
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
         input[i] = rand();
     }
@@ -33,7 +33,7 @@ void TestMatrixMultiply_Eye()
     auto matrix_span = std::span<const float, N * N>(matrix.data(), N * N);
     sfFDN::MatrixMultiply_C(input, output, matrix_span, N);
 
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0; i < N; ++i)
     {
         CHECK(input[i] == doctest::Approx(output[i]));
     }
@@ -59,10 +59,10 @@ TEST_CASE("MatrixMultiply")
     {
         for (auto kRowCount : kRowCounts)
         {
-            const size_t kInputSize = N * kRowCount;
+            const uint32_t kInputSize = N * kRowCount;
 
             std::vector<float> input(kInputSize);
-            for (size_t i = 0; i < kInputSize; ++i)
+            for (auto i = 0; i < kInputSize; ++i)
             {
                 input[i] = rand() % 1000 / 1000.f;
             }
@@ -79,7 +79,7 @@ TEST_CASE("MatrixMultiply")
             std::vector<float> output(kInputSize, 0.f);
             sfFDN::MatrixMultiply_C(input, output, matrix, N);
 
-            for (size_t i = 0; i < output.size(); ++i)
+            for (auto i = 0; i < output.size(); ++i)
             {
                 CHECK(expected_output[i] == doctest::Approx(output[i]));
             }
@@ -89,9 +89,9 @@ TEST_CASE("MatrixMultiply")
 
 TEST_CASE("MatrixMultiply_6")
 {
-    constexpr size_t N = 6;
-    constexpr size_t kRowCount = 4;
-    constexpr size_t kInputSize = N * kRowCount;
+    constexpr uint32_t N = 6;
+    constexpr uint32_t kRowCount = 4;
+    constexpr uint32_t kInputSize = N * kRowCount;
 
     // clang-format off
     float a[kInputSize] = {0.4889,  0.2939,  -1.0689, 0.3252,
@@ -120,9 +120,9 @@ TEST_CASE("MatrixMultiply_6")
 
     Eigen::Matrix<float, kRowCount, N> expected = input_map * matrix_map;
 
-    for (size_t i = 0; i < kRowCount; ++i)
+    for (auto i = 0; i < kRowCount; ++i)
     {
-        for (size_t j = 0; j < N; ++j)
+        for (auto j = 0; j < N; ++j)
         {
             CHECK(expected(i, j) == doctest::Approx(output[i + j * kRowCount]));
         }
@@ -133,20 +133,20 @@ TEST_CASE("Hadamard")
 {
     SUBCASE("Hadamard_4")
     {
-        constexpr size_t N = 4;
+        constexpr uint32_t N = 4;
 
         std::array<float, N> input = {1, 2, 3, 4};
         std::array<float, N> output;
         constexpr std::array<float, N> expected = {5, -1, -2, 0};
 
         sfFDN::HadamardMultiply(input, output);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));
         }
@@ -154,7 +154,7 @@ TEST_CASE("Hadamard")
 
     SUBCASE("Hadamard_8")
     {
-        constexpr size_t N = 8;
+        constexpr uint32_t N = 8;
 
         std::array<float, N> input = {1, 2, 3, 4, 5, 6, 7, 8};
         std::array<float, N> output;
@@ -163,13 +163,13 @@ TEST_CASE("Hadamard")
             12.727922061357855, -1.414213562373095, -2.828427124746190, 0, -5.656854249492380, 0, 0, 0};
 
         sfFDN::HadamardMultiply(input, output);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));
         }
@@ -177,7 +177,7 @@ TEST_CASE("Hadamard")
 
     SUBCASE("Hadamard_16")
     {
-        constexpr size_t N = 16;
+        constexpr uint32_t N = 16;
 
         std::array<float, N> input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
         std::array<float, N> output;
@@ -185,13 +185,13 @@ TEST_CASE("Hadamard")
         constexpr std::array<float, N> expected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
 
         sfFDN::HadamardMultiply(input, output);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(output[i]));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (size_t i = 0; i < input.size(); i += N)
+        for (auto i = 0; i < input.size(); i += N)
         {
             CHECK(expected[i] == doctest::Approx(input[i]));
         }

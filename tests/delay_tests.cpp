@@ -229,7 +229,7 @@ TEST_CASE("DelayBankProcess")
     std::vector<float> output;
 
     std::array<float, kNumDelay * kBlockSize> impulse = {0.f};
-    for (size_t i = 0; i < kNumDelay; ++i)
+    for (auto i = 0; i < kNumDelay; ++i)
     {
         impulse[i * kBlockSize] = 1.f;
     }

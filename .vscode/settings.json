@@ -71,5 +71,6 @@
         "cstddef": "cpp",
         "functional": "cpp",
         "*.inc": "cpp"
-    }
+    },
+    "C_Cpp.codeAnalysis.clangTidy.enabled": false
 }

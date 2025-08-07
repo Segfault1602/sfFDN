@@ -13,13 +13,13 @@
 
 TEST_CASE("SineWave")
 {
-    constexpr size_t kBlockSize = 128;
+    constexpr uint32_t kBlockSize = 128;
     constexpr float kFrequency = 1000.0f; // A4 note
     constexpr uint32_t kSampleRate = 48000;
 
     sfFDN::SineWave sine_wave(kFrequency, kSampleRate);
 
-    constexpr size_t kOutputSize = 1 << 10;
+    constexpr uint32_t kOutputSize = 1 << 10;
     std::vector<float> output(kOutputSize, 0.f); // Two channels for stereo output
 
     const uint32_t kBlockCount = kOutputSize / kBlockSize;

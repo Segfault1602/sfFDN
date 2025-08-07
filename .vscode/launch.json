@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=DelayMatrix"
+                "-tc=FDN"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

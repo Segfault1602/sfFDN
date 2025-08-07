@@ -10,7 +10,7 @@ TEST_CASE("FFT")
 {
     constexpr std::array kFFTSize = {32, 64, 128, 256, 512, 1024};
 
-    for (size_t fft_size : kFFTSize)
+    for (auto fft_size : kFFTSize)
     {
         auto subcase_name = std::format("FFT size: {}", fft_size);
         SUBCASE(subcase_name.c_str())
@@ -24,7 +24,7 @@ TEST_CASE("FFT")
             std::vector<float> expected_buffer(input_buffer.size(), 0.f);
             std::default_random_engine generator;
             std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-            for (size_t i = 0; i < input_buffer.size(); ++i)
+            for (auto i = 0; i < input_buffer.size(); ++i)
             {
                 input_buffer[i] = dist(generator);
                 expected_buffer[i] = input_buffer[i];
@@ -36,7 +36,7 @@ TEST_CASE("FFT")
             fft.Inverse(output_buffer, input_buffer);
 
             const float scale = 1.0f / static_cast<float>(fft_size);
-            for (size_t i = 0; i < input_buffer.size(); ++i)
+            for (auto i = 0; i < input_buffer.size(); ++i)
             {
                 CHECK(input_buffer[i] * scale == doctest::Approx(expected_buffer[i]));
             }

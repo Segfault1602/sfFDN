@@ -10,7 +10,7 @@
 namespace sfFDN
 {
 
-UPOLS::UPOLS(size_t block_size, std::span<const float> fir)
+UPOLS::UPOLS(uint32_t block_size, std::span<const float> fir)
     : block_size_(block_size)
     , fft_size_(Math::NextPowerOfTwo(block_size * 2))
     , fft_(fft_size_)
@@ -26,13 +26,13 @@ UPOLS::UPOLS(size_t block_size, std::span<const float> fir)
     assert(spectrum_buffer_.data() != nullptr);
 
     // Filter partition
-    size_t filter_size = fir.size();
+    uint32_t filter_size = fir.size();
 
-    size_t filter_count = std::ceil(static_cast<float>(filter_size) / block_size);
+    uint32_t filter_count = std::ceil(static_cast<float>(filter_size) / block_size);
 
-    for (size_t i = 0; i < filter_count; ++i)
+    for (auto i = 0; i < filter_count; ++i)
     {
-        size_t filter_block_size = std::min(block_size, filter_size - i * block_size);
+        uint32_t filter_block_size = std::min(block_size, filter_size - i * block_size);
 
         auto fir_span = fir.subspan(i * block_size, filter_block_size);
         std::fill(work_buffer_.begin(), work_buffer_.end(), 0.f);
@@ -112,7 +112,7 @@ void UPOLS::Process(std::span<const float> input, std::span<float> output)
 
     // Convolve with the filters
     std::fill(spectrum_buffer_.begin(), spectrum_buffer_.end(), 0.f);
-    for (size_t i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0; i < filters_z_.size(); ++i)
     {
         auto& filter_z = filters_z_[i];
         auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
@@ -165,7 +165,7 @@ void UPOLS::Process(std::span<float> output)
 
     // Convolve with the filters
     std::fill(spectrum_buffer_.begin(), spectrum_buffer_.end(), 0.f);
-    for (size_t i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0; i < filters_z_.size(); ++i)
     {
         auto& filter_z = filters_z_[i];
         auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
@@ -184,7 +184,7 @@ void UPOLS::Process(std::span<float> output)
 void UPOLS::PrintPartition() const
 {
     std::cout << "[(" << fft_size_ << ") ";
-    for (size_t i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0; i < filters_z_.size(); ++i)
     {
         std::cout << block_size_;
         if (i < filters_z_.size() - 1)

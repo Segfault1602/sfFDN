@@ -1,15 +1,17 @@
 #include "sffdn/audio_processor.h"
 
 #include <cassert>
+#include <iostream>
+#include <print>
 
 namespace sfFDN
 {
 
-AudioProcessorChain::AudioProcessorChain(size_t block_size)
+AudioProcessorChain::AudioProcessorChain(uint32_t block_size)
     : block_size_(block_size)
+    , max_work_buffer_size_(block_size)
 {
     // Initialize work buffers based on the block size
-    max_work_buffer_size_ = block_size;
     work_buffer_a_.resize(max_work_buffer_size_);
     work_buffer_b_.resize(max_work_buffer_size_);
 }
@@ -24,14 +26,15 @@ bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor>&& process
     {
         if (processors_.back()->OutputChannelCount() != processor->InputChannelCount())
         {
-            assert("Output channel count of last processor does not match input channel count of new processor.");
+            std::print(std::cerr,
+                       "Output channel count of last processor does not match input channel count of new processor.");
             return false;
         }
         processors_.emplace_back(std::move(processor));
     }
 
     // Update the maximum work buffer size if necessary
-    size_t work_buffer_size = processors_.back()->OutputChannelCount() * block_size_;
+    uint32_t work_buffer_size = processors_.back()->OutputChannelCount() * block_size_;
     if (work_buffer_size > max_work_buffer_size_)
     {
         max_work_buffer_size_ = work_buffer_size;
@@ -68,7 +71,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     float* ptr_b = work_buffer_b_.data();
 
     // Process the rest of the audio processors in the chain
-    for (size_t i = 1; i < processors_.size() - 1; ++i)
+    for (auto i = 1; i < processors_.size() - 1; ++i)
     {
         AudioBuffer buffer_in(block_size_, processors_[i]->InputChannelCount(), ptr_a);
         AudioBuffer buffer_out(block_size_, processors_[i]->OutputChannelCount(), ptr_b);

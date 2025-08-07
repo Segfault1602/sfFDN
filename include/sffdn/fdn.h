@@ -8,10 +8,6 @@
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delaybank.h"
-#include "feedback_matrix.h"
-#include "filterbank.h"
-#include "parallel_gains.h"
-#include "schroeder_allpass.h"
 
 namespace sfFDN
 {
@@ -22,11 +18,16 @@ class FDN : public AudioProcessor
     FDN(uint32_t N, uint32_t block_size = 1, bool transpose = false);
     ~FDN() = default;
 
-    void SetInputGains(std::unique_ptr<AudioProcessor> gains);
-    void SetOutputGains(std::unique_ptr<AudioProcessor> gains);
+    FDN(const FDN&) = delete;
+    FDN& operator=(const FDN&) = delete;
+    FDN(FDN&&) = default;
+    FDN& operator=(FDN&&) = default;
 
-    void SetInputGains(std::span<const float> gains);
-    void SetOutputGains(std::span<const float> gains);
+    bool SetInputGains(std::unique_ptr<AudioProcessor> gains);
+    bool SetOutputGains(std::unique_ptr<AudioProcessor> gains);
+
+    bool SetInputGains(std::span<const float> gains);
+    bool SetOutputGains(std::span<const float> gains);
 
     void SetDirectGain(float gain);
 
@@ -60,8 +61,8 @@ class FDN : public AudioProcessor
     std::unique_ptr<AudioProcessor> input_gains_;
     std::unique_ptr<AudioProcessor> output_gains_;
 
-    const uint32_t N_;
-    const uint32_t block_size_;
+    uint32_t N_;
+    uint32_t block_size_;
     float direct_gain_;
     std::vector<float> feedback_;
     std::vector<float> temp_buffer_;

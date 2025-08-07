@@ -17,9 +17,9 @@ TEST_SUITE_BEGIN("ParallelGains");
 
 TEST_CASE("ParallelInputGainsPerf")
 {
-    constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
-    constexpr size_t N = 16;
+    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t N = 16;
     constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
                                    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
@@ -28,7 +28,7 @@ TEST_CASE("ParallelInputGainsPerf")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (size_t i = 0; i < input.size(); ++i)
+    for (auto i = 0; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -58,9 +58,9 @@ TEST_CASE("ParallelInputGainsPerf")
 
 TEST_CASE("ParallelOutputGainsPerf")
 {
-    constexpr size_t SR = 48000;
-    constexpr size_t kBlockSize = 128;
-    constexpr size_t N = 16;
+    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t N = 16;
     constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
                                    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
@@ -69,7 +69,7 @@ TEST_CASE("ParallelOutputGainsPerf")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (size_t i = 0; i < input.size(); ++i)
+    for (auto i = 0; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }

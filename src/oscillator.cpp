@@ -8,14 +8,14 @@
 
 namespace
 {
-constexpr size_t kSineTableSize = 1024; // Size of the sine table
+constexpr uint32_t kSineTableSize = 1024; // Size of the sine table
 std::array<float, kSineTableSize + 1> kSineTable;
 
 struct SineTableInitializer
 {
     SineTableInitializer()
     {
-        for (size_t i = 0; i < kSineTableSize; ++i)
+        for (auto i = 0; i < kSineTableSize; ++i)
         {
             kSineTable[i] = std::sinf((2.0f * std::numbers::pi * i) / kSineTableSize);
         }
@@ -53,11 +53,11 @@ SineWave::SineWave(float frequency, uint32_t sample_rate, float initial_phase)
 
 void SineWave::Generate(AudioBuffer& output)
 {
-    for (size_t i = 0; i < output.SampleCount(); ++i)
+    for (auto i = 0; i < output.SampleCount(); ++i)
     {
         float sample = Sine(phase_);
 
-        for (size_t channel = 0; channel < output.ChannelCount(); ++channel)
+        for (auto channel = 0; channel < output.ChannelCount(); ++channel)
         {
             output.GetChannelSpan(channel)[i] = sample;
         }

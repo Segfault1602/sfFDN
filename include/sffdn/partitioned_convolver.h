@@ -14,7 +14,7 @@ namespace sfFDN
 class PartitionedConvolver : public AudioProcessor
 {
   public:
-    PartitionedConvolver(size_t block_size, std::span<const float> fir);
+    PartitionedConvolver(uint32_t block_size, std::span<const float> fir);
     ~PartitionedConvolver();
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;

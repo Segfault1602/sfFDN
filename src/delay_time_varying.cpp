@@ -6,7 +6,7 @@
 namespace sfFDN
 {
 
-DelayTimeVarying::DelayTimeVarying(float delay, unsigned long maxDelay, size_t samplerate)
+DelayTimeVarying::DelayTimeVarying(float delay, uint32_t maxDelay, uint32_t samplerate)
     : delayA_(delay, maxDelay)
     , delay_(delay)
     , samplerate_(samplerate)
@@ -22,7 +22,7 @@ void DelayTimeVarying::Clear(void)
     delayA_.Clear();
 }
 
-void DelayTimeVarying::SetMaximumDelay(unsigned long delay)
+void DelayTimeVarying::SetMaximumDelay(uint32_t delay)
 {
     delayA_.SetMaximumDelay(delay);
 }
