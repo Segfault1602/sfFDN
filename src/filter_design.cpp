@@ -1,7 +1,6 @@
 #include "sffdn/filter_design.h"
 #include "filter_design_internal.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -24,6 +23,45 @@ T db2mag(T x)
 float RT602Slope(float t60, float sr)
 {
     return -60.f / (t60 * sr);
+}
+
+Eigen::MatrixXd InteractionMatrix(const Eigen::ArrayXd& G, double kGW, std::span<const double> wg,
+                                  std::span<const double> wc, std::span<const double> bw)
+{
+    // const uint32_t kM = wg.size(); // 10
+    // const uint32_t kN = wc.size(); // 19
+
+    constexpr int kM = 10;
+    constexpr int kN = 19;
+
+    Eigen::Matrix<double, kM, kN> leak = Eigen::MatrixXd::Zero(kM, kN);
+
+    Eigen::Array<double, kM, 1> Gdb = 20 * G.log10();
+    Eigen::Array<double, kM, 1> Gw = kGW * Gdb;
+    Gw = Eigen::pow(10.0, Gw / 20.0);
+
+    if (Gdb.sum() == 0.0f)
+    {
+        return leak;
+    }
+
+    for (auto i = 0; i < kM; ++i)
+    {
+        std::array<double, 6> sos = sfFDN::Pareq(G[i], Gw[i], wg[i], bw[i]);
+        auto sos_span = std::span<double>(sos.data(), sos.size());
+        auto num = sos_span.first(3);
+        auto den = sos_span.last(3);
+        std::vector<double> H = sfFDN::freqz(num, den, wc);
+
+        Eigen::Map<Eigen::Array<double, kN, 1>> H_map(H.data(), H.size());
+        H_map = 20.0 * H_map.log10();
+
+        Eigen::Array<double, kN, 1> Gain = H_map / Gdb[i];
+
+        leak.row(i) = Gain;
+    }
+
+    return leak;
 }
 
 } // namespace
@@ -106,7 +144,7 @@ std::array<double, 6> Pareq(double g, double gb, double w0, double b)
     }
     else
     {
-        beta = std::sqrt(std::abs(gb * gb - 1.f) / std::abs(g * g - gb * gb)) * std::tan(b / 2);
+        beta = std::sqrt(std::abs((gb * gb) - 1.f) / std::abs((g * g) - (gb * gb))) * std::tan(b / 2);
     }
 
     const double b0 = (1 + g * beta) / (1 + beta);
@@ -118,44 +156,6 @@ std::array<double, 6> Pareq(double g, double gb, double w0, double b)
     const double a2 = (1 - beta) / (1 + beta);
 
     return {b0, b1, b2, a0, a1, a2};
-}
-
-Eigen::MatrixXd InteractionMatrix(const Eigen::ArrayXd& G, double kGW, std::span<const double> wg,
-                                  std::span<const double> wc, std::span<const double> bw)
-{
-    // const uint32_t kM = wg.size(); // 10
-    // const uint32_t kN = wc.size(); // 19
-
-    constexpr int kM = 10;
-    constexpr int kN = 19;
-
-    Eigen::Matrix<double, kM, kN> leak = Eigen::MatrixXd::Zero(kM, kN);
-
-    Eigen::Array<double, kM, 1> Gdb = 20 * G.log10();
-    Eigen::Array<double, kM, 1> Gw = kGW * Gdb;
-    Gw = Eigen::pow(10.0, Gw / 20.0);
-
-    if (Gdb.sum() == 0.0f)
-    {
-        return leak;
-    }
-
-    for (auto i = 0; i < kM; ++i)
-    {
-        std::array<double, 6> sos = Pareq(G[i], Gw[i], wg[i], bw[i]);
-        auto num = std::span<double>(sos.data(), 3);
-        auto den = std::span<double>(sos.data() + 3, 3);
-        std::vector<double> H = freqz(num, den, wc);
-
-        Eigen::Map<Eigen::Array<double, kN, 1>> H_map(H.data(), H.size());
-        H_map = 20.0 * H_map.log10();
-
-        Eigen::Array<double, kN, 1> Gain = H_map / Gdb[i];
-
-        leak.row(i) = Gain;
-    }
-
-    return leak;
 }
 
 std::vector<double> aceq_d(std::span<const double> diff_mag, std::span<const double> freqs, double sr)
@@ -171,34 +171,34 @@ std::vector<double> aceq_d(std::span<const double> diff_mag, std::span<const dou
 
     // array of center frequencies + intermediate frequencies
     std::array<double, kNumF> fc2 = {0};
-    for (auto i = 0; i < fc2.size(); i += 2)
+    for (auto i = 0; i < freqs.size(); ++i)
     {
-        fc2[i] = freqs[i / 2];
+        fc2.at(i * 2) = freqs[i];
     }
 
     for (auto i = 1; i < fc2.size(); i += 2)
     {
-        fc2[i] = std::sqrt(fc2[i - 1] * fc2[i + 1]);
+        fc2.at(i) = std::sqrt(fc2.at(i - 1) * fc2.at(i + 1));
     }
 
     // Command gain frequencies in radians
     std::array<double, kNBands> wg = {0.0f};
     for (auto i = 0; i < wg.size(); ++i)
     {
-        wg[i] = 2 * std::numbers::pi_v<double> * freqs[i] / sr;
+        wg.at(i) = 2 * std::numbers::pi_v<double> * freqs[i] / sr;
     }
 
     // Center frequencies in radian for iterative design
     std::array<double, kNumF> wc = {0.0f};
     for (auto i = 0; i < fc2.size(); ++i)
     {
-        wc[i] = 2 * std::numbers::pi_v<double> * fc2[i] / sr;
+        wc.at(i) = 2 * std::numbers::pi_v<double> * fc2.at(i) / sr;
     }
 
     std::array<double, kNBands> bw = {0.0f};
     for (auto i = 0; i < wg.size(); ++i)
     {
-        bw[i] = 1.5 * wg[i];
+        bw.at(i) = 1.5 * wg.at(i);
     }
     // Extra adjustment
     bw[7] *= 0.93;
@@ -237,7 +237,7 @@ std::vector<double> aceq_d(std::span<const double> diff_mag, std::span<const dou
     std::vector<double> sos;
     for (auto i = 0; i < kNBands; ++i)
     {
-        std::array<double, 6> coeffs = Pareq(goptdb[i], gwopt[i], wg[i], bw[i]);
+        std::array<double, 6> coeffs = Pareq(goptdb[i], gwopt[i], wg.at(i), bw.at(i));
         sos.insert(sos.end(), coeffs.begin(), coeffs.end());
     }
 
@@ -286,9 +286,10 @@ std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, d
     double gain_high = linear_gains[linear_gains.size() - 1];
 
     std::array<double, 4> shelf_sos = LowShelf(shelf_cutoff, sr, gain_low, gain_high);
+    std::span shelf_sos_span{shelf_sos};
 
-    auto b_coeffs = std::span<double>(shelf_sos.data(), 2);
-    auto a_coeffs = std::span<double>(shelf_sos.data() + 2, 2);
+    auto b_coeffs = shelf_sos_span.first(2);
+    auto a_coeffs = shelf_sos_span.last(2);
     std::vector<double> Hshelf = freqz(b_coeffs, a_coeffs, freqs, sr);
 
     std::vector<double> diff_mag(freqs.size(), 0.0f);

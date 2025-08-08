@@ -56,20 +56,16 @@ float DelayTimeVarying::Tick(float input)
 {
     // UpdateDelay();
 
-    // return delayA_.Tick(input);
-    return 0.0f; // Placeholder return value
+    return delayA_.Tick(input);
 }
 
 void DelayTimeVarying::AddNextInput(float input)
 {
-    // delayA_.AddNextInput(input);
+    delayA_.Tick(input);
 }
 
 float DelayTimeVarying::GetNextOutput()
 {
-    // UpdateDelay();
-
-    // return delayA_.GetNextOutput();
     return 0.0f; // Placeholder return value
 }
 

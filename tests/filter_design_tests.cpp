@@ -55,7 +55,7 @@ TEST_CASE("TwoFilter")
         //     std::print("\n");
         // }
         // std::print("{} ", coeffs[i]);
-        REQUIRE(coeffs[i] == Catch::Approx(expected_sos[i]).epsilon(1e-7));
+        REQUIRE(coeffs[i] == Catch::Approx(expected_sos.at(i)).epsilon(1e-7));
     }
 }
 

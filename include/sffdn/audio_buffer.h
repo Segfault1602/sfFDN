@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
 #include <cstdint>
+#include <span>
 
 namespace sfFDN
 {

@@ -65,7 +65,7 @@ class DelayMatrix::DelayMatrixImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == delay_lines_.size());
 
-        #ifdef __cpp_lib_mdspan
+#ifdef __cpp_lib_mdspan
         auto delay_mdspan = std::mdspan(delay_values_.data(), N_, N_);
 
         for (auto i = 0; i < input.SampleCount(); ++i)
@@ -92,7 +92,7 @@ class DelayMatrix::DelayMatrixImpl
                 output.GetChannelSpan(j)[i] = result[j];
             }
         }
-        #endif
+#endif
     }
 
     uint32_t InputChannelCount() const

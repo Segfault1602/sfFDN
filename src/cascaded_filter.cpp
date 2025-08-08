@@ -48,14 +48,14 @@ void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float>
         }
     }
 
-    states_.resize(num_stage, {0});
+    states_.resize(num_stage, {0.0f, 0.0f});
     stage_ = num_stage;
 }
 
 void CascadedBiquads::Clear()
 {
     states_.clear();
-    states_.resize(stage_, {0});
+    states_.resize(stage_, {0.0f, 0.0f});
 }
 
 float CascadedBiquads::Tick(float in)

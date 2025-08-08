@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
 
 #include "sffdn/audio_buffer.h"
 
@@ -80,11 +80,11 @@ class Delay
     void GetNextOutputs(std::span<float> output);
 
   protected:
-    uint32_t inPoint_;
-    uint32_t outPoint_;
+    uint32_t in_point_;
+    uint32_t out_point_;
     uint32_t delay_;
     std::vector<float> buffer_;
-    float lastFrame_;
+    float last_frame_;
 };
 
 } // namespace sfFDN

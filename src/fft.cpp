@@ -5,9 +5,90 @@
 #include <algorithm>
 #include <cassert>
 #include <format>
+#include <span>
+
+namespace
+{
+float* AsFloatPtr(sfFDN::FFTComplexBuffer& buffer)
+{
+    return reinterpret_cast<float*>(buffer.Data().data());
+}
+
+const float* AsFloatPtr(const sfFDN::FFTComplexBuffer& buffer)
+{
+    return reinterpret_cast<const float*>(buffer.Data().data());
+}
+} // namespace
 
 namespace sfFDN
 {
+
+template <typename T>
+FFTBuffer<T>::FFTBuffer()
+    : buffer_(nullptr)
+    , size_(0)
+{
+}
+
+template <typename T>
+FFTBuffer<T>::FFTBuffer(std::span<T> buffer)
+    : buffer_(buffer.data())
+    , size_(buffer.size())
+{
+    assert(buffer.data() != nullptr);
+    assert(buffer.size() > 0);
+}
+
+template <typename T>
+FFTBuffer<T>::~FFTBuffer()
+{
+    if (buffer_ != nullptr)
+    {
+        pffft_aligned_free(static_cast<void*>(buffer_));
+    }
+    buffer_ = nullptr;
+    size_ = 0;
+}
+
+template <typename T>
+FFTBuffer<T>::FFTBuffer(FFTBuffer&& other) noexcept
+    : buffer_(other.buffer_)
+    , size_(other.size_)
+{
+    other.buffer_ = nullptr;
+    other.size_ = 0;
+}
+
+template <typename T>
+FFTBuffer<T>& FFTBuffer<T>::operator=(FFTBuffer&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (buffer_ != nullptr)
+        {
+            pffft_aligned_free(static_cast<void*>(buffer_));
+        }
+        buffer_ = other.buffer_;
+        size_ = other.size_;
+        other.buffer_ = nullptr;
+        other.size_ = 0;
+    }
+    return *this;
+}
+
+template <typename T>
+std::span<T> FFTBuffer<T>::Data()
+{
+    assert(buffer_ != nullptr);
+    return {buffer_, size_};
+}
+
+template <typename T>
+std::span<const T> FFTBuffer<T>::Data() const
+{
+    assert(buffer_ != nullptr);
+    return {buffer_, size_};
+}
 
 FFT::FFT(uint32_t fft_size)
     : fft_size_(fft_size)
@@ -38,70 +119,48 @@ FFT::~FFT()
     }
 }
 
-void FFT::Forward(std::span<float> input, std::span<complex_t> spectrum)
+void FFT::Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum)
 {
-    assert(input.size() == fft_size_);
-    assert(spectrum.size() == complex_sample_count_);
+    assert(input.Data().size() == fft_size_);
+    assert(spectrum.Data().size() == complex_sample_count_);
 
-    pffft_transform(setup_, input.data(), reinterpret_cast<float*>(spectrum.data()), work_buffer_, PFFFT_FORWARD);
+    pffft_transform(setup_, input.Data().data(), AsFloatPtr(spectrum), work_buffer_, PFFFT_FORWARD);
 }
 
-void FFT::Inverse(std::span<complex_t> spectrum, std::span<float> output)
+void FFT::Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output)
 {
-    assert(spectrum.size() == complex_sample_count_);
-    assert(output.size() == fft_size_);
+    assert(spectrum.Data().size() == complex_sample_count_);
+    assert(output.Data().size() == fft_size_);
 
-    pffft_transform(setup_, reinterpret_cast<const float*>(spectrum.data()), output.data(), work_buffer_,
-                    PFFFT_BACKWARD);
-
-    // float scalar = 1.0f / fft_size_;
-    // ArrayMath::Scale(output, scalar, output);
+    pffft_transform(setup_, AsFloatPtr(spectrum), output.Data().data(), work_buffer_, PFFFT_BACKWARD);
 }
 
-void FFT::ConvolveAccumulate(std::span<complex_t> dft_a, std::span<complex_t> dft_b, std::span<complex_t> dft_ab)
+void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b, FFTComplexBuffer& dft_ab)
 {
-    assert(dft_a.size() == complex_sample_count_);
-    assert(dft_b.size() == complex_sample_count_);
-    assert(dft_ab.size() == complex_sample_count_);
+    assert(dft_a.Data().size() == complex_sample_count_);
+    assert(dft_b.Data().size() == complex_sample_count_);
+    assert(dft_ab.Data().size() == complex_sample_count_);
 
-    pffft_zconvolve_accumulate(setup_, reinterpret_cast<const float*>(dft_a.data()),
-                               reinterpret_cast<const float*>(dft_b.data()), reinterpret_cast<float*>(dft_ab.data()),
+    pffft_zconvolve_accumulate(setup_, AsFloatPtr(dft_a), AsFloatPtr(dft_b), AsFloatPtr(dft_ab),
                                1.0f / static_cast<float>(fft_size_));
 }
 
-void FFT::Reorder(std::span<complex_t> spectrum, std::span<complex_t> reordered_spectrum, bool forward)
-{
-    assert(spectrum.size() == complex_sample_count_);
-    assert(reordered_spectrum.size() == complex_sample_count_);
-    assert(spectrum.data() != reordered_spectrum.data());
-
-    // Reorder the spectrum using the FFT's internal bit-reversal ordering
-    pffft_zreorder(setup_, reinterpret_cast<const float*>(spectrum.data()),
-                   reinterpret_cast<float*>(reordered_spectrum.data()), forward ? PFFFT_FORWARD : PFFFT_BACKWARD);
-}
-
-std::span<float> FFT::AllocateRealBuffer() const
+FFTRealBuffer FFT::AllocateRealBuffer() const
 {
     auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);
     std::ranges::fill(mem, 0.f);
-    return mem;
+    return {mem};
 }
 
-std::span<complex_t> FFT::AllocateComplexBuffer() const
+FFTComplexBuffer FFT::AllocateComplexBuffer() const
 {
     auto mem =
         std::span<complex_t>(static_cast<complex_t*>(pffft_aligned_malloc(complex_sample_count_ * sizeof(complex_t))),
                              complex_sample_count_);
     std::ranges::fill(mem, complex_t{0.f, 0.f});
-    return mem;
+    return {mem};
 }
 
-void FFT::FreeBuffer(void* buffer)
-{
-    if (buffer == nullptr)
-    {
-        return;
-    }
-    pffft_aligned_free(buffer);
-}
+template class FFTBuffer<float>;
+template class FFTBuffer<complex_t>;
 } // namespace sfFDN

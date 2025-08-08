@@ -1,16 +1,19 @@
 #include "sffdn/delay.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <iostream>
 
 namespace sfFDN
 {
 
 Delay::Delay(uint32_t delay, uint32_t maxDelay)
+    : in_point_(0)
+    , out_point_(0)
+    , delay_(0)
+    , last_frame_(0.0f)
 {
-    // Writing before reading allows delays from 0 to length-1.
-    // If we want to allow a delay of maxDelay, we need a
-    // delay-line of length = maxDelay+1.
     if (delay > maxDelay)
     {
         std::cerr << "Delay::Delay: maxDelay must be > than delay argument!\n";
@@ -18,10 +21,12 @@ Delay::Delay(uint32_t delay, uint32_t maxDelay)
     }
 
     if ((maxDelay + 1) > buffer_.size())
+    {
         buffer_.resize(maxDelay + 1, 0.0);
+    }
 
-    inPoint_ = 0;
-    lastFrame_ = 0.0;
+    in_point_ = 0;
+    last_frame_ = 0.0;
     this->SetDelay(delay);
 }
 
@@ -31,13 +36,15 @@ Delay::~Delay()
 
 void Delay::Clear()
 {
-    std::fill(buffer_.begin(), buffer_.end(), 0.0f);
+    std::ranges::fill(buffer_, 0.0f);
 }
 
 void Delay::SetMaximumDelay(uint32_t delay)
 {
     if (delay < buffer_.size())
+    {
         return;
+    }
     buffer_.resize(delay + 1, 0.0);
 }
 
@@ -50,28 +57,32 @@ void Delay::SetDelay(uint32_t delay)
     }
 
     // read chases write
-    if (inPoint_ >= delay)
-        outPoint_ = inPoint_ - delay;
+    if (in_point_ >= delay)
+    {
+        out_point_ = in_point_ - delay;
+    }
     else
-        outPoint_ = buffer_.size() + inPoint_ - delay;
+    {
+        out_point_ = buffer_.size() + in_point_ - delay;
+    }
     delay_ = delay;
 }
 
 float Delay::NextOut() const
 {
-    return buffer_[outPoint_];
+    return buffer_[out_point_];
 }
 
 float Delay::Tick(float input)
 {
-    buffer_[inPoint_] = input;
-    inPoint_ = (inPoint_ + 1) % buffer_.size();
+    buffer_[in_point_] = input;
+    in_point_ = (in_point_ + 1) % buffer_.size();
 
     // Read out next value
-    lastFrame_ = buffer_[outPoint_];
-    outPoint_ = (outPoint_ + 1) % buffer_.size();
+    last_frame_ = buffer_[out_point_];
+    out_point_ = (out_point_ + 1) % buffer_.size();
 
-    return lastFrame_;
+    return last_frame_;
 }
 
 float Delay::TapOut(uint32_t tap) const
@@ -83,7 +94,7 @@ float Delay::TapOut(uint32_t tap) const
         return 0.0f;
     }
 
-    uint32_t tap_point = (inPoint_ + buffer_.size() - tap - 1) % buffer_.size();
+    uint32_t tap_point = (in_point_ + buffer_.size() - tap - 1) % buffer_.size();
     return buffer_[tap_point];
 }
 
@@ -114,7 +125,7 @@ bool Delay::AddNextInputs(std::span<const float> input)
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
     uint32_t available_space =
-        (outPoint_ > inPoint_) ? (outPoint_ - inPoint_) : (buffer_.size() - inPoint_ + outPoint_);
+        (out_point_ > in_point_) ? (out_point_ - in_point_) : (buffer_.size() - in_point_ + out_point_);
     if (available_space < input.size())
     {
         std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
@@ -122,29 +133,26 @@ bool Delay::AddNextInputs(std::span<const float> input)
         return false;
     }
 
-    uint32_t end_point = inPoint_ + input.size();
-    if (end_point > buffer_.size())
-    {
-        end_point = buffer_.size();
-    }
+    uint32_t end_point = in_point_ + input.size();
+    end_point = std::min(end_point, static_cast<uint32_t>(buffer_.size()));
 
-    uint32_t size1 = end_point - inPoint_;
+    uint32_t size1 = end_point - in_point_;
     uint32_t size2 = input.size() - size1;
     // Copy input to buffer
-    std::copy(input.begin(), input.begin() + size1, buffer_.begin() + inPoint_);
+    std::copy(input.begin(), input.begin() + size1, buffer_.begin() + in_point_);
     // Copy input to buffer
     if (size2 > 0)
     {
         std::copy(input.begin() + size1, input.end(), buffer_.begin());
     }
 
-    inPoint_ = (inPoint_ + input.size()) % buffer_.size();
+    in_point_ = (in_point_ + input.size()) % buffer_.size();
     return true;
 }
 
 void Delay::GetNextOutputs(std::span<float> output)
 {
-    uint32_t outPoint = outPoint_;
+    uint32_t outPoint = out_point_;
 
     uint32_t endPoint = outPoint + output.size();
     if (endPoint < buffer_.size())
@@ -159,8 +167,8 @@ void Delay::GetNextOutputs(std::span<float> output)
         std::copy(buffer_.begin(), buffer_.begin() + size2, output.begin() + size1);
     }
 
-    outPoint_ = endPoint % buffer_.size();
-    lastFrame_ = output.back();
+    out_point_ = endPoint % buffer_.size();
+    last_frame_ = output.back();
 }
 
 } // namespace sfFDN

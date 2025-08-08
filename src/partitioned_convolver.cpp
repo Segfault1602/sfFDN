@@ -23,10 +23,7 @@ class PartitionedConvolverSegment
   private:
     UPOLS upols_;
     uint32_t delay_;
-    uint32_t block_size_;
-
     uint32_t deadline_offset_;
-
     std::vector<float> output_buffer_;
 };
 
@@ -34,7 +31,6 @@ PartitionedConvolverSegment::PartitionedConvolverSegment(uint32_t parent_block_s
                                                          uint32_t delay, std::span<const float> fir)
     : upols_(block_size, fir)
     , delay_(delay)
-    , block_size_(block_size)
 {
     output_buffer_.resize(block_size, 0.f);
 
@@ -55,8 +51,6 @@ void PartitionedConvolverSegment::Process(std::span<const float> input, Circular
     if (upols_.IsReady())
     {
         upols_.Process(output_buffer_);
-        assert(output_buffer_.size() == block_size_);
-
         output_buffer.Accumulate(output_buffer_, deadline_offset_);
     }
 }

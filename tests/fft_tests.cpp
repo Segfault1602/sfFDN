@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <format>
 #include <random>
@@ -22,28 +23,25 @@ TEST_CASE("FFT")
             auto output_buffer = fft.AllocateComplexBuffer();
 
             // Fill with white noise
-            std::vector<float> expected_buffer(input_buffer.size(), 0.f);
+            std::vector<float> expected_buffer(input_buffer.Data().size(), 0.f);
             std::default_random_engine generator;
             std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-            for (auto i = 0; i < input_buffer.size(); ++i)
+            for (auto i = 0; i < input_buffer.Data().size(); ++i)
             {
-                input_buffer[i] = dist(generator);
-                expected_buffer[i] = input_buffer[i];
+                input_buffer.Data()[i] = dist(generator);
+                expected_buffer[i] = input_buffer.Data()[i];
             }
 
-            std::fill(output_buffer.begin(), output_buffer.end(), 0.f);
+            std::ranges::fill(output_buffer.Data(), 0.f);
 
             fft.Forward(input_buffer, output_buffer);
             fft.Inverse(output_buffer, input_buffer);
 
             const float scale = 1.0f / static_cast<float>(fft_size);
-            for (auto i = 0; i < input_buffer.size(); ++i)
+            for (auto i = 0; i < input_buffer.Data().size(); ++i)
             {
-                REQUIRE_THAT(input_buffer[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
+                REQUIRE_THAT(input_buffer.Data()[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
             }
-
-            fft.FreeBuffer(input_buffer.data());
-            fft.FreeBuffer(output_buffer.data());
         }
     }
 }

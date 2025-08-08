@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <span>
 #include <vector>
 
@@ -13,9 +12,6 @@ class UPOLS
 {
   public:
     UPOLS(uint32_t block_size, std::span<const float> fir);
-    ~UPOLS();
-
-    UPOLS(UPOLS&& other);
 
     void Process(std::span<const float> input, std::span<float> output);
 
@@ -33,13 +29,13 @@ class UPOLS
     uint32_t fft_size_;
     FFT fft_;
 
-    std::vector<std::span<complex_t>> filters_z_;
-    std::vector<std::span<complex_t>> inputs_z_; // Frequency domain delay line
+    std::vector<FFTComplexBuffer> filters_z_;
+    std::vector<FFTComplexBuffer> inputs_z_; // Frequency domain delay line
     uint32_t inputs_z_index_;
 
-    std::span<float> work_buffer_;
-    std::span<complex_t> spectrum_buffer_;
-    std::span<float> result_buffer_;
+    FFTRealBuffer work_buffer_;
+    FFTComplexBuffer spectrum_buffer_;
+    FFTRealBuffer result_buffer_;
 
     uint32_t samples_needed_;
 };

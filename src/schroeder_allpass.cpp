@@ -24,9 +24,9 @@ void SchroederAllpass::SetG(float g)
 float SchroederAllpass::Tick(float input)
 {
     float out = delay_.NextOut();
-    float v_n = input - g_ * out;
+    float v_n = input - (g_ * out);
     delay_.Tick(v_n);
-    return g_ * v_n + out;
+    return (g_ * v_n) + out;
 }
 
 void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> out)
@@ -42,7 +42,7 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
 
     for (uint32_t i = 0; i < unroll_size; i += 4)
     {
-        std::array<float, 4> del_out;
+        std::array<float, 4> del_out{};
         delay_.GetNextOutputs(del_out);
 
         float v_n0 = in[i] - (g_ * del_out[0]);
@@ -65,7 +65,6 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
 }
 
 SchroederAllpassSection::SchroederAllpassSection(uint32_t N)
-    : stage_(N)
 {
     allpasses_.reserve(N);
     for (uint32_t i = 0; i < N; i++)
@@ -105,7 +104,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
-    assert(input.ChannelCount() == stage_);
+    assert(input.ChannelCount() == allpasses_.size());
 
     for (uint32_t i = 0; i < allpasses_.size(); ++i)
     {

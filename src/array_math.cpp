@@ -11,7 +11,7 @@ void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
     assert(a.size() == b.size());
 
     const uint32_t unroll_size = a.size() & ~3;
-    int idx = 0;
+    uint32_t idx = 0;
     while (idx < unroll_size)
     {
         a[idx + 0] += b[idx + 0];
@@ -34,7 +34,7 @@ void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::spa
     assert(a.size() == out.size());
 
     const uint32_t unroll_size = a.size() & ~3;
-    int idx = 0;
+    uint32_t idx = 0;
     while (idx < unroll_size)
     {
         out[idx + 0] = a[idx + 0] + b[idx + 0];
@@ -55,7 +55,7 @@ void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> 
     assert(a.size() == out.size());
 
     const uint32_t unroll_size = a.size() & ~3;
-    int idx = 0;
+    uint32_t idx = 0;
     while (idx < unroll_size)
     {
         out[idx + 0] = a[idx + 0] * b;
@@ -78,7 +78,7 @@ void ArrayMath::ScaleAdd(std::span<const float> a, const float b, std::span<cons
     assert(a.size() == out.size());
 
     const uint32_t unroll_size = a.size() & ~3;
-    int idx = 0;
+    uint32_t idx = 0;
     while (idx < unroll_size)
     {
         out[idx + 0] = a[idx + 0] * b + c[idx + 0];
@@ -100,7 +100,7 @@ void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::sp
     assert(a.size() == out.size());
 
     const uint32_t unroll_size = a.size() & ~3;
-    int idx = 0;
+    uint32_t idx = 0;
     while (idx < unroll_size)
     {
         out[idx + 0] += a[idx + 0] * b;

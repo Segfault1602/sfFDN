@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "-tc=FDN"
+                "PartitionedConvolver_Noise"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

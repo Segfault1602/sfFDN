@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
 #include <cstdint>
+#include <span>
 
 #include "audio_buffer.h"
 #include "audio_processor.h"
@@ -45,6 +45,5 @@ class SchroederAllpassSection : public AudioProcessor
 
   private:
     std::vector<SchroederAllpass> allpasses_;
-    uint32_t stage_;
 };
 } // namespace sfFDN

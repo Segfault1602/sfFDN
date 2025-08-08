@@ -9,11 +9,11 @@ namespace sfFDN
 {
 
 DelayAllpass::DelayAllpass(float delay, uint32_t maxDelay)
-    : out_point_(0)
-    , in_point_(0)
+    : in_point_(0)
+    , out_point_(0)
+    , delay_(0.0f)
     , alpha_(0.0f)
     , coeff_(0.0f)
-    , delay_(0.0f)
     , next_output_(0.0f)
 {
     if (delay < 0.5f)

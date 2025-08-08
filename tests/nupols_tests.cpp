@@ -1,11 +1,9 @@
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
-#include <iostream>
-
 #include <memory>
-#include <random>
 #include <span>
 #include <vector>
 
@@ -24,8 +22,9 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto sos = k_h001_AbsorbtionSOS[0];
     for (auto j = 0; j < sos.size(); j++)
     {
-        auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
-        auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
+        std::span<const float> sos_span(sos.at(j % sos.size()));
+        auto b = sos_span.first(3);
+        auto a = sos_span.last(3);
         coeffs.push_back(b[0] / a[0]);
         coeffs.push_back(b[1] / a[0]);
         coeffs.push_back(b[2] / a[0]);
@@ -58,8 +57,8 @@ TEST_CASE("PartitionedConvolver")
     const uint32_t kBlockCount = kFirLength / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data() + i * kBlockSize);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data() + (i * kBlockSize));
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + (i * kBlockSize));
         // Process the block
         PartitionedConvolver.Process(input_buffer, output_buffer);
     }
@@ -100,7 +99,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     sfFDN::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
     sfFDN::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
 
-    std::copy(input_chirp.begin(), input_chirp.end(), filter_output.begin());
+    std::ranges::copy(input_chirp, filter_output.begin());
     inner_prod_fir.Process(ref_output_buffer);
 
     sfFDN::PartitionedConvolver PartitionedConvolver(kBlockSize, fir);
@@ -110,8 +109,8 @@ TEST_CASE("PartitionedConvolver_Noise")
     const uint32_t kBlockCount = kInputSize / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input_chirp.data() + i * kBlockSize);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input_chirp.data() + (i * kBlockSize));
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + (i * kBlockSize));
         // Process the block
         PartitionedConvolver.Process(input_buffer, output_buffer);
     }

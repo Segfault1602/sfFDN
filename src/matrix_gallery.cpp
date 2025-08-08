@@ -42,21 +42,6 @@ Eigen::MatrixXf createToeplitzMatrix(const Eigen::VectorXf& c, const Eigen::Vect
     return T;
 }
 
-Eigen::VectorXf RandVec(uint32_t N, uint32_t seed = 0)
-{
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-
-    Eigen::VectorXf random_vector(N);
-    for (auto i = 0; i < N; ++i)
-    {
-        random_vector(i) = dist(gen);
-    }
-
-    return random_vector;
-}
-
 // Generate a random array of floats in the range [0, 1)
 Eigen::ArrayXf RandArray(uint32_t N, uint32_t seed = 0)
 {

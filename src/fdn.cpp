@@ -1,8 +1,12 @@
 #include "sffdn/fdn.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <iostream>
+#include <memory>
 #include <print>
+#include <span>
 
 #include "array_math.h"
 #include "sffdn/feedback_matrix.h"
