@@ -3,6 +3,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
+#include <iostream>
 #include <memory>
 #include <span>
 #include <vector>
@@ -80,6 +81,7 @@ TEST_CASE("PartitionedConvolver")
     }
 
     float snr = 10.f * log10(fir_energy / signal_error);
+    std::cout << "SNR: " << snr << " dB" << '\n';
 }
 
 TEST_CASE("PartitionedConvolver_Noise")
@@ -88,7 +90,6 @@ TEST_CASE("PartitionedConvolver_Noise")
 
     auto ref_filter = CreateTestFilter();
     auto fir = GetImpulseResponse(ref_filter.get());
-    const uint32_t kFirLength = fir.size();
 
     InnerProdFIR inner_prod_fir(fir);
 
@@ -127,4 +128,5 @@ TEST_CASE("PartitionedConvolver_Noise")
     }
 
     float snr = 10.f * log10(signal_energy / signal_error);
+    std::cout << "PartitionedConvolver SNR: " << snr << " dB, Max Error: " << max_error << "\n";
 }

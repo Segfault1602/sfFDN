@@ -36,12 +36,9 @@ TEST_CASE("IdentityMatrix")
 
     mix_mat.Process(input_buffer, output_buffer);
 
-    for (auto i = 0; i < input.size(); i += N)
+    for (auto i = 0; i < input.size(); ++i)
     {
         REQUIRE(input[i] == output[i]);
-        REQUIRE(input[i + 1] == output[i + 1]);
-        REQUIRE(input[i + 2] == output[i + 2]);
-        REQUIRE(input[i + 3] == output[i + 3]);
     }
 
     float energy_in = 0.f;
@@ -311,7 +308,6 @@ TEST_CASE("FilterFeedbackMatrix")
     constexpr uint32_t N = 4;
     constexpr uint32_t K = 1;
 
-    std::array<uint32_t, N*(K + 1)> delays = {0, 5, 6, 11, 0, 12, 24, 36};
     std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices;
     for (uint32_t i = 0; i < K; ++i)
     {

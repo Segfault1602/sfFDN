@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <cstdint>
+#include <memory>
 #include <span>
 
 #include "audio_processor.h"
@@ -41,6 +41,10 @@ class ScalarFeedbackMatrix : public AudioProcessor
     uint32_t InputChannelCount() const override;
 
     uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     class ScalarFeedbackMatrixImpl;

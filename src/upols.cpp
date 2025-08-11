@@ -139,6 +139,19 @@ void UPOLS::Process(std::span<float> output)
     samples_needed_ = block_size_;
 }
 
+void UPOLS::Clear()
+{
+    std::ranges::fill(work_buffer_, 0.f);
+    std::ranges::fill(result_buffer_, 0.f);
+    std::ranges::fill(spectrum_buffer_, complex_t{0.f, 0.f});
+    for (auto& input_z : inputs_z_)
+    {
+        std::ranges::fill(input_z.Data(), complex_t{0.f, 0.f});
+    }
+    samples_needed_ = block_size_;
+    inputs_z_index_ = 0;
+}
+
 void UPOLS::PrintPartition() const
 {
     std::cout << "[(" << fft_size_ << ") ";

@@ -4,6 +4,11 @@
 #include <iostream>
 #include <print>
 
+namespace
+{
+constexpr uint32_t kDefaultBlockSize = 128; // Default block size for delay banks
+}
+
 namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(uint32_t N)
@@ -32,7 +37,7 @@ void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
     for (uint32_t i = 0; i < num_stages + 1; ++i)
     {
         auto stage_delays = delays.subspan(i * N_, N_);
-        delays_.emplace_back(stage_delays, 128); // TODO: Adjust block size as needed
+        delays_.emplace_back(stage_delays, kDefaultBlockSize);
     }
 
     for (auto i = 0; i < mixing_matrices.size(); ++i)
@@ -107,7 +112,7 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFee
     std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
     for (auto i = 0; i < info.K; i++)
     {
-        std::span<const float> matrix_span(info.matrices.data() + i * info.N * info.N, info.N * info.N);
+        std::span<const float> matrix_span(info.matrices.data() + (i * info.N * info.N), info.N * info.N);
         sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);
         feedback_matrix.SetMatrix(matrix_span);
         feedback_matrices.push_back(feedback_matrix);
@@ -115,6 +120,19 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFee
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info.N);
     ffm->ConstructMatrix(info.delays, feedback_matrices);
     return ffm;
+}
+
+std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
+{
+    auto clone = std::make_unique<FilterFeedbackMatrix>(N_);
+
+    for (size_t i = 0; i < delays_.size(); ++i)
+    {
+        clone->delays_.emplace_back(delays_[i].GetDelays(), kDefaultBlockSize);
+    }
+
+    clone->matrix_ = matrix_;
+    return clone;
 }
 
 } // namespace sfFDN

@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
 
 #include "audio_processor.h"
 
@@ -47,6 +46,10 @@ class OnePoleFilter : public AudioProcessor
 
     uint32_t OutputChannelCount() const override;
 
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
   private:
     float gain_;
     float b0_, a1_;
@@ -58,8 +61,6 @@ class CascadedBiquads : public AudioProcessor
   public:
     CascadedBiquads();
 
-    void Clear();
-
     void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs);
 
     float Tick(float in);
@@ -69,6 +70,10 @@ class CascadedBiquads : public AudioProcessor
     uint32_t InputChannelCount() const override;
 
     uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
     void dump_coeffs();
 

@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
 
 #include "delay.h"
 
@@ -34,11 +33,9 @@ class DelayBank : public AudioProcessor
 
     DelayBank(const DelayBank&) = delete;
     DelayBank& operator=(const DelayBank&) = delete;
-    DelayBank(DelayBank&&) = default;
-    DelayBank& operator=(DelayBank&&) = default;
 
-    /// @brief Clears all internal states of the delay bank.
-    void Clear();
+    DelayBank(DelayBank&&) noexcept;
+    DelayBank& operator=(DelayBank&&) noexcept;
 
     /// @brief Sets the maximum delay for all delay lines in the bank.
     /// @param delay The maximum delay in samples.
@@ -62,6 +59,10 @@ class DelayBank : public AudioProcessor
     /// @note This is equal to the number of delay lines in the bank.
     uint32_t OutputChannelCount() const override;
 
+    /// @brief Clears the internal delay buffers.
+    /// This sets all delay buffers to zero.
+    void Clear() override;
+
     /// @brief Processes a block of multi-channel audio.
     /// @param input The input audio buffer.
     /// @param output The output audio buffer.
@@ -78,6 +79,8 @@ class DelayBank : public AudioProcessor
     /// @param output The output audio buffer to fill with the next samples.
     /// @note The output buffer must have a channel count equal to the number of delay lines in the bank.
     void GetNextOutputs(AudioBuffer& output);
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     std::vector<Delay> delays_;

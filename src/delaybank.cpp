@@ -20,6 +20,17 @@ DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
     }
 }
 
+DelayBank::DelayBank(DelayBank&& other) noexcept
+    : delays_(std::move(other.delays_))
+{
+}
+
+DelayBank& DelayBank::operator=(DelayBank&& other) noexcept
+{
+    delays_ = std::move(other.delays_);
+    return *this;
+}
+
 void DelayBank::Clear()
 {
     for (auto& delay : delays_)
@@ -90,6 +101,18 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
     {
         delays_[i].GetNextOutputs(output.GetChannelSpan(i));
     }
+}
+
+std::unique_ptr<AudioProcessor> DelayBank::Clone() const
+{
+    auto clone = std::make_unique<DelayBank>();
+
+    for (const auto& delay : delays_)
+    {
+        clone->delays_.emplace_back(delay.GetDelay(), delay.GetMaximumDelay());
+    }
+
+    return clone;
 }
 
 } // namespace sfFDN

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
-#include <cstdint>
 
 #include "audio_buffer.h"
 
@@ -18,6 +18,11 @@ class AudioProcessor
     AudioProcessor() = default;
     virtual ~AudioProcessor() = default;
 
+    AudioProcessor(const AudioProcessor&) = delete;
+    AudioProcessor& operator=(const AudioProcessor&) = delete;
+    AudioProcessor(AudioProcessor&&) = delete;
+    AudioProcessor& operator=(AudioProcessor&&) = delete;
+
     /// @brief Process audio buffers.
     /// @param input The input audio buffer.
     /// @param output The output audio buffer.
@@ -28,6 +33,14 @@ class AudioProcessor
 
     /// @brief Returns the number of output channels this processor produces.
     virtual uint32_t OutputChannelCount() const = 0;
+
+    /// @brief Clears the internal state of the processor.
+    /// This function should reset any internal buffers or states used by the processor without changing its
+    /// configuration. For example, calling `Clear()` on an IIR filter should set its internal state to 0 while keeping
+    /// its coefficients intact.
+    virtual void Clear() = 0;
+
+    virtual std::unique_ptr<AudioProcessor> Clone() const = 0;
 };
 
 /// @brief A chain of audio processors that processes audio sequentially.
@@ -60,6 +73,10 @@ class AudioProcessorChain : public AudioProcessor
 
     /// @brief Returns the number of output channels this processor produces.
     uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     uint32_t block_size_ = 0;

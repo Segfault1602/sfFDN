@@ -23,8 +23,6 @@ TEST_CASE("TwoFilter")
 
     coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
 
-    constexpr auto kCoeffPerFilter = 6;
-
     constexpr std::array<double, 66> expected_sos = {0.893771859789158, -0.221475677049208, 0,
                                                      1.000000000000000, -0.287867764010237, 0,
                                                      0.999997246298566, -1.995971686001405, 0.995991139250743,
@@ -50,11 +48,6 @@ TEST_CASE("TwoFilter")
 
     for (auto i = 0; i < coeffs.size(); ++i)
     {
-        // if (i % kCoeffPerFilter == 0)
-        // {
-        //     std::print("\n");
-        // }
-        // std::print("{} ", coeffs[i]);
         REQUIRE(coeffs[i] == Catch::Approx(expected_sos.at(i)).epsilon(1e-7));
     }
 }

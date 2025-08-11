@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
 
 #include "audio_processor.h"
 
@@ -33,6 +32,10 @@ class ParallelGains : public AudioProcessor
 
     uint32_t InputChannelCount() const override;
     uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);

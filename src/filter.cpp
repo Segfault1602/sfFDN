@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include <algorithm>
 #include <numbers>
 
 namespace
@@ -82,6 +83,19 @@ uint32_t OnePoleFilter::InputChannelCount() const
 uint32_t OnePoleFilter::OutputChannelCount() const
 {
     return 1; // OnePoleFilter only supports single channel output
+}
+
+void OnePoleFilter::Clear()
+{
+    std::ranges::fill(state_, 0.f);
+}
+
+std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
+{
+    auto clone = std::make_unique<OnePoleFilter>();
+    clone->SetCoefficients(b0_, a1_);
+    clone->gain_ = gain_;
+    return clone;
 }
 
 } // namespace sfFDN

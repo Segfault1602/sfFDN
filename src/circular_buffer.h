@@ -3,9 +3,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
 
 namespace sfFDN
 {
@@ -28,6 +28,9 @@ class CircularBuffer
     /// @param count the number of samples to clear
     /// @param offset the offset from the write pointer to start clearing
     void Clear(uint32_t count, uint32_t offset = 0);
+
+    /// @brief Clear the whole buffer.
+    void Clear();
 
     /// @brief Write the specified number of samples to the buffer.
     /// @param data the data to write

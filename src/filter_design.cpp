@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <Eigen/SVD>
+#include <Eigen/Dense>
 
 namespace
 {

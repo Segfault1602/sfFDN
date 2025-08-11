@@ -224,4 +224,16 @@ uint32_t ScalarFeedbackMatrix::OutputChannelCount() const
     return impl_->OutputChannelCount();
 }
 
+void ScalarFeedbackMatrix::Clear()
+{
+    // No-op for scalar feedback matrix
+}
+
+std::unique_ptr<AudioProcessor> ScalarFeedbackMatrix::Clone() const
+{
+    auto clone = std::make_unique<ScalarFeedbackMatrix>();
+    clone->impl_ = impl_->Clone();
+    return clone;
+}
+
 } // namespace sfFDN

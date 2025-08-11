@@ -1,5 +1,6 @@
 #include "sffdn/matrix_gallery.h"
 
+#include <cassert>
 #include <iostream>
 #include <random>
 
@@ -169,7 +170,7 @@ Eigen::MatrixXf GenerateMatrix_Internal(uint32_t N, sfFDN::ScalarMatrixType type
     //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
     //     break;
     default:
-        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << std::endl;
+        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << "\n";
         A = Eigen::MatrixXf::Zero(N, N);
     }
 
@@ -275,38 +276,42 @@ Eigen::MatrixXf HadamardMatrix(uint32_t N)
 
 Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
 {
-    std::vector<kiss_fft_cpx> R(N, {0.0f, 0.0f});
+    std::vector<std::complex<float>> R(N, {0.0f, 0.0f});
     std::random_device rd;
     std::mt19937 gen(seed == 0 ? rd() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0; i < N; ++i)
     {
-        R[i].r = dist(gen);
+        R[i].real(dist(gen));
     }
 
-    std::vector<kiss_fft_cpx> RF(N, {0.0f, 0.0f});
+    static_assert(sizeof(kiss_fft_cpx) == sizeof(std::complex<float>),
+                  "kiss_fft_cpx must be the same size as std::complex<float>");
+
+    std::vector<std::complex<float>> RF(N, {0.0f, 0.0f});
     kiss_fft_cfg cfg = kiss_fft_alloc(N, 0, nullptr, nullptr);
-    kiss_fft(cfg, R.data(), RF.data());
+    kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(R.data()), reinterpret_cast<kiss_fft_cpx*>(RF.data()));
     kiss_fft_free(cfg);
 
     for (auto i = 0; i < N; ++i)
     {
-        std::complex<float>& rf = reinterpret_cast<std::complex<float>&>(RF[i]);
-        reinterpret_cast<std::complex<float>&>(RF[i]) = rf / std::abs(rf);
+        // auto& rf = reinterpret_cast<std::complex<float>&>(RF[i]);
+        // reinterpret_cast<std::complex<float>&>(RF[i]) = rf / std::abs(rf);
+        RF[i] = RF[i] / std::abs(RF[i]);
     }
 
     cfg = kiss_fft_alloc(N, 1, nullptr, nullptr);
-    kiss_fft(cfg, RF.data(), R.data());
+    kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(R.data()), reinterpret_cast<kiss_fft_cpx*>(RF.data()));
     kiss_fft_free(cfg);
     for (auto i = 0; i < N; ++i)
     {
-        R[i].r /= N; // Normalize the result
+        R[i].real(R[i].real() / N); // Normalize the result
     }
 
     Eigen::VectorXf v(N);
     for (auto i = 0; i < N; ++i)
     {
-        v[i] = R[i].r;
+        v[i] = R[i].real();
     }
 
     std::mt19937 dir_gen(seed == 0 ? rd() : seed + 1);
@@ -342,6 +347,8 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
         C = C_flipped;
         break;
     }
+    default:
+        std::unreachable();
     }
 
     return C;

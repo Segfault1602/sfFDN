@@ -64,6 +64,11 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
     }
 }
 
+void SchroederAllpass::Clear()
+{
+    delay_.Clear();
+}
+
 SchroederAllpassSection::SchroederAllpassSection(uint32_t N)
 {
     allpasses_.reserve(N);
@@ -112,6 +117,26 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
         auto output_span = output.GetChannelSpan(i);
         allpasses_[i].ProcessBlock(input_span, output_span);
     }
+}
+
+void SchroederAllpassSection::Clear()
+{
+    for (auto& allpass : allpasses_)
+    {
+        allpass.Clear();
+    }
+}
+
+std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
+{
+    auto clone = std::make_unique<SchroederAllpassSection>(allpasses_.size());
+    assert(clone->allpasses_.size() == allpasses_.size());
+    for (size_t i = 0; i < allpasses_.size(); ++i)
+    {
+        clone->allpasses_[i].SetDelay(allpasses_[i].GetDelay());
+        clone->allpasses_[i].SetG(allpasses_[i].GetG());
+    }
+    return clone;
 }
 
 } // namespace sfFDN

@@ -6,14 +6,12 @@ namespace sfFDN
 {
 FilterBank::FilterBank() = default;
 
-FilterBank::~FilterBank() = default;
-
 void FilterBank::Clear()
 {
-    // for (auto filter : filters_)
-    // {
-    //     filter->Clear();
-    // }
+    for (auto& filter : filters_)
+    {
+        filter->Clear();
+    }
 }
 
 void FilterBank::AddFilter(std::unique_ptr<AudioProcessor> filter)
@@ -43,6 +41,16 @@ uint32_t FilterBank::InputChannelCount() const
 uint32_t FilterBank::OutputChannelCount() const
 {
     return filters_.size();
+}
+
+std::unique_ptr<AudioProcessor> FilterBank::Clone() const
+{
+    auto clone = std::make_unique<FilterBank>();
+    for (const auto& filter : filters_)
+    {
+        clone->AddFilter(filter->Clone());
+    }
+    return clone;
 }
 
 } // namespace sfFDN

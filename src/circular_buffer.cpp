@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 namespace sfFDN
 {
@@ -36,6 +36,12 @@ void CircularBuffer::Clear(uint32_t count, uint32_t offset)
         std::fill(buffer_.begin() + start, buffer_.end(), 0.f);
         std::fill(buffer_.begin(), buffer_.begin() + end, 0.f);
     }
+}
+
+void CircularBuffer::Clear()
+{
+    std::fill(buffer_.begin(), buffer_.end(), 0.f);
+    write_ptr_ = 0;
 }
 
 void CircularBuffer::Write(std::span<const float> data)

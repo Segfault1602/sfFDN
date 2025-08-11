@@ -3,12 +3,10 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 #include "audio_processor.h"
-#include "filter.h"
 
 namespace sfFDN
 {
@@ -16,9 +14,8 @@ class FilterBank : public AudioProcessor
 {
   public:
     FilterBank();
-    ~FilterBank();
 
-    void Clear();
+    void Clear() override;
 
     void AddFilter(std::unique_ptr<AudioProcessor> filter);
 
@@ -27,6 +24,8 @@ class FilterBank : public AudioProcessor
     uint32_t InputChannelCount() const override;
 
     uint32_t OutputChannelCount() const override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     std::vector<std::unique_ptr<AudioProcessor>> filters_;

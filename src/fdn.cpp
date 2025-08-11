@@ -12,21 +12,62 @@
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 
+namespace
+{
+constexpr uint32_t kDefaultBlockSize = 64;
+}
+
 namespace sfFDN
 {
 FDN::FDN(uint32_t N, uint32_t block_size, bool transpose)
     : filter_bank_(nullptr)
     , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(N))
     , N_(N)
-    , block_size_(block_size)
+    , block_size_(block_size == 0 ? kDefaultBlockSize : block_size)
     , direct_gain_(1.f)
-    , feedback_(N * block_size, 0.f)
-    , temp_buffer_(N * block_size, 0.f)
+    , feedback_(N * block_size_, 0.f)
+    , temp_buffer_(N * block_size_, 0.f)
     , tc_filter_(nullptr)
     , transpose_(transpose)
 {
     input_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::Multiplexed);
     output_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::DeMultiplexed);
+}
+
+FDN::FDN(FDN&& other) noexcept
+    : delay_bank_(std::move(other.delay_bank_))
+    , filter_bank_(std::move(other.filter_bank_))
+    , mixing_matrix_(std::move(other.mixing_matrix_))
+    , input_gains_(std::move(other.input_gains_))
+    , output_gains_(std::move(other.output_gains_))
+    , N_(other.N_)
+    , block_size_(other.block_size_)
+    , direct_gain_(other.direct_gain_)
+    , feedback_(std::move(other.feedback_))
+    , temp_buffer_(std::move(other.temp_buffer_))
+    , tc_filter_(std::move(other.tc_filter_))
+    , transpose_(other.transpose_)
+{
+}
+
+FDN& FDN::operator=(FDN&& other) noexcept
+{
+    if (this != &other)
+    {
+        delay_bank_ = std::move(other.delay_bank_);
+        filter_bank_ = std::move(other.filter_bank_);
+        mixing_matrix_ = std::move(other.mixing_matrix_);
+        input_gains_ = std::move(other.input_gains_);
+        output_gains_ = std::move(other.output_gains_);
+        N_ = other.N_;
+        block_size_ = other.block_size_;
+        direct_gain_ = other.direct_gain_;
+        feedback_ = std::move(other.feedback_);
+        temp_buffer_ = std::move(other.temp_buffer_);
+        tc_filter_ = std::move(other.tc_filter_);
+        transpose_ = other.transpose_;
+    }
+    return *this;
 }
 
 bool FDN::SetInputGains(std::unique_ptr<AudioProcessor> gains)
@@ -80,50 +121,72 @@ void FDN::SetDirectGain(float gain)
     direct_gain_ = gain;
 }
 
-void FDN::SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank)
+bool FDN::SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank)
 {
     if (filter_bank->InputChannelCount() != N_ || filter_bank->OutputChannelCount() != N_)
     {
         std::println(std::cerr, "Filter bank must have {} input and output channels.", N_);
-        return;
+        return false;
     }
+
     filter_bank_ = std::move(filter_bank);
+    return true;
 }
 
-void FDN::SetDelays(const std::span<const uint32_t> delays)
+bool FDN::SetDelays(const std::span<const uint32_t> delays)
 {
     for (const auto& delay : delays)
     {
         if (delay == 0)
         {
             std::println(std::cerr, "Delay cannot be zero.");
-            return;
+            return false;
         }
-        if (delay < block_size_)
+        else if (delay < block_size_)
         {
-            std::println(std::cerr, "Delay must be at least as long as the block size ({}).", block_size_);
-            return;
+            std::println(std::cerr, "Delay {} is smaller than block size {}.", delay, block_size_);
+            return false;
         }
     }
+
+    if (delays.size() != N_)
+    {
+        std::println(std::cerr, "Delays must have {} elements.", N_);
+        return false;
+    }
+
     delay_bank_.SetDelays(delays, block_size_);
+    return true;
 }
 
-void FDN::SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix)
+bool FDN::SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix)
 {
+    if (mixing_matrix->InputChannelCount() != N_ || mixing_matrix->OutputChannelCount() != N_)
+    {
+        std::println(std::cerr, "Feedback matrix must have {} input and output channels.", N_);
+        return false;
+    }
+
     mixing_matrix_ = std::move(mixing_matrix);
+    return true;
 }
 
-void FDN::SetTCFilter(std::unique_ptr<AudioProcessor> filter)
+bool FDN::SetTCFilter(std::unique_ptr<AudioProcessor> filter)
 {
+    if (filter->InputChannelCount() != 1 || filter->OutputChannelCount() != 1)
+    {
+        std::println(std::cerr, "TC filter must have 1 input and 1 output channel.");
+        return false;
+    }
+
     tc_filter_ = std::move(filter);
+    return true;
 }
 
 void FDN::Process(const AudioBuffer& input, AudioBuffer& output)
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == 1);
-
-    assert(input.SampleCount() == block_size_);
 
     AudioBuffer mono_output = output.GetChannelBuffer(0);
 
@@ -147,25 +210,29 @@ void FDN::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
-void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
+void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output)
 {
-    AudioBuffer temp_buffer(block_size_, N_, temp_buffer_.data());
-    AudioBuffer feeback_buffer(block_size_, N_, feedback_.data());
+    assert(input.SampleCount() * input.ChannelCount() <= temp_buffer_.size());
 
-    delay_bank_.GetNextOutputs(feeback_buffer);
+    const uint32_t block_size = input.SampleCount();
+
+    AudioBuffer temp_buffer(block_size, N_, temp_buffer_);
+    AudioBuffer feedback_buffer(block_size, N_, feedback_);
+
+    delay_bank_.GetNextOutputs(feedback_buffer);
     if (filter_bank_)
     {
-        filter_bank_->Process(feeback_buffer, feeback_buffer);
+        filter_bank_->Process(feedback_buffer, feedback_buffer);
     }
 
-    output_gains_->Process(feeback_buffer, output);
+    output_gains_->Process(feedback_buffer, output);
 
-    mixing_matrix_->Process(feeback_buffer, temp_buffer);
+    mixing_matrix_->Process(feedback_buffer, temp_buffer);
 
-    input_gains_->Process(input, feeback_buffer);
+    input_gains_->Process(input, feedback_buffer);
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
-    delay_bank_.AddNextInputs(feeback_buffer);
+    delay_bank_.AddNextInputs(feedback_buffer);
 
     if (tc_filter_)
     {
@@ -175,18 +242,20 @@ void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
     ArrayMath::ScaleAccumulate(input.GetChannelSpan(0), direct_gain_, output.GetChannelSpan(0));
 }
 
-void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
+void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
 {
-    AudioBuffer temp_buffer(block_size_, N_, temp_buffer_.data());
-    AudioBuffer feeback_buffer(block_size_, N_, feedback_.data());
+    const uint32_t block_size = input.SampleCount();
+
+    AudioBuffer temp_buffer(block_size, N_, temp_buffer_);
+    AudioBuffer feedback_buffer(block_size, N_, feedback_);
 
     input_gains_->Process(input, temp_buffer);
 
-    delay_bank_.GetNextOutputs(feeback_buffer);
+    delay_bank_.GetNextOutputs(feedback_buffer);
 
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
-    mixing_matrix_->Process(feeback_buffer, temp_buffer);
+    mixing_matrix_->Process(feedback_buffer, temp_buffer);
 
     if (filter_bank_)
     {
@@ -202,6 +271,108 @@ void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
     }
 
     ArrayMath::ScaleAccumulate(input.GetChannelSpan(0), direct_gain_, output.GetChannelSpan(0));
+}
+
+void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
+{
+    const uint32_t block_count = input.SampleCount() / block_size_;
+
+    for (auto i = 0; i < block_count; ++i)
+    {
+        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
+
+        TickInternal(input_block, output_block);
+    }
+
+    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    assert(block_size_ * block_count + remaining_samples == input.SampleCount());
+
+    if (remaining_samples > 0)
+    {
+        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
+
+        TickInternal(input_block, output_block);
+    }
+}
+
+void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
+{
+    const uint32_t block_count = input.SampleCount() / block_size_;
+
+    for (auto i = 0; i < block_count; ++i)
+    {
+        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
+
+        TickTransposeInternal(input_block, output_block);
+    }
+
+    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    assert(block_size_ * block_count + remaining_samples == input.SampleCount());
+
+    if (remaining_samples > 0)
+    {
+        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
+
+        TickTransposeInternal(input_block, output_block);
+    }
+}
+
+void FDN::Clear()
+{
+    delay_bank_.Clear();
+    if (filter_bank_)
+    {
+        filter_bank_->Clear();
+    }
+    if (mixing_matrix_)
+    {
+        mixing_matrix_->Clear();
+    }
+    if (input_gains_)
+    {
+        input_gains_->Clear();
+    }
+    if (output_gains_)
+    {
+        output_gains_->Clear();
+    }
+    if (tc_filter_)
+    {
+        tc_filter_->Clear();
+    }
+
+    std::ranges::fill(feedback_, 0.f);
+    std::ranges::fill(temp_buffer_, 0.f);
+}
+
+std::unique_ptr<AudioProcessor> FDN::Clone() const
+{
+    auto clone = std::make_unique<FDN>(N_, block_size_, transpose_);
+
+    assert(input_gains_ != nullptr);
+    clone->SetInputGains(input_gains_->Clone());
+
+    assert(output_gains_ != nullptr);
+    clone->SetOutputGains(output_gains_->Clone());
+
+    clone->SetFilterBank(filter_bank_ ? filter_bank_->Clone() : nullptr);
+    clone->SetDelays(delay_bank_.GetDelays());
+    clone->SetFeedbackMatrix(mixing_matrix_ ? mixing_matrix_->Clone() : nullptr);
+    clone->SetTCFilter(tc_filter_ ? tc_filter_->Clone() : nullptr);
+    clone->SetDirectGain(direct_gain_);
+
+    assert(clone->N_ == N_);
+    assert(clone->block_size_ == block_size_);
+    assert(clone->transpose_ == transpose_);
+    assert(clone->direct_gain_ == direct_gain_);
+    assert(clone->InputChannelCount() == InputChannelCount());
+    assert(clone->OutputChannelCount() == OutputChannelCount());
+
+    return clone;
 }
 
 } // namespace sfFDN

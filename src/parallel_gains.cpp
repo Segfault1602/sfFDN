@@ -123,4 +123,14 @@ void ParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& 
     }
 }
 
+void ParallelGains::Clear()
+{
+    // no-op
+}
+
+std::unique_ptr<AudioProcessor> ParallelGains::Clone() const
+{
+    return std::make_unique<ParallelGains>(mode_, gains_);
+}
+
 } // namespace sfFDN

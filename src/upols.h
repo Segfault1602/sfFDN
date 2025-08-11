@@ -22,6 +22,8 @@ class UPOLS
 
     void Process(std::span<float> output);
 
+    void Clear();
+
     void PrintPartition() const;
 
   private:

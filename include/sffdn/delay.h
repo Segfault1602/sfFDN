@@ -36,6 +36,8 @@ class Delay
     /// buffer size.
     void SetMaximumDelay(uint32_t delay);
 
+    uint32_t GetMaximumDelay() const;
+
     /// @brief Sets the delay for the delay line.
     /// @param delay The delay in samples.
     void SetDelay(uint32_t delay);

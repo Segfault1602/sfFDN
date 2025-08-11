@@ -48,6 +48,11 @@ void Delay::SetMaximumDelay(uint32_t delay)
     buffer_.resize(delay + 1, 0.0);
 }
 
+uint32_t Delay::GetMaximumDelay() const
+{
+    return buffer_.size() - 1;
+}
+
 void Delay::SetDelay(uint32_t delay)
 {
     if (delay > buffer_.size() - 1)

@@ -21,6 +21,21 @@ class DelayMatrix::DelayMatrixImpl
 {
   public:
     DelayMatrixImpl(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix)
+        : DelayMatrixImpl(N, delays, [&mixing_matrix, N]() {
+            Eigen::MatrixXf mat = Eigen::MatrixXf::Zero(N, N);
+            for (auto i = 0; i < N; ++i)
+            {
+                for (auto j = 0; j < N; ++j)
+                {
+                    mat(i, j) = mixing_matrix.GetCoefficient(i, j);
+                }
+            }
+            return mat;
+        }())
+    {
+    }
+
+    DelayMatrixImpl(uint32_t N, std::span<const uint32_t> delays, const Eigen::MatrixXf& mixing_matrix)
         : N_(N)
     {
         assert(delays.size() == N * N);
@@ -39,14 +54,7 @@ class DelayMatrix::DelayMatrixImpl
             delay_lines_.emplace_back(max_delays[i], max_delays[i]);
         }
 
-        matrix_ = Eigen::MatrixXf::Zero(N, N);
-        for (auto i = 0; i < N; ++i)
-        {
-            for (auto j = 0; j < N; ++j)
-            {
-                matrix_(i, j) = mixing_matrix.GetCoefficient(i, j);
-            }
-        }
+        matrix_ = mixing_matrix;
 
         signal_matrix_ = Eigen::MatrixXf::Zero(N_, N_);
     }
@@ -117,6 +125,11 @@ class DelayMatrix::DelayMatrixImpl
         std::cout << signal_matrix_ << "\n";
     }
 
+    std::unique_ptr<DelayMatrixImpl> Clone() const
+    {
+        return std::make_unique<DelayMatrixImpl>(N_, delay_values_, matrix_);
+    }
+
   private:
     uint32_t N_;
     std::vector<Delay> delay_lines_;
@@ -131,6 +144,17 @@ DelayMatrix::DelayMatrix(uint32_t N, std::span<const uint32_t> delays, const Sca
 }
 
 DelayMatrix::~DelayMatrix() = default;
+
+DelayMatrix::DelayMatrix(DelayMatrix&& other) noexcept
+    : impl_(std::move(other.impl_))
+{
+}
+
+DelayMatrix& DelayMatrix::operator=(DelayMatrix&& other) noexcept
+{
+    impl_ = std::move(other.impl_);
+    return *this;
+}
 
 void DelayMatrix::Clear()
 {
@@ -155,6 +179,13 @@ uint32_t DelayMatrix::OutputChannelCount() const
 void DelayMatrix::PrintInfo() const
 {
     impl_->PrintInfo();
+}
+
+std::unique_ptr<AudioProcessor> DelayMatrix::Clone() const
+{
+    auto clone = std::unique_ptr<DelayMatrix>(new DelayMatrix);
+    clone->impl_ = impl_->Clone();
+    return clone;
 }
 
 } // namespace sfFDN

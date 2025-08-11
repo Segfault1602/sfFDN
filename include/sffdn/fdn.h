@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
 #include <cstdint>
+#include <span>
 
 #include "audio_buffer.h"
 #include "audio_processor.h"
@@ -16,13 +16,14 @@ namespace sfFDN
 class FDN : public AudioProcessor
 {
   public:
-    FDN(uint32_t N, uint32_t block_size = 1, bool transpose = false);
+    FDN(uint32_t N, uint32_t block_size = 0, bool transpose = false);
     ~FDN() = default;
 
     FDN(const FDN&) = delete;
     FDN& operator=(const FDN&) = delete;
-    FDN(FDN&&) = default;
-    FDN& operator=(FDN&&) = default;
+
+    FDN(FDN&&) noexcept;
+    FDN& operator=(FDN&&) noexcept;
 
     bool SetInputGains(std::unique_ptr<AudioProcessor> gains);
     bool SetOutputGains(std::unique_ptr<AudioProcessor> gains);
@@ -32,12 +33,12 @@ class FDN : public AudioProcessor
 
     void SetDirectGain(float gain);
 
-    void SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
-    void SetDelays(const std::span<const uint32_t> delays);
+    bool SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
+    bool SetDelays(const std::span<const uint32_t> delays);
 
-    void SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix);
+    bool SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix);
 
-    void SetTCFilter(std::unique_ptr<AudioProcessor> filter);
+    bool SetTCFilter(std::unique_ptr<AudioProcessor> filter);
 
     void Process(const AudioBuffer& input, AudioBuffer& output) override;
 
@@ -51,9 +52,15 @@ class FDN : public AudioProcessor
         return 1;
     }
 
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
   private:
+    void TickInternal(const AudioBuffer& input, AudioBuffer& output);
     void Tick(const AudioBuffer& input, AudioBuffer& output);
     void TickTranspose(const AudioBuffer& input, AudioBuffer& output);
+    void TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output);
 
     DelayBank delay_bank_;
     std::unique_ptr<AudioProcessor> filter_bank_;
@@ -65,6 +72,7 @@ class FDN : public AudioProcessor
     uint32_t N_;
     uint32_t block_size_;
     float direct_gain_;
+
     std::vector<float> feedback_;
     std::vector<float> temp_buffer_;
 

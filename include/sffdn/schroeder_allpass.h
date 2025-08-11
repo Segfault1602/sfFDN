@@ -21,8 +21,20 @@ class SchroederAllpass
     void SetDelay(uint32_t delay);
     void SetG(float g);
 
+    uint32_t GetDelay() const
+    {
+        return delay_.GetDelay();
+    }
+
+    float GetG() const
+    {
+        return g_;
+    }
+
     float Tick(float input);
     void ProcessBlock(std::span<const float> in, std::span<float> out);
+
+    void Clear();
 
   private:
     Delay delay_;
@@ -42,6 +54,10 @@ class SchroederAllpassSection : public AudioProcessor
     uint32_t InputChannelCount() const override;
 
     uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     std::vector<SchroederAllpass> allpasses_;

@@ -134,7 +134,7 @@ std::vector<uint32_t> GetDefaultDelays(uint32_t N)
     return delays;
 }
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t SR, uint32_t block_size, uint32_t N)
+std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t N)
 {
     assert(N <= 32);
 
@@ -190,7 +190,7 @@ std::vector<float> ReadWavFile(const std::string& filename)
     return data;
 }
 
-std::vector<float> WriteWavFile(const std::string& filename, const std::vector<float>& data)
+void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 {
     SF_INFO sfinfo;
     sfinfo.frames = data.size();
@@ -211,10 +211,9 @@ std::vector<float> WriteWavFile(const std::string& filename, const std::vector<f
     }
 
     sf_close(file);
-    return data;
 }
 
-std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter, uint32_t block_size)
+std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter)
 {
     if (!filter)
     {

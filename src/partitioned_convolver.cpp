@@ -19,6 +19,7 @@ class PartitionedConvolverSegment
     void Process(std::span<const float> input, CircularBuffer& output_buffer);
 
     void PrintPartition() const;
+    void Clear();
 
   private:
     UPOLS upols_;
@@ -60,11 +61,18 @@ void PartitionedConvolverSegment::PrintPartition() const
     upols_.PrintPartition();
 }
 
+void PartitionedConvolverSegment::Clear()
+{
+    upols_.Clear();
+    std::fill(output_buffer_.begin(), output_buffer_.end(), 0.f);
+}
+
 class PartitionedConvolver::PartitionedConvolverImpl
 {
   public:
     PartitionedConvolverImpl(uint32_t block_size, std::span<const float> fir)
         : block_size_(block_size)
+        , fir_(fir.begin(), fir.end())
     {
         uint32_t circ_buffer_size = fir.size();
         if (circ_buffer_size % block_size != 0)
@@ -116,7 +124,6 @@ class PartitionedConvolver::PartitionedConvolverImpl
 
         output_buffer_.Advance(output.SampleCount());
         output_buffer_.Read(output.GetChannelSpan(0), true);
-        // output_buffer_.Clear(output.SampleCount());
     }
 
     void DumpInfo() const
@@ -140,11 +147,27 @@ class PartitionedConvolver::PartitionedConvolverImpl
         std::println("");
     }
 
+    void Clear()
+    {
+        output_buffer_.Clear();
+        for (auto& segment : segments_)
+        {
+            segment->Clear();
+        }
+    }
+
+    std::unique_ptr<PartitionedConvolverImpl> Clone() const
+    {
+        return std::make_unique<PartitionedConvolverImpl>(block_size_, fir_);
+    }
+
   private:
     uint32_t block_size_;
     CircularBuffer output_buffer_;
 
     std::vector<std::unique_ptr<PartitionedConvolverSegment>> segments_;
+
+    std::vector<float> fir_; // Store the FIR coefficients for cloning and, eventually, serializing
 };
 
 PartitionedConvolver::PartitionedConvolver(uint32_t block_size, std::span<const float> fir)
@@ -153,6 +176,17 @@ PartitionedConvolver::PartitionedConvolver(uint32_t block_size, std::span<const 
 }
 
 PartitionedConvolver::~PartitionedConvolver() = default;
+
+PartitionedConvolver::PartitionedConvolver(PartitionedConvolver&& other) noexcept
+    : impl_(std::move(other.impl_))
+{
+}
+
+PartitionedConvolver& PartitionedConvolver::operator=(PartitionedConvolver&& other) noexcept
+{
+    impl_ = std::move(other.impl_);
+    return *this;
+}
 
 void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output)
 {
@@ -163,4 +197,17 @@ void PartitionedConvolver::DumpInfo() const
 {
     impl_->DumpInfo();
 }
+
+void PartitionedConvolver::Clear()
+{
+    impl_->Clear();
+}
+
+std::unique_ptr<AudioProcessor> PartitionedConvolver::Clone() const
+{
+    auto clone = std::unique_ptr<PartitionedConvolver>(new PartitionedConvolver());
+    clone->impl_ = impl_->Clone();
+    return clone;
+}
+
 } // namespace sfFDN

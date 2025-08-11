@@ -22,7 +22,7 @@ TEST_CASE("FDNPerf")
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t N = 16;
 
-    auto fdn = CreateFDN(SR, kBlockSize, N);
+    auto fdn = CreateFDN(kBlockSize, N);
 
     std::vector<float> input(kBlockSize * N, 0.f);
     std::vector<float> output(kBlockSize * N, 0.f);
@@ -118,7 +118,7 @@ TEST_CASE("FDNPerf_FIR")
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t N = 16;
 
-    auto fdn = CreateFDN(SR, kBlockSize, N);
+    auto fdn = CreateFDN(kBlockSize, N);
 
     // Replace filterbank with FIR filters
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
@@ -194,7 +194,7 @@ TEST_CASE("FDNPerf_FFM")
     }
     ffm->ConstructMatrix(ffm_delays, mixing_matrices);
 
-    auto fdn = CreateFDN(SR, kBlockSize, N);
+    auto fdn = CreateFDN(kBlockSize, N);
     fdn->SetFeedbackMatrix(std::move(ffm));
 
     nanobench::Bench bench;
@@ -222,7 +222,7 @@ TEST_CASE("FDNPerf_Order")
     for (uint32_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i)
     {
         uint32_t N = order[i];
-        auto fdn = CreateFDN(SR, kBlockSize, N);
+        auto fdn = CreateFDN(kBlockSize, N);
 
         std::vector<float> input(kBlockSize, 0.f);
         std::vector<float> output(kBlockSize, 0.f);
@@ -272,7 +272,7 @@ TEST_CASE("FDNPerf_BlockSize")
     for (uint32_t i = 0; i < kBlockSizes.size(); ++i)
     {
         const uint32_t block_size = kBlockSizes[i];
-        auto fdn = CreateFDN(SR, block_size, kOrder);
+        auto fdn = CreateFDN(block_size, kOrder);
 
         bench.run("FDN Block Size " + std::to_string(block_size), [&] {
             uint32_t block_count = kInputSize / block_size;
@@ -301,7 +301,7 @@ TEST_CASE("FDNPerf_OrderFFM")
     for (auto i = 0; i < num_stages.size(); ++i)
     {
         constexpr uint32_t N = 8;
-        auto fdn = CreateFDN(SR, kBlockSize, N);
+        auto fdn = CreateFDN(kBlockSize, N);
 
         auto ffm = CreateFFM(N, num_stages[i], 1);
         fdn->SetFeedbackMatrix(std::move(ffm));

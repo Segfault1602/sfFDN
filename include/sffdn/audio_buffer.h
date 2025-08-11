@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -25,7 +26,7 @@ class AudioBuffer
     /// @param channels The number of channels.
     /// @param buffer A pointer to the interleaved audio data. The buffer must be large enough to hold `frame_size *
     /// channels` samples.
-    AudioBuffer(uint32_t frame_size, uint32_t channels, float* const buffer);
+    AudioBuffer(uint32_t frame_size, uint32_t channels, float* buffer);
 
     /// @brief Constructs a multi-channel audio buffer.
     /// @param frame_size The number of frames (samples) per channel.
@@ -65,10 +66,15 @@ class AudioBuffer
     /// @return An AudioBuffer object containing the audio data for the specified channel.
     AudioBuffer GetChannelBuffer(uint32_t channel) const;
 
+    /// @brief Returns a new AudioBuffer where every channel is offset by a certain number of samples
+    AudioBuffer Offset(uint32_t offset, uint32_t frame_size) const;
+
   private:
     uint32_t size_;
     uint32_t channel_count_;
     float* buffer_;
-    std::span<float> buffer_span_;
+
+    constexpr static const uint32_t kMaxChannels = 64; // Maximum number of channels supported
+    std::array<float*, kMaxChannels> channel_buffers_;
 };
 } // namespace sfFDN

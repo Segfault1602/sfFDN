@@ -175,4 +175,13 @@ void CascadedBiquads::dump_coeffs()
     }
 }
 
+std::unique_ptr<AudioProcessor> CascadedBiquads::Clone() const
+{
+    auto clone = std::make_unique<CascadedBiquads>();
+    clone->stage_ = stage_;
+    clone->states_.resize(states_.size());
+    clone->coeffs_ = coeffs_;
+    return clone;
+}
+
 } // namespace sfFDN

@@ -36,8 +36,8 @@ TEST_CASE("AudioProcessorChain")
     std::vector<float> input(kBlockSize, 1.f);
     std::vector<float> output(kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
     chain.Process(input_buffer, output_buffer);
 
     for (float& i : output)

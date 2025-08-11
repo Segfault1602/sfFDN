@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include <memory>
-#include <random>
 #include <span>
 #include <vector>
 
@@ -73,6 +72,7 @@ TEST_CASE("UPOLS")
     }
 
     float snr = 10.f * log10(fir_energy / signal_error);
+    std::cout << "UPOLS SNR: " << snr << " dB\n";
 }
 
 TEST_CASE("UPOLS_Noise")
@@ -122,4 +122,5 @@ TEST_CASE("UPOLS_Noise")
     }
 
     float snr = 10.f * log10(signal_energy / signal_error);
+    std::cout << "UPOLS Noise SNR: " << snr << " dB\n";
 }

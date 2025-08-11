@@ -61,10 +61,6 @@ target_sources(
 target_include_directories(sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
 target_link_libraries(sfFDN PRIVATE Eigen3::Eigen PFFFT kissfft)
 target_compile_definitions(sfFDN PRIVATE -DEIGEN_RUNTIME_NO_MALLOC)
-target_compile_options(sfFDN PRIVATE -fno-omit-frame-pointer -Wall -Wextra -Wpedantic -Werror -Wno-sign-compare)
+target_compile_options(sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
 target_compile_features(sfFDN PRIVATE cxx_std_23)
-
-if(NOT WIN32)
-    target_compile_options(sfFDN PUBLIC $<$<CONFIG:Debug>:-fsanitize=address> -fno-omit-frame-pointer)
-    target_link_options(sfFDN PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
-endif()
+target_link_options(sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})

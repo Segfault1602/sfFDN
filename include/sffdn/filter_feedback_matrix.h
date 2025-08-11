@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "delaybank.h"
@@ -18,8 +18,6 @@ class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
     FilterFeedbackMatrix(uint32_t N);
-
-    void Clear();
 
     void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
 
@@ -35,7 +33,11 @@ class FilterFeedbackMatrix : public AudioProcessor
         return N_;
     }
 
+    void Clear() override;
+
     void PrintInfo() const;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     uint32_t N_;

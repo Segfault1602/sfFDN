@@ -104,4 +104,22 @@ uint32_t AudioProcessorChain::OutputChannelCount() const
     return processors_.back()->OutputChannelCount();
 }
 
+void AudioProcessorChain::Clear()
+{
+    for (auto& processor : processors_)
+    {
+        processor->Clear();
+    }
+}
+
+std::unique_ptr<AudioProcessor> AudioProcessorChain::Clone() const
+{
+    auto clone = std::make_unique<AudioProcessorChain>(block_size_);
+    for (const auto& processor : processors_)
+    {
+        clone->AddProcessor(processor->Clone());
+    }
+    return clone;
+}
+
 } // namespace sfFDN

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <span>
 #include <cstdint>
+#include <span>
 
 #include "sffdn/feedback_matrix.h"
 
@@ -26,12 +26,9 @@ class DelayMatrix : public AudioProcessor
 
     DelayMatrix(const DelayMatrix&) = delete;
     DelayMatrix& operator=(const DelayMatrix&) = delete;
-    DelayMatrix(DelayMatrix&&) = default;
-    DelayMatrix& operator=(DelayMatrix&&) = default;
 
-    /// @brief Clears the internal delay buffers.
-    /// This sets all delay buffers to zero.
-    void Clear();
+    DelayMatrix(DelayMatrix&&) noexcept;
+    DelayMatrix& operator=(DelayMatrix&&) noexcept;
 
     /// @brief Processes the input audio buffer through the delay matrix.
     /// @param input the input audio buffer
@@ -42,11 +39,19 @@ class DelayMatrix : public AudioProcessor
 
     uint32_t OutputChannelCount() const override;
 
+    /// @brief Clears the internal delay buffers.
+    /// This sets all delay buffers to zero.
+    void Clear() override;
+
     /// @brief Prints information about the delay matrix. For debugging purposes.
     void PrintInfo() const;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     class DelayMatrixImpl;
     std::unique_ptr<DelayMatrixImpl> impl_;
+
+    DelayMatrix() = default; // Default constructor used internally by Clone()
 };
 } // namespace sfFDN
