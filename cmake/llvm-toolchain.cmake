@@ -1,5 +1,8 @@
 include_guard(GLOBAL)
 
+set(CMAKE_CXX_COMPILER "clang++")
+set(CMAKE_C_COMPILER "clang")
+
 set(SFFDN_CXX_COMPILE_OPTIONS
     -Wall
     -Wextra

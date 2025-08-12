@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.31)
 
 project(sfFDN LANGUAGES CXX C VERSION 0.1.1)
 
@@ -16,11 +16,11 @@ if(SFFDN_BUILD_PYTHON_BINDINGS)
     add_subdirectory(py_binding)
 endif()
 
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake" VERSION ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion
-)
+# write_basic_package_version_file(
+#     "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake" VERSION ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion
+# )
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/sfFDN")
+# install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sfFDNConfigVersion.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/sfFDN")
 
 if(BUILD_TESTING)
     enable_testing()

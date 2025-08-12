@@ -15,6 +15,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/martinus/nanobench.git
     GIT_TAG v4.1.0
     GIT_SHALLOW TRUE
+    FIND_PACKAGE_ARGS
 )
 FetchContent_MakeAvailable(nanobench)
 # ====================
@@ -78,7 +79,7 @@ add_executable(perf ${PERF_SOURCE})
 target_link_libraries(
     perf
     PRIVATE sfFDN
-            nanobench
+            nanobench::nanobench
             Catch2::Catch2WithMain
             SndFile::sndfile
             Eigen3::Eigen
@@ -86,4 +87,4 @@ target_link_libraries(
 
 target_include_directories(perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(perf PRIVATE cxx_std_23)
-target_compile_options(perf PRIVATE -O3)
+target_compile_options(perf PRIVATE ${SFFDN_COMPILE_OPTIONS})

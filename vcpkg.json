@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "catch2",
+    "eigen3",
+    "libsndfile",
+    "nanobench",
+    "kissfft"
+  ]
+}

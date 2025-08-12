@@ -15,7 +15,7 @@ add_library(PFFFT STATIC ${pffft_SOURCE_DIR}/pffft.c)
 
 # PFFFT does not support small FFT sizes (< 32) so KISSFFT is used for those cases. So far, this is only used for
 # building Circulant Matrix.
-FetchContent_Declare(kissfft GIT_REPOSITORY https://github.com/mborgerding/kissfft.git)
+FetchContent_Declare(kissfft GIT_REPOSITORY https://github.com/mborgerding/kissfft.git FIND_PACKAGE_ARGS)
 set(KISSFFT_PKGCONFIG OFF CACHE BOOL "Disable kissfft pkgconfig" FORCE)
 set(KISSFFT_TEST OFF CACHE BOOL "Disable kissfft tests" FORCE)
 set(KISSFFT_TOOLS OFF CACHE BOOL "Disable kissfft tools" FORCE)

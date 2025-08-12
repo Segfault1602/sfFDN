@@ -59,7 +59,7 @@ target_sources(
 )
 
 target_include_directories(sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
-target_link_libraries(sfFDN PRIVATE Eigen3::Eigen PFFFT kissfft)
+target_link_libraries(sfFDN PRIVATE Eigen3::Eigen PFFFT kissfft::kissfft-float)
 target_compile_definitions(sfFDN PRIVATE -DEIGEN_RUNTIME_NO_MALLOC)
 target_compile_options(sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
 target_compile_features(sfFDN PRIVATE cxx_std_23)

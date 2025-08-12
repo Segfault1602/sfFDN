@@ -22,6 +22,16 @@
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
             }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows",
+            "description": "Build for Windows",
+            "inherits": "ninja-multi",
+            "cacheVariables": {
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            }
         }
     ],
     "buildPresets": [

@@ -4,6 +4,7 @@
 #include <memory>
 #include <numeric>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "sffdn/sffdn.h"
