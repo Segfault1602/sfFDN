@@ -1,7 +1,6 @@
 #include "sffdn/delaybank.h"
 
-#include <cassert>
-#include <cstdint>
+#include "pch.h"
 
 namespace sfFDN
 {
@@ -70,7 +69,7 @@ std::vector<uint32_t> DelayBank::GetDelays() const
     return delays;
 }
 
-void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output)
+void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());

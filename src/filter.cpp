@@ -1,9 +1,6 @@
 #include "sffdn/filter.h"
 
-#include <cmath>
-
-#include <algorithm>
-#include <numbers>
+#include "pch.h"
 
 namespace
 {
@@ -62,7 +59,7 @@ float OnePoleFilter::Tick(float in)
     return state_[0];
 }
 
-void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output)
+void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());

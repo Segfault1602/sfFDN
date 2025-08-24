@@ -1,9 +1,15 @@
 #include "sffdn/feedback_matrix.h"
 
-#include <cassert>
-#include <iostream>
+#include "pch.h"
 
 #include "matrix_gallery_internal.h"
+#include "sffdn/matrix_gallery.h"
+
+#include <sanitizer/rtsan_interface.h>
+
+#ifdef SFFDN_USE_VDSP
+#include <Accelerate/Accelerate.h>
+#endif
 
 namespace sfFDN
 {
@@ -11,17 +17,27 @@ namespace sfFDN
 class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 {
   public:
-    explicit ScalarFeedbackMatrixImpl(uint32_t N)
+    explicit ScalarFeedbackMatrixImpl(uint32_t N, ScalarMatrixType type)
         : N_(N)
     {
-        matrix_.setIdentity(N_, N_);
+        matrix_data_ = GenerateMatrix(N, type);
     }
 
-    void SetMatrix(const Eigen::MatrixXf& matrix)
+    void SetMatrix(std::span<const float> matrix)
     {
-        assert(matrix.rows() == matrix.cols());
-        N_ = matrix.rows();
-        matrix_ = matrix;
+        assert(matrix.size() == N_ * N_);
+        matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
+    }
+
+    bool GetMatrix(std::span<float> matrix) const
+    {
+        if (matrix.size() != N_ * N_)
+        {
+            return false;
+        }
+
+        std::ranges::copy(matrix_data_, matrix.begin());
+        return true;
     }
 
     void Process(const AudioBuffer& input, AudioBuffer& output)
@@ -33,28 +49,38 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         const uint32_t col = N_;
         const uint32_t row = input.SampleCount();
 
-        Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> input_map(input.Data(),
-                                                                                                          row, col);
-        Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> output_map(output.Data(), row,
-                                                                                                     col);
+#ifdef SFFDN_USE_VDSP
+        // #if 0
+        const float* A = matrix_data_.data();
+        const float* B = input.Data();
+        float* C = output.Data();
 
+        vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
+#else
+
+        Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);
+
+        Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
+        Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
         // The input and output buffers must not overlap
         // This is a requirement to avoid memory allocation in Eigen by using noalias()
         if (input.Data() != output.Data())
         {
-            output_map.noalias() = input_map * matrix_;
+            output_map.noalias() = input_map * matrix;
         }
         else
         {
+            __rtsan::ScopedDisabler d;
             // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary
             // buffer
-            output_map = input_map * matrix_;
+            output_map = input_map * matrix;
         }
+#endif
     }
 
     void Print() const
     {
-        std::cout << matrix_ << '\n';
+        // std::cout << matrix_ << '\n';
     }
 
     uint32_t GetSize() const
@@ -64,15 +90,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
     float GetCoefficient(uint32_t row, uint32_t col) const
     {
-        return matrix_(row, col);
-    }
-
-    void SetMatrix(const std::span<const float> matrix)
-    {
-        assert(matrix.size() == N_ * N_);
-        Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> matrix_map(
-            matrix.data(), N_, N_);
-        matrix_ = matrix_map;
+        return matrix_data_[row * N_ + col];
     }
 
     std::unique_ptr<ScalarFeedbackMatrixImpl> Clone() const
@@ -92,61 +110,19 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
   private:
     uint32_t N_;
-    Eigen::MatrixXf matrix_;
+    // Eigen::MatrixXf matrix_;
+    std::vector<float> matrix_data_;
 };
 
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(uint32_t N)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N, ScalarMatrixType type)
 {
-    Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
-    v.normalize();
-
-    Eigen::MatrixXf H = sfFDN::HouseholderMatrix(v);
-
-    ScalarFeedbackMatrix mat(N);
-    mat.impl_->SetMatrix(H);
-    return mat;
+    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(N, type);
 }
 
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Householder(std::span<const float> v)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N, std::span<const float> matrix)
 {
-    assert(v.size() > 0);
-    uint32_t N = v.size();
-
-    Eigen::MatrixXf I = Eigen::MatrixXf::Identity(N, N);
-    Eigen::Map<const Eigen::VectorXf> v_map(v.data(), N);
-
-    // Normalize the vector
-    Eigen::VectorXf v_normalized = v_map.normalized();
-
-    Eigen::MatrixXf H = sfFDN::HouseholderMatrix(v_normalized);
-
-    ScalarFeedbackMatrix mat(N);
-    mat.impl_->SetMatrix(H);
-    return mat;
-}
-
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Hadamard(uint32_t N)
-{
-    // only works for N = 2^k
-    assert((N & (N - 1)) == 0 && N > 0);
-
-    Eigen::MatrixXf H = sfFDN::HadamardMatrix(N);
-
-    ScalarFeedbackMatrix mat(N);
-    mat.impl_->SetMatrix(H);
-    return mat;
-}
-
-ScalarFeedbackMatrix ScalarFeedbackMatrix::Eye(uint32_t N)
-{
-    ScalarFeedbackMatrix mat(N);
-    mat.impl_->SetMatrix(Eigen::MatrixXf::Identity(N, N));
-    return mat;
-}
-
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N)
-{
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(N);
+    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(N, ScalarMatrixType::Identity);
+    impl_->SetMatrix(matrix);
 }
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other)
@@ -187,14 +163,16 @@ bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
         std::print(std::cerr, "Only square matrices are supported!\n");
         return false;
     }
-
-    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> matrix_map(matrix.data(), N,
-                                                                                                       N);
-    impl_->SetMatrix(matrix_map);
+    impl_->SetMatrix(matrix);
     return true;
 }
 
-void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
+bool ScalarFeedbackMatrix::GetMatrix(std::span<float> matrix) const
+{
+    return impl_->GetMatrix(matrix);
+}
+
+void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     impl_->Process(input, output);
 }

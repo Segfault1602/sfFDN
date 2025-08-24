@@ -49,7 +49,7 @@ class SchroederAllpassSection : public AudioProcessor
     void SetDelays(std::span<uint32_t> delays);
     void SetGains(std::span<float> gains);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
 

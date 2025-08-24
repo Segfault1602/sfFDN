@@ -8,7 +8,6 @@
 #include <span>
 #include <vector>
 
-#include "sffdn/sffdn.h"
 #include "upols.h"
 
 #include "filter_coeffs.h"
@@ -24,8 +23,9 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto sos = k_h001_AbsorbtionSOS[0];
     for (auto j = 0; j < sos.size(); j++)
     {
-        auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
-        auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
+        auto stage = std::span<const float>(sos.at(j % sos.size()));
+        auto b = stage.first(3);
+        auto a = stage.last(3);
         coeffs.push_back(b[0] / a[0]);
         coeffs.push_back(b[1] / a[0]);
         coeffs.push_back(b[2] / a[0]);
@@ -56,8 +56,8 @@ TEST_CASE("UPOLS")
     const uint32_t kBlockCount = kFirLength / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        auto input_span = std::span<float>(input.data() + i * kBlockSize, kBlockSize);
-        auto output_span = std::span<float>(output.data() + i * kBlockSize, kBlockSize);
+        auto input_span = std::span<float>(input).subspan(i * kBlockSize, kBlockSize);
+        auto output_span = std::span<float>(output).subspan(i * kBlockSize, kBlockSize);
         // Process the block
         upols.Process(input_span, output_span);
     }
@@ -88,8 +88,8 @@ TEST_CASE("UPOLS_Noise")
 
     std::vector<float> filter_output(kInputSize, 0.f);
     // Filter the input noise with the IIR filter
-    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input_chirp.data());
-    sfFDN::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output.data());
+    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input_chirp);
+    sfFDN::AudioBuffer ref_output_buffer(kInputSize, 1, filter_output);
 
     std::copy(input_chirp.begin(), input_chirp.end(), filter_output.begin());
     InnerProdFIR inner_prod_fir(fir);
@@ -104,8 +104,8 @@ TEST_CASE("UPOLS_Noise")
     const uint32_t kBlockCount = kInputSize / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        auto input_span = std::span<float>(input_chirp.data() + i * kBlockSize, kBlockSize);
-        auto output_span = std::span<float>(output.data() + i * kBlockSize, kBlockSize);
+        auto input_span = std::span<float>(input_chirp).subspan(i * kBlockSize, kBlockSize);
+        auto output_span = std::span<float>(output).subspan(i * kBlockSize, kBlockSize);
         // Process the block
         upols.Process(input_span, output_span);
     }

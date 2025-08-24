@@ -1,8 +1,6 @@
 #include "sffdn/audio_processor.h"
 
-#include <cassert>
-#include <iostream>
-#include <print>
+#include "pch.h"
 
 namespace sfFDN
 {
@@ -45,7 +43,7 @@ bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor>&& process
     return true;
 }
 
-void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
+void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     if (processors_.empty())
     {
@@ -67,8 +65,8 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     AudioBuffer buffer_a(block_size_, processors_[0]->OutputChannelCount(), work_buffer_a_);
     processors_[0]->Process(input, buffer_a);
 
-    float* ptr_a = work_buffer_a_.data();
-    float* ptr_b = work_buffer_b_.data();
+    std::span<float> ptr_a = work_buffer_a_;
+    std::span<float> ptr_b = work_buffer_b_;
 
     // Process the rest of the audio processors in the chain
     for (auto i = 1; i < processors_.size() - 1; ++i)

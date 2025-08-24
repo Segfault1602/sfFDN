@@ -3,7 +3,6 @@
 #include <array>
 
 #include "sffdn/audio_buffer.h"
-#include "sffdn/sffdn.h"
 
 TEST_CASE("AudioBuffer_Offset")
 {
@@ -16,7 +15,7 @@ TEST_CASE("AudioBuffer_Offset")
     {
         for (uint32_t j = 0; j < frame_size; ++j)
         {
-            buffer.at(i * frame_size + j) = static_cast<float>(j);
+            buffer.at((i * frame_size) + j) = static_cast<float>(j);
         }
     }
 
@@ -66,8 +65,8 @@ TEST_CASE("AudioBuffer_Offset")
         auto channel_span2 = twice_offset_from_original.GetChannelSpan(i);
         for (uint32_t j = 0; j < channel_span.size(); ++j)
         {
-            REQUIRE(channel_span[j] == static_cast<float>(j) + 2 * offset);
-            REQUIRE(channel_span2[j] == static_cast<float>(j) + 2 * offset);
+            REQUIRE(channel_span[j] == static_cast<float>(j) + (2 * offset));
+            REQUIRE(channel_span2[j] == static_cast<float>(j) + (2 * offset));
         }
     }
 }

@@ -21,8 +21,8 @@ TEST_CASE("ParallelGainsInput")
 
     std::iota(input.begin(), input.end(), 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     parallel_gains.Process(input_buffer, output_buffer);
 
@@ -56,8 +56,8 @@ TEST_CASE("ParallelGainsOutput")
         }
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     parallel_gains.Process(input_buffer, output_buffer);
 

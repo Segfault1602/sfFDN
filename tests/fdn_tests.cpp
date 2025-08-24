@@ -49,14 +49,14 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (auto i = 0; i < N; i++)
     {
-        auto sos = k_h001_AbsorbtionSOS[i];
+        auto sos = k_h001_AbsorbtionSOS.at(i);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         std::vector<float> coeffs;
-        for (auto j = 0; j < sos.size(); j++)
+        for (auto& stage : sos)
         {
-            auto b = std::span<const float>(&sos[j][0], 3);
-            auto a = std::span<const float>(&sos[j][3], 3);
+            auto b = std::span<const float>(stage).first(3);
+            auto a = std::span<const float>(stage).last(3);
             coeffs.push_back(b[0] / a[0]);
             coeffs.push_back(b[1] / a[0]);
             coeffs.push_back(b[2] / a[0]);
@@ -72,13 +72,13 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetFilterBank(std::move(filter_bank));
 
     std::vector<float> coeffs;
-    for (auto i = 0; i < k_h001_EqualizationSOS.size(); i++)
+    for (const auto& stage : k_h001_EqualizationSOS)
     {
-        coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][2] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][4] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
+        coeffs.push_back(stage[0] / stage[3]);
+        coeffs.push_back(stage[1] / stage[3]);
+        coeffs.push_back(stage[2] / stage[3]);
+        coeffs.push_back(stage[4] / stage[3]);
+        coeffs.push_back(stage[5] / stage[3]);
     }
 
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
@@ -105,16 +105,17 @@ TEST_CASE("FDN")
 
     std::vector<float> input(ITER, 0.f);
     input[0] = 1.f;
+
     std::vector<float> output(ITER, 0.f);
     auto clone_input = input;
     auto clone_output = output;
 
-    sfFDN::AudioBuffer input_buffer(ITER, 1, input.data());
-    sfFDN::AudioBuffer output_buffer(ITER, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(ITER, 1, input);
+    sfFDN::AudioBuffer output_buffer(ITER, 1, output);
     fdn->Process(input_buffer, output_buffer);
 
-    sfFDN::AudioBuffer clone_input_buffer(ITER, 1, clone_input.data());
-    sfFDN::AudioBuffer clone_output_buffer(ITER, 1, clone_output.data());
+    sfFDN::AudioBuffer clone_input_buffer(ITER, 1, clone_input);
+    sfFDN::AudioBuffer clone_output_buffer(ITER, 1, clone_output);
     auto clone_fdn = fdn->Clone();
     clone_fdn->Process(clone_input_buffer, clone_output_buffer);
 
@@ -163,8 +164,8 @@ TEST_CASE("FDN_Transposed")
     std::vector<float> output(ITER, 0.f);
     input[0] = 1.f;
 
-    sfFDN::AudioBuffer input_buffer(ITER, 1, input.data());
-    sfFDN::AudioBuffer output_buffer(ITER, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(ITER, 1, input);
+    sfFDN::AudioBuffer output_buffer(ITER, 1, output);
     fdn->Process(input_buffer, output_buffer);
 
     {
@@ -232,8 +233,8 @@ TEST_CASE("FDN_FIR")
 
     for (auto i = 0; i < input.size(); i += block_size)
     {
-        sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i);
-        sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i);
+        sfFDN::AudioBuffer input_buffer(block_size, 1, std::span(input).subspan(i, block_size));
+        sfFDN::AudioBuffer output_buffer(block_size, 1, std::span(output).subspan(i, block_size));
 
         fdn->Process(input_buffer, output_buffer);
     }
@@ -281,8 +282,8 @@ TEST_CASE("FDN_Chirp")
 
     std::vector<float> output(input.size(), 0.f);
 
-    sfFDN::AudioBuffer input_buffer(input.size(), 1, input.data());
-    sfFDN::AudioBuffer output_buffer(output.size(), 1, output.data());
+    sfFDN::AudioBuffer input_buffer(input.size(), 1, input);
+    sfFDN::AudioBuffer output_buffer(output.size(), 1, output);
     fdn->Process(input_buffer, output_buffer);
 
     WriteWavFile("fdn_chirp_test.wav", output);

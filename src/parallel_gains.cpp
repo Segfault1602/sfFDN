@@ -1,6 +1,8 @@
+#include <algorithm>
+
 #include "sffdn/parallel_gains.h"
 
-#include <cassert>
+#include "pch.h"
 
 #include "array_math.h"
 
@@ -36,6 +38,12 @@ void ParallelGains::SetGains(std::span<const float> gains)
     gains_.assign(gains.begin(), gains.end());
 }
 
+void ParallelGains::GetGains(std::span<float> gains) const
+{
+    assert(gains.size() == gains_.size());
+    std::ranges::copy(gains_, gains.begin());
+}
+
 uint32_t ParallelGains::InputChannelCount() const
 {
     switch (mode_)
@@ -67,7 +75,7 @@ uint32_t ParallelGains::OutputChannelCount() const
     }
 }
 
-void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output)
+void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     if (mode_ == ParallelGainsMode::Multiplexed)
     {

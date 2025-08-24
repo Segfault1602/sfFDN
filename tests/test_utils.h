@@ -34,19 +34,11 @@ struct InnerProdFIR
     {
         // allocate memory
         // (smart pointers would be preferred, but introduce a small overhead)
-        h = new float[order];
-        z = new float[2 * order];
-        zPtr = 0;
+        h = std::vector<float>(order);
+        z = std::vector<float>(2 * order);
 
-        std::fill(z, &z[2 * order], 0.0f);    // clear existing state
-        std::copy(fir.begin(), fir.end(), h); // copy FIR coefficients
-    }
-
-    virtual ~InnerProdFIR()
-    {
-        // deallocate memory
-        delete[] h;
-        delete[] z;
+        std::ranges::fill(z, 0.0f);        // clear existing state
+        std::ranges::copy(fir, h.begin()); // copy FIR coefficients
     }
 
     void Process(sfFDN::AudioBuffer& b)
@@ -61,8 +53,10 @@ struct InnerProdFIR
             z[zPtr] = buffer[n];
             z[zPtr + order] = buffer[n];
 
+            auto z_span = std::span(z).subspan(zPtr, order);
+
             // compute inner product over kernel and double-buffer state
-            y = std::inner_product(z + zPtr, z + zPtr + order, h, 0.0f);
+            y = std::inner_product(z_span.begin(), z_span.end(), h.begin(), 0.0f);
 
             zPtr = (zPtr == 0 ? order - 1 : zPtr - 1); // iterate state pointer in reverse
 
@@ -72,7 +66,7 @@ struct InnerProdFIR
 
   private:
     const int order;
-    int zPtr = 0; // state pointer
-    float* z;     // filter state
-    float* h;     // filter kernel
+    int zPtr = 0;         // state pointer
+    std::vector<float> z; // filter state
+    std::vector<float> h; // filter kernel
 };

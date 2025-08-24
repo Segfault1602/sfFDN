@@ -1,6 +1,6 @@
 #include "sffdn/schroeder_allpass.h"
 
-#include <cassert>
+#include "pch.h"
 
 namespace sfFDN
 {
@@ -105,17 +105,15 @@ uint32_t SchroederAllpassSection::OutputChannelCount() const
     return allpasses_.size();
 }
 
-void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output)
+void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == allpasses_.size());
 
-    for (uint32_t i = 0; i < allpasses_.size(); ++i)
+    for (auto [in, out, filter] : std::views::zip(input, output, allpasses_))
     {
-        auto input_span = input.GetChannelSpan(i);
-        auto output_span = output.GetChannelSpan(i);
-        allpasses_[i].ProcessBlock(input_span, output_span);
+        filter.ProcessBlock(in, out);
     }
 }
 

@@ -8,13 +8,16 @@
 #include <span>
 
 #include "audio_processor.h"
+#include "matrix_gallery.h"
 
 namespace sfFDN
 {
 class ScalarFeedbackMatrix : public AudioProcessor
 {
   public:
-    explicit ScalarFeedbackMatrix(uint32_t N = 4);
+    ScalarFeedbackMatrix(uint32_t N = 4, ScalarMatrixType type = ScalarMatrixType::Identity);
+    ScalarFeedbackMatrix(uint32_t N, std::span<const float> matrix);
+
     ~ScalarFeedbackMatrix() override;
 
     ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other);
@@ -23,14 +26,10 @@ class ScalarFeedbackMatrix : public AudioProcessor
     ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept;
     ScalarFeedbackMatrix& operator=(ScalarFeedbackMatrix&& other) noexcept;
 
-    static ScalarFeedbackMatrix Householder(uint32_t N);
-    static ScalarFeedbackMatrix Householder(std::span<const float> v);
-    static ScalarFeedbackMatrix Hadamard(uint32_t N);
-    static ScalarFeedbackMatrix Eye(uint32_t N);
-
     bool SetMatrix(const std::span<const float> matrix);
+    bool GetMatrix(std::span<float> matrix) const;
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     void Print() const;
 

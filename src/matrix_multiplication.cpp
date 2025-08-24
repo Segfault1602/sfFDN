@@ -1,13 +1,12 @@
 #include "matrix_multiplication.h"
 
-#include <cassert>
-#include <iostream>
-#include <cmath>
+#include "pch.h"
 
 #ifdef __cpp_lib_mdspan
 #include <mdspan>
 #else
-#pragma message("C++23 mdspan support is required for matrix multiplication. Please enable C++20 in your compiler settings.")
+#pragma message(                                                                                                       \
+    "C++23 mdspan support is required for matrix multiplication. Please enable C++20 in your compiler settings.")
 #endif
 
 namespace

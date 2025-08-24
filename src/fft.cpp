@@ -1,11 +1,8 @@
 #include "fft.h"
 
-#include <pffft.h>
+#include <pffft/pffft.h>
 
-#include <algorithm>
-#include <cassert>
-#include <format>
-#include <span>
+#include "pch.h"
 
 namespace
 {
@@ -25,15 +22,12 @@ namespace sfFDN
 
 template <typename T>
 FFTBuffer<T>::FFTBuffer()
-    : buffer_(nullptr)
-    , size_(0)
 {
 }
 
 template <typename T>
 FFTBuffer<T>::FFTBuffer(std::span<T> buffer)
-    : buffer_(buffer.data())
-    , size_(buffer.size())
+    : buffer_(buffer)
 {
     assert(buffer.data() != nullptr);
     assert(buffer.size() > 0);
@@ -42,21 +36,18 @@ FFTBuffer<T>::FFTBuffer(std::span<T> buffer)
 template <typename T>
 FFTBuffer<T>::~FFTBuffer()
 {
-    if (buffer_ != nullptr)
+    if (buffer_.data() != nullptr)
     {
-        pffft_aligned_free(static_cast<void*>(buffer_));
+        pffft_aligned_free(static_cast<void*>(buffer_.data()));
     }
-    buffer_ = nullptr;
-    size_ = 0;
+    buffer_ = std::span<T>();
 }
 
 template <typename T>
 FFTBuffer<T>::FFTBuffer(FFTBuffer&& other) noexcept
     : buffer_(other.buffer_)
-    , size_(other.size_)
 {
-    other.buffer_ = nullptr;
-    other.size_ = 0;
+    other.buffer_ = std::span<T>();
 }
 
 template <typename T>
@@ -64,14 +55,12 @@ FFTBuffer<T>& FFTBuffer<T>::operator=(FFTBuffer&& other) noexcept
 {
     if (this != &other)
     {
-        if (buffer_ != nullptr)
+        if (buffer_.data() != nullptr)
         {
-            pffft_aligned_free(static_cast<void*>(buffer_));
+            pffft_aligned_free(static_cast<void*>(buffer_.data()));
         }
         buffer_ = other.buffer_;
-        size_ = other.size_;
-        other.buffer_ = nullptr;
-        other.size_ = 0;
+        other.buffer_ = std::span<T>();
     }
     return *this;
 }
@@ -79,15 +68,15 @@ FFTBuffer<T>& FFTBuffer<T>::operator=(FFTBuffer&& other) noexcept
 template <typename T>
 std::span<T> FFTBuffer<T>::Data()
 {
-    assert(buffer_ != nullptr);
-    return {buffer_, size_};
+    assert(buffer_.data() != nullptr);
+    return buffer_;
 }
 
 template <typename T>
 std::span<const T> FFTBuffer<T>::Data() const
 {
-    assert(buffer_ != nullptr);
-    return {buffer_, size_};
+    assert(buffer_.data() != nullptr);
+    return buffer_;
 }
 
 FFT::FFT(uint32_t fft_size)
@@ -147,16 +136,21 @@ void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuff
 
 FFTRealBuffer FFT::AllocateRealBuffer() const
 {
+#pragma clang unsafe_buffer_usage begin
     auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);
+#pragma clang unsafe_buffer_usage end
     std::ranges::fill(mem, 0.f);
     return {mem};
 }
 
 FFTComplexBuffer FFT::AllocateComplexBuffer() const
 {
+#pragma clang unsafe_buffer_usage begin
     auto mem =
         std::span<complex_t>(static_cast<complex_t*>(pffft_aligned_malloc(complex_sample_count_ * sizeof(complex_t))),
                              complex_sample_count_);
+#pragma clang unsafe_buffer_usage end
+
     std::ranges::fill(mem, complex_t{0.f, 0.f});
     return {mem};
 }

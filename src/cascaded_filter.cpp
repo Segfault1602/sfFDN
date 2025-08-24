@@ -1,8 +1,6 @@
 #include "sffdn/filter.h"
 
-#include <cassert>
-#include <print>
-#include <span>
+#include "pch.h"
 
 namespace sfFDN
 {
@@ -73,7 +71,7 @@ float CascadedBiquads::Tick(float in)
     return out;
 }
 
-void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output)
+void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());

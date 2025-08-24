@@ -45,7 +45,7 @@ TEST_CASE("OnePoleFilter")
     std::array<float, size> output;
 
     sfFDN::AudioBuffer input_buffer(size, 1, input);
-    sfFDN::AudioBuffer output_buffer(size, 1, output.data());
+    sfFDN::AudioBuffer output_buffer(size, 1, output);
 
     filter.Process(input_buffer, output_buffer);
 
@@ -198,7 +198,7 @@ TEST_CASE("CascadedBiquads")
     std::array<float, size> output;
 
     sfFDN::AudioBuffer input_buffer(size, 1, input);
-    sfFDN::AudioBuffer output_buffer(size, 1, output.data());
+    sfFDN::AudioBuffer output_buffer(size, 1, output);
 
     filter.Process(input_buffer, output_buffer);
 

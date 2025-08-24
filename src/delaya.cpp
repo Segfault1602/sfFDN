@@ -1,9 +1,6 @@
 #include "sffdn/delaya.h"
 
-#include <algorithm>
-#include <cassert>
-#include <iostream>
-#include <print>
+#include "pch.h"
 
 namespace sfFDN
 {

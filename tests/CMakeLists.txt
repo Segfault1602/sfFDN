@@ -1,23 +1,8 @@
 # ======== Find Dependencies ========
 find_package(Catch2 3 REQUIRED)
+find_package(SndFile CONFIG REQUIRED)
+find_package(nanobench CONFIG REQUIRED)
 
-# Fetch libsndfile but try to use find_package first
-FetchContent_Declare(
-    libsndfile
-    GIT_REPOSITORY https://github.com/libsndfile/libsndfile.git
-    GIT_TAG master
-    FIND_PACKAGE_ARGS NAMES SndFile
-)
-FetchContent_MakeAvailable(libsndfile)
-
-FetchContent_Declare(
-    nanobench
-    GIT_REPOSITORY https://github.com/martinus/nanobench.git
-    GIT_TAG v4.1.0
-    GIT_SHALLOW TRUE
-    FIND_PACKAGE_ARGS
-)
-FetchContent_MakeAvailable(nanobench)
 # ====================
 
 set(TEST_SOURCE
@@ -54,10 +39,6 @@ target_compile_options(tests PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
 target_link_options(tests PRIVATE ${SFFDN_LINK_OPTIONS})
 target_compile_features(tests PRIVATE cxx_std_23)
 
-if(NOT WIN32)
-
-endif()
-
 include(CTest)
 include(Catch)
 catch_discover_tests(tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
@@ -75,6 +56,7 @@ set(PERF_SOURCE
     nupols_perf.cpp
     test_utils.cpp
 )
+
 add_executable(perf ${PERF_SOURCE})
 target_link_libraries(
     perf
@@ -83,6 +65,7 @@ target_link_libraries(
             Catch2::Catch2WithMain
             SndFile::sndfile
             Eigen3::Eigen
+            "-framework Accelerate"
 )
 
 target_include_directories(perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})

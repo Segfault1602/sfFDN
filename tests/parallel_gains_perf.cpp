@@ -39,8 +39,8 @@ TEST_CASE("ParallelInputGainsPerf")
     sfFDN::ParallelGains input_gains(sfFDN::ParallelGainsMode::Multiplexed);
     input_gains.SetGains(kGains);
     bench.run("ParallelGains - Input", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
         input_gains.Process(input_buffer, output_buffer);
     });
 
@@ -80,8 +80,8 @@ TEST_CASE("ParallelOutputGainsPerf")
     sfFDN::ParallelGains output_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
     output_gains.SetGains(kGains);
     bench.run("ParallelGains - Output", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+        sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         output_gains.Process(input_buffer, output_buffer);
     });
 

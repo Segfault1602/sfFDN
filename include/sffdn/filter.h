@@ -40,7 +40,7 @@ class OnePoleFilter : public AudioProcessor
     /// @return The next output sample
     float Tick(float in);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
 
@@ -65,7 +65,7 @@ class CascadedBiquads : public AudioProcessor
 
     float Tick(float in);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
 

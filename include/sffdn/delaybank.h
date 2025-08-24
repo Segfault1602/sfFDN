@@ -68,7 +68,7 @@ class DelayBank : public AudioProcessor
     /// @param output The output audio buffer.
     /// @note The input and output buffers must have the same sample count and a channel count equal to the number of
     /// delay lines in the bank.
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     /// @brief Adds the next input samples to each delay line in the bank.
     /// @param input The input audio buffer containing samples for each channel.

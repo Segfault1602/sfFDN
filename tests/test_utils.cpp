@@ -12,6 +12,9 @@
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity)
 {
     assert(N <= 32);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(-1.f, 1.f);
 
     std::vector<float> sparsity_vect(K, 1);
     sparsity_vect[0] = sparsity;
@@ -19,18 +22,9 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, u
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
 
     std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(K);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-1.f, 1.f);
     for (uint32_t i = 0; i < K; ++i)
     {
-        std::vector<float> u_n(N, 0.f);
-        for (uint32_t j = 0; j < N; ++j)
-        {
-            u_n[j] = dis(gen);
-        }
-
-        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix::Householder(u_n);
+        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::RandomHouseholder);
     }
 
     std::uniform_real_distribution<float> dis2(0.f, 1.f);
@@ -67,8 +61,9 @@ std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order)
         std::vector<float> coeffs;
         for (uint32_t j = 0; j < order; j++)
         {
-            auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
-            auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
+            auto stage = std::span<const float>(sos[j % sos.size()]);
+            auto b = stage.first(3);
+            auto a = stage.last(3);
             coeffs.push_back(b[0] / a[0]);
             coeffs.push_back(b[1] / a[0]);
             coeffs.push_back(b[2] / a[0]);
@@ -144,7 +139,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t N)
     fdn->SetDirectGain(0.f);
     fdn->SetDelays(GetDefaultDelays(N));
 
-    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder));
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = GetFilterBank(N, 11);
@@ -172,7 +168,7 @@ std::vector<float> ReadWavFile(const std::string& filename)
 {
     SF_INFO sfinfo;
     SNDFILE* file = sf_open(filename.c_str(), SFM_READ, &sfinfo);
-    if (!file)
+    if (file == nullptr)
     {
         throw std::runtime_error("Failed to open WAV file: " + filename);
     }
@@ -199,7 +195,7 @@ void WriteWavFile(const std::string& filename, const std::vector<float>& data)
     sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
 
     SNDFILE* file = sf_open(filename.c_str(), SFM_WRITE, &sfinfo);
-    if (!file)
+    if (file == nullptr)
     {
         throw std::runtime_error("Failed to open WAV file for writing: " + filename);
     }

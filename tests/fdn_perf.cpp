@@ -84,7 +84,8 @@ TEST_CASE("FDNPerf")
         fir_filter_bank->Process(input_buffer, output_buffer);
     });
 
-    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrix::Householder(N));
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder));
     bench.run("Mixing Matrix", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
@@ -184,13 +185,7 @@ TEST_CASE("FDNPerf_FFM")
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
     for (uint32_t i = 0; i < K; ++i)
     {
-        float u_n[N] = {0.f};
-        for (uint32_t j = 0; j < N; ++j)
-        {
-            u_n[j] = dis(gen);
-        }
-
-        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix::Householder(u_n);
+        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::RandomHouseholder);
     }
     ffm->ConstructMatrix(ffm_delays, mixing_matrices);
 
@@ -278,8 +273,10 @@ TEST_CASE("FDNPerf_BlockSize")
             uint32_t block_count = kInputSize / block_size;
             for (auto i = 0; i < block_count; ++i)
             {
-                sfFDN::AudioBuffer input_buffer(block_size, 1, input.data() + i * block_size);
-                sfFDN::AudioBuffer output_buffer(block_size, 1, output.data() + i * block_size);
+                sfFDN::AudioBuffer input_buffer(block_size, 1,
+                                                std::span<float>(input).subspan(i * block_size, block_size));
+                sfFDN::AudioBuffer output_buffer(block_size, 1,
+                                                 std::span<float>(output).subspan(i * block_size, block_size));
                 fdn->Process(input_buffer, output_buffer);
             }
         });

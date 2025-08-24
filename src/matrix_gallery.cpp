@@ -1,8 +1,6 @@
 #include "sffdn/matrix_gallery.h"
 
-#include <cassert>
-#include <iostream>
-#include <random>
+#include "pch.h"
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
@@ -301,7 +299,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
     }
 
     cfg = kiss_fft_alloc(N, 1, nullptr, nullptr);
-    kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(R.data()), reinterpret_cast<kiss_fft_cpx*>(RF.data()));
+    kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(RF.data()), reinterpret_cast<kiss_fft_cpx*>(R.data()));
     kiss_fft_free(cfg);
     for (auto i = 0; i < N; ++i)
     {
@@ -394,7 +392,7 @@ std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t se
     {
         for (auto j = 0; j < N; ++j)
         {
-            matrix[i * N + j] = A(i, j);
+            matrix[(i * N) + j] = A(i, j);
         }
     }
 
@@ -410,7 +408,7 @@ std::vector<float> NestedAllpassMatrix(uint32_t N, uint32_t seed, std::span<floa
     {
         for (auto j = 0; j < N; ++j)
         {
-            matrix[i * N + j] = A(i, j);
+            matrix[(i * N) + j] = A(i, j);
         }
     }
 
@@ -445,12 +443,18 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t N, uint32_t 
         pulse_size = pulse_size * N * sparsity_vec[i];
 
         matrices.push_back(R1);
-        delays.insert(delays.end(), shift_left.data(), shift_left.data() + N);
+        for (auto d : shift_left)
+        {
+            delays.push_back(static_cast<uint32_t>(d));
+        }
     }
 
     // Add the last delay stage
     Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[K - 1], pulse_size);
-    delays.insert(delays.end(), shift_left.data(), shift_left.data() + N);
+    for (auto d : shift_left)
+    {
+        delays.push_back(static_cast<uint32_t>(d));
+    }
 
     CascadedFeedbackMatrixInfo info;
     info.N = N;

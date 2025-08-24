@@ -1,7 +1,6 @@
 #include "sffdn/partitioned_convolver.h"
 
-#include <cassert>
-#include <print>
+#include "pch.h"
 
 #include "circular_buffer.h"
 #include "upols.h"
@@ -188,7 +187,7 @@ PartitionedConvolver& PartitionedConvolver::operator=(PartitionedConvolver&& oth
     return *this;
 }
 
-void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output)
+void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     impl_->Process(input, output);
 }

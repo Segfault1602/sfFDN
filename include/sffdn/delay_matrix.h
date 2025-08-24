@@ -33,7 +33,7 @@ class DelayMatrix : public AudioProcessor
     /// @brief Processes the input audio buffer through the delay matrix.
     /// @param input the input audio buffer
     /// @param output the output audio buffer
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
 

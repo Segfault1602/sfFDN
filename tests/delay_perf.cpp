@@ -68,8 +68,8 @@ TEST_CASE("DelayBank")
         input[i] = dist(generator);
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     nanobench::Bench bench;
     bench.title("DelayBank Perf");
@@ -125,8 +125,10 @@ TEST_CASE("DelayBank_BlockSize")
             uint32_t block_count = kInputSize / kBlockSize;
             for (auto j = 0; j < block_count; ++j)
             {
-                sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data() + j * kBlockSize);
-                sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + j * kBlockSize);
+                sfFDN::AudioBuffer input_buffer(kBlockSize, 1,
+                                                std::span<float>(input).subspan(j * kBlockSize, kBlockSize));
+                sfFDN::AudioBuffer output_buffer(kBlockSize, 1,
+                                                 std::span<float>(output).subspan(j * kBlockSize, kBlockSize));
 
                 delay_bank.GetNextOutputs(output_buffer);
                 delay_bank.AddNextInputs(input_buffer);

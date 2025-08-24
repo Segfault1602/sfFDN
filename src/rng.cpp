@@ -1,5 +1,7 @@
 #include "rng.h"
 
+#include "pch.h"
+
 namespace sfFDN
 {
 uint32_t rng()

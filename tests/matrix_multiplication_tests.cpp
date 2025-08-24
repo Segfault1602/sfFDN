@@ -6,6 +6,7 @@
 #include <span>
 #include <vector>
 
+#include "rng.h"
 #include "sffdn/sffdn.h"
 
 #include "matrix_multiplication.h"
@@ -26,13 +27,12 @@ void TestMatrixMultiply_Eye()
     std::vector<float> input(N, 0.f);
     for (auto i = 0; i < N; ++i)
     {
-        input[i] = rand();
+        input[i] = sfFDN::rng();
     }
 
     std::vector<float> output(N, 0.f);
 
-    auto matrix_span = std::span<const float, N * N>(matrix.data(), N * N);
-    sfFDN::MatrixMultiply_C(input, output, matrix_span, N);
+    sfFDN::MatrixMultiply_C(input, output, matrix, N);
 
     for (auto i = 0; i < N; ++i)
     {
@@ -63,7 +63,7 @@ TEST_CASE("MatrixMultiply")
             std::vector<float> input(kInputSize);
             for (auto i = 0; i < kInputSize; ++i)
             {
-                input[i] = rand() % 1000 / 1000.f;
+                input[i] = sfFDN::rng() % 1000 / 1000.f;
             }
 
             std::vector<float> matrix = sfFDN::GenerateMatrix(N, sfFDN::ScalarMatrixType::Random, 123);
@@ -109,10 +109,9 @@ TEST_CASE("MatrixMultiply_6")
     };
     // clang-format on
 
-    float output[kInputSize] = {0.f};
+    std::array<float, kInputSize> output = {0.f};
 
-    auto matrix_span = std::span<const float, N * N>(matrix.data(), N * N);
-    sfFDN::MatrixMultiply_C(a, output, matrix_span, N);
+    sfFDN::MatrixMultiply_C(a, output, matrix, N);
 
     Eigen::Map<Eigen::Matrix<float, kRowCount, N>> input_map(a);
     Eigen::Map<Eigen::Matrix<float, N, N>> matrix_map(matrix.data());

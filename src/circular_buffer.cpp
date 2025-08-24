@@ -1,9 +1,6 @@
 #include "circular_buffer.h"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <vector>
+#include "pch.h"
 
 namespace sfFDN
 {

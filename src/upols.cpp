@@ -1,9 +1,6 @@
 #include "upols.h"
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <iostream>
+#include "pch.h"
 
 #include "math_utils.h"
 

@@ -1,10 +1,6 @@
 #include "oscillator.h"
 
-#include <array>
-#include <cassert>
-#include <cmath>
-#include <numbers>
-#include <print>
+#include "pch.h"
 
 namespace
 {

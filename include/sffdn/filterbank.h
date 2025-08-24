@@ -19,7 +19,7 @@ class FilterBank : public AudioProcessor
 
     void AddFilter(std::unique_ptr<AudioProcessor> filter);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
 

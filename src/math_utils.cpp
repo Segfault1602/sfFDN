@@ -1,5 +1,7 @@
 #include "math_utils.h"
 
+#include "pch.h"
+
 namespace sfFDN
 {
 

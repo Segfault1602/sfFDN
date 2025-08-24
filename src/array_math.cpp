@@ -1,7 +1,6 @@
 #include "array_math.h"
 
-#include <cassert>
-#include <cstdint>
+#include "pch.h"
 
 namespace sfFDN
 {

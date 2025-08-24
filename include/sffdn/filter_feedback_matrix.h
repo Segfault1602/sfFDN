@@ -21,7 +21,7 @@ class FilterFeedbackMatrix : public AudioProcessor
 
     void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override
     {
@@ -36,6 +36,9 @@ class FilterFeedbackMatrix : public AudioProcessor
     void Clear() override;
 
     void PrintInfo() const;
+
+    // TODO: this is just for the GUI in FDNSandbox
+    bool GetFirstMatrix(std::span<float> matrix) const;
 
     std::unique_ptr<AudioProcessor> Clone() const override;
 

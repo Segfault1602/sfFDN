@@ -1,12 +1,10 @@
 #include "sffdn/filter_feedback_matrix.h"
 
-#include <cassert>
-#include <iostream>
-#include <print>
+#include "pch.h"
 
 namespace
 {
-constexpr uint32_t kDefaultBlockSize = 128; // Default block size for delay banks
+constexpr uint32_t kDefaultBlockSize = 1024; // Default block size for delay banks
 }
 
 namespace sfFDN
@@ -46,7 +44,7 @@ void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
     }
 }
 
-void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
+void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == N_);
@@ -89,6 +87,21 @@ void FilterFeedbackMatrix::PrintInfo() const
     }
 }
 
+bool FilterFeedbackMatrix::GetFirstMatrix(std::span<float> matrix) const
+{
+    if (matrix.size() != N_ * N_)
+    {
+        return false;
+    }
+
+    if (matrix_.empty())
+    {
+        return false;
+    }
+
+    return matrix_[0].GetMatrix(matrix);
+}
+
 std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
 {
     if (info.delays.size() % info.N != 0)
@@ -110,9 +123,10 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFee
     }
 
     std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
+    auto all_matrices_span = std::span(info.matrices);
     for (auto i = 0; i < info.K; i++)
     {
-        std::span<const float> matrix_span(info.matrices.data() + (i * info.N * info.N), info.N * info.N);
+        std::span<const float> matrix_span = all_matrices_span.subspan(i * info.N * info.N, info.N * info.N);
         sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);
         feedback_matrix.SetMatrix(matrix_span);
         feedback_matrices.push_back(feedback_matrix);

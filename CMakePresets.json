@@ -7,37 +7,96 @@
     },
     "configurePresets": [
         {
-            "name": "ninja-multi",
+            "name": "common",
             "hidden": true,
-            "displayName": "Ninja Multi-Config",
-            "description": "Default build using Ninja Multi-Config generator",
-            "generator": "Ninja Multi-Config",
-            "binaryDir": "${sourceDir}/build"
+            "displayName": "Common",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+            }
         },
         {
-            "name": "apple",
-            "displayName": "Apple",
-            "description": "Build for Apple platforms",
-            "inherits": "ninja-multi",
+            "name": "Debug",
+            "hidden": true,
+            "inherits": "common",
+            "description": "Default build using Ninja generator",
+            "binaryDir": "${sourceDir}/build/debug",
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Release",
+            "hidden": true,
+            "inherits": "common",
+            "binaryDir": "${sourceDir}/build/Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "RelWithDebInfo",
+            "hidden": true,
+            "inherits": "common",
+            "binaryDir": "${sourceDir}/build/RelWithDebInfo",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "apple-dbg",
+            "displayName": "Apple - Debug",
+            "description": "Build for Apple platforms",
+            "inherits": "Debug",
+            "cacheVariables": {
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "apple-rel",
+            "displayName": "Apple - Release",
+            "description": "Build for Apple platforms",
+            "inherits": "Release",
+            "cacheVariables": {
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
             }
         },
         {
             "name": "windows",
             "displayName": "Windows",
             "description": "Build for Windows",
-            "inherits": "ninja-multi",
+            "inherits": "Debug",
             "cacheVariables": {
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "default",
-            "configurePreset": "apple"
+            "name": "debug",
+            "configurePreset": "apple-dbg"
+        },
+        {
+            "name": "release",
+            "configurePreset": "apple-rel"
         }
     ]
 }

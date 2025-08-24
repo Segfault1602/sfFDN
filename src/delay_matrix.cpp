@@ -1,8 +1,6 @@
 #include "sffdn/delay_matrix.h"
 
-#include <cassert>
-#include <iostream>
-#include <print>
+#include "pch.h"
 
 #ifdef __cpp_lib_mdspan
 #include <mdspan>
@@ -161,7 +159,7 @@ void DelayMatrix::Clear()
     impl_->Clear();
 }
 
-void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output)
+void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     impl_->Process(input, output);
 }

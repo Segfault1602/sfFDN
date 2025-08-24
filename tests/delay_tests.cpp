@@ -4,10 +4,43 @@
 #include <array>
 #include <limits>
 #include <numeric>
+#include <ranges>
 #include <sndfile.h>
 #include <vector>
 
 #include "sffdn/sffdn.h"
+
+namespace
+{
+template <typename T>
+void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
+{
+    T delay_sample(delay, max_delay);
+
+    std::vector<float> output_sample;
+    output_sample.reserve(block_size);
+    for (uint32_t i = 0; i < block_size; ++i)
+    {
+        output_sample.push_back(delay_sample.Tick(i));
+    }
+
+    T delay_block(delay, max_delay);
+    std::vector<float> input_block(block_size, 0.f);
+    std::iota(input_block.begin(), input_block.end(), 0.f);
+
+    std::vector<float> output_block(block_size, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(block_size, 1, input_block);
+    sfFDN::AudioBuffer output_buffer(block_size, 1, output_block);
+
+    delay_block.Process(input_buffer, output_buffer);
+
+    for (auto [out, expected] : std::views::zip(output_block, output_sample))
+    {
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
+    }
+}
+} // namespace
 
 TEST_CASE("Delay")
 {
@@ -15,16 +48,18 @@ TEST_CASE("Delay")
 
     std::vector<float> output;
     constexpr uint32_t iteration = 10;
+    output.reserve(iteration);
     for (uint32_t i = 0; i < iteration; ++i)
     {
         output.push_back(delay.Tick(i));
     }
 
-    constexpr float expected_output[] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+    constexpr std::array<float, 10> expected_output = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-    for (uint32_t i = 0; i < iteration; ++i)
+    // for (uint32_t i = 0; i < iteration; ++i)
+    for (auto [out, expected] : std::views::zip(output, expected_output))
     {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -40,11 +75,11 @@ TEST_CASE("DelayTapOut")
         output.push_back(delay.TapOut(1));
     }
 
-    constexpr float expected_output[] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+    constexpr std::array<float, 10> expected_output = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-    for (uint32_t i = 0; i < iteration; ++i)
+    for (auto [out, expected] : std::views::zip(output, expected_output))
     {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -52,8 +87,9 @@ TEST_CASE("ZeroDelay")
 {
     sfFDN::Delay delay(0, 10);
 
-    std::vector<float> output;
     constexpr uint32_t iteration = 10;
+    std::vector<float> output;
+    output.reserve(iteration);
     for (uint32_t i = 0; i < iteration; ++i)
     {
         output.push_back(delay.Tick(i));
@@ -61,11 +97,11 @@ TEST_CASE("ZeroDelay")
         REQUIRE(output[i] == delay.TapOut(0));
     }
 
-    constexpr float expected_output[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    constexpr std::array<float, 10> expected_output = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
-    for (uint32_t i = 0; i < iteration; ++i)
+    for (auto [out, expected] : std::views::zip(output, expected_output))
     {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -75,45 +111,17 @@ TEST_CASE("DelayA")
 
     std::vector<float> output;
     constexpr uint32_t iteration = 10;
+    output.reserve(iteration);
     for (uint32_t i = 0; i < iteration; ++i)
     {
         output.push_back(delay.Tick(i));
     }
 
-    constexpr float expected_output[] = {0, 0, 0.33, 1.55, 2.48, 3.50, 4.49, 5.50, 6.50, 7.50};
+    constexpr std::array<float, 10> expected_output = {0, 0, 0.33, 1.55, 2.48, 3.50, 4.49, 5.50, 6.50, 7.50};
 
-    for (uint32_t i = 0; i < iteration; ++i)
+    for (auto [out, expected] : std::views::zip(output, expected_output))
     {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-2));
-    }
-}
-
-template <typename T>
-void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
-{
-    T delay_sample(delay, max_delay);
-
-    std::vector<float> output_sample;
-    for (uint32_t i = 0; i < block_size; ++i)
-    {
-        output_sample.push_back(delay_sample.Tick(i));
-    }
-
-    T delay_block(delay, max_delay);
-    std::vector<float> input_block(block_size, 0.f);
-    std::iota(input_block.begin(), input_block.end(), 0.f);
-
-    std::vector<float> output_block(block_size, 0.f);
-
-    sfFDN::AudioBuffer input_buffer(block_size, 1, input_block.data());
-    sfFDN::AudioBuffer output_buffer(block_size, 1, output_block.data());
-
-    delay_block.Process(input_buffer, output_buffer);
-
-    for (uint32_t i = 0; i < block_size; ++i)
-    {
-        REQUIRE_THAT(output_block[i],
-                     Catch::Matchers::WithinAbs(output_sample[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
     }
 }
 
@@ -138,10 +146,11 @@ TEST_CASE("DelayBank")
     std::array<float, kNumDelay> impulse = {1, 1, 1, 1};
     std::array<float, 4> buffer = {0, 0, 0, 0};
 
-    sfFDN::AudioBuffer impulse_buffer(1, kNumDelay, impulse.data());
-    sfFDN::AudioBuffer buffer_audio(1, kNumDelay, buffer.data());
+    sfFDN::AudioBuffer impulse_buffer(1, kNumDelay, impulse);
+    sfFDN::AudioBuffer buffer_audio(1, kNumDelay, buffer);
 
     delay_bank.Process(impulse_buffer, buffer_audio);
+    output.reserve(buffer.size());
     for (auto& i : buffer)
     {
         output.push_back(i);
@@ -169,13 +178,13 @@ TEST_CASE("DelayBank")
     for (uint32_t i = 0; i < output.size(); i += 4)
     {
         REQUIRE_THAT(output[i],
-                     Catch::Matchers::WithinAbs(delay0_expected[i / 4], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay0_expected.at(i / 4), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(output[i + 1],
-                     Catch::Matchers::WithinAbs(delay1_expected[i / 4], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay1_expected.at(i / 4), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(output[i + 2],
-                     Catch::Matchers::WithinAbs(delay2_expected[i / 4], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay2_expected.at(i / 4), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(output[i + 3],
-                     Catch::Matchers::WithinAbs(delay3_expected[i / 4], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay3_expected.at(i / 4), std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -195,8 +204,8 @@ TEST_CASE("DelayBankBlock")
 
     std::vector<float> output(kNumDelay * kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, kNumDelay, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, kNumDelay, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kNumDelay, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kNumDelay, output);
 
     delay_bank.Process(input_buffer, output_buffer);
 
@@ -207,23 +216,14 @@ TEST_CASE("DelayBankBlock")
 
     for (uint32_t j = 0; j < kBlockSize; ++j)
     {
-        REQUIRE_THAT(output[0 * kBlockSize + j],
-                     Catch::Matchers::WithinAbs(delay0_expected[j], std::numeric_limits<float>::epsilon()));
-    }
-    for (uint32_t j = 0; j < kBlockSize; ++j)
-    {
-        REQUIRE_THAT(output[1 * kBlockSize + j],
-                     Catch::Matchers::WithinAbs(delay1_expected[j], std::numeric_limits<float>::epsilon()));
-    }
-    for (uint32_t j = 0; j < kBlockSize; ++j)
-    {
-        REQUIRE_THAT(output[2 * kBlockSize + j],
-                     Catch::Matchers::WithinAbs(delay2_expected[j], std::numeric_limits<float>::epsilon()));
-    }
-    for (uint32_t j = 0; j < kBlockSize; ++j)
-    {
-        REQUIRE_THAT(output[3 * kBlockSize + j],
-                     Catch::Matchers::WithinAbs(delay3_expected[j], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(0)[j],
+                     Catch::Matchers::WithinAbs(delay0_expected.at(j), std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(1)[j],
+                     Catch::Matchers::WithinAbs(delay1_expected.at(j), std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(2)[j],
+                     Catch::Matchers::WithinAbs(delay2_expected.at(j), std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_buffer.GetChannelSpan(3)[j],
+                     Catch::Matchers::WithinAbs(delay3_expected.at(j), std::numeric_limits<float>::epsilon()));
     }
 }
 
@@ -239,12 +239,12 @@ TEST_CASE("DelayBankProcess")
     std::array<float, kNumDelay * kBlockSize> impulse = {0.f};
     for (auto i = 0; i < kNumDelay; ++i)
     {
-        impulse[i * kBlockSize] = 1.f;
+        impulse.at(i * kBlockSize) = 1.f;
     }
     std::array<float, kNumDelay * kBlockSize> buffer = {0.f};
 
-    sfFDN::AudioBuffer impulse_buffer(kBlockSize, kNumDelay, impulse.data());
-    sfFDN::AudioBuffer buffer_audio(kBlockSize, kNumDelay, buffer.data());
+    sfFDN::AudioBuffer impulse_buffer(kBlockSize, kNumDelay, impulse);
+    sfFDN::AudioBuffer buffer_audio(kBlockSize, kNumDelay, buffer);
 
     delay_bank.Process(impulse_buffer, buffer_audio);
 
@@ -256,12 +256,12 @@ TEST_CASE("DelayBankProcess")
     for (uint32_t i = 0; i < kBlockSize; ++i)
     {
         REQUIRE_THAT(buffer_audio.GetChannelSpan(0)[i],
-                     Catch::Matchers::WithinAbs(delay0_expected[i], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay0_expected.at(i), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(buffer_audio.GetChannelSpan(1)[i],
-                     Catch::Matchers::WithinAbs(delay1_expected[i], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay1_expected.at(i), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(buffer_audio.GetChannelSpan(2)[i],
-                     Catch::Matchers::WithinAbs(delay2_expected[i], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay2_expected.at(i), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(buffer_audio.GetChannelSpan(3)[i],
-                     Catch::Matchers::WithinAbs(delay3_expected[i], std::numeric_limits<float>::epsilon()));
+                     Catch::Matchers::WithinAbs(delay3_expected.at(i), std::numeric_limits<float>::epsilon()));
     }
 }

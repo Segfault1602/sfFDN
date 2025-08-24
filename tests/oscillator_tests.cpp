@@ -26,7 +26,7 @@ TEST_CASE("SineWave")
     const uint32_t kBlockCount = kOutputSize / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data() + i * kBlockSize);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i * kBlockSize, kBlockSize));
         sine_wave.Generate(output_buffer);
     }
 

@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/Debug/tests",
             "args": [
-                "FDN_FIR"
+                "TwoFilter"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

@@ -25,22 +25,39 @@ class FDN : public AudioProcessor
     FDN(FDN&&) noexcept;
     FDN& operator=(FDN&&) noexcept;
 
+    /// @brief Set the number of channels of the FDN
+    /// @param N The number of channels. Must be at least 4.
+    /// Calling this method will reset the internal components of the FDN to the default state.
+    void SetN(uint32_t N);
+
+    uint32_t GetN() const;
+
+    void SetTranspose(bool transpose);
+    bool GetTranspose() const;
+
     bool SetInputGains(std::unique_ptr<AudioProcessor> gains);
     bool SetOutputGains(std::unique_ptr<AudioProcessor> gains);
+    AudioProcessor* GetInputGains() const;
 
     bool SetInputGains(std::span<const float> gains);
     bool SetOutputGains(std::span<const float> gains);
+    AudioProcessor* GetOutputGains() const;
 
     void SetDirectGain(float gain);
 
     bool SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
+    AudioProcessor* GetFilterBank() const;
+
     bool SetDelays(const std::span<const uint32_t> delays);
+    const DelayBank& GetDelayBank() const;
 
     bool SetFeedbackMatrix(std::unique_ptr<AudioProcessor> mixing_matrix);
+    AudioProcessor* GetFeedbackMatrix() const;
 
     bool SetTCFilter(std::unique_ptr<AudioProcessor> filter);
+    AudioProcessor* GetTCFilter() const;
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override
     {
@@ -55,6 +72,7 @@ class FDN : public AudioProcessor
     void Clear() override;
 
     std::unique_ptr<AudioProcessor> Clone() const override;
+    std::unique_ptr<FDN> CloneFDN() const;
 
   private:
     void TickInternal(const AudioBuffer& input, AudioBuffer& output);

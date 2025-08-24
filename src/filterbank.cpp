@@ -1,6 +1,7 @@
 #include "sffdn/filterbank.h"
+#include "sffdn/audio_buffer.h"
 
-#include <cassert>
+#include "pch.h"
 
 namespace sfFDN
 {
@@ -19,7 +20,7 @@ void FilterBank::AddFilter(std::unique_ptr<AudioProcessor> filter)
     filters_.push_back(std::move(filter));
 }
 
-void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output)
+void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());

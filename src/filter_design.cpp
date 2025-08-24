@@ -1,13 +1,7 @@
 #include "sffdn/filter_design.h"
 #include "filter_design_internal.h"
 
-#include <array>
-#include <cassert>
-#include <cmath>
-#include <complex>
-#include <numbers>
-#include <span>
-#include <vector>
+#include "pch.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -28,9 +22,6 @@ float RT602Slope(float t60, float sr)
 Eigen::MatrixXd InteractionMatrix(const Eigen::ArrayXd& G, double kGW, std::span<const double> wg,
                                   std::span<const double> wc, std::span<const double> bw)
 {
-    // const uint32_t kM = wg.size(); // 10
-    // const uint32_t kN = wc.size(); // 19
-
     constexpr int kM = 10;
     constexpr int kN = 19;
 
@@ -40,15 +31,19 @@ Eigen::MatrixXd InteractionMatrix(const Eigen::ArrayXd& G, double kGW, std::span
     Eigen::Array<double, kM, 1> Gw = kGW * Gdb;
     Gw = Eigen::pow(10.0, Gw / 20.0);
 
-    if (Gdb.sum() == 0.0f)
+    if (Gdb.sum() <= 1e-15)
     {
+        for (int i = 0; i < kM; ++i)
+        {
+            leak(i, i * 2) = 1;
+        }
         return leak;
     }
 
     for (auto i = 0; i < kM; ++i)
     {
         std::array<double, 6> sos = sfFDN::Pareq(G[i], Gw[i], wg[i], bw[i]);
-        auto sos_span = std::span<double>(sos.data(), sos.size());
+        auto sos_span = std::span<double>(sos);
         auto num = sos_span.first(3);
         auto den = sos_span.last(3);
         std::vector<double> H = sfFDN::freqz(num, den, wc);
@@ -80,11 +75,6 @@ std::array<double, 4> LowShelf(double wc, double sr, double gain_low, double gai
     double bh1 = (g * std::tan(wH * 0.5)) - g_sqrt;
 
     std::array<double, 4> sos = {gain_high * bh0, gain_high * bh1, ah0, ah1};
-    // Normalize the coefficients
-    for (double& so : sos)
-    {
-        so /= ah0;
-    }
     return sos;
 }
 
@@ -309,11 +299,11 @@ std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, d
     std::vector<double> sos(sos_double.size() + 6, 0.0f);
 
     // Copy the low shelf filter coefficients
-    sos[0] = shelf_sos[0];
-    sos[1] = shelf_sos[1];
+    sos[0] = shelf_sos[0] / shelf_sos[2];
+    sos[1] = shelf_sos[1] / shelf_sos[2];
     sos[2] = 0.0f;
-    sos[3] = shelf_sos[2];
-    sos[4] = shelf_sos[3];
+    sos[3] = 1.f;
+    sos[4] = shelf_sos[3] / shelf_sos[2];
     sos[5] = 0.0f;
 
     for (auto i = 0; i < sos_double.size(); ++i)

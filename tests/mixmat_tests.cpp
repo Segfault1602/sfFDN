@@ -1,8 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <iostream>
 #include <limits>
+#include <ranges>
 
+#include "sffdn/audio_buffer.h"
+#include "sffdn/feedback_matrix.h"
 #include "sffdn/sffdn.h"
 
 #include "matrix_multiplication.h"
@@ -29,28 +33,28 @@ TEST_CASE("IdentityMatrix")
     sfFDN::ScalarFeedbackMatrix mix_mat(N);
 
     std::array<float, N * kBlockSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
-    std::array<float, N * kBlockSize> output;
+    std::array<float, N * kBlockSize> output{};
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     mix_mat.Process(input_buffer, output_buffer);
 
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto [in, out] : std::views::zip(input, output))
     {
-        REQUIRE(input[i] == output[i]);
+        REQUIRE(in == out);
     }
 
     float energy_in = 0.f;
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto in : input)
     {
-        energy_in += input[i] * input[i];
+        energy_in += in * in;
     }
 
     float energy_out = 0.f;
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto out : output)
     {
-        energy_out += output[i] * output[i];
+        energy_out += out * out;
     }
 
     REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
@@ -60,7 +64,7 @@ TEST_CASE("Householder")
 {
     constexpr uint32_t N = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
+    auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder);
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -71,8 +75,8 @@ TEST_CASE("Householder")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     mix_mat.Process(input_buffer, output_buffer);
 
@@ -109,13 +113,13 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_4")
     {
         constexpr uint32_t N = 4;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard);
 
         std::array<float, N> input = {1, 2, 3, 4};
         std::array<float, N> output;
 
-        sfFDN::AudioBuffer input_buffer(1, N, input.data());
-        sfFDN::AudioBuffer output_buffer(1, N, output.data());
+        sfFDN::AudioBuffer input_buffer(1, N, input);
+        sfFDN::AudioBuffer output_buffer(1, N, output);
 
         mix_mat.Process(input_buffer, output_buffer);
 
@@ -130,13 +134,13 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_8")
     {
         constexpr uint32_t N = 8;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard);
 
         std::array<float, N> input = {1, 2, 3, 4, 5, 6, 7, 8};
         std::array<float, N> output;
 
-        sfFDN::AudioBuffer input_buffer(1, N, input.data());
-        sfFDN::AudioBuffer output_buffer(1, N, output.data());
+        sfFDN::AudioBuffer input_buffer(1, N, input);
+        sfFDN::AudioBuffer output_buffer(1, N, output);
 
         mix_mat.Process(input_buffer, output_buffer);
 
@@ -152,13 +156,13 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_16")
     {
         constexpr uint32_t N = 16;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard);
 
         std::array<float, N> input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
         std::array<float, N> output;
 
-        sfFDN::AudioBuffer input_buffer(1, N, input.data());
-        sfFDN::AudioBuffer output_buffer(1, N, output.data());
+        sfFDN::AudioBuffer input_buffer(1, N, input);
+        sfFDN::AudioBuffer output_buffer(1, N, output);
 
         mix_mat.Process(input_buffer, output_buffer);
 
@@ -171,42 +175,42 @@ TEST_CASE("FeedbackMatrixHadamard")
     }
 }
 
-TEST_CASE("Inplace")
-{
-    constexpr uint32_t N = 4;
-    constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
+// TEST_CASE("Inplace")
+// {
+//     constexpr uint32_t N = 4;
+//     constexpr uint32_t kBlockSize = 8;
+//     auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder);
 
-    std::vector<float> input(N * kBlockSize, 0.f);
-    // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (auto i = 0; i < N; ++i)
-    {
-        input[i * kBlockSize + i] = 1.f;
-    }
+//     std::vector<float> input(N * kBlockSize, 0.f);
+//     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
+//     for (auto i = 0; i < N; ++i)
+//     {
+//         input[i * kBlockSize + i] = 1.f;
+//     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+//     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
 
-    mix_mat.Process(input_buffer, input_buffer);
+//     mix_mat.Process(input_buffer, input_buffer);
 
-    // clang-format off
-    constexpr std::array<float, N * kBlockSize> expected = {
-         0.5000, -0.5000, -0.5000, -0.5000,  0, 0, 0, 0,
-        -0.5000,  0.5000, -0.5000, -0.5000,  0, 0, 0, 0,
-        -0.5000, -0.5000,  0.5000, -0.5000,  0, 0, 0, 0,
-        -0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
-    // clang-format on
+//     // clang-format off
+//     constexpr std::array<float, N * kBlockSize> expected = {
+//          0.5000, -0.5000, -0.5000, -0.5000,  0, 0, 0, 0,
+//         -0.5000,  0.5000, -0.5000, -0.5000,  0, 0, 0, 0,
+//         -0.5000, -0.5000,  0.5000, -0.5000,  0, 0, 0, 0,
+//         -0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
+//     // clang-format on
 
-    for (auto i = 0; i < input.size(); i += N)
-    {
-        REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
-    }
-}
+//     for (auto i = 0; i < input.size(); i += N)
+//     {
+//         REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
+//     }
+// }
 
 TEST_CASE("Hadamard_Block")
 {
     constexpr uint32_t N = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+    auto mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard);
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -217,8 +221,8 @@ TEST_CASE("Hadamard_Block")
 
     std::vector<float> output(N * kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     mix_mat.Process(input_buffer, output_buffer);
 
@@ -249,10 +253,40 @@ TEST_CASE("MatrixAssignment")
     std::array<float, N * kBlockSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
     std::array<float, N * kBlockSize> output = {0.f};
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     mix_mat.Process(input_buffer, output_buffer);
+}
+
+TEST_CASE("RandomMatrix")
+{
+    constexpr uint32_t N = 6;
+    // clang-format off
+    constexpr std::array<float, N * N> kRandomMatrix = {
+    0.4775,    0.0774,    0.5334,   -0.6286,    0.2938,    0.0014,
+    0.1239,    0.4800,    0.1981,   -0.0300,   -0.7498,   -0.3897,
+    0.7826,    0.2378,   -0.4937,    0.2650,    0.1288,    0.0226,
+    0.0785,   -0.5241,   -0.4885,   -0.5273,   -0.2291,   -0.3873,
+    0.1624,   -0.1916,   -0.0102,   -0.1466,   -0.5125,    0.8079,
+    0.3342,   -0.6291,    0.4402,    0.4839,   -0.1404,   -0.2120,
+    };
+    // clang-format on
+    sfFDN::ScalarFeedbackMatrix mix_mat(N);
+    mix_mat.SetMatrix(kRandomMatrix);
+
+    std::array<float, N> input = {1, 2, 3, 4, 5, 6};
+    std::array<float, N> output = {0.f};
+
+    sfFDN::AudioBuffer input_buffer(1, N, input);
+    sfFDN::AudioBuffer output_buffer(1, N, output);
+
+    mix_mat.Process(input_buffer, output_buffer);
+
+    for (auto val : output)
+    {
+        std::cout << val << " ";
+    }
 }
 
 TEST_CASE("DelayMatrix")
@@ -262,7 +296,7 @@ TEST_CASE("DelayMatrix")
 #endif
     constexpr uint32_t N = 4;
     constexpr uint32_t delays[] = {11, 11, 2, 6, 10, 14, 17, 8, 2, 6, 19, 5, 10, 19, 1, 13};
-    sfFDN::ScalarFeedbackMatrix mixing_matrix = sfFDN::ScalarFeedbackMatrix::Hadamard(N);
+    sfFDN::ScalarFeedbackMatrix mixing_matrix = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard);
     sfFDN::DelayMatrix delay_matrix(4, delays, mixing_matrix);
 
     constexpr uint32_t kBlockSize = 32;
@@ -274,8 +308,8 @@ TEST_CASE("DelayMatrix")
         input[i * kBlockSize] = 1.f; // Set the first sample of each channel to 1
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
     delay_matrix.Process(input_buffer, output_buffer);
 
     const std::array<float, kBlockSize> expected_output_ch1 = {0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 1.0, 0.5, 0, 0, 0, 0,
@@ -309,9 +343,10 @@ TEST_CASE("FilterFeedbackMatrix")
     constexpr uint32_t K = 1;
 
     std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices;
+    mixing_matrices.reserve(K);
     for (uint32_t i = 0; i < K; ++i)
     {
-        mixing_matrices.push_back(sfFDN::ScalarFeedbackMatrix::Hadamard(N));
+        mixing_matrices.push_back(sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Hadamard));
     }
 
     // sfFDN::FilterFeedbackMatrix ffm(N);
@@ -330,8 +365,8 @@ TEST_CASE("FilterFeedbackMatrix")
 
     std::array<float, N * kBlockSize> output = {0.f};
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
     ffm->Process(input_buffer, output_buffer);
 

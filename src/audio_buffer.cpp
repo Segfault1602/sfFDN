@@ -1,68 +1,42 @@
 #include "sffdn/audio_buffer.h"
 
-#include <cassert>
-#include <cstddef>
-#include <span>
+#include "pch.h"
 
 namespace sfFDN
 {
 
 AudioBuffer::AudioBuffer()
-    : size_(0)
+    : frame_size_(0)
     , channel_count_(0)
-    , buffer_(nullptr)
-    , channel_buffers_{nullptr}
+    , offset_(0)
+    , chunk_size_(0)
 {
 }
 
 AudioBuffer::AudioBuffer(std::span<float> buffer)
-    : size_(buffer.size())
+    : frame_size_(buffer.size())
     , channel_count_(1)
-    , buffer_(buffer.data())
-    , channel_buffers_{nullptr}
+    , buffer_(buffer)
+    , offset_(0)
+    , chunk_size_(frame_size_)
 {
     assert(buffer.data() != nullptr);
     assert(buffer.size() > 0);
-    channel_buffers_[0] = buffer.data();
-}
-
-AudioBuffer::AudioBuffer(uint32_t frame_size, uint32_t channels, float* buffer)
-    : size_(frame_size)
-    , channel_count_(channels)
-    , buffer_(buffer)
-    , channel_buffers_{nullptr}
-{
-    assert(buffer != nullptr);
-    assert(frame_size > 0);
-    assert(channels > 0);
-    assert(channels <= channel_buffers_.size());
-
-    auto buffer_span = std::span<float>(buffer_, frame_size * channels);
-
-    for (uint32_t i = 0; i < channels; ++i)
-    {
-        auto channel_span = buffer_span.subspan(i * frame_size, frame_size);
-        channel_buffers_.at(i) = channel_span.data();
-    }
 }
 
 AudioBuffer::AudioBuffer(uint32_t frame_size, uint32_t channels, std::span<float> buffer)
-    : size_(frame_size)
+    : frame_size_(frame_size)
     , channel_count_(channels)
-    , buffer_(buffer.data())
+    , buffer_(buffer)
+    , offset_(0)
+    , chunk_size_(frame_size)
 {
     assert(buffer.size() >= frame_size * channels);
-    assert(channels <= channel_buffers_.size());
-
-    for (uint32_t i = 0; i < channels; ++i)
-    {
-        channel_buffers_.at(i) = buffer.subspan(i * frame_size, frame_size).data();
-    }
 }
 
 uint32_t AudioBuffer::SampleCount() const
 {
-    return size_;
+    return chunk_size_;
 }
 
 uint32_t AudioBuffer::ChannelCount() const
@@ -72,42 +46,100 @@ uint32_t AudioBuffer::ChannelCount() const
 
 float* AudioBuffer::Data()
 {
-    return buffer_;
+    return buffer_.data();
 }
 
 const float* AudioBuffer::Data() const
 {
-    return buffer_;
+    return buffer_.data();
 }
 
 std::span<const float> AudioBuffer::GetChannelSpan(uint32_t channel) const
 {
     assert(channel < channel_count_);
-    return {channel_buffers_.at(channel), size_};
+    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    return channel_span;
 }
 
 std::span<float> AudioBuffer::GetChannelSpan(uint32_t channel)
 {
     assert(channel < channel_count_);
-    return {channel_buffers_.at(channel), size_};
+    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    return channel_span;
 }
 
 AudioBuffer AudioBuffer::GetChannelBuffer(uint32_t channel) const
 {
     assert(channel < channel_count_);
-    return {size_, 1, channel_buffers_.at(channel)};
+    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    return AudioBuffer(channel_span);
 }
 
 AudioBuffer AudioBuffer::Offset(uint32_t offset, uint32_t size) const
 {
     AudioBuffer offset_buffer = *this;
 
-    offset_buffer.size_ = size;
-    for (uint32_t i = 0; i < channel_count_; ++i)
-    {
-        offset_buffer.channel_buffers_.at(i) = channel_buffers_.at(i) + offset;
-    }
-
+    offset_buffer.offset_ = offset_ + offset;
+    offset_buffer.chunk_size_ = size;
     return offset_buffer;
 }
+
+AudioBuffer::Iterator::Iterator(AudioBuffer* parent, uint32_t channel_index)
+    : parent_(parent)
+    , channel_index_(channel_index)
+{
+}
+
+std::span<float> AudioBuffer::Iterator::operator*() const
+{
+    return parent_->GetChannelSpan(channel_index_);
+}
+
+AudioBuffer::Iterator& AudioBuffer::Iterator::operator++()
+{
+    ++channel_index_;
+    return *this;
+}
+
+AudioBuffer::Iterator AudioBuffer::Iterator::operator++(int)
+{
+    Iterator tmp = *this;
+    ++(*this);
+    return tmp;
+}
+
+bool AudioBuffer::Iterator::operator==(const Iterator& other) const
+{
+    return parent_ == other.parent_ && channel_index_ == other.channel_index_;
+}
+
+AudioBuffer::ConstIterator::ConstIterator(const AudioBuffer* parent, uint32_t channel_index)
+    : parent_(parent)
+    , channel_index_(channel_index)
+{
+}
+
+std::span<const float> AudioBuffer::ConstIterator::operator*() const
+{
+    return parent_->GetChannelSpan(channel_index_);
+}
+
+AudioBuffer::ConstIterator& AudioBuffer::ConstIterator::operator++()
+{
+    ++channel_index_;
+    return *this;
+}
+
+AudioBuffer::ConstIterator AudioBuffer::ConstIterator::operator++(int)
+{
+    ConstIterator tmp = *this;
+    ++(*this);
+    return tmp;
+}
+
+bool AudioBuffer::ConstIterator::operator==(const ConstIterator& other) const
+{
+    return parent_ == other.parent_ && channel_index_ == other.channel_index_;
+}
+
 } // namespace sfFDN

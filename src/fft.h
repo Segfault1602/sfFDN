@@ -64,31 +64,30 @@ class FFTBuffer
 
     std::span<T>::iterator begin()
     {
-        return std::span<T>(buffer_, size_).begin();
+        return buffer_.begin();
     }
     std::span<T>::iterator end()
     {
-        return std::span<T>(buffer_, size_).end();
+        return buffer_.end();
     }
 
     constexpr std::span<T>::iterator begin() const
     {
-        return std::span<T>(buffer_, size_).begin();
+        return buffer_.begin();
     }
 
     constexpr std::span<T>::iterator end() const
     {
-        return std::span<T>(buffer_, size_).end();
+        return buffer_.end();
     }
 
     uint32_t size() const
     {
-        return size_;
+        return buffer_.size();
     }
 
   private:
-    T* buffer_;
-    uint32_t size_;
+    std::span<T> buffer_;
 };
 
 } // namespace sfFDN

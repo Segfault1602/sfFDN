@@ -27,8 +27,9 @@ class ParallelGains : public AudioProcessor
 
     void SetMode(ParallelGainsMode mode);
     void SetGains(std::span<const float> gains);
+    void GetGains(std::span<float> gains) const;
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     uint32_t InputChannelCount() const override;
     uint32_t OutputChannelCount() const override;

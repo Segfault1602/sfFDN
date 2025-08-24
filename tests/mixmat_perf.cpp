@@ -7,9 +7,9 @@
 #include <iostream>
 #include <random>
 
-#include "sffdn/sffdn.h"
-
 #include "matrix_multiplication.h"
+#include "rng.h"
+#include "sffdn/sffdn.h"
 
 #include "test_utils.h"
 
@@ -25,7 +25,7 @@ TEST_CASE("MixMatPerf")
     std::cout << "BLOCK SIZE: " << kBlockSize << std::endl;
     std::cout << "N: " << N << std::endl;
 
-    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
+    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder);
 
     std::vector<float> input(N * kBlockSize, 0.f);
     std::vector<float> output(N * kBlockSize, 0.f);
@@ -37,7 +37,7 @@ TEST_CASE("MixMatPerf")
         input[i] = dist(generator);
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
@@ -81,19 +81,19 @@ TEST_CASE("Matrix_Order")
         std::vector<float> input(N * block_size, 0.f);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(rand()) / RAND_MAX;
+            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100;
         }
         std::vector<float> output(N * block_size, 0.f);
 
-        sfFDN::AudioBuffer input_buffer(block_size, N, input.data());
-        sfFDN::AudioBuffer output_buffer(block_size, N, output.data());
+        sfFDN::AudioBuffer input_buffer(block_size, N, input);
+        sfFDN::AudioBuffer output_buffer(block_size, N, output);
 
-        sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix::Householder(N);
+        sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder);
         bench.complexityN(N).run("Householder - Order " + std::to_string(N),
                                  [&] { mix_mat.Process(input_buffer, output_buffer); });
     }
 
-    std::cout << bench.complexityBigO() << std::endl;
+    std::cout << bench.complexityBigO() << "\n";
 }
 
 TEST_CASE("FFMPerf_Order")
@@ -118,12 +118,12 @@ TEST_CASE("FFMPerf_Order")
         std::vector<float> input(N * block_size, 0.f);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(rand()) / RAND_MAX;
+            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
         }
         std::vector<float> output(N * block_size, 0.f);
 
-        sfFDN::AudioBuffer input_buffer(block_size, N, input.data());
-        sfFDN::AudioBuffer output_buffer(block_size, N, output.data());
+        sfFDN::AudioBuffer input_buffer(block_size, N, input);
+        sfFDN::AudioBuffer output_buffer(block_size, N, output);
 
         auto ffm = CreateFFM(N, i, 1);
 

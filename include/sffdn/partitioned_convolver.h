@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <memory>
 #include <span>
-#include <vector>
 
 #include "audio_processor.h"
 
@@ -31,7 +30,7 @@ class PartitionedConvolver : public AudioProcessor
     PartitionedConvolver(PartitionedConvolver&&) noexcept;
     PartitionedConvolver& operator=(PartitionedConvolver&&) noexcept;
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     void DumpInfo() const;
 

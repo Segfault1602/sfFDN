@@ -26,7 +26,8 @@ class AudioProcessor
     /// @brief Process audio buffers.
     /// @param input The input audio buffer.
     /// @param output The output audio buffer.
-    virtual void Process(const AudioBuffer& input, AudioBuffer& output) = 0;
+    virtual void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+        [[clang::nonblocking]] [[clang::nonallocating]] = 0;
 
     /// @brief Returns the number of input channels this processor expects.
     virtual uint32_t InputChannelCount() const = 0;
@@ -66,7 +67,7 @@ class AudioProcessorChain : public AudioProcessor
     /// @note The input buffer's channel count must match the first processor's input channel count,
     /// and the output buffer's channel count must match the last processor's output channel count.
     /// @note The sample count of the input and output buffers must match the block size specified during construction.
-    void Process(const AudioBuffer& input, AudioBuffer& output) override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     /// @brief Returns the number of input channels this processor expects.
     uint32_t InputChannelCount() const override;

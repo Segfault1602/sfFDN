@@ -1,12 +1,12 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
-#include <filesystem>
-#include <fstream>
 #include <random>
 
+#include "rng.h"
 #include "sffdn/sffdn.h"
 
+#include "filter_coeffs.h"
 #include "test_utils.h"
 
 using namespace ankerl;
@@ -34,7 +34,7 @@ TEST_CASE("FilterBankPerf")
         std::vector<float> input(block_size * N, 0);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(rand()) / RAND_MAX;
+            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
         }
         std::vector<float> output(block_size * N, 0);
 
@@ -73,13 +73,13 @@ TEST_CASE("CascadedBiquadsPerf")
 
     sfFDN::CascadedBiquads filter_bank;
     std::vector<float> coeffs;
-    for (auto i = 0; i < sos.size(); i++)
+    for (const auto& biquad : sos)
     {
-        coeffs.push_back(sos[i][0] / sos[i][3]);
-        coeffs.push_back(sos[i][1] / sos[i][3]);
-        coeffs.push_back(sos[i][2] / sos[i][3]);
-        coeffs.push_back(sos[i][4] / sos[i][3]);
-        coeffs.push_back(sos[i][5] / sos[i][3]);
+        coeffs.push_back(biquad[0] / biquad[3]);
+        coeffs.push_back(biquad[1] / biquad[3]);
+        coeffs.push_back(biquad[2] / biquad[3]);
+        coeffs.push_back(biquad[4] / biquad[3]);
+        coeffs.push_back(biquad[5] / biquad[3]);
     }
 
     filter_bank.SetCoefficients(sos.size(), coeffs);
@@ -89,7 +89,7 @@ TEST_CASE("CascadedBiquadsPerf")
     std::vector<float> input(kBlockSize, 0);
 
     // Fill with white noise
-    std::default_random_engine generator;
+    std::default_random_engine generator(std::random_device{}());
     std::normal_distribution<double> dist(0, 0.1);
     for (auto i = 0; i < input.size(); ++i)
     {
@@ -103,8 +103,80 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.batch(kBlockSize);
     bench.minEpochIterations(200000);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input.data());
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output.data());
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
+
+#if 0
+TEST_CASE("VDSP_FilterBank")
+{
+    constexpr uint32_t N = 6;  // number of channels
+    constexpr uint32_t M = 11; // number of section
+
+    std::vector<float> delays((2 * M) + 2, 0.f);
+    std::vector<double> coeffs;
+    coeffs.reserve(N * M * 5);
+
+    for (auto i = 0; i < N; ++i)
+    {
+        auto sos = k_h001_AbsorbtionSOS[i];
+        REQUIRE(sos.size() == M);
+
+        for (auto j = 0; j < M; ++j)
+        {
+            coeffs.push_back(sos[j][0] / sos[j][3]);
+            coeffs.push_back(sos[j][1] / sos[j][3]);
+            coeffs.push_back(sos[j][2] / sos[j][3]);
+            coeffs.push_back(sos[j][4] / sos[j][3]);
+            coeffs.push_back(sos[j][5] / sos[j][3]);
+        }
+    }
+
+    vDSP_biquadm_Setup biquad_setup = vDSP_biquadm_CreateSetup(coeffs.data(), M, N);
+    REQUIRE(biquad_setup != nullptr);
+
+    constexpr uint32_t kSampleToProcess = 32768;
+
+    nanobench::Bench bench;
+    bench.title("FilterBank perf");
+    bench.minEpochIterations(100);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+    bench.batch(kSampleToProcess);
+
+    constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
+
+    for (const auto& block_size : kBlockSizes)
+    {
+        std::vector<float> input(block_size * N, 0);
+        for (auto i = 0; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
+        }
+        std::vector<float> output(block_size * N, 0);
+
+        std::array<const float*, N> input_ptrs;
+        std::array<float*, N> output_ptrs;
+
+        for (auto i = 0; i < N; ++i)
+        {
+            input_ptrs[i] = input.data() + (i * block_size);
+            output_ptrs[i] = output.data() + (i * block_size);
+        }
+
+        bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
+            const uint32_t num_blocks = kSampleToProcess / block_size;
+            assert(kSampleToProcess % block_size == 0);
+
+            for (auto i = 0; i < num_blocks; ++i)
+            {
+
+                vDSP_biquadm(biquad_setup, input_ptrs.data(), 1, output_ptrs.data(), 1, block_size);
+            }
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
+}
+#endif
