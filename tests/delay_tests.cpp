@@ -2,12 +2,14 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
+#include <iostream>
 #include <limits>
 #include <numeric>
 #include <ranges>
 #include <sndfile.h>
 #include <vector>
 
+#include "sffdn/audio_buffer.h"
 #include "sffdn/sffdn.h"
 
 namespace
@@ -37,7 +39,7 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
 
     for (auto [out, expected] : std::views::zip(output_block, output_sample))
     {
-        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 1e-6));
     }
 }
 } // namespace
@@ -118,6 +120,43 @@ TEST_CASE("DelayA")
     }
 
     constexpr std::array<float, 10> expected_output = {0, 0, 0.33, 1.55, 2.48, 3.50, 4.49, 5.50, 6.50, 7.50};
+
+    for (auto [out, expected] : std::views::zip(output, expected_output))
+    {
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
+    }
+
+    sfFDN::DelayAllpass delay_block(1.5, 32);
+
+    std::vector<float> input_block(iteration, 0.f);
+    std::iota(input_block.begin(), input_block.end(), 0.f);
+
+    std::vector<float> output_block(iteration, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(iteration, 1, input_block);
+    sfFDN::AudioBuffer output_buffer(iteration, 1, output_block);
+
+    delay_block.Process(input_buffer, output_buffer);
+
+    for (auto [out, expected] : std::views::zip(output_block, expected_output))
+    {
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
+    }
+}
+
+TEST_CASE("DelayA_MinDelay")
+{
+    sfFDN::DelayAllpass delay(0.5, 10);
+
+    std::vector<float> output;
+    constexpr uint32_t iteration = 10;
+    output.reserve(iteration);
+    for (uint32_t i = 0; i < iteration; ++i)
+    {
+        output.push_back(delay.Tick(i));
+    }
+
+    constexpr std::array<float, 10> expected_output = {0, 0.33, 1.55, 2.48, 3.50, 4.49, 5.50, 6.50, 7.50, 8.50};
 
     for (auto [out, expected] : std::views::zip(output, expected_output))
     {

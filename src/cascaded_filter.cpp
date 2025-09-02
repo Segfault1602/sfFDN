@@ -2,6 +2,19 @@
 
 #include "pch.h"
 
+namespace
+{
+float ComputeSample(float x, const sfFDN::CascadedBiquads::IIRCoeffs& coeffs, sfFDN::CascadedBiquads::IIRState& state)
+{
+    const float y = coeffs.b0 * (x) + state.s0;
+    state.s0 = coeffs.b1 * (x) + state.s1;
+    state.s0 -= coeffs.a1 * (y);
+    state.s1 = coeffs.b2 * (x);
+    state.s1 -= coeffs.a2 * (y);
+    return y;
+}
+} // namespace
+
 namespace sfFDN
 {
 
@@ -80,77 +93,48 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
     auto in = input.GetChannelSpan(0);
     auto out = output.GetChannelSpan(0);
 
-    uint32_t sample = 0;
+    constexpr uint32_t kUnrollFactor = 8;
     const uint32_t kSize = in.size();
-    const uint32_t unroll_size = kSize & ~3;
-    while (sample < unroll_size)
+    const uint32_t unroll_size = kSize & ~(kUnrollFactor - 1);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        uint32_t stage = 0;
-        float in1 = in[sample];
-        float in2 = in[sample + 1];
-        float in3 = in[sample + 2];
-        float in4 = in[sample + 3];
+        auto in_span = in.subspan(sample, kUnrollFactor);
+        auto out_span = out.subspan(sample, kUnrollFactor);
 
-        float out1 = 0;
-        float out2 = 0;
-        float out3 = 0;
-        float out4 = 0;
-        while (stage < stage_)
+        // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
+        std::array<float, kUnrollFactor> batch{};
+        std::ranges::copy(in_span, batch.begin());
+
+        for (auto stage = 0; stage < stage_; ++stage)
         {
-            IIRCoeffs coeffs = coeffs_[stage];
-            float s0 = states_[stage].s0;
-            float s1 = states_[stage].s1;
+            const IIRCoeffs coeffs = coeffs_[stage];
+            IIRState& state = states_[stage];
 
-#define COMPUTE_SAMPLE(x, y)                                                                                           \
-    y = coeffs.b0 * (x) + s0;                                                                                          \
-    s0 = coeffs.b1 * (x) + s1;                                                                                         \
-    s0 -= coeffs.a1 * (y);                                                                                             \
-    s1 = coeffs.b2 * (x);                                                                                              \
-    s1 -= coeffs.a2 * (y);
-
-            COMPUTE_SAMPLE(in1, out1);
-            COMPUTE_SAMPLE(in2, out2);
-            COMPUTE_SAMPLE(in3, out3);
-            COMPUTE_SAMPLE(in4, out4);
-
-            in1 = out1;
-            in2 = out2;
-            in3 = out3;
-            in4 = out4;
-
-            states_[stage].s0 = s0;
-            states_[stage].s1 = s1;
-
-            ++stage;
+            for (auto& b : batch)
+            {
+                b = ComputeSample(b, coeffs, state);
+            }
         }
 
-        out[sample] = out1;
-        out[sample + 1] = out2;
-        out[sample + 2] = out3;
-        out[sample + 3] = out4;
-        sample += 4;
+        for (auto [out, b] : std::views::zip(out_span, batch))
+        {
+            out = b;
+        }
     }
 
-    while (sample < kSize)
+    for (; sample < kSize; ++sample)
     {
-        uint32_t stage = 0;
-        float in1 = in[sample];
-        float out1 = 0;
-        while (stage < stage_)
+        float s = in[sample];
+        for (auto stage = 0; stage < stage_; ++stage)
         {
-            IIRCoeffs coeffs = coeffs_[stage];
-            IIRState* state = &states_[stage];
-
-            out1 = coeffs.b0 * in1 + state->s0;
-            state->s0 = coeffs.b1 * in1 - coeffs.a1 * out1 + state->s1;
-            state->s1 = coeffs.b2 * in1 - coeffs.a2 * out1;
-
-            in1 = out1;
-            ++stage;
+            const IIRCoeffs coeffs = coeffs_[stage];
+            IIRState& state = states_[stage];
+            s = ComputeSample(s, coeffs, state);
         }
 
-        out[sample] = out1;
-        ++sample;
+        out[sample] = s;
     }
 }
 

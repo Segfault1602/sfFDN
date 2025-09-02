@@ -56,6 +56,34 @@ class OnePoleFilter : public AudioProcessor
     std::array<float, 2> state_;
 };
 
+class AllpassFilter : public AudioProcessor
+{
+  public:
+    AllpassFilter();
+
+    void SetCoefficients(float coeff);
+
+    /// @brief Input a sample in the filter and return the next output
+    /// @param in The input sample
+    /// @return The next output sample
+    float Tick(float in);
+
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    uint32_t InputChannelCount() const override;
+
+    uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+  private:
+    float coeff_;
+    float last_in_;
+    float last_out_;
+};
+
 class CascadedBiquads : public AudioProcessor
 {
   public:

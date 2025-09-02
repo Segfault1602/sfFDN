@@ -46,6 +46,7 @@ TEST_CASE("FDNPerf")
         fdn->Process(input_buffer, output_buffer);
     });
 
+#if 1
     // Benchmark the individual components
     auto input_gains =
         std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, std::vector<float>(N, 1.f));
@@ -111,6 +112,7 @@ TEST_CASE("FDNPerf")
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         sfFDN::ArrayMath::ScaleAccumulate(input_buffer.GetChannelSpan(0), 1.f, output_buffer.GetChannelSpan(0));
     });
+#endif
 }
 
 TEST_CASE("FDNPerf_FIR")

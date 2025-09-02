@@ -6,16 +6,16 @@
     "configurations": [
         {
             "name": "Tests",
-            "type": "lldb-dap",
+            "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/Debug/tests",
+            "program": "${workspaceFolder}/build/RelWithDebInfo/tests/sfFDN.tests",
             "args": [
-                "TwoFilter"
+                "SineWave"
             ],
+            "MIMode": "lldb",
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],
-            "runInTerminal": false
         },
         {
             "name": "Perf",

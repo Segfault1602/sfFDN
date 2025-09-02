@@ -5,6 +5,10 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <algorithm>
+#include <iostream>
+#include <numeric>
+#include <ranges>
 
 namespace
 {
@@ -19,148 +23,108 @@ float RT602Slope(float t60, float sr)
     return -60.f / (t60 * sr);
 }
 
-Eigen::MatrixXd InteractionMatrix(const Eigen::ArrayXd& G, double kGW, std::span<const double> wg,
-                                  std::span<const double> wc, std::span<const double> bw)
+template <typename T>
+void ToDb(std::span<const T> x, std::span<T> out)
 {
-    constexpr int kM = 10;
-    constexpr int kN = 19;
-
-    Eigen::Matrix<double, kM, kN> leak = Eigen::MatrixXd::Zero(kM, kN);
-
-    Eigen::Array<double, kM, 1> Gdb = 20 * G.log10();
-    Eigen::Array<double, kM, 1> Gw = kGW * Gdb;
-    Gw = Eigen::pow(10.0, Gw / 20.0);
-
-    if (Gdb.sum() <= 1e-15)
+    for (size_t i = 0; i < x.size(); ++i)
     {
-        for (int i = 0; i < kM; ++i)
+        out[i] = 20.0 * std::log10(x[i]);
+    }
+}
+
+template <typename T>
+void freqz(std::span<const T> b, std::span<const T> a, std::span<std::complex<T>> w, std::span<T> result)
+{
+    if (b.size() > 3 || a.size() > 3)
+    {
+        throw std::runtime_error("Only tested for first-order filters (b.size() <= 3 and a.size() <= 3)");
+    }
+
+    assert(result.size() == (w.size()));
+
+    std::vector<std::complex<T>> num(w.size());
+    std::vector<std::complex<T>> den(w.size());
+
+    sfFDN::Polyval<T>(b, w, num);
+    sfFDN::Polyval<T>(a, w, den);
+
+    for (auto [n_, d_, h_] : std::views::zip(num, den, result))
+    {
+        T a = n_.real();
+        T b = n_.imag();
+        T c = d_.real();
+        T d = d_.imag();
+
+        T c2 = c * c;
+        T d2 = d * d;
+
+        T x = (a * c + b * d) / (c2 + d2);
+        T y = (a * d - b * c) / (c2 + d2);
+
+        h_ = std::sqrt((x * x) + (y * y));
+    }
+}
+
+template <typename T, size_t kNBands, size_t kNFreqs>
+Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> InteractionMatrix(std::span<const T> G, T kGW, std::span<const T> wg,
+                                                                   std::span<const T> wc, std::span<const T> bw)
+{
+    Eigen::Matrix<T, kNBands, kNFreqs> leak = Eigen::Matrix<T, kNBands, kNFreqs>::Zero();
+
+    std::array<T, kNBands> Gdb{};
+    ToDb<T>(G, Gdb);
+
+    T gdb_abs_sum =
+        std::accumulate(Gdb.begin(), Gdb.end(), static_cast<T>(0), [](T sum, T val) { return sum + std::abs(val); });
+    if (gdb_abs_sum <= 1e-15)
+    {
+        for (int i = 0; i < kNBands; ++i)
         {
             leak(i, i * 2) = 1;
         }
         return leak;
     }
 
-    for (auto i = 0; i < kM; ++i)
+    std::array<T, kNBands> Gw{};
+    std::ranges::transform(Gdb, Gw.begin(), [kGW](T val) -> T { return db2mag(kGW * val); });
+
+    std::array<std::complex<T>, kNFreqs> dig_w_arr{};
+    for (auto [w, f] : std::views::zip(dig_w_arr, wc))
     {
-        std::array<double, 6> sos = sfFDN::Pareq(G[i], Gw[i], wg[i], bw[i]);
-        auto sos_span = std::span<double>(sos);
+        w = std::exp(std::complex<T>(0.0, 1.0) * f);
+    }
+
+    for (auto i = 0; i < kNBands; ++i)
+    {
+        std::array<T, 6> sos = sfFDN::Pareq(G[i], Gw[i], wg[i], bw[i]);
+        auto sos_span = std::span<T>(sos);
         auto num = sos_span.first(3);
         auto den = sos_span.last(3);
-        std::vector<double> H = sfFDN::freqz(num, den, wc);
+        std::array<T, kNFreqs> H{};
+        freqz<T>(num, den, dig_w_arr, H);
 
-        Eigen::Map<Eigen::Array<double, kN, 1>> H_map(H.data(), H.size());
-        H_map = 20.0 * H_map.log10();
-
-        Eigen::Array<double, kN, 1> Gain = H_map / Gdb[i];
-
-        leak.row(i) = Gain;
+        for (auto j = 0; j < kNFreqs; ++j)
+        {
+            leak(i, j) = (20.0 * std::log10(H[j])) / Gdb[i];
+        }
     }
 
     return leak;
 }
 
-} // namespace
-
-namespace sfFDN
+template <typename T, size_t kNBands>
+std::vector<T> aceq(std::span<const T> diff_mag, std::span<const T> freqs, T sr)
 {
-std::array<double, 4> LowShelf(double wc, double sr, double gain_low, double gain_high)
-{
-    const double wH = 2 * std::numbers::pi * wc / sr;
-    const double g = gain_low / gain_high;
-    const double g_sqrt = std::sqrt(g);
-
-    double ah0 = std::tan(wH * 0.5) + g_sqrt;
-    double ah1 = std::tan(wH * 0.5) - g_sqrt;
-    double bh0 = (g * std::tan(wH * 0.5)) + g_sqrt;
-    double bh1 = (g * std::tan(wH * 0.5)) - g_sqrt;
-
-    std::array<double, 4> sos = {gain_high * bh0, gain_high * bh1, ah0, ah1};
-    return sos;
-}
-
-Eigen::ArrayXcd Polyval(const Eigen::ArrayXd& p, const Eigen::ArrayXcd& x)
-{
-    Eigen::ArrayXcd result = Eigen::ArrayXcd::Zero(x.size());
-    result += p[0];
-
-    for (auto i = 1; i < p.size(); ++i)
-    {
-        result = x * result + p[i];
-    }
-
-    return result;
-}
-
-std::vector<double> freqz(std::span<const double> b, std::span<const double> a, std::span<const double> w, double sr)
-{
-    if (b.size() > 3 || a.size() > 3)
-    {
-        throw std::runtime_error("Only tested for first-order filters (b.size() == 2 and a.size() == 2)");
-    }
-
-    Eigen::Map<const Eigen::ArrayXd> w_map(w.data(), w.size());
-    Eigen::ArrayXcd dig_w(w.size());
-    // if sample rate is specified, convert to rad/sample
-    if (sr != 0.0f)
-    {
-        dig_w = Eigen::exp(std::complex(0.0, 1.0) * w_map * (-2.0 * std::numbers::pi_v<double> / sr));
-    }
-    else
-    {
-        dig_w = Eigen::exp(std::complex(0.0, 1.0) * w_map);
-    }
-
-    Eigen::Map<const Eigen::ArrayXd> b_map(b.data(), b.size());
-    Eigen::ArrayXcd num = Polyval(b_map, dig_w);
-
-    Eigen::Map<const Eigen::ArrayXd> a_map(a.data(), a.size());
-    Eigen::ArrayXcd den = Polyval(a_map, dig_w);
-
-    Eigen::ArrayXcd h_complex = num / den;
-
-    std::vector<double> h(w.size(), 0.0f);
-    Eigen::Map<Eigen::ArrayXd> h_map(h.data(), h.size());
-    h_map = h_complex.abs();
-
-    return h;
-}
-
-std::array<double, 6> Pareq(double g, double gb, double w0, double b)
-{
-    double beta = 0.f;
-    if (g == 1.f)
-    {
-        beta = std::tan(b / 2);
-    }
-    else
-    {
-        beta = std::sqrt(std::abs((gb * gb) - 1.f) / std::abs((g * g) - (gb * gb))) * std::tan(b / 2);
-    }
-
-    const double b0 = (1 + g * beta) / (1 + beta);
-    const double b1 = (-2 * std::cos(w0)) / (1 + beta);
-    const double b2 = (1 - g * beta) / (1 + beta);
-
-    const double a0 = 1.0;
-    const double a1 = -2 * std::cos(w0) / (1 + beta);
-    const double a2 = (1 - beta) / (1 + beta);
-
-    return {b0, b1, b2, a0, a1, a2};
-}
-
-std::vector<double> aceq_d(std::span<const double> diff_mag, std::span<const double> freqs, double sr)
-{
-    constexpr uint32_t kNBands = 10;
-    constexpr uint32_t kNumF = 19;
-    constexpr double kGW = 0.3; // Gain factor at bandwidth
-
     if (diff_mag.size() != kNBands || freqs.size() != kNBands)
     {
         throw std::runtime_error("diff_mag and freqs must have size " + std::to_string(kNBands));
     }
 
+    constexpr size_t kNFreqs = (kNBands * 2) - 1;
+    constexpr T kGW = 0.3; // Gain factor at bandwidth
+
     // array of center frequencies + intermediate frequencies
-    std::array<double, kNumF> fc2 = {0};
+    std::array<T, kNFreqs> fc2 = {0};
     for (auto i = 0; i < freqs.size(); ++i)
     {
         fc2.at(i * 2) = freqs[i];
@@ -172,67 +136,154 @@ std::vector<double> aceq_d(std::span<const double> diff_mag, std::span<const dou
     }
 
     // Command gain frequencies in radians
-    std::array<double, kNBands> wg = {0.0f};
-    for (auto i = 0; i < wg.size(); ++i)
+    std::array<T, kNBands> wg = {0.0f};
+    for (auto [w, f] : std::views::zip(wg, freqs))
     {
-        wg.at(i) = 2 * std::numbers::pi_v<double> * freqs[i] / sr;
+        w = 2 * std::numbers::pi_v<T> * f / sr;
     }
 
     // Center frequencies in radian for iterative design
-    std::array<double, kNumF> wc = {0.0f};
-    for (auto i = 0; i < fc2.size(); ++i)
+    std::array<T, kNFreqs> wc = {0.0f};
+    for (auto [w, f] : std::views::zip(wc, fc2))
     {
-        wc.at(i) = 2 * std::numbers::pi_v<double> * fc2.at(i) / sr;
+        w = 2 * std::numbers::pi_v<T> * f / sr;
     }
 
-    std::array<double, kNBands> bw = {0.0f};
-    for (auto i = 0; i < wg.size(); ++i)
+    std::array<T, kNBands> bw = {0.0f};
+    for (auto [b, w] : std::views::zip(bw, wg))
     {
-        bw.at(i) = 1.5 * wg.at(i);
+        b = 1.5 * w;
     }
     // Extra adjustment
-    bw[7] *= 0.93;
-    bw[8] *= 0.78;
-    bw[9] = 0.76 * wg[9]; // todo: check if this is a bug in the original code
-
-    Eigen::Array<double, kNBands, 1> G;
-    G.setConstant(std::pow(10.0, kNumF / 20.0));
-
-    Eigen::MatrixXd leak = InteractionMatrix(G, kGW, wg, wc, bw);
-
-    Eigen::Map<const Eigen::Array<double, kNBands, 1>> Gdb(diff_mag.data(), diff_mag.size());
-
-    Eigen::Vector<double, kNumF> Gdb2 = Eigen::VectorXd::Zero(kNumF);
-    Gdb2(Eigen::seq(0, kNumF - 1, 2)) = Gdb;
-    Gdb2(Eigen::seq(1, kNumF - 1, 2)) = (Gdb2(Eigen::seq(0, kNumF - 3, 2)) + Gdb2(Eigen::seq(2, kNumF - 1, 2))) / 2;
-
-    // Solve least squares optmization problem
-    Eigen::Vector<double, kNBands> solution = (leak * leak.transpose()).ldlt().solve(leak * Gdb2);
-
-    Eigen::Array<double, kNBands, 1> goptdb = Eigen::pow(10.0, solution.array() / 20.0);
-    Eigen::Array<double, kNBands, 1> gwopt = Eigen::pow(10.0, kGW * solution.array() / 20.0);
-
-    constexpr int kNumIteration = 1;
-
-    for (int iter = 0; iter < kNumIteration; ++iter)
+    if constexpr (kNBands == 10)
     {
-        Eigen::MatrixXd leak2 = InteractionMatrix(goptdb, kGW, wg, wc, bw);
-        Eigen::Vector<double, kNBands> solution2 = (leak2 * leak2.transpose()).ldlt().solve(leak2 * Gdb2);
-
-        solution2 /= 20.0;
-        goptdb = Eigen::pow(10.0, solution2.array());
-        gwopt = Eigen::pow(10.0, kGW * solution2.array());
+        bw[7] *= 0.93;
+        bw[8] *= 0.78;
+        bw[9] = 0.76 * wg[9];
     }
 
-    std::vector<double> sos;
+    std::array<T, kNBands> G{};
+    G.fill(std::pow(10.0, kNFreqs / 20.0));
+
+    Eigen::Matrix<T, kNBands, kNFreqs> leak = InteractionMatrix<T, kNBands, kNFreqs>(G, kGW, wg, wc, bw);
+
+    Eigen::Map<const Eigen::Array<T, kNBands, 1>> Gdb(diff_mag.data(), diff_mag.size());
+
+    Eigen::Vector<T, kNFreqs> Gdb2 = Eigen::Vector<T, kNFreqs>::Zero();
+    Gdb2(Eigen::seq(0, kNFreqs - 1, 2)) = Gdb;
+    Gdb2(Eigen::seq(1, kNFreqs - 1, 2)) =
+        (Gdb2(Eigen::seq(0, kNFreqs - 3, 2)) + Gdb2(Eigen::seq(2, kNFreqs - 1, 2))) / 2;
+
+    // Solve least squares optmization problem
+    Eigen::Vector<T, kNBands> solution = (leak * leak.transpose()).ldlt().solve(leak * Gdb2);
+
+    std::array<T, kNBands> goptdb{};
+    Eigen::Map<Eigen::Array<T, kNBands, 1>> goptdb_map(goptdb.data());
+    goptdb_map = Eigen::pow(10.0, solution.array() / 20);
+
+    Eigen::Array<T, kNBands, 1> gwopt = Eigen::pow(10.0, kGW * solution.array() / 20.0);
+
+    Eigen::Matrix<T, kNBands, kNFreqs> leak2 = InteractionMatrix<T, kNBands, kNFreqs>(goptdb, kGW, wg, wc, bw);
+    Eigen::Vector<T, kNBands> solution2 = (leak2 * leak2.transpose()).ldlt().solve(leak2 * Gdb2);
+
+    goptdb_map = Eigen::pow(10.0, solution2.array() / 20);
+    gwopt = Eigen::pow(10.0, kGW * solution2.array() / 20);
+
+    std::vector<T> sos;
     for (auto i = 0; i < kNBands; ++i)
     {
-        std::array<double, 6> coeffs = Pareq(goptdb[i], gwopt[i], wg.at(i), bw.at(i));
+        std::array<T, 6> coeffs = sfFDN::Pareq(goptdb[i], gwopt[i], wg.at(i), bw.at(i));
         sos.insert(sos.end(), coeffs.begin(), coeffs.end());
     }
 
     return sos;
 }
+
+template <typename T>
+std::vector<T> GetTwoFilter_impl(std::span<const T> t60s, T delay, T sr, T shelf_cutoff)
+{
+    constexpr size_t kNBands = 10;
+
+    if (t60s.size() != kNBands)
+    {
+        throw std::runtime_error("t60s must have size " + std::to_string(kNBands));
+    }
+
+    std::vector<T> freqs(kNBands, 0.0);
+    constexpr T kUpperLimit = 16000.0f;
+    for (auto i = 0; i < kNBands; ++i)
+    {
+        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<T>(kNBands - 1 - i));
+    }
+
+    std::vector<T> gains(kNBands, 0.0f);
+    for (auto i = 0; i < kNBands; ++i)
+    {
+        gains[i] = std::pow(10.0, -3.0 / t60s[i]);
+        gains[i] = std::pow(gains[i], delay / sr);
+        gains[i] = 20.0 * std::log10(gains[i]);
+    }
+
+    std::vector<T> linear_gains(gains.size(), 0.0);
+    for (auto i = 0; i < gains.size(); ++i)
+    {
+        linear_gains[i] = db2mag(gains[i]);
+    }
+
+    // Build first-order low shelf filter
+    T gain_low = linear_gains[0];
+    T gain_high = linear_gains[linear_gains.size() - 1];
+
+    std::array<T, 4> shelf_sos = sfFDN::LowShelf(shelf_cutoff, sr, gain_low, gain_high);
+    std::span shelf_sos_span{shelf_sos};
+
+    std::array<T, 3> b_coeffs = {shelf_sos[0] / shelf_sos[2], shelf_sos[1] / shelf_sos[2], 0.0f};
+    std::array<T, 3> a_coeffs = {1.0f, shelf_sos[3] / shelf_sos[2], 0.0f};
+
+    std::vector<std::complex<T>> dig_w(kNBands);
+    for (size_t i = 0; i < kNBands; ++i)
+    {
+        dig_w[i] = std::exp(std::complex<T>(0.0, 1.0) * freqs[i] * (-2 * std::numbers::pi_v<T> / sr));
+    }
+
+    std::array<T, kNBands> Hshelf{};
+    freqz<T>(b_coeffs, a_coeffs, dig_w, Hshelf);
+
+    std::vector<T> diff_mag(freqs.size(), 0.0f);
+    for (auto i = 0; i < freqs.size(); ++i)
+    {
+        diff_mag[i] = gains[i] - 20 * std::log10(Hshelf[i]);
+    }
+
+    std::vector<T> sos_T;
+    if (kNBands == 10) // octave bands
+    {
+        sos_T = aceq<T, kNBands>(diff_mag, freqs, sr);
+    }
+
+    assert(sos_T.size() == kNBands * 6);
+
+    std::vector<T> sos(sos_T.size() + 6, 0.0f);
+
+    // Copy the low shelf filter coefficients
+    sos[0] = shelf_sos[0] / shelf_sos[2];
+    sos[1] = shelf_sos[1] / shelf_sos[2];
+    sos[2] = 0.0f;
+    sos[3] = 1.f;
+    sos[4] = shelf_sos[3] / shelf_sos[2];
+    sos[5] = 0.0f;
+
+    for (auto i = 0; i < sos_T.size(); ++i)
+    {
+        sos[i + 6] = sos_T[i];
+    }
+
+    return sos;
+}
+} // namespace
+
+namespace sfFDN
+{
 
 // From: https://github.com/SebastianJiroSchlecht/fdnToolbox/blob/master/auxiliary/onePoleAbsorption.m
 // Based on Jot, J. M., & Chaigne, A. (1991). Digital delay networks for designing artificial reverberators (pp. 1-12).
@@ -249,73 +300,13 @@ void GetOnePoleAbsorption(float t60_dc, float t60_ny, float sr, float delay, flo
 
 std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, double sr, double shelf_cutoff)
 {
-    const auto kNBands = t60s.size();
-    std::vector<double> freqs(kNBands, 0.0);
-    constexpr double kUpperLimit = 16000.0f;
-    for (auto i = 0; i < kNBands; ++i)
-    {
-        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(kNBands - 1 - i));
-    }
-
-    std::vector<double> gains(kNBands, 0.0f);
-    for (auto i = 0; i < kNBands; ++i)
-    {
-        gains[i] = std::pow(10.0, -3.0 / t60s[i]);
-        gains[i] = std::pow(gains[i], delay / sr);
-        gains[i] = 20.0 * std::log10(gains[i]);
-    }
-
-    std::vector<double> linear_gains(gains.size(), 0.0);
-    for (auto i = 0; i < gains.size(); ++i)
-    {
-        linear_gains[i] = db2mag(gains[i]);
-    }
-
-    // Build first-order low shelf filter
-    double gain_low = linear_gains[0];
-    double gain_high = linear_gains[linear_gains.size() - 1];
-
-    std::array<double, 4> shelf_sos = LowShelf(shelf_cutoff, sr, gain_low, gain_high);
-    std::span shelf_sos_span{shelf_sos};
-
-    auto b_coeffs = shelf_sos_span.first(2);
-    auto a_coeffs = shelf_sos_span.last(2);
-    std::vector<double> Hshelf = freqz(b_coeffs, a_coeffs, freqs, sr);
-
-    std::vector<double> diff_mag(freqs.size(), 0.0f);
-    for (auto i = 0; i < freqs.size(); ++i)
-    {
-        diff_mag[i] = gains[i] - 20 * std::log10(Hshelf[i]);
-    }
-
-    std::vector<double> sos_double;
-    if (kNBands == 10) // octave bands
-    {
-        sos_double = aceq_d(diff_mag, freqs, sr);
-    }
-
-    assert(sos_double.size() == kNBands * 6);
-
-    std::vector<double> sos(sos_double.size() + 6, 0.0f);
-
-    // Copy the low shelf filter coefficients
-    sos[0] = shelf_sos[0] / shelf_sos[2];
-    sos[1] = shelf_sos[1] / shelf_sos[2];
-    sos[2] = 0.0f;
-    sos[3] = 1.f;
-    sos[4] = shelf_sos[3] / shelf_sos[2];
-    sos[5] = 0.0f;
-
-    for (auto i = 0; i < sos_double.size(); ++i)
-    {
-        sos[i + 6] = sos_double[i];
-    }
-
-    return sos;
+    return GetTwoFilter_impl<double>(t60s, delay, sr, shelf_cutoff);
 }
 
 std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff)
 {
+    // The coefficients are computed in double precision, otherwise there is a significant loss of precision and the
+    // filter is not as accurate as it could be.
     std::vector<double> t60s_d(t60s.begin(), t60s.end());
     std::vector<double> sos = GetTwoFilter_d(t60s_d, static_cast<double>(delay), static_cast<double>(sr), shelf_cutoff);
 
@@ -328,7 +319,7 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
 {
     std::vector<double> mag_d(mag.begin(), mag.end());
     std::vector<double> freqs_d(freqs.begin(), freqs.end());
-    std::vector<double> sos = aceq_d(mag_d, freqs_d, static_cast<double>(sr));
+    std::vector<double> sos = aceq<double, 10>(mag_d, freqs_d, static_cast<double>(sr));
     std::vector<float> sos_f(sos.begin(), sos.end());
     return sos_f;
 }

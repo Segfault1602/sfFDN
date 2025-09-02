@@ -18,10 +18,11 @@ class SineWave : public Generator
   public:
     SineWave(float frequency, uint32_t sample_rate, float initial_phase = 0.0f);
 
+    void SetFrequency(float frequency);
+
     void Generate(AudioBuffer& output) override;
 
   private:
-    float frequency_;
     uint32_t sample_rate_;
     float phase_;
     float phase_increment_;

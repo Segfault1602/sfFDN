@@ -6,7 +6,7 @@ using namespace std::chrono_literals;
 
 #include <array_math.h>
 
-TEST_CASE("Accumulate")
+TEST_CASE("Accumulate", "[ArrayMath]")
 {
     constexpr uint32_t N = 128;
     std::vector<float> a(N, 1.f);
@@ -19,10 +19,11 @@ TEST_CASE("Accumulate")
     bench.run("Accumulate", [&] {
         sfFDN::ArrayMath::Accumulate(a, b);
         nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
     });
 }
 
-TEST_CASE("Add")
+TEST_CASE("Add", "[ArrayMath]")
 {
     constexpr uint32_t N = 128;
     std::vector<float> a(N, 1.f);
@@ -31,19 +32,17 @@ TEST_CASE("Add")
 
     nanobench::Bench bench;
     bench.title("Add");
-    bench.minEpochIterations(1000);
-    bench.batch(1000);
+    bench.minEpochIterations(5000000);
 
     bench.run("Add", [&] {
-        for (auto i = 0; i < 1000; ++i)
-        {
-            sfFDN::ArrayMath::Add(a, b, out);
-            nanobench::doNotOptimizeAway(a);
-        }
+        sfFDN::ArrayMath::Add(a, b, out);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
+        nanobench::doNotOptimizeAway(out);
     });
 }
 
-TEST_CASE("Scale")
+TEST_CASE("Scale", "[ArrayMath]")
 {
     constexpr uint32_t N = 128;
     std::vector<float> a(N, 1.f);
@@ -51,18 +50,16 @@ TEST_CASE("Scale")
 
     nanobench::Bench bench;
     bench.title("Scale");
-    bench.minEpochIterations(1000);
-    bench.batch(1000);
+    bench.minEpochIterations(5000000);
 
     bench.run("Scale", [&] {
-        for (auto i = 0; i < 1000; ++i)
-        {
-            sfFDN::ArrayMath::Scale(a, 2.f, out);
-            nanobench::doNotOptimizeAway(out);
-        }
+        sfFDN::ArrayMath::Scale(a, 2.f, out);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(out);
     });
 }
-TEST_CASE("ScaleAdd")
+
+TEST_CASE("ScaleAdd", "[ArrayMath]")
 {
     constexpr uint32_t N = 128;
     std::vector<float> a(N, 1.f);
@@ -71,14 +68,29 @@ TEST_CASE("ScaleAdd")
 
     nanobench::Bench bench;
     bench.title("ScaleAdd");
-    bench.minEpochIterations(1000);
-    bench.batch(1000);
+    bench.minEpochIterations(5000000);
 
     bench.run("ScaleAdd", [&] {
-        for (auto i = 0; i < 1000; ++i)
-        {
-            sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
-            nanobench::doNotOptimizeAway(out);
-        }
+        sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
+        nanobench::doNotOptimizeAway(out);
+    });
+}
+
+TEST_CASE("ScaleAccumulate", "[ArrayMath]")
+{
+    constexpr uint32_t N = 128;
+    std::vector<float> a(N, 1.f);
+    std::vector<float> b(N, 2.f);
+
+    nanobench::Bench bench;
+    bench.title("ScaleAccumulate");
+    bench.minEpochIterations(5000000);
+
+    bench.run("ScaleAccumulate", [&] {
+        sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, b);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
     });
 }

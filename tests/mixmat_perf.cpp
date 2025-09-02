@@ -73,6 +73,7 @@ TEST_CASE("Matrix_Order")
     // bench.timeUnit(1ms, "ms");
     bench.warmup(100);
 
+    sfFDN::RNG rng;
     for (auto i = 0; i < order.size(); ++i)
     {
         const uint32_t N = order[i];
@@ -81,7 +82,7 @@ TEST_CASE("Matrix_Order")
         std::vector<float> input(N * block_size, 0.f);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100;
+            input[i] = rng.NextFloat();
         }
         std::vector<float> output(N * block_size, 0.f);
 
@@ -110,6 +111,7 @@ TEST_CASE("FFMPerf_Order")
     bench.timeUnit(1ms, "ms");
     // bench.relative(true);
 
+    sfFDN::RNG rng;
     for (auto i = 1; i < max_stage; ++i)
     {
         uint32_t K = i;
@@ -118,7 +120,7 @@ TEST_CASE("FFMPerf_Order")
         std::vector<float> input(N * block_size, 0.f);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
+            input[i] = rng.NextFloat();
         }
         std::vector<float> output(N * block_size, 0.f);
 
@@ -136,5 +138,5 @@ TEST_CASE("FFMPerf_Order")
         });
     }
 
-    std::cout << bench.complexityBigO() << std::endl;
+    std::cout << bench.complexityBigO() << "\n";
 }

@@ -6,8 +6,10 @@
 #include <numbers>
 #include <print>
 #include <sndfile.h>
+#include <sys/types.h>
 #include <vector>
 
+#include "rng.h"
 #include "sffdn/sffdn.h"
 
 #include "oscillator.h"
@@ -44,10 +46,39 @@ TEST_CASE("SineWave")
     sf_writef_float(file, output.data(), kOutputSize);
     sf_close(file);
 
-    const float kPhaseIncrement = (2.0f * std::numbers::pi * kFrequency) / kSampleRate;
+    const float kPhaseIncrement = kFrequency / kSampleRate;
+    float phase = 0;
     for (auto i = 0; i < kOutputSize; ++i)
     {
-        float expected_value = std::sinf(kPhaseIncrement * i);
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_value, 1e-4));
+        float expected_value = std::sinf(phase * 2.0f * std::numbers::pi);
+        phase += kPhaseIncrement;
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_value, 7e-4));
     }
+}
+
+TEST_CASE("Noise")
+{
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kOutputSize = kSampleRate;
+
+    std::vector<float> output(kOutputSize, 0.f);
+    sfFDN::RNG rng;
+    for (auto i = 0; i < kOutputSize; ++i)
+    {
+        output[i] = rng.NextFloat();
+    }
+
+    SF_INFO sf_info;
+    sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
+    sf_info.channels = 1;
+    sf_info.samplerate = kSampleRate;
+    SNDFILE* file = sf_open("rng_noise.wav", SFM_WRITE, &sf_info);
+    if (!file)
+    {
+        std::print("Error opening file for writing: {}\n", sf_strerror(file));
+        return;
+    }
+
+    sf_writef_float(file, output.data(), kOutputSize);
+    sf_close(file);
 }

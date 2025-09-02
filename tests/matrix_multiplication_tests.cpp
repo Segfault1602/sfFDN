@@ -25,9 +25,10 @@ void TestMatrixMultiply_Eye()
     }
 
     std::vector<float> input(N, 0.f);
+    sfFDN::RNG rng;
     for (auto i = 0; i < N; ++i)
     {
-        input[i] = sfFDN::rng();
+        input[i] = rng.NextFloat();
     }
 
     std::vector<float> output(N, 0.f);
@@ -54,6 +55,7 @@ TEST_CASE("MatrixMultiply")
     constexpr std::array kNSize = {4, 8, 10, 12, 16, 32};
     constexpr std::array kRowCounts = {1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64};
 
+    sfFDN::RNG rng;
     for (auto N : kNSize)
     {
         for (auto kRowCount : kRowCounts)
@@ -63,7 +65,7 @@ TEST_CASE("MatrixMultiply")
             std::vector<float> input(kInputSize);
             for (auto i = 0; i < kInputSize; ++i)
             {
-                input[i] = sfFDN::rng() % 1000 / 1000.f;
+                input[i] = rng.NextFloat();
             }
 
             std::vector<float> matrix = sfFDN::GenerateMatrix(N, sfFDN::ScalarMatrixType::Random, 123);

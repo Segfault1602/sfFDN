@@ -95,4 +95,61 @@ std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
     return clone;
 }
 
+AllpassFilter::AllpassFilter()
+    : coeff_(0.0f)
+    , last_in_(0.0f)
+    , last_out_(0.0f)
+{
+}
+
+void AllpassFilter::SetCoefficients(float coeff)
+{
+    coeff_ = coeff;
+}
+
+float AllpassFilter::Tick(float in)
+{
+    last_out_ = -coeff_ * last_out_ + last_in_ + (coeff_ * in);
+    last_in_ = in;
+    return last_out_;
+}
+
+void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
+
+    auto input_span = input.GetChannelSpan(0);
+    auto output_span = output.GetChannelSpan(0);
+    for (auto i = 0; i < input_span.size(); ++i)
+    {
+        last_out_ = coeff_ * (input_span[i] - last_out_) + last_in_;
+        last_in_ = input_span[i];
+        output_span[i] = last_out_;
+    }
+}
+uint32_t AllpassFilter::InputChannelCount() const
+{
+    return 1; // OnePoleFilter only supports single channel input
+}
+
+uint32_t AllpassFilter::OutputChannelCount() const
+{
+    return 1; // OnePoleFilter only supports single channel output
+}
+
+void AllpassFilter::Clear()
+{
+    last_in_ = 0.f;
+    last_out_ = 0.f;
+}
+
+std::unique_ptr<AudioProcessor> AllpassFilter::Clone() const
+{
+    auto clone = std::make_unique<AllpassFilter>();
+    clone->SetCoefficients(coeff_);
+    return clone;
+}
+
 } // namespace sfFDN

@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iostream>
 #include <random>
 
+#include "sffdn/audio_buffer.h"
 #include "sffdn/sffdn.h"
 
 #include "test_utils.h"
@@ -13,39 +15,66 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-// TEST_CASE("Delay")
-// {
-//     constexpr uint32_t kBlockSize = 128;
-//     constexpr uint32_t kDelay = 4663;
-//     constexpr uint32_t kMaxDelay = 8192;
+TEST_CASE("Delay")
+{
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kDelay = 4663;
+    constexpr uint32_t kMaxDelay = 8192;
 
-//     std::vector<float> input(kBlockSize, 0.f);
-//     std::vector<float> output(kBlockSize, 0.f);
-//     // Fill with white noise
-//     std::default_random_engine generator;
-//     std::normal_distribution<double> dist(0, 0.1);
-//     for (auto i = 0; i < input.size(); ++i)
-//     {
-//         input[i] = dist(generator);
-//     }
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize, 0.f);
+    // Fill with white noise
+    std::default_random_engine generator;
+    std::normal_distribution<double> dist(0, 0.1);
+    for (auto i = 0; i < input.size(); ++i)
+    {
+        input[i] = dist(generator);
+    }
 
-//     sfFDN::Delay delay(kDelay, kMaxDelay);
-//     sfFDN::DelayA delay_a(kDelay, kMaxDelay);
-//     sfFDN::DelayTimeVarying delay_tv(kDelay, kMaxDelay);
+    sfFDN::Delay delay(kDelay, kMaxDelay);
 
-//     nanobench::Bench bench;
-//     bench.title("Delay Perf");
-//     // bench.batch(kBlockSize);
-//     bench.minEpochIterations(1000000);
+    nanobench::Bench bench;
+    bench.title("Delay Perf");
+    bench.minEpochIterations(500000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
 
-//     bench.run("Delay Linear", [&] { delay.Tick(input, output); });
+    bench.run("Delay Linear", [&] {
+        for (auto i = 0; i < kBlockSize; ++i)
+        {
+            output[i] = delay.Tick(input[i]);
+        }
+        nanobench::doNotOptimizeAway(input);
+        nanobench::doNotOptimizeAway(output);
+    });
 
-//     bench.minEpochIterations(50000);
-//     bench.run("Delay A", [&] {
-//         delay_a.GetNextOutputs(output);
-//         delay_a.AddNextInputs(input);
-//     });
-// }
+    bench.run("Delay block", [&] {
+        delay.GetNextOutputs(output);
+        delay.AddNextInputs(input);
+        nanobench::doNotOptimizeAway(input);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    sfFDN::DelayAllpass delay_allpass(kDelay + 0.5f, kMaxDelay);
+
+    bench.run("DelayAllpass Linear", [&] {
+        for (auto i = 0; i < kBlockSize; ++i)
+        {
+            output[i] = delay_allpass.Tick(input[i]);
+        }
+
+        nanobench::doNotOptimizeAway(input);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+    bench.run("Delay block", [&] {
+        delay_allpass.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(input_buffer);
+        nanobench::doNotOptimizeAway(output_buffer);
+    });
+}
 
 TEST_CASE("DelayBank")
 {

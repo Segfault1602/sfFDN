@@ -1,12 +1,14 @@
-add_library(sfFDN)
+add_library(sfFDN.sfFDN)
+add_library(sfFDN::sfFDN ALIAS sfFDN.sfFDN)
 
 set(SFFDN_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 target_sources(
-    sfFDN
+    sfFDN.sfFDN
     PRIVATE audio_buffer.cpp
             audio_processor.cpp
             array_math.cpp
+            # vdsp_array_math.cpp
             cascaded_filter.cpp
             circular_buffer.cpp
             delay.cpp
@@ -31,9 +33,11 @@ target_sources(
             rng.cpp
             schroeder_allpass.cpp
             upols.cpp
+)
+
+target_sources(
+    sfFDN.sfFDN
     PUBLIC FILE_SET
-           "sffdn_headers"
-           TYPE
            HEADERS
            BASE_DIRS
            ${SFFDN_INCLUDE_DIRS}
@@ -58,14 +62,18 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/sffdn.h
 )
 
-target_precompile_headers(sfFDN PRIVATE pch.h)
-target_include_directories(sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
-target_link_libraries(sfFDN PRIVATE Eigen3::Eigen pffft::pffft kissfft::kissfft-float)
-target_compile_options(sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
-target_compile_features(sfFDN PRIVATE cxx_std_23)
-target_link_options(sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})
+target_precompile_headers(sfFDN.sfFDN PRIVATE pch.h)
+target_include_directories(
+    sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR}
+                        ${PROJECT_SOURCE_DIR}/../../../scratch/math_approx/include
+)
+target_link_libraries(sfFDN.sfFDN PRIVATE Eigen3::Eigen pffft::pffft kissfft::kissfft-float)
+target_compile_options(sfFDN.sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
+target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
+target_link_options(sfFDN.sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})
+target_compile_definitions(sfFDN.sfFDN PRIVATE ${SFFDN_COMPILE_DEFINITION})
 
 if(${SFFDN_USE_VDSP})
-    target_link_libraries(sfFDN PRIVATE "-framework Accelerate")
-    target_compile_definitions(sfFDN PRIVATE SFFDN_USE_VDSP)
+    target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")
+    target_compile_definitions(sfFDN.sfFDN PRIVATE SFFDN_USE_VDSP)
 endif()

@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 #include "sffdn/audio_buffer.h"
+#include "sffdn/delay.h"
+#include "sffdn/filter.h"
 
 namespace sfFDN
 {
@@ -24,7 +26,7 @@ class DelayAllpass
     /// @brief Gets the maximum delay-line length.
     uint32_t GetMaximumDelay() const
     {
-        return buffer_.size() - 1;
+        return delay_.GetMaximumDelay();
     }
 
     /// @brief Sets the maximum delay for the delay line.
@@ -38,7 +40,7 @@ class DelayAllpass
     /// @brief Returns the current delay in samples.
     float GetDelay() const
     {
-        return delay_;
+        return delay_.GetDelay();
     }
 
     /// @brief Processes a single sample through the delay line.
@@ -52,22 +54,8 @@ class DelayAllpass
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
   protected:
-    uint32_t in_point_;
-    uint32_t out_point_;
-    float delay_;
-    float alpha_;
-    float coeff_;
-    float ap_input_;
-    float next_output_;
-    bool do_next_out_;
-
-    std::vector<float> buffer_;
-    float last_frame_;
-    float gain_;
-
-  private:
-    void UpdateAlpha(float delay);
-    float NextOut();
+    Delay delay_;
+    AllpassFilter allpass_;
 };
 
 } // namespace sfFDN

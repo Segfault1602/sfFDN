@@ -13,7 +13,7 @@ struct SineTableInitializer
     {
         for (auto i = 0; i < kSineTableSize; ++i)
         {
-            kSineTable[i] = std::sinf((2.0f * std::numbers::pi * i) / kSineTableSize);
+            kSineTable[i] = std::sin((2.0 * std::numbers::pi * i) / kSineTableSize);
         }
 
         kSineTable[kSineTableSize] = 0.f;
@@ -23,7 +23,13 @@ SineTableInitializer sine_table_initializer;
 
 float Sine(float phase)
 {
-    assert(phase >= 0.0f && phase < 1.0f);
+    while (phase < 0.f)
+    {
+        phase += 1.f;
+    }
+
+    phase = phase - std::floor(phase);
+
     float index = phase * kSineTableSize;
 
     int32_t uindex = static_cast<int32_t>(index);
@@ -38,31 +44,31 @@ float Sine(float phase)
 
 namespace sfFDN
 {
+
 SineWave::SineWave(float frequency, uint32_t sample_rate, float initial_phase)
-    : frequency_(frequency)
-    , sample_rate_(sample_rate)
+    : sample_rate_(sample_rate)
     , phase_(initial_phase)
+    , phase_increment_(frequency / sample_rate)
 {
-    // Normalize the initial phase to the range [0, 2 * PI)
-    phase_increment_ = frequency_ / sample_rate_;
+}
+
+void SineWave::SetFrequency(float frequency)
+{
+    phase_increment_ = frequency / sample_rate_;
 }
 
 void SineWave::Generate(AudioBuffer& output)
 {
-    for (auto i = 0; i < output.SampleCount(); ++i)
+    assert(output.ChannelCount() == 1);
+
+    float phase = phase_;
+    auto first_channel = output.GetChannelSpan(0);
+    for (float& i : first_channel)
     {
-        float sample = Sine(phase_);
-
-        for (auto channel = 0; channel < output.ChannelCount(); ++channel)
-        {
-            output.GetChannelSpan(channel)[i] = sample;
-        }
-
-        phase_ += phase_increment_;
-        while (phase_ >= 1.0)
-        {
-            phase_ -= 1.0;
-        }
+        i = Sine(phase);
+        phase += phase_increment_;
     }
+    phase_ = phase;
+    phase_ -= std::floor(phase_);
 }
 } // namespace sfFDN

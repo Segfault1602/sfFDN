@@ -1,6 +1,16 @@
 #include "sffdn/delay.h"
 
 #include "pch.h"
+#include <algorithm>
+#include <cstdint>
+
+namespace
+{
+uint32_t fast_mod(uint32_t input, uint32_t ceil)
+{
+    return input >= ceil ? input % ceil : input;
+}
+} // namespace
 
 namespace sfFDN
 {
@@ -52,6 +62,11 @@ uint32_t Delay::GetMaximumDelay() const
 
 void Delay::SetDelay(uint32_t delay)
 {
+    if (delay == delay_)
+    {
+        return;
+    }
+
     if (delay > buffer_.size() - 1)
     {
         assert(false);
@@ -78,11 +93,11 @@ float Delay::NextOut() const
 float Delay::Tick(float input)
 {
     buffer_[in_point_] = input;
-    in_point_ = (in_point_ + 1) % buffer_.size();
+    in_point_ = fast_mod(in_point_ + 1, buffer_.size());
 
     // Read out next value
     last_frame_ = buffer_[out_point_];
-    out_point_ = (out_point_ + 1) % buffer_.size();
+    out_point_ = fast_mod(out_point_ + 1, buffer_.size());
 
     return last_frame_;
 }
@@ -124,10 +139,31 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output)
 
 bool Delay::AddNextInputs(std::span<const float> input)
 {
+    std::span<float> buffer_span = buffer_;
+
+    std::span<float> buffer_1{};
+    std::span<float> buffer_2{};
+
+    // Two scenarios:
+    // 1. The out pointer is after the in pointer
+    //      In this case we have all the space between in_point_ and out_point_ that we can write to.
+    // 2. The in pointer is after the out pointer
+    //      The write region wraps around the buffer. We have two regions to consider. The first region is from
+    //      in_point_ to the end of the buffer, and the second region is from the beginning of the buffer to out_point_.
+    if (out_point_ > in_point_)
+    {
+        buffer_1 = buffer_span.subspan(in_point_, out_point_ - in_point_);
+        buffer_2 = {};
+    }
+    else
+    {
+        buffer_1 = buffer_span.subspan(in_point_, buffer_span.size() - in_point_);
+        buffer_2 = buffer_span.subspan(0, out_point_);
+    }
+
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
-    uint32_t available_space =
-        (out_point_ > in_point_) ? (out_point_ - in_point_) : (buffer_.size() - in_point_ + out_point_);
+    uint32_t available_space = buffer_1.size() + buffer_2.size();
     if (available_space < input.size())
     {
         std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
@@ -135,41 +171,65 @@ bool Delay::AddNextInputs(std::span<const float> input)
         return false;
     }
 
-    uint32_t end_point = in_point_ + input.size();
-    end_point = std::min(end_point, static_cast<uint32_t>(buffer_.size()));
-
-    uint32_t size1 = end_point - in_point_;
-    uint32_t size2 = input.size() - size1;
-    // Copy input to buffer
-    std::copy(input.begin(), input.begin() + size1, buffer_.begin() + in_point_);
-    // Copy input to buffer
-    if (size2 > 0)
+    if (input.size() <= buffer_1.size())
     {
-        std::copy(input.begin() + size1, input.end(), buffer_.begin());
+        // All input fits in the first region
+        std::ranges::copy(input, buffer_1.begin());
+    }
+    else
+    {
+        std::ranges::copy(input.first(buffer_1.size()), buffer_1.begin());
+        std::ranges::copy(input.subspan(buffer_1.size()), buffer_2.begin());
     }
 
-    in_point_ = (in_point_ + input.size()) % buffer_.size();
+    in_point_ = fast_mod(in_point_ + input.size(), buffer_.size());
     return true;
 }
 
 void Delay::GetNextOutputs(std::span<float> output)
 {
-    uint32_t outPoint = out_point_;
+    std::span<float> buffer_span = buffer_;
 
-    uint32_t endPoint = outPoint + output.size();
-    if (endPoint < buffer_.size())
+    std::span<float> buffer_1{};
+    std::span<float> buffer_2{};
+
+    // Two scenarios:
+    // 1. The out pointer is after the in pointer
+    //      The read region wraps around the buffer. We have two regions to consider. The first region is from
+    //      out_point to the end of the buffer, and the second region is from the beginning of the buffer to in_point_.
+    // 2. The in pointer is after the out pointer
+    //      In this case we have all the space between in_point_ and out_point_ that we can read from.
+    if (out_point_ > in_point_)
     {
-        std::copy(buffer_.begin() + outPoint, buffer_.begin() + endPoint, output.begin());
+        buffer_1 = buffer_span.subspan(out_point_);
+        buffer_2 = buffer_span.subspan(0, in_point_);
     }
     else
     {
-        uint32_t size1 = buffer_.size() - outPoint;
-        uint32_t size2 = output.size() - size1;
-        std::copy(buffer_.begin() + outPoint, buffer_.end(), output.begin());
-        std::copy(buffer_.begin(), buffer_.begin() + size2, output.begin() + size1);
+        buffer_1 = buffer_span.subspan(out_point_, in_point_ - out_point_);
+        buffer_2 = {};
     }
 
-    out_point_ = endPoint % buffer_.size();
+    // Check that we have enough data to read from
+    uint32_t available_space = buffer_1.size() + buffer_2.size();
+    if (available_space < output.size())
+    {
+        std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
+        assert(false);
+        return;
+    }
+
+    if (buffer_1.size() >= output.size())
+    {
+        std::ranges::copy(buffer_1.first(output.size()), output.begin());
+    }
+    else
+    {
+        std::ranges::copy(buffer_1, output.begin());
+        std::ranges::copy(buffer_2.first(output.size() - buffer_1.size()), output.subspan(buffer_1.size()).begin());
+    }
+
+    out_point_ = (out_point_ + output.size()) % buffer_.size();
     last_frame_ = output.back();
 }
 

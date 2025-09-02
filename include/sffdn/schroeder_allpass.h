@@ -41,6 +41,7 @@ class SchroederAllpass
     float g_;
 };
 
+/// \brief A section of parallel Schroeder allpass filters.
 class SchroederAllpassSection : public AudioProcessor
 {
   public:

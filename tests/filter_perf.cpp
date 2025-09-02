@@ -9,6 +9,8 @@
 #include "filter_coeffs.h"
 #include "test_utils.h"
 
+#include <Accelerate/accelerate.h>
+
 using namespace ankerl;
 using namespace std::chrono_literals;
 
@@ -28,13 +30,14 @@ TEST_CASE("FilterBankPerf")
     bench.batch(kSampleToProcess);
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
+    sfFDN::RNG rng;
 
     for (const auto& block_size : kBlockSizes)
     {
         std::vector<float> input(block_size * N, 0);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
+            input[i] = rng.NextFloat();
         }
         std::vector<float> output(block_size * N, 0);
 
@@ -109,7 +112,7 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
 
-#if 0
+#if 1
 TEST_CASE("VDSP_FilterBank")
 {
     constexpr uint32_t N = 6;  // number of channels
@@ -148,12 +151,13 @@ TEST_CASE("VDSP_FilterBank")
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
 
+    sfFDN::RNG rng;
     for (const auto& block_size : kBlockSizes)
     {
         std::vector<float> input(block_size * N, 0);
         for (auto i = 0; i < input.size(); ++i)
         {
-            input[i] = static_cast<float>(sfFDN::rng() % 100) / 100.f;
+            input[i] = rng.NextFloat();
         }
         std::vector<float> output(block_size * N, 0);
 

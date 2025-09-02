@@ -5,7 +5,7 @@
 #include "matrix_gallery_internal.h"
 #include "sffdn/matrix_gallery.h"
 
-#include <sanitizer/rtsan_interface.h>
+// #include <sanitizer/rtsan_interface.h>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
@@ -70,7 +70,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         }
         else
         {
-            __rtsan::ScopedDisabler d;
+            // __rtsan::ScopedDisabler d;
             // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary
             // buffer
             output_map = input_map * matrix;
