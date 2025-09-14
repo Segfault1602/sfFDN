@@ -24,6 +24,7 @@ target_sources(
             filterbank.cpp
             filter_design.cpp
             filter_feedback_matrix.cpp
+            iirfilterbank.cpp
             math_utils.cpp
             matrix_gallery.cpp
             matrix_multiplication.cpp
@@ -32,6 +33,7 @@ target_sources(
             parallel_gains.cpp
             rng.cpp
             schroeder_allpass.cpp
+            time_varying_parallel_gains.cpp
             upols.cpp
 )
 
@@ -73,7 +75,6 @@ target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
 target_link_options(sfFDN.sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})
 target_compile_definitions(sfFDN.sfFDN PRIVATE ${SFFDN_COMPILE_DEFINITION})
 
-if(${SFFDN_USE_VDSP})
+if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")
-    target_compile_definitions(sfFDN.sfFDN PRIVATE SFFDN_USE_VDSP)
 endif()

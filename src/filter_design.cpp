@@ -1,14 +1,13 @@
 #include "sffdn/filter_design.h"
 #include "filter_design_internal.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/filter.h"
+#include "sffdn/parallel_gains.h"
 
 #include "pch.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <algorithm>
-#include <iostream>
-#include <numeric>
-#include <ranges>
 
 namespace
 {
@@ -76,7 +75,7 @@ Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> InteractionMatrix(std::span<con
 
     T gdb_abs_sum =
         std::accumulate(Gdb.begin(), Gdb.end(), static_cast<T>(0), [](T sum, T val) { return sum + std::abs(val); });
-    if (gdb_abs_sum <= 1e-15)
+    if (gdb_abs_sum <= 1e-10)
     {
         for (int i = 0; i < kNBands; ++i)
         {
@@ -324,4 +323,48 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
     return sos_f;
 }
 
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(std::span<const float> t60s,
+                                                            std::span<const uint32_t> delays, float sample_rate)
+{
+
+    if (t60s.size() == 1) // Proportional attenuation
+    {
+        const auto feedback_gain = db2mag(RT602Slope(t60s[0], sample_rate));
+        std::vector<float> proportional_fb_gains(delays.size(), 0.f);
+        for (size_t i = 0; i < delays.size(); ++i)
+        {
+            proportional_fb_gains[i] = std::pow(feedback_gain, delays[i]);
+        }
+
+        return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, proportional_fb_gains);
+    }
+    else if (t60s.size() == 2) // One-pole absorption filter
+    {
+        auto filter_bank = std::make_unique<sfFDN::FilterBank>();
+        for (size_t i = 0; i < delays.size(); ++i)
+        {
+            auto onepole_filter = std::make_unique<sfFDN::OnePoleFilter>();
+            onepole_filter->SetT60s(t60s[0], t60s[1], delays[i], sample_rate);
+            filter_bank->AddFilter(std::move(onepole_filter));
+        }
+
+        return filter_bank;
+    }
+    else if (t60s.size() == 10) // Two-filter attenuation
+    {
+        auto filter_bank = std::make_unique<sfFDN::FilterBank>();
+        for (unsigned int delay : delays)
+        {
+            std::vector<float> sos = GetTwoFilter(t60s, delay, sample_rate);
+            const size_t num_stages = sos.size() / 6;
+            auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+            filter->SetCoefficients(num_stages, sos);
+            filter_bank->AddFilter(std::move(filter));
+        }
+
+        return filter_bank;
+    }
+
+    return nullptr;
+}
 } // namespace sfFDN

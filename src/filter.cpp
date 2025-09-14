@@ -1,4 +1,5 @@
 #include "sffdn/filter.h"
+#include "sffdn/filter_design.h"
 
 #include "pch.h"
 
@@ -16,6 +17,11 @@ OnePoleFilter::OnePoleFilter()
     , a1_(0.0f)
     , state_{0.0f, 0.0f}
 {
+}
+
+void OnePoleFilter::SetT60s(float dc, float ny, uint32_t delay, float sample_rate)
+{
+    GetOnePoleAbsorption(dc, ny, sample_rate, delay, b0_, a1_);
 }
 
 void OnePoleFilter::SetPole(float pole)

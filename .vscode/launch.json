@@ -5,14 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Tests",
-            "type": "cppdbg",
+            "name": "PyFDN",
+            "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/RelWithDebInfo/tests/sfFDN.tests",
+            "program": "/opt/miniconda3/bin/python",
             "args": [
-                "SineWave"
+                "${workspaceFolder}/py_binding/tests.py"
             ],
-            "MIMode": "lldb",
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "Tests",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/tests/sfFDN.tests",
+            "args": [
+                "IIRFilterBank"
+            ],
+            // "MIMode": "lldb",
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],
@@ -21,14 +31,13 @@
             "name": "Perf",
             "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/RelWithDebInfo/perf",
+            "program": "${workspaceFolder}/build/RelWithDebInfo/tests/sfFDN.perf",
             "args": [
-                "-tc=FDNPerf"
+                "ParallelGainsPerf"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],
-            "runInTerminal": false
         }
     ]
 }

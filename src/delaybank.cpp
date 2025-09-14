@@ -85,10 +85,19 @@ void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 void DelayBank::AddNextInputs(const AudioBuffer& input)
 {
     assert(input.ChannelCount() == delays_.size());
-
-    for (uint32_t i = 0; i < delays_.size(); i++)
+    if (input.SampleCount() > 1)
     {
-        delays_[i].AddNextInputs(input.GetChannelSpan(i));
+        for (uint32_t i = 0; i < delays_.size(); i++)
+        {
+            delays_[i].AddNextInputs(input.GetChannelSpan(i));
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < delays_.size(); i++)
+        {
+            delays_[i].Tick(input.GetChannelSpan(i)[0]);
+        }
     }
 }
 
@@ -96,9 +105,19 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
 {
     assert(output.ChannelCount() == delays_.size());
 
-    for (uint32_t i = 0; i < delays_.size(); i++)
+    if (output.SampleCount() > 1)
     {
-        delays_[i].GetNextOutputs(output.GetChannelSpan(i));
+        for (uint32_t i = 0; i < delays_.size(); i++)
+        {
+            delays_[i].GetNextOutputs(output.GetChannelSpan(i));
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < delays_.size(); i++)
+        {
+            output.GetChannelSpan(i)[0] = delays_[i].NextOut();
+        }
     }
 }
 

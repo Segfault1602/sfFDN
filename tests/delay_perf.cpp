@@ -35,10 +35,10 @@ TEST_CASE("Delay")
 
     nanobench::Bench bench;
     bench.title("Delay Perf");
-    bench.minEpochIterations(500000);
     bench.relative(true);
     bench.timeUnit(1us, "us");
 
+    bench.minEpochIterations(50000);
     bench.run("Delay Linear", [&] {
         for (auto i = 0; i < kBlockSize; ++i)
         {
@@ -48,6 +48,7 @@ TEST_CASE("Delay")
         nanobench::doNotOptimizeAway(output);
     });
 
+    bench.minEpochIterations(500000);
     bench.run("Delay block", [&] {
         delay.GetNextOutputs(output);
         delay.AddNextInputs(input);
@@ -57,6 +58,7 @@ TEST_CASE("Delay")
 
     sfFDN::DelayAllpass delay_allpass(kDelay + 0.5f, kMaxDelay);
 
+    bench.minEpochIterations(10000);
     bench.run("DelayAllpass Linear", [&] {
         for (auto i = 0; i < kBlockSize; ++i)
         {
@@ -69,7 +71,8 @@ TEST_CASE("Delay")
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
-    bench.run("Delay block", [&] {
+    bench.minEpochIterations(10000);
+    bench.run("DelayAllpass block", [&] {
         delay_allpass.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(input_buffer);
         nanobench::doNotOptimizeAway(output_buffer);
@@ -108,15 +111,6 @@ TEST_CASE("DelayBank")
         delay_bank.GetNextOutputs(output_buffer);
         delay_bank.AddNextInputs(input_buffer);
     });
-
-    std::filesystem::path output_dir = std::filesystem::current_path() / "perf";
-    if (!std::filesystem::exists(output_dir))
-    {
-        std::filesystem::create_directory(output_dir);
-    }
-    std::filesystem::path filepath = output_dir / std::format("delaybank_B{}.json", kBlockSize);
-    std::ofstream render_out(filepath);
-    bench.render(ankerl::nanobench::templates::json(), render_out);
 }
 
 TEST_CASE("DelayBank_BlockSize")
@@ -140,7 +134,7 @@ TEST_CASE("DelayBank_BlockSize")
     }
 
     nanobench::Bench bench;
-    bench.title("DelayBank Perf");
+    bench.title("DelayBank Perf - Block Size");
     bench.batch(kInputSize);
     bench.minEpochIterations(120);
     bench.relative(true);

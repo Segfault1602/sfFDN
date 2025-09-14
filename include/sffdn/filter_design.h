@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <cstdint>
 #include <span>
 #include <vector>
-#include <cstdint>
+
+#include "filterbank.h"
 
 namespace sfFDN
 {
@@ -41,4 +43,7 @@ std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float 
 /// 2, pp. 176–180, Feb. 2017, doi: 10.1109/LSP.2016.2645280.
 /// @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/aceq.m
 std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr);
+
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(std::span<const float> t60s,
+                                                            std::span<const uint32_t> delays, float sample_rate);
 } // namespace sfFDN

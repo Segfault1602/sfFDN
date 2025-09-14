@@ -23,6 +23,44 @@ CascadedBiquads::CascadedBiquads()
 {
 }
 
+CascadedBiquads::CascadedBiquads(const CascadedBiquads& other)
+    : stage_(other.stage_)
+    , states_(other.states_)
+    , coeffs_(other.coeffs_)
+{
+    Clear();
+}
+
+CascadedBiquads& CascadedBiquads::operator=(const CascadedBiquads& other)
+{
+    if (this != &other)
+    {
+        stage_ = other.stage_;
+        states_ = other.states_;
+        coeffs_ = other.coeffs_;
+    }
+    Clear();
+    return *this;
+}
+
+CascadedBiquads::CascadedBiquads(CascadedBiquads&& other) noexcept
+    : stage_(other.stage_)
+    , states_(std::move(other.states_))
+    , coeffs_(std::move(other.coeffs_))
+{
+}
+
+CascadedBiquads& CascadedBiquads::operator=(CascadedBiquads&& other) noexcept
+{
+    if (this != &other)
+    {
+        stage_ = other.stage_;
+        states_ = std::move(other.states_);
+        coeffs_ = std::move(other.coeffs_);
+    }
+    return *this;
+}
+
 void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float> coeffs)
 {
     coeffs_.clear();

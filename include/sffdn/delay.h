@@ -48,6 +48,8 @@ class Delay
         return delay_;
     };
 
+    float LastOut() const;
+
     /// @brief Returns the next output sample.
     /// @return The next output sample.
     float NextOut() const;

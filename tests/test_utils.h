@@ -11,7 +11,7 @@
 
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity);
 
-std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order);
+std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t N, uint32_t order);
 
 std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t N);
 std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t N);

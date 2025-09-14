@@ -56,4 +56,16 @@ void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::sp
         y += x * b;
     }
 }
+
+void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out)
+{
+    assert(a.size() == b.size());
+    assert(a.size() == out.size());
+
+    for (auto [a_val, b_val, out_val] : std::views::zip(a, b, out))
+    {
+        out_val = a_val * b_val;
+    }
+}
+
 } // namespace sfFDN

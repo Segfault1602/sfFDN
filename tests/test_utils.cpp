@@ -48,9 +48,9 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, u
     return ffm;
 }
 
-std::unique_ptr<sfFDN::FilterBank> GetFilterBank(uint32_t N, uint32_t order)
+std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t N, uint32_t order)
 {
-    std::unique_ptr<sfFDN::FilterBank> filter_bank = std::make_unique<sfFDN::FilterBank>();
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
 
     for (uint32_t i = 0; i < N; i++)
     {

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "audio_processor.h"
+#include "oscillator.h"
 
 namespace sfFDN
 {
@@ -45,6 +46,39 @@ class ParallelGains : public AudioProcessor
 
     std::vector<float> gains_;
     ParallelGainsMode mode_;
+};
+
+class TimeVaryingParallelGains : public AudioProcessor
+{
+  public:
+    TimeVaryingParallelGains(ParallelGainsMode mode);
+    TimeVaryingParallelGains(uint32_t N, ParallelGainsMode mode, float gain = 1.0f);
+    TimeVaryingParallelGains(ParallelGainsMode mode, std::span<const float> gains);
+
+    void SetMode(ParallelGainsMode mode);
+
+    void SetCenterGains(std::span<const float> gains);
+    void GetCenterGains(std::span<float> gains) const;
+
+    void SetLfoFrequency(std::span<const float> frequencies);
+    void SetLfoAmplitude(std::span<const float> amplitudes);
+
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    uint32_t InputChannelCount() const override;
+    uint32_t OutputChannelCount() const override;
+
+    void Clear() override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+  private:
+    void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);
+    void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output);
+    void ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output);
+
+    ParallelGainsMode mode_;
+    std::vector<SineWave> lfos_;
 };
 
 } // namespace sfFDN

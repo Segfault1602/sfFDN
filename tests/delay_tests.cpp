@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "sffdn/audio_buffer.h"
+#include "sffdn/delay_utils.h"
 #include "sffdn/sffdn.h"
 
 namespace
@@ -302,5 +303,15 @@ TEST_CASE("DelayBankProcess")
                      Catch::Matchers::WithinAbs(delay2_expected.at(i), std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(buffer_audio.GetChannelSpan(3)[i],
                      Catch::Matchers::WithinAbs(delay3_expected.at(i), std::numeric_limits<float>::epsilon()));
+    }
+}
+
+TEST_CASE("DelayLengths")
+{
+    auto delays = sfFDN::GetDelayLengths(16, 4500, 12000, sfFDN::DelayLengthType::SteamAudio, 0);
+
+    for (auto d : delays)
+    {
+        std::cout << d << " ";
     }
 }

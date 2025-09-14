@@ -19,6 +19,8 @@ class OnePoleFilter : public AudioProcessor
   public:
     OnePoleFilter();
 
+    void SetT60s(float dc, float ny, uint32_t delay, float sample_rate);
+
     /// @brief Set the pole of the filter.
     /// @param pole The pole of the filter.
     void SetPole(float pole);
@@ -88,6 +90,13 @@ class CascadedBiquads : public AudioProcessor
 {
   public:
     CascadedBiquads();
+    ~CascadedBiquads() = default;
+
+    CascadedBiquads(const CascadedBiquads&);
+    CascadedBiquads& operator=(const CascadedBiquads&);
+
+    CascadedBiquads(CascadedBiquads&&) noexcept;
+    CascadedBiquads& operator=(CascadedBiquads&&) noexcept;
 
     void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs);
 

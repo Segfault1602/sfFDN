@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "sffdn/delay_utils.h"
 
 #include "pch.h"
@@ -109,10 +111,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         {
             delays[i] = min_delay + i * bandwidth + distr(eng);
             // Ensure the delay is within the specified range
-            if (delays[i] > max_delay)
-            {
-                delays[i] = max_delay; // Clamp to max_delay if it exceeds
-            }
+            delays[i] = std::min(delays[i], max_delay);
         }
         break;
     }

@@ -32,7 +32,6 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     }
 
     filter->SetCoefficients(sos.size(), coeffs);
-    std::cout << "Created test filter with " << sos.size() << " sections." << std::endl;
 
     return filter;
 }
@@ -53,16 +52,13 @@ TEST_CASE("PartitionedConvolver")
 
     sfFDN::PartitionedConvolver nupols(kBlockSize, fir);
 
-    nupols.DumpInfo();
-
     std::vector<float> input(kBlockSize, 0.f);
     input[0] = 1.f;
     std::vector<float> output(kBlockSize, 0.f);
 
     nanobench::Bench bench;
     bench.title("PartitionedConvolver perf");
-    // bench.batch(kBlockSize * kLoopCount);
-    bench.minEpochIterations(200000);
+    bench.minEpochIterations(20000);
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);

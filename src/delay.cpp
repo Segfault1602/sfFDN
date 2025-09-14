@@ -85,6 +85,11 @@ void Delay::SetDelay(uint32_t delay)
     delay_ = delay;
 }
 
+float Delay::LastOut() const
+{
+    return last_frame_;
+}
+
 float Delay::NextOut() const
 {
     return buffer_[out_point_];

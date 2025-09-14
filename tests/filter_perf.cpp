@@ -4,6 +4,7 @@
 #include <random>
 
 #include "rng.h"
+#include "sffdn/delay_utils.h"
 #include "sffdn/sffdn.h"
 
 #include "filter_coeffs.h"
@@ -20,14 +21,13 @@ TEST_CASE("FilterBankPerf")
 
     auto filter_bank = GetFilterBank(N, 11);
 
-    constexpr uint32_t kSampleToProcess = 32768;
+    constexpr uint32_t kSampleToProcess = 512;
 
     nanobench::Bench bench;
-    bench.title("FilterBank perf");
-    bench.minEpochIterations(100);
+    bench.title("FilterBank perf - Block Size Comparison");
+    bench.minEpochIterations(200);
     bench.relative(true);
     bench.timeUnit(1us, "us");
-    bench.batch(kSampleToProcess);
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
     sfFDN::RNG rng;
@@ -35,9 +35,9 @@ TEST_CASE("FilterBankPerf")
     for (const auto& block_size : kBlockSizes)
     {
         std::vector<float> input(block_size * N, 0);
-        for (auto i = 0; i < input.size(); ++i)
+        for (float& i : input)
         {
-            input[i] = rng.NextFloat();
+            i = rng.NextFloat();
         }
         std::vector<float> output(block_size * N, 0);
 
@@ -104,7 +104,7 @@ TEST_CASE("CascadedBiquadsPerf")
     nanobench::Bench bench;
     bench.title("CascadedBiquads perf");
     bench.batch(kBlockSize);
-    bench.minEpochIterations(200000);
+    bench.minEpochIterations(20000);
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
@@ -112,10 +112,42 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
 
+TEST_CASE("ParallelSchroederAllpassSection")
+{
+    constexpr uint32_t N = 16;
+    constexpr uint32_t kBlockSize = 128;
+
+    sfFDN::ParallelSchroederAllpassSection filter(N, 1);
+    std::vector<uint32_t> delays = sfFDN::GetDelayLengths(N, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
+    std::array<float, N> gains{};
+    gains.fill(0.7f);
+
+    filter.SetDelays(delays);
+    filter.SetGains(gains);
+
+    std::vector<float> input(N * kBlockSize, 0.f);
+    // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
+    for (uint32_t i = 0; i < N; ++i)
+    {
+        input[i * kBlockSize] = 1.f;
+    }
+
+    std::vector<float> output(N * kBlockSize, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+
+    nanobench::Bench bench;
+    bench.title("ParallelSchroederAllpassSection perf");
+    bench.minEpochIterations(5000);
+
+    bench.run("ParallelSchroederAllpassSection", [&] { filter.Process(input_buffer, output_buffer); });
+}
+
 #if 1
 TEST_CASE("VDSP_FilterBank")
 {
-    constexpr uint32_t N = 6;  // number of channels
+    constexpr uint32_t N = 16; // number of channels
     constexpr uint32_t M = 11; // number of section
 
     std::vector<float> delays((2 * M) + 2, 0.f);
@@ -140,14 +172,13 @@ TEST_CASE("VDSP_FilterBank")
     vDSP_biquadm_Setup biquad_setup = vDSP_biquadm_CreateSetup(coeffs.data(), M, N);
     REQUIRE(biquad_setup != nullptr);
 
-    constexpr uint32_t kSampleToProcess = 32768;
+    constexpr uint32_t kSampleToProcess = 512;
 
     nanobench::Bench bench;
-    bench.title("FilterBank perf");
-    bench.minEpochIterations(100);
+    bench.title("vDSP FilterBank perf");
+    bench.minEpochIterations(1000);
     bench.relative(true);
     bench.timeUnit(1us, "us");
-    bench.batch(kSampleToProcess);
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256};
 
@@ -155,19 +186,19 @@ TEST_CASE("VDSP_FilterBank")
     for (const auto& block_size : kBlockSizes)
     {
         std::vector<float> input(block_size * N, 0);
-        for (auto i = 0; i < input.size(); ++i)
+        for (float& i : input)
         {
-            input[i] = rng.NextFloat();
+            i = rng.NextFloat();
         }
         std::vector<float> output(block_size * N, 0);
 
-        std::array<const float*, N> input_ptrs;
-        std::array<float*, N> output_ptrs;
+        std::array<const float*, N> input_ptrs{};
+        std::array<float*, N> output_ptrs{};
 
         for (auto i = 0; i < N; ++i)
         {
-            input_ptrs[i] = input.data() + (i * block_size);
-            output_ptrs[i] = output.data() + (i * block_size);
+            input_ptrs[i] = std::span(input).subspan(i * block_size, block_size).data();
+            output_ptrs[i] = std::span(output).subspan(i * block_size, block_size).data();
         }
 
         bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
@@ -176,7 +207,6 @@ TEST_CASE("VDSP_FilterBank")
 
             for (auto i = 0; i < num_blocks; ++i)
             {
-
                 vDSP_biquadm(biquad_setup, input_ptrs.data(), 1, output_ptrs.data(), 1, block_size);
             }
             nanobench::doNotOptimizeAway(output);

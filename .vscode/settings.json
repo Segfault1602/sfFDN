@@ -72,5 +72,8 @@
         "functional": "cpp",
         "*.inc": "cpp"
     },
-    "C_Cpp.codeAnalysis.clangTidy.enabled": false
+    "C_Cpp.codeAnalysis.clangTidy.enabled": false,
+    "python.analysis.extraPaths": [
+        "./build/Release/py_binding"
+    ]
 }

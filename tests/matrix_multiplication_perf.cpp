@@ -1,6 +1,7 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 
@@ -139,7 +140,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
 
     constexpr uint32_t kInputSize = N * kBlockSize;
 
-    std::array<float, kInputSize> input;
+    std::array<float, kInputSize> input{};
     for (auto i = 0; i < N; ++i)
     {
         for (auto j = 0; j < kBlockSize; ++j)
@@ -152,13 +153,12 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     bench.title("Matrix Multiplication Performance - Block");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(500000);
+    bench.minEpochIterations(5000);
     bench.run("Eigen", [&]() {
         Eigen::Map<const Eigen::MatrixXf> mat(kMatrix16x16.data(), N, N);
         Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, N);
 
-
-        std::array<float, kInputSize> eigen_output_data;
+        std::array<float, kInputSize> eigen_output_data{};
         Eigen::Map<Eigen::MatrixXf> output(eigen_output_data.data(), kBlockSize, N);
 
         output = eigen_input * mat;
@@ -197,48 +197,6 @@ TEST_CASE("Hadamard")
         kHadamard[i] *= 0.25f; // Scale down to avoid overflow in multiplication
     }
 
-    // Eigen
-    Eigen::Map<const Eigen::Matrix<float, N, N>> eigen_mat(kHadamard.data());
-    Eigen::Map<const Eigen::Matrix<float, 1, N>> eigen_input(kInput.data());
-
-    std::array<float, N> eigen_output_data;
-    Eigen::Map<Eigen::Matrix<float, 1, N>> eigen_output(eigen_output_data.data());
-
-    eigen_output = eigen_input * eigen_mat;
-
-    std::cout << "Eigen Hadamard Output: ";
-    std::cout << eigen_output << std::endl;
-
-    std::array<float, N> output;
-    sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
-    std::cout << "Custom Hadamard Output: ";
-    for (const auto& val : output)
-    {
-        std::cout << val << " ";
-    }
-    std::cout << std::endl;
-
-    sfFDN::HadamardMultiply(kInput, output);
-    std::cout << "Hadamard Multiply Output: ";
-    for (const auto& val : output)
-    {
-        std::cout << val << " ";
-    }
-    std::cout << std::endl;
-
-    std::array<float, N> inout;
-    for (auto i = 0; i < N; ++i)
-    {
-        inout[i] = kInput[i];
-    }
-    sfFDN::WalshHadamardTransform(inout);
-    std::cout << "Walsh Hadamard Transform Output: ";
-    for (const auto& val : inout)
-    {
-        std::cout << val << " ";
-    }
-    std::cout << std::endl;
-
     constexpr uint32_t kIterations = 1000;
     nanobench::Bench bench;
     bench.title("Hadamard Multiplication Performance");
@@ -251,7 +209,7 @@ TEST_CASE("Hadamard")
         Eigen::Map<const Eigen::MatrixXf> eigen_mat(kHadamard.data(), N, N);
         Eigen::Map<const Eigen::RowVectorXf> eigen_input(kInput.data(), N);
 
-        std::array<float, N> eigen_output_data;
+        std::array<float, N> eigen_output_data{};
         Eigen::Map<Eigen::RowVectorXf> eigen_output(eigen_output_data.data(), N);
 
         for (auto i = 0; i < kIterations; ++i)
@@ -262,7 +220,7 @@ TEST_CASE("Hadamard")
     });
 
     bench.run("MatrixMultiply", [&]() {
-        std::array<float, N> output;
+        std::array<float, N> output{};
         for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
@@ -271,7 +229,7 @@ TEST_CASE("Hadamard")
     });
 
     bench.run("HadamardMultiply", [&]() {
-        std::array<float, N> output;
+        std::array<float, N> output{};
         for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::HadamardMultiply(kInput, output);
@@ -280,11 +238,8 @@ TEST_CASE("Hadamard")
     });
 
     bench.run("WalshHadamardTransform", [&]() {
-        std::array<float, N> inout;
-        for (auto i = 0; i < N; ++i)
-        {
-            inout[i] = kInput[i];
-        }
+        std::array<float, N> inout{};
+        std::ranges::copy(kInput, inout.begin());
         for (auto i = 0; i < kIterations; ++i)
         {
             sfFDN::WalshHadamardTransform(inout);

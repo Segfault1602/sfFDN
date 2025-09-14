@@ -12,15 +12,15 @@
 #include "rng.h"
 #include "sffdn/sffdn.h"
 
-#include "oscillator.h"
+#include "sffdn/oscillator.h"
 
 TEST_CASE("SineWave")
 {
     constexpr uint32_t kBlockSize = 128;
-    constexpr float kFrequency = 1000.0f; // A4 note
     constexpr uint32_t kSampleRate = 48000;
+    constexpr float kFrequency = 1000.0f; // A4 note
 
-    sfFDN::SineWave sine_wave(kFrequency, kSampleRate);
+    sfFDN::SineWave sine_wave(kFrequency / kSampleRate);
 
     constexpr uint32_t kOutputSize = 1 << 10;
     std::vector<float> output(kOutputSize, 0.f); // Two channels for stereo output
@@ -28,8 +28,8 @@ TEST_CASE("SineWave")
     const uint32_t kBlockCount = kOutputSize / kBlockSize;
     for (auto i = 0; i < kBlockCount; ++i)
     {
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i * kBlockSize, kBlockSize));
-        sine_wave.Generate(output_buffer);
+        auto block_span = std::span(output).subspan(i * kBlockSize, kBlockSize);
+        sine_wave.Generate(block_span);
     }
 
     SF_INFO sf_info;

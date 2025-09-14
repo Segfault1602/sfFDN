@@ -5,6 +5,6 @@ use_tabchars: False
 autosort: True
 dangle_parens: True
 
-max_subargs_per_line: 2
-max_subgroups_hwrap: 2
+max_subargs_per_line: 3
+max_subgroups_hwrap: 3
 max_pargs_hwrap: 3

@@ -12,7 +12,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(SFFDN_BUILD_TESTS "Enable building tests. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF}."
        ${PROJECT_IS_TOP_LEVEL}
 )
-option(SFFDN_BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
+option(SFFDN_BUILD_PYTHON_BINDINGS "Build Python bindings" ${PROJECT_IS_TOP_LEVEL})
+
+option(SFFDN_USE_VDSP "Use vDSP for dsp operations" OFF)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(STATUS "Building for macOS")

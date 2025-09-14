@@ -9,6 +9,8 @@
 
 #include "array_math.h"
 #include "filter_coeffs.h"
+#include "sffdn/feedback_matrix.h"
+#include "sffdn/matrix_gallery.h"
 #include "sffdn/sffdn.h"
 
 #include "test_utils.h"
@@ -38,7 +40,7 @@ TEST_CASE("FDNPerf")
     bench.title("FDN Perf");
     // bench.batch(kBlockSize);
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(1000);
 
     bench.run("FDN", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
@@ -50,6 +52,7 @@ TEST_CASE("FDNPerf")
     // Benchmark the individual components
     auto input_gains =
         std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, std::vector<float>(N, 1.f));
+    bench.minEpochIterations(50000);
     bench.run("Input Gains", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
@@ -64,6 +67,7 @@ TEST_CASE("FDNPerf")
         delay_bank.AddNextInputs(input_buffer);
     });
 
+    bench.minEpochIterations(1000);
     auto filter_bank = GetFilterBank(N, 11);
     bench.run("Filter Bank", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
@@ -79,6 +83,7 @@ TEST_CASE("FDNPerf")
 
         fir_filter_bank->AddFilter(std::move(PartitionedConvolver));
     }
+    bench.minEpochIterations(100);
     bench.run("FIR Filter Bank", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
@@ -149,7 +154,7 @@ TEST_CASE("FDNPerf_FIR")
     bench.title("FDN Perf - FIR");
     // bench.batch(kBlockSize);
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(1000);
 
     bench.run("FDN", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
@@ -179,17 +184,10 @@ TEST_CASE("FDNPerf_FFM")
         2, 3, 8, 10, 14, 16, 0, 18, 36, 54, 72, 90, 0, 108, 216, 324, 432, 540,
     };
 
-    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
+    sfFDN::CascadedFeedbackMatrixInfo ffm_info =
+        sfFDN::ConstructCascadedFeedbackMatrix(N, K, 1, sfFDN::ScalarMatrixType::Hadamard);
 
-    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(K);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-1.f, 1.f);
-    for (uint32_t i = 0; i < K; ++i)
-    {
-        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::RandomHouseholder);
-    }
-    ffm->ConstructMatrix(ffm_delays, mixing_matrices);
+    auto ffm = sfFDN::MakeFilterFeedbackMatrix(ffm_info);
 
     auto fdn = CreateFDN(kBlockSize, N);
     fdn->SetFeedbackMatrix(std::move(ffm));
@@ -214,7 +212,6 @@ TEST_CASE("FDNPerf_Order")
     nanobench::Bench bench;
     bench.title("FDN Perf - Order");
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(10000);
 
     for (uint32_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i)
     {
@@ -231,6 +228,7 @@ TEST_CASE("FDNPerf_Order")
             input[i] = dist(generator);
         }
 
+        bench.minEpochIterations(40000 / N);
         bench.complexityN(N).run("FDN Order " + std::to_string(N), [&] {
             sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
             sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
@@ -238,37 +236,36 @@ TEST_CASE("FDNPerf_Order")
         });
     }
 
-    std::cout << bench.complexityBigO() << std::endl;
+    std::cout << bench.complexityBigO() << "\n";
 }
 
 TEST_CASE("FDNPerf_BlockSize")
 {
     constexpr uint32_t SR = 48000;
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    constexpr uint32_t kInputSize = 1 << 12;
+    constexpr uint32_t kInputSize = 2048;
     constexpr uint32_t kOrder = 16;
 
     nanobench::Bench bench;
-    bench.title("FDN Perf - Order");
+    bench.title("FDN Perf - Block Size");
     bench.relative(true);
     bench.warmup(10);
-    bench.batch(kInputSize);
+    // bench.batch(kInputSize);
     bench.minEpochIterations(100);
 
     std::vector<float> input(kInputSize, 0.f);
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (float& i : input)
     {
-        input[i] = dist(generator);
+        i = dist(generator);
     }
 
     std::vector<float> output(kInputSize, 0.f);
 
-    for (uint32_t i = 0; i < kBlockSizes.size(); ++i)
+    for (unsigned int block_size : kBlockSizes)
     {
-        const uint32_t block_size = kBlockSizes[i];
         auto fdn = CreateFDN(block_size, kOrder);
 
         bench.run("FDN Block Size " + std::to_string(block_size), [&] {

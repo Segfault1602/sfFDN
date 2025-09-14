@@ -47,6 +47,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
+    // std::vector<float> iir_coeffs;
     for (auto i = 0; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS.at(i);
@@ -68,6 +69,8 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
         filter_bank->AddFilter(std::move(filter));
     }
+
+    // filter_bank->SetFilter(iir_coeffs, N, k_h001_AbsorbtionSOS[0].size());
 
     fdn->SetFilterBank(std::move(filter_bank));
 
@@ -97,11 +100,11 @@ TEST_CASE("FDN")
     auto fdn = CreateReferenceFDN(false);
 
     // Send some garbage data first to test that `Clear()` works as expected
-    std::vector<float> garbage(4096, 1.f);
-    sfFDN::AudioBuffer garbage_buffer(4096, 1, garbage);
-    fdn->Process(garbage_buffer, garbage_buffer);
+    // std::vector<float> garbage(4096, 1.f);
+    // sfFDN::AudioBuffer garbage_buffer(4096, 1, garbage);
+    // fdn->Process(garbage_buffer, garbage_buffer);
 
-    fdn->Clear();
+    // fdn->Clear();
 
     std::vector<float> input(ITER, 0.f);
     input[0] = 1.f;

@@ -6,19 +6,18 @@
 
 #include "sffdn/sffdn.h"
 
-#include "oscillator.h"
+#include "sffdn/oscillator.h"
 
 using namespace ankerl;
 using namespace std::chrono_literals;
 
 namespace
 {
-void std_sin(sfFDN::AudioBuffer& output, float frequency, uint32_t sample_rate)
+void std_sin(std::span<float> output, float frequency, uint32_t sample_rate)
 {
     float phase = 0;
     float phase_increment = frequency / sample_rate;
-    auto first_channel = output.GetChannelSpan(0);
-    for (float& i : first_channel)
+    for (float& i : output)
     {
         i = std::sinf(phase * 2.0f * std::numbers::pi);
         phase += phase_increment;
@@ -42,15 +41,14 @@ TEST_CASE("SineWave")
     // bench.timeUnit(1us, "us");
 
     std::vector<float> output(kBlockSize, 0.f);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     bench.run("sfFDN::Oscillator", [&]() {
-        sine_wave.Generate(output_buffer);
-        nanobench::doNotOptimizeAway(output_buffer);
+        sine_wave.Generate(output);
+        nanobench::doNotOptimizeAway(output);
     });
 
     bench.run("std::sinf", [&]() {
-        std_sin(output_buffer, 10.0f, kSampleRate);
-        nanobench::doNotOptimizeAway(output_buffer);
+        std_sin(output, 10.0f, kSampleRate);
+        nanobench::doNotOptimizeAway(output);
     });
 }

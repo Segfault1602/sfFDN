@@ -22,9 +22,6 @@ TEST_CASE("MixMatPerf")
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t N = 16;
 
-    std::cout << "BLOCK SIZE: " << kBlockSize << std::endl;
-    std::cout << "N: " << N << std::endl;
-
     sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder);
 
     std::vector<float> input(N * kBlockSize, 0.f);
@@ -42,47 +39,30 @@ TEST_CASE("MixMatPerf")
     nanobench::Bench bench;
     bench.title("Householder matrix");
     // bench.batch(kBlockSize);
-    bench.minEpochIterations(100000);
+    bench.minEpochIterations(10000);
     bench.timeUnit(1us, "us");
 
     bench.run("Householder", [&] { mix_mat.Process(input_buffer, input_buffer); });
-
-    // auto ffm = CreateFFM(N, 4, 3);
-    // bench.minEpochIterations(209);
-    // bench.run("FFM", [&] { ffm->Tick(input, output); });
-
-    std::filesystem::path output_dir = std::filesystem::current_path() / "perf";
-    if (!std::filesystem::exists(output_dir))
-    {
-        std::filesystem::create_directory(output_dir);
-    }
-    std::filesystem::path filepath = output_dir / std::format("matrix_B{}.json", kBlockSize);
-    std::ofstream render_out(filepath);
-    bench.render(ankerl::nanobench::templates::json(), render_out);
 }
 
 TEST_CASE("Matrix_Order")
 {
     constexpr std::array order = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
 
-    constexpr uint32_t block_size = 4;
-    constexpr uint32_t ITER = 94;
+    constexpr uint32_t block_size = 128;
 
     nanobench::Bench bench;
-    bench.title("Householder matrix");
-    // bench.timeUnit(1ms, "ms");
-    bench.warmup(100);
+    bench.title("Householder matrix - Complexity");
 
     sfFDN::RNG rng;
-    for (auto i = 0; i < order.size(); ++i)
+    for (unsigned int N : order)
     {
-        const uint32_t N = order[i];
-        bench.minEpochIterations(4000000 / N);
+        bench.minEpochIterations(200000 / (N * N));
         // fill input with random values
         std::vector<float> input(N * block_size, 0.f);
-        for (auto i = 0; i < input.size(); ++i)
+        for (float& i : input)
         {
-            input[i] = rng.NextFloat();
+            i = rng.NextFloat();
         }
         std::vector<float> output(N * block_size, 0.f);
 
@@ -102,8 +82,7 @@ TEST_CASE("FFMPerf_Order")
     constexpr uint32_t N = 8;
     constexpr uint32_t max_stage = 8;
 
-    constexpr uint32_t block_size = 512;
-    constexpr uint32_t ITER = 94;
+    constexpr uint32_t block_size = 128;
 
     nanobench::Bench bench;
     bench.title("Filter Feedback Matrix");
@@ -111,31 +90,23 @@ TEST_CASE("FFMPerf_Order")
     bench.timeUnit(1ms, "ms");
     // bench.relative(true);
 
+    // fill input with random values
     sfFDN::RNG rng;
+    std::vector<float> input(N * block_size, 0.f);
+    for (auto i = 0; i < input.size(); ++i)
+    {
+        input[i] = rng.NextFloat();
+    }
+    std::vector<float> output(N * block_size, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(block_size, N, input);
+    sfFDN::AudioBuffer output_buffer(block_size, N, output);
+
     for (auto i = 1; i < max_stage; ++i)
     {
-        uint32_t K = i;
-
-        // fill input with random values
-        std::vector<float> input(N * block_size, 0.f);
-        for (auto i = 0; i < input.size(); ++i)
-        {
-            input[i] = rng.NextFloat();
-        }
-        std::vector<float> output(N * block_size, 0.f);
-
-        sfFDN::AudioBuffer input_buffer(block_size, N, input);
-        sfFDN::AudioBuffer output_buffer(block_size, N, output);
-
         auto ffm = CreateFFM(N, i, 1);
-
-        bench.complexityN(i).run("FFM - Stage " + std::to_string(i), [&] {
-            ffm->Clear();
-            for (auto i = 0; i < ITER; ++i)
-            {
-                ffm->Process(input_buffer, output_buffer);
-            }
-        });
+        bench.complexityN(i).run("FFM - Stage " + std::to_string(i),
+                                 [&] { ffm->Process(input_buffer, output_buffer); });
     }
 
     std::cout << bench.complexityBigO() << "\n";
