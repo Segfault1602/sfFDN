@@ -22,7 +22,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
-    for (auto j = 0; j < sos.size(); j++)
+    for (auto j = 0u; j < sos.size(); j++)
     {
         auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
         auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
@@ -46,7 +46,7 @@ TEST_CASE("UPOLS")
     constexpr uint32_t kFirLength = 2198;
     auto ref_filter = CreateTestFilter();
     std::vector<float> fir(kFirLength, 0.f);
-    for (auto i = 0; i < kFirLength; ++i)
+    for (auto i = 0u; i < kFirLength; ++i)
     {
         // Fill the FIR filter with some test coefficients
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients

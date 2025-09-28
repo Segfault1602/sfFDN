@@ -39,7 +39,7 @@ TEST_CASE("TwoFilter")
     };
     // clang-format on
 
-    for (auto i = 0; i < coeffs.size(); ++i)
+    for (auto i = 0u; i < coeffs.size(); ++i)
     {
         REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(expected_sos.at(i), 1e-13));
     }
@@ -51,7 +51,7 @@ TEST_CASE("TwoFilter")
     }
 
     auto float_coeffs = sfFDN::GetTwoFilter(t60s_f, kDelay, kSR, kShelfCutoff);
-    for (auto i = 0; i < coeffs.size(); ++i)
+    for (auto i = 0u; i < coeffs.size(); ++i)
     {
         REQUIRE_THAT(float_coeffs[i], Catch::Matchers::WithinAbs(expected_sos.at(i), 1e-7));
     }
@@ -88,5 +88,49 @@ TEST_CASE("Polyval")
     {
         REQUIRE_THAT(res.imag(), Catch::Matchers::WithinAbs(exp.imag(), 1e-14));
         REQUIRE_THAT(res.real(), Catch::Matchers::WithinAbs(exp.real(), 1e-14));
+    }
+}
+
+TEST_CASE("GraphicEQ")
+{
+    SKIP();
+    constexpr double kSR = 48000;
+    constexpr double kF0 = 1000.0;
+    constexpr double kQ = 0.707;
+    constexpr double kDbGain = -6.0;
+    constexpr double kWc = kF0 / kSR;
+
+    auto coeffs = sfFDN::LowShelfRBJ(kWc, kDbGain, kQ);
+
+    constexpr std::array<double, 6> kLowShelfExpected = {0.968460511117436f, -1.786264176544932f, 0.828701928321781f,
+                                                         1.000000000000000f, -1.780840861366279f, 0.802585754617870f};
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kLowShelfExpected.at(i), 1e-6));
+    }
+
+    coeffs = sfFDN::HighShelfRBJ(kWc, kDbGain, kQ);
+
+    constexpr std::array<double, 6> kHighShelfExpected = {0.517509209589753f, -0.921601546570798f, 0.415345519500289f,
+                                                          1.000000000000000f, -1.844436769532185f, 0.855689952051429f};
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kHighShelfExpected.at(i), 1e-6));
+    }
+
+    constexpr std::array<float, 10> kFreq = {62.5, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 8000};
+    constexpr std::array<float, 10> kMag = {1.0, 1.5, 2.0, 0.5, 1.0, 0.9, -0.5, 1.0, -1.0, -6.0};
+
+    auto graphic_eq_coeffs = sfFDN::DesignGraphicEQ(kMag, kFreq, kSR);
+
+    for (auto i = 0u; i < graphic_eq_coeffs.size(); ++i)
+    {
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i] << ", ";
+        if ((i + 1) % 6 == 0)
+        {
+            std::cout << std::endl;
+        }
     }
 }

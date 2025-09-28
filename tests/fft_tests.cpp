@@ -26,7 +26,7 @@ TEST_CASE("FFT")
             std::vector<float> expected_buffer(input_buffer.Data().size(), 0.f);
             std::default_random_engine generator;
             std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-            for (auto i = 0; i < input_buffer.Data().size(); ++i)
+            for (auto i = 0u; i < input_buffer.Data().size(); ++i)
             {
                 input_buffer.Data()[i] = dist(generator);
                 expected_buffer[i] = input_buffer.Data()[i];
@@ -38,7 +38,7 @@ TEST_CASE("FFT")
             fft.Inverse(output_buffer, input_buffer);
 
             const float scale = 1.0f / static_cast<float>(fft_size);
-            for (auto i = 0; i < input_buffer.Data().size(); ++i)
+            for (auto i = 0u; i < input_buffer.Data().size(); ++i)
             {
                 REQUIRE_THAT(input_buffer.Data()[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
             }

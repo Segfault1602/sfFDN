@@ -7,7 +7,7 @@ namespace sfFDN
 
 bool Math::IsPowerOfTwo(uint32_t n)
 {
-    return n && !(n & (n - 1));
+    return std::has_single_bit(n);
 }
 
 uint32_t Math::NextPowerOfTwo(uint32_t n)

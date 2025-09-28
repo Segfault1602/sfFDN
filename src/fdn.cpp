@@ -369,7 +369,7 @@ void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
 {
     const uint32_t block_count = input.SampleCount() / block_size_;
 
-    for (auto i = 0; i < block_count; ++i)
+    for (auto i = 0u; i < block_count; ++i)
     {
         AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
         AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
@@ -393,7 +393,7 @@ void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
 {
     const uint32_t block_count = input.SampleCount() / block_size_;
 
-    for (auto i = 0; i < block_count; ++i)
+    for (auto i = 0u; i < block_count; ++i)
     {
         AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
         AudioBuffer output_block = output.Offset(i * block_size_, block_size_);

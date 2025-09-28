@@ -42,7 +42,7 @@ TimeVaryingParallelGains::TimeVaryingParallelGains(ParallelGainsMode mode, std::
 
 void TimeVaryingParallelGains::SetCenterGains(std::span<const float> gains)
 {
-    assert(gains.size() > 0);
+    assert(!gains.empty());
     lfos_.resize(gains.size());
     for (size_t i = 0; i < gains.size(); ++i)
     {
@@ -53,7 +53,7 @@ void TimeVaryingParallelGains::SetCenterGains(std::span<const float> gains)
 void TimeVaryingParallelGains::GetCenterGains(std::span<float> gains) const
 {
     assert(gains.size() == lfos_.size());
-    for (auto i = 0; i < lfos_.size(); ++i)
+    for (auto i = 0u; i < lfos_.size(); ++i)
     {
         gains[i] = lfos_[i].GetOffset();
     }
@@ -61,7 +61,7 @@ void TimeVaryingParallelGains::GetCenterGains(std::span<float> gains) const
 
 void TimeVaryingParallelGains::SetLfoFrequency(std::span<const float> frequencies)
 {
-    assert(frequencies.size() > 0);
+    assert(!frequencies.empty());
     assert(frequencies.size() == lfos_.size());
 
     lfos_.resize(frequencies.size());
@@ -74,7 +74,7 @@ void TimeVaryingParallelGains::SetLfoFrequency(std::span<const float> frequencie
 
 void TimeVaryingParallelGains::SetLfoAmplitude(std::span<const float> amplitudes)
 {
-    assert(amplitudes.size() > 0);
+    assert(!amplitudes.empty());
     assert(amplitudes.size() == lfos_.size());
 
     lfos_.resize(amplitudes.size());
@@ -142,7 +142,7 @@ void TimeVaryingParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input,
     assert(output.ChannelCount() == lfos_.size());
     assert(input.SampleCount() == output.SampleCount());
 
-    for (auto i = 0; i < lfos_.size(); i++)
+    for (auto i = 0u; i < lfos_.size(); i++)
     {
         lfos_[i].Multiply(input.GetChannelSpan(0), output.GetChannelSpan(i));
     }
@@ -154,7 +154,7 @@ void TimeVaryingParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& inpu
     assert(input.ChannelCount() == lfos_.size());
     assert(output.ChannelCount() == 1);
 
-    for (auto i = 0; i < lfos_.size(); i++)
+    for (auto i = 0u; i < lfos_.size(); i++)
     {
         lfos_[i].MultiplyAccumulate(input.GetChannelSpan(i), output.GetChannelSpan(0));
     }
@@ -166,7 +166,7 @@ void TimeVaryingParallelGains::ProcessBlockParallel(const AudioBuffer& input, Au
     assert(input.ChannelCount() == lfos_.size());
     assert(output.ChannelCount() == lfos_.size());
 
-    for (auto i = 0; i < lfos_.size(); i++)
+    for (auto i = 0u; i < lfos_.size(); i++)
     {
         lfos_[i].Multiply(input.GetChannelSpan(i), output.GetChannelSpan(i));
     }

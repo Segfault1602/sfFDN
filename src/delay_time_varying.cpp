@@ -16,7 +16,7 @@ DelayTimeVarying::DelayTimeVarying(float delay, uint32_t maxDelay, uint32_t samp
 {
 }
 
-void DelayTimeVarying::Clear(void)
+void DelayTimeVarying::Clear()
 {
     delayA_.Clear();
 }
@@ -61,11 +61,6 @@ float DelayTimeVarying::Tick(float input)
 void DelayTimeVarying::AddNextInput(float input)
 {
     delayA_.Tick(input);
-}
-
-float DelayTimeVarying::GetNextOutput()
-{
-    return 0.0f; // Placeholder return value
 }
 
 } // namespace sfFDN

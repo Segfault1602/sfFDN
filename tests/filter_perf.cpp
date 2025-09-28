@@ -45,7 +45,7 @@ TEST_CASE("FilterBankPerf")
             const uint32_t num_blocks = kSampleToProcess / block_size;
             assert(kSampleToProcess % block_size == 0);
 
-            for (auto i = 0; i < num_blocks; ++i)
+            for (auto i = 0u; i < num_blocks; ++i)
             {
                 sfFDN::AudioBuffer input_buffer(block_size, N, input);
                 sfFDN::AudioBuffer output_buffer(block_size, N, output);
@@ -94,7 +94,7 @@ TEST_CASE("CascadedBiquadsPerf")
     // Fill with white noise
     std::default_random_engine generator(std::random_device{}());
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -154,12 +154,12 @@ TEST_CASE("VDSP_FilterBank")
     std::vector<double> coeffs;
     coeffs.reserve(N * M * 5);
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         auto sos = k_h001_AbsorbtionSOS[i];
         REQUIRE(sos.size() == M);
 
-        for (auto j = 0; j < M; ++j)
+        for (auto j = 0u; j < M; ++j)
         {
             coeffs.push_back(sos[j][0] / sos[j][3]);
             coeffs.push_back(sos[j][1] / sos[j][3]);
@@ -195,7 +195,7 @@ TEST_CASE("VDSP_FilterBank")
         std::array<const float*, N> input_ptrs{};
         std::array<float*, N> output_ptrs{};
 
-        for (auto i = 0; i < N; ++i)
+        for (auto i = 0u; i < N; ++i)
         {
             input_ptrs[i] = std::span(input).subspan(i * block_size, block_size).data();
             output_ptrs[i] = std::span(output).subspan(i * block_size, block_size).data();
@@ -205,7 +205,7 @@ TEST_CASE("VDSP_FilterBank")
             const uint32_t num_blocks = kSampleToProcess / block_size;
             assert(kSampleToProcess % block_size == 0);
 
-            for (auto i = 0; i < num_blocks; ++i)
+            for (auto i = 0u; i < num_blocks; ++i)
             {
                 vDSP_biquadm(biquad_setup, input_ptrs.data(), 1, output_ptrs.data(), 1, block_size);
             }

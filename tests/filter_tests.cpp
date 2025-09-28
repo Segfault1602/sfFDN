@@ -55,7 +55,7 @@ TEST_CASE("OnePoleFilter")
     constexpr std::array<float, size> expected_output = {0.1000, 0.0900, 0.0810, 0.0729,
                                                          0.0656, 0.0590, 0.0531, 0.0478};
 
-    for (auto i = 0; i < size; ++i)
+    for (auto i = 0u; i < size; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
@@ -71,7 +71,7 @@ TEST_CASE("SchroederAllpass")
     constexpr std::array<float, size> expected_output = {0.9, 0,      0, 0, 0, 0.19, 0,      0, 0,
                                                          0,   -0.171, 0, 0, 0, 0,    0.1539, 0, 0};
 
-    for (auto i = 0; i < size; ++i)
+    for (auto i = 0u; i < size; ++i)
     {
         float out = filter.Tick(input[i]);
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
@@ -81,7 +81,7 @@ TEST_CASE("SchroederAllpass")
     std::array<float, size> output;
     filter_block.ProcessBlock(input, output);
 
-    for (auto i = 0; i < size; ++i)
+    for (auto i = 0u; i < size; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
@@ -109,7 +109,7 @@ TEST_CASE("SchroederAllpassSection")
 
     filter.Process(input_buffer, output_buffer);
 
-    for (auto i = 0; i < size; ++i)
+    for (auto i = 0u; i < size; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
@@ -144,22 +144,22 @@ TEST_CASE("ParallelSchroederAllpassSection")
     constexpr std::array<float, kBlockSize> out2_expected = {0.7, 0, 0, 0, 0.51, 0, 0, 0};
     constexpr std::array<float, kBlockSize> out3_expected = {0.6, 0, 0, 0, 0, 0.64, 0, 0};
 
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[0 * kBlockSize + j],
                      Catch::Matchers::WithinAbs(out0_expected[j], std::numeric_limits<float>::epsilon()));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[1 * kBlockSize + j],
                      Catch::Matchers::WithinAbs(out1_expected[j], std::numeric_limits<float>::epsilon()));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[2 * kBlockSize + j],
                      Catch::Matchers::WithinAbs(out2_expected[j], std::numeric_limits<float>::epsilon()));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[3 * kBlockSize + j],
                      Catch::Matchers::WithinAbs(out3_expected[j], std::numeric_limits<float>::epsilon()));
@@ -199,19 +199,19 @@ TEST_CASE("ParallelSchroederAllpassSection_Order2")
     constexpr std::array<float, kBlockSize> out3_expected = {0.360000,  0.000000,  -0.384000, 0.000000,
                                                              -0.230400, -0.384000, -0.138240, 0.409600};
 
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[0 * kBlockSize + j], Catch::Matchers::WithinAbs(out0_expected[j], 1e-5f));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[1 * kBlockSize + j], Catch::Matchers::WithinAbs(out1_expected[j], 1e-5f));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[2 * kBlockSize + j], Catch::Matchers::WithinAbs(out2_expected[j], 1e-5f));
     }
-    for (auto j = 0; j < kBlockSize; ++j)
+    for (auto j = 0u; j < kBlockSize; ++j)
     {
         REQUIRE_THAT(output[3 * kBlockSize + j], Catch::Matchers::WithinAbs(out3_expected[j], 1e-5f));
     }
@@ -224,7 +224,7 @@ TEST_CASE("FilterBank")
     sfFDN::FilterBank filter_bank;
 
     float pole = 0.9;
-    for (auto i = 0; i < N; i++)
+    for (auto i = 0u; i < N; i++)
     {
         auto filter = std::make_unique<sfFDN::OnePoleFilter>();
         filter->SetCoefficients(1 - pole, -pole);
@@ -234,7 +234,7 @@ TEST_CASE("FilterBank")
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         input[i * kBlockSize] = 1.f;
     }
@@ -251,7 +251,7 @@ TEST_CASE("FilterBank")
                                           0.3000, 0.2100, 0.1470, 0.1029, 0.0720,  0.0504,   0.0353,    0.0247,
                                           0.4000, 0.2400, 0.1440, 0.0864, 0.0518,  0.0311,   0.0187,    0.0112};
 
-    for (auto i = 0; i < expected_output.size(); ++i)
+    for (auto i = 0u; i < expected_output.size(); ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 0.0001));
     }
@@ -262,7 +262,7 @@ TEST_CASE("CascadedBiquads")
     sfFDN::CascadedBiquads filter;
 
     std::vector<float> coeffs;
-    for (auto i = 0; i < kTestSOS.size(); i++)
+    for (auto i = 0u; i < kTestSOS.size(); i++)
     {
         coeffs.push_back(kTestSOS[i][0] / kTestSOS[i][3]);
         coeffs.push_back(kTestSOS[i][1] / kTestSOS[i][3]);
@@ -284,7 +284,7 @@ TEST_CASE("CascadedBiquads")
     filter.Process(input_buffer, output_buffer);
 
     REQUIRE(size == kTestSOSExpectedOutput.size());
-    for (auto i = 0; i < kTestSOSExpectedOutput.size(); ++i)
+    for (auto i = 0u; i < kTestSOSExpectedOutput.size(); ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(kTestSOSExpectedOutput[i], 0.0001));
     }
@@ -297,7 +297,7 @@ TEST_CASE("IIRFilterBank")
     std::vector<float> coeffs;
     for (auto n = 0; n < N; ++n)
     {
-        for (auto i = 0; i < stage_count; i++)
+        for (auto i = 0u; i < stage_count; i++)
         {
             coeffs.push_back(kTestSOS[i][0] / kTestSOS[i][3]);
             coeffs.push_back(kTestSOS[i][1] / kTestSOS[i][3]);
@@ -317,14 +317,14 @@ TEST_CASE("IIRFilterBank")
     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         input_buffer.GetChannelSpan(i)[0] = 1.f;
     }
 
     filter_bank.Process(input_buffer, output_buffer);
 
-    for (auto i = 0; i < kBlockSize; ++i)
+    for (auto i = 0u; i < kBlockSize; ++i)
     {
         for (auto n = 0; n < N; ++n)
         {

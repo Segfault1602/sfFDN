@@ -31,7 +31,7 @@ TEST_CASE("FDNPerf")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -76,7 +76,7 @@ TEST_CASE("FDNPerf")
     });
 
     auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto i = 0; i < N; i++)
+    for (auto i = 0u; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/data/att_fir_1153.wav");
         auto PartitionedConvolver = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir);
@@ -130,7 +130,7 @@ TEST_CASE("FDNPerf_FIR")
 
     // Replace filterbank with FIR filters
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto i = 0; i < N; i++)
+    for (auto i = 0u; i < N; i++)
     {
         auto fir = ReadWavFile("./tests/data/att_fir_1153.wav");
         auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir);
@@ -145,7 +145,7 @@ TEST_CASE("FDNPerf_FIR")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -174,7 +174,7 @@ TEST_CASE("FDNPerf_FFM")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -223,7 +223,7 @@ TEST_CASE("FDNPerf_Order")
         // Fill with white noise
         std::default_random_engine generator;
         std::normal_distribution<double> dist(0, 0.1);
-        for (auto i = 0; i < input.size(); ++i)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             input[i] = dist(generator);
         }
@@ -270,7 +270,7 @@ TEST_CASE("FDNPerf_BlockSize")
 
         bench.run("FDN Block Size " + std::to_string(block_size), [&] {
             uint32_t block_count = kInputSize / block_size;
-            for (auto i = 0; i < block_count; ++i)
+            for (auto i = 0u; i < block_count; ++i)
             {
                 sfFDN::AudioBuffer input_buffer(block_size, 1,
                                                 std::span<float>(input).subspan(i * block_size, block_size));
@@ -294,7 +294,7 @@ TEST_CASE("FDNPerf_OrderFFM")
     // bench.minEpochIterations(100);
     bench.batch(kBlockSize);
 
-    for (auto i = 0; i < num_stages.size(); ++i)
+    for (auto i = 0u; i < num_stages.size(); ++i)
     {
         constexpr uint32_t N = 8;
         auto fdn = CreateFDN(kBlockSize, N);
@@ -307,7 +307,7 @@ TEST_CASE("FDNPerf_OrderFFM")
         // Fill with white noise
         std::default_random_engine generator;
         std::normal_distribution<double> dist(0, 0.1);
-        for (auto i = 0; i < input.size(); ++i)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             input[i] = dist(generator);
         }

@@ -82,7 +82,7 @@ std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
 {
     std::vector<float> coeffs;
     uint32_t filter_order = k_h001_EqualizationSOS.size();
-    for (auto i = 0; i < filter_order; i++)
+    for (auto i = 0u; i < filter_order; i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -148,7 +148,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t N)
 
     std::vector<float> coeffs;
     uint32_t filter_order = k_h001_EqualizationSOS.size();
-    for (auto i = 0; i < filter_order; i++)
+    for (auto i = 0u; i < filter_order; i++)
     {
         coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
         coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
@@ -233,7 +233,7 @@ std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter)
     sfFDN::OnePoleFilter one_pole_filter;
     one_pole_filter.SetPole(0.99f);
 
-    for (auto i = 0; i < kMaxSamples; i += kBlockSize)
+    for (auto i = 0u; i < kMaxSamples; i += kBlockSize)
     {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);

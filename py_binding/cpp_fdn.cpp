@@ -231,7 +231,7 @@ class PyFDN
         float* data = new float[output_size];
         float* input_data = input.data();
 
-        for (auto i = 0; i < input.size(); i += block_size_)
+        for (auto i = 0u; i < input.size(); i += block_size_)
         {
             sfFDN::AudioBuffer input_buffer(block_size_, 1, input_data + i);
             sfFDN::AudioBuffer output_buffer(block_size_, 1, data + i);

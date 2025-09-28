@@ -21,7 +21,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
-    for (auto j = 0; j < sos.size(); j++)
+    for (auto j = 0u; j < sos.size(); j++)
     {
         auto stage = std::span<const float>(sos.at(j % sos.size()));
         auto b = stage.first(3);
@@ -54,7 +54,7 @@ TEST_CASE("UPOLS")
     std::vector<float> output(kFirLength + kBlockSize, 0.f);
 
     const uint32_t kBlockCount = kFirLength / kBlockSize;
-    for (auto i = 0; i < kBlockCount; ++i)
+    for (auto i = 0u; i < kBlockCount; ++i)
     {
         auto input_span = std::span<float>(input).subspan(i * kBlockSize, kBlockSize);
         auto output_span = std::span<float>(output).subspan(i * kBlockSize, kBlockSize);
@@ -64,7 +64,7 @@ TEST_CASE("UPOLS")
 
     float fir_energy = 0.f;
     float signal_error = 0.f;
-    for (auto i = 0; i < kFirLength; ++i)
+    for (auto i = 0u; i < kFirLength; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(fir[i], std::numeric_limits<float>::epsilon()));
         fir_energy += fir[i] * fir[i];
@@ -102,7 +102,7 @@ TEST_CASE("UPOLS_Noise")
     std::vector<float> output(kInputSize, 0.f);
 
     const uint32_t kBlockCount = kInputSize / kBlockSize;
-    for (auto i = 0; i < kBlockCount; ++i)
+    for (auto i = 0u; i < kBlockCount; ++i)
     {
         auto input_span = std::span<float>(input_chirp).subspan(i * kBlockSize, kBlockSize);
         auto output_span = std::span<float>(output).subspan(i * kBlockSize, kBlockSize);
@@ -113,7 +113,7 @@ TEST_CASE("UPOLS_Noise")
     float signal_energy = 0.f;
     float signal_error = 0.f;
     float max_error = 0.f;
-    for (auto i = 0; i < kInputSize - kBlockSize; ++i)
+    for (auto i = 0u; i < kInputSize - kBlockSize; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(filter_output[i], 1e-5));
         signal_energy += filter_output[i] * filter_output[i];

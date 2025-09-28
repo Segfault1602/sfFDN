@@ -32,7 +32,7 @@ bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor>&& process
     }
 
     // Update the maximum work buffer size if necessary
-    uint32_t work_buffer_size = processors_.back()->OutputChannelCount() * block_size_;
+    const uint32_t work_buffer_size = processors_.back()->OutputChannelCount() * block_size_;
     if (work_buffer_size > max_work_buffer_size_)
     {
         max_work_buffer_size_ = work_buffer_size;
@@ -71,7 +71,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     // Process the rest of the audio processors in the chain
     for (auto i = 1; i < processors_.size() - 1; ++i)
     {
-        AudioBuffer buffer_in(block_size_, processors_[i]->InputChannelCount(), ptr_a);
+        const AudioBuffer buffer_in(block_size_, processors_[i]->InputChannelCount(), ptr_a);
         AudioBuffer buffer_out(block_size_, processors_[i]->OutputChannelCount(), ptr_b);
         assert(processors_[i]->InputChannelCount() == buffer_in.ChannelCount());
         assert(processors_[i]->OutputChannelCount() == buffer_out.ChannelCount());
@@ -80,7 +80,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 
     // Process the last audio processor
-    AudioBuffer buffer_in(block_size_, processors_.back()->InputChannelCount(), ptr_a);
+    const AudioBuffer buffer_in(block_size_, processors_.back()->InputChannelCount(), ptr_a);
     processors_.back()->Process(buffer_in, output);
 }
 

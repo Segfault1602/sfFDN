@@ -10,9 +10,8 @@ class DelayTimeVarying
 {
   public:
     DelayTimeVarying(float delay = 0.5, uint32_t maxDelay = 4095, uint32_t samplerate = 48000);
-    ~DelayTimeVarying() = default;
 
-    void Clear(void);
+    void Clear();
 
     void SetMaximumDelay(uint32_t delay);
     void SetDelay(float delay);
@@ -22,7 +21,6 @@ class DelayTimeVarying
     float Tick(float input);
 
     void AddNextInput(float input);
-    float GetNextOutput();
 
   private:
     void UpdateDelay();

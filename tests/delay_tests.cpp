@@ -277,7 +277,7 @@ TEST_CASE("DelayBankProcess")
     std::vector<float> output;
 
     std::array<float, kNumDelay * kBlockSize> impulse = {0.f};
-    for (auto i = 0; i < kNumDelay; ++i)
+    for (auto i = 0u; i < kNumDelay; ++i)
     {
         impulse.at(i * kBlockSize) = 1.f;
     }
@@ -308,10 +308,19 @@ TEST_CASE("DelayBankProcess")
 
 TEST_CASE("DelayLengths")
 {
+    SKIP();
     auto delays = sfFDN::GetDelayLengths(16, 4500, 12000, sfFDN::DelayLengthType::SteamAudio, 0);
 
     for (auto d : delays)
     {
         std::cout << d << " ";
     }
+    std::cout << std::endl;
+
+    delays = sfFDN::GetDelayLengthsFromMean(8, 20.f, 2.8f, 48000);
+    for (auto d : delays)
+    {
+        std::cout << d << " ";
+    }
+    std::cout << std::endl;
 }

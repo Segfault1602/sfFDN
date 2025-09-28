@@ -21,7 +21,7 @@ AudioBuffer::AudioBuffer(std::span<float> buffer)
     , chunk_size_(frame_size_)
 {
     assert(buffer.data() != nullptr);
-    assert(buffer.size() > 0);
+    assert(!buffer.empty());
 }
 
 AudioBuffer::AudioBuffer(uint32_t frame_size, uint32_t channels, std::span<float> buffer)

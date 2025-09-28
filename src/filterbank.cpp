@@ -26,7 +26,7 @@ void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == filters_.size());
 
-    for (auto i = 0; i < filters_.size(); ++i)
+    for (auto i = 0u; i < filters_.size(); ++i)
     {
         auto input_buf = input.GetChannelBuffer(i);
         auto output_buf = output.GetChannelBuffer(i);

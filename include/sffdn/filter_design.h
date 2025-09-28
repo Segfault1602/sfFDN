@@ -33,12 +33,14 @@ void GetOnePoleAbsorption(float t60_dc, float t60_ny, float sr, float delay, flo
 /// @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/twoFilters.m
 std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff = 8000.0f);
 
-/// @brief Design an octave EQ filter according to the method described in [1]
+/// @brief Design an octave EQ filter consisting of a low shelf, high shelf and 8 band-pass peaking filters
 /// @param mag Magnitude response in dB for each octave band
 /// @param freqs Center frequencies of the octave bands in Hz
 /// @param sr Sample rate in Hz
 /// @return Coefficients of the designed EQ filter where the first 6 floats are the coefficients (b0, b1, b2, a0, a1,
 /// a2) of the first filter, and the next 6 floats are the coefficients of the second filter, and so on.
+/// @note The implementation is based on the method described in [1] and uses the RBJ cookbook formulas for the
+/// low-shelf and high-shelf filters.
 /// @note [1] V. Valimaki and J. Liski, “Accurate Cascade Graphic Equalizer,” IEEE Signal Process. Lett., vol. 24, no.
 /// 2, pp. 176–180, Feb. 2017, doi: 10.1109/LSP.2016.2645280.
 /// @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/aceq.m

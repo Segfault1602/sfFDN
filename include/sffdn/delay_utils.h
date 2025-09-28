@@ -3,8 +3,8 @@
 #pragma once
 
 #include <cstddef>
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 namespace sfFDN
 {
@@ -41,4 +41,6 @@ enum class DelayLengthType : uint8_t
 /// @return a vector containing the generated delay lengths
 std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t max_delay, DelayLengthType type,
                                       uint32_t seed = 0);
+
+std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t N, float mean_delay_ms, float sigma, uint32_t sample_rate);
 } // namespace sfFDN

@@ -1,12 +1,29 @@
 ---
 Checks: "*,
+        readability-identifier-naming,
         -bugprone-implicit-widening-of-multiplication-result,
         -bugprone-easily-swappable-parameters,
-        -cppcoreguidelines-narrowing-conversions,
         -bugprone-narrowing-conversions,
+        -cppcoreguidelines-narrowing-conversions,
+        -cppcoreguidelines-pro-type-reinterpret-cast,
+        -cppcoreguidelines-use-default-member-init,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -cppcoreguidelines-pro-bounds-constant-array-index,
+        -readability-else-after-return,
+        -readability-static-accessed-through-instance,
+        -readability-avoid-const-params-in-decls,
         -readability-identifier-length,
         -readability-uppercase-literal-suffix,
+        -readability-function-cognitive-complexity,
         -readability-magic-numbers,
+        -modernize-use-nodiscard,
+        -modernize-use-default-member-init,
+        -modernize-use-trailing-return-type,
+        -misc-include-cleaner,
+        -misc-const-correctness,
+        -misc-non-private-member-variables-in-classes,
+        -unused-includes,
         -abseil-*,
         -altera-*,
         -android-*,
@@ -15,15 +32,29 @@ Checks: "*,
         -boost-*,
         -google-*,
         -hicpp-*,
-        -modernize-use-trailing-return-type,
         -zircon-*,
-        -readability-else-after-return,
-        -readability-static-accessed-through-instance,
-        -readability-avoid-const-params-in-decls,
-        -cppcoreguidelines-non-private-member-variables-in-classes,
-        -cppcoreguidelines-avoid-magic-numbers,
-        -misc-non-private-member-variables-in-classes,
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 FormatStyle:     none
+CheckOptions:
+  - key:             readability-identifier-naming.VariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.FunctionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.PrivateMemberSuffix
+    value:           _
+  - key:             readability-identifier-naming.ParameterCase
+    value:           lower_case
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           lower_case
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariablePrefix
+    value:           k

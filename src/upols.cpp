@@ -19,13 +19,13 @@ UPOLS::UPOLS(uint32_t block_size, std::span<const float> fir)
     spectrum_buffer_ = fft_.AllocateComplexBuffer();
 
     // Filter partition
-    uint32_t filter_size = fir.size();
+    const uint32_t filter_size = fir.size();
 
-    uint32_t filter_count = std::ceil(static_cast<float>(filter_size) / block_size);
+    const uint32_t filter_count = std::ceil(static_cast<float>(filter_size) / block_size);
 
-    for (auto i = 0; i < filter_count; ++i)
+    for (auto i = 0u; i < filter_count; ++i)
     {
-        uint32_t filter_block_size = std::min(block_size, filter_size - (i * block_size));
+        const uint32_t filter_block_size = std::min(block_size, filter_size - (i * block_size));
 
         auto fir_span = fir.subspan(i * block_size, filter_block_size);
         std::ranges::fill(work_buffer_.Data(), 0.f);
@@ -67,7 +67,7 @@ void UPOLS::Process(std::span<const float> input, std::span<float> output)
 
     // Convolve with the filters
     std::ranges::fill(spectrum_buffer_.Data(), 0.f);
-    for (auto i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0u; i < filters_z_.size(); ++i)
     {
         auto& filter_z = filters_z_[i];
         auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
@@ -120,7 +120,7 @@ void UPOLS::Process(std::span<float> output)
 
     // Convolve with the filters
     std::ranges::fill(spectrum_buffer_.Data(), 0.f);
-    for (auto i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0u; i < filters_z_.size(); ++i)
     {
         auto& filter_z = filters_z_[i];
         auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
@@ -152,7 +152,7 @@ void UPOLS::Clear()
 void UPOLS::PrintPartition() const
 {
     std::cout << "[(" << fft_size_ << ") ";
-    for (auto i = 0; i < filters_z_.size(); ++i)
+    for (auto i = 0u; i < filters_z_.size(); ++i)
     {
         std::cout << block_size_;
         if (i < filters_z_.size() - 1)

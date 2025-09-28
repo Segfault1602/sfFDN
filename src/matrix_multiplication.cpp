@@ -41,7 +41,7 @@ void HadamardMultiply_8(std::span<const float> in, std::span<float> out)
     out[7] = in[0] - in[1] - in[2] + in[3] - in[4] + in[5] + in[6] - in[7];
 
     constexpr float normalizationFactor = 0.353553390593274f; // 1.f / std::sqrt(8.f);
-    for (auto i = 0; i < 8; ++i)
+    for (auto i = 0u; i < 8; ++i)
     {
         out[i] *= normalizationFactor;
     }
@@ -82,7 +82,7 @@ void HadamardMultiply_16(const std::span<const float> in, std::span<float> out)
     out[15] = in[0] - in[1] - in[2] + in[3] - in[4] + in[5] + in[6] - in[7] - in[8] + in[9] + in[10] - in[11] + in[12] -
               in[13] - in[14] + in[15];
 
-    for (auto i = 0; i < 16; i += 4)
+    for (auto i = 0u; i < 16; i += 4)
     {
         out[i] *= 0.25f;
         out[i + 1] *= 0.25f;
@@ -120,11 +120,11 @@ void WalshHadamardTransform(std::span<float> inout)
     assert(inout.size() == 4 || inout.size() == 8 || inout.size() == 16);
     const uint32_t N = inout.size();
 
-    for (auto h = 1; h < N; h *= 2)
+    for (auto h = 1u; h < N; h *= 2)
     {
-        for (auto i = 0; i < N; i += 2 * h)
+        for (auto i = 0u; i < N; i += 2 * h)
         {
-            for (auto j = 0; j < h; ++j)
+            for (auto j = 0u; j < h; ++j)
             {
                 const float a = inout[i + j];
                 const float b = inout[i + j + h];
@@ -135,9 +135,9 @@ void WalshHadamardTransform(std::span<float> inout)
     }
 
     const float normalizationFactor = 1.f / std::sqrt(static_cast<float>(N));
-    for (auto i = 0; i < inout.size(); ++i)
+    for (float& i : inout)
     {
-        inout[i] *= normalizationFactor;
+        i *= normalizationFactor;
     }
 }
 
@@ -260,34 +260,34 @@ void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span
     const uint32_t kRowCount = in.size() / N;
     const uint32_t kColCount = N;
 
-    for (auto k = 0; k < kRowCount; ++k)
+    for (auto k = 0u; k < kRowCount; ++k)
     {
         const uint32_t offset = k;
-        for (auto i = 0; i < N; ++i)
+        for (auto i = 0u; i < N; ++i)
         {
-            out[i * kRowCount + offset] = 0.0f;
+            out[(i * kRowCount) + offset] = 0.0f;
             const uint32_t kSize = N;
             const uint32_t unroll_size = kSize & ~7;
-            int idx = 0;
+            uint32_t idx = 0;
             for (; idx < unroll_size; idx += 8)
             {
-                const auto in_offset = k + idx * kRowCount;
-                const auto mat_offset = i * kColCount + idx;
-                const auto out_idx = i * kRowCount + offset;
+                const auto in_offset = k + (idx * kRowCount);
+                const auto mat_offset = (i * kColCount) + idx;
+                const auto out_idx = (i * kRowCount) + offset;
 
                 out[out_idx] += in[in_offset] * matrix[mat_offset] +
-                                in[in_offset + 1 * kRowCount] * matrix[mat_offset + 1] +
-                                in[in_offset + 2 * kRowCount] * matrix[mat_offset + 2] +
-                                in[in_offset + 3 * kRowCount] * matrix[mat_offset + 3] +
-                                in[in_offset + 4 * kRowCount] * matrix[mat_offset + 4] +
-                                in[in_offset + 5 * kRowCount] * matrix[mat_offset + 5] +
-                                in[in_offset + 6 * kRowCount] * matrix[mat_offset + 6] +
-                                in[in_offset + 7 * kRowCount] * matrix[mat_offset + 7];
+                                in[in_offset + (1 * kRowCount)] * matrix[mat_offset + 1] +
+                                in[in_offset + (2 * kRowCount)] * matrix[mat_offset + 2] +
+                                in[in_offset + (3 * kRowCount)] * matrix[mat_offset + 3] +
+                                in[in_offset + (4 * kRowCount)] * matrix[mat_offset + 4] +
+                                in[in_offset + (5 * kRowCount)] * matrix[mat_offset + 5] +
+                                in[in_offset + (6 * kRowCount)] * matrix[mat_offset + 6] +
+                                in[in_offset + (7 * kRowCount)] * matrix[mat_offset + 7];
             }
 
             for (; idx < N; ++idx)
             {
-                out[i * kRowCount + offset] += in[k + idx * kRowCount] * matrix[i * kColCount + idx];
+                out[(i * kRowCount) + offset] += in[k + (idx * kRowCount)] * matrix[(i * kColCount) + idx];
             }
         }
     }

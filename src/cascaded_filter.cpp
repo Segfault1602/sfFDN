@@ -6,7 +6,7 @@ namespace
 {
 float ComputeSample(float x, const sfFDN::CascadedBiquads::IIRCoeffs& coeffs, sfFDN::CascadedBiquads::IIRState& state)
 {
-    const float y = coeffs.b0 * (x) + state.s0;
+    const float y = (coeffs.b0 * (x)) + state.s0;
     state.s0 = coeffs.b1 * (x) + state.s1;
     state.s0 -= coeffs.a1 * (y);
     state.s1 = coeffs.b2 * (x);
@@ -28,7 +28,7 @@ CascadedBiquads::CascadedBiquads(const CascadedBiquads& other)
     , states_(other.states_)
     , coeffs_(other.coeffs_)
 {
-    Clear();
+    CascadedBiquads::Clear();
 }
 
 CascadedBiquads& CascadedBiquads::operator=(const CascadedBiquads& other)
@@ -112,7 +112,7 @@ float CascadedBiquads::Tick(float in)
     float out = in;
     for (uint32_t i = 0; i < stage_; ++i)
     {
-        IIRCoeffs& coeffs = coeffs_[i];
+        const IIRCoeffs& coeffs = coeffs_[i];
         IIRState& state = states_[i];
 
         out = coeffs.b0 * out + state.s0;
@@ -145,7 +145,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
         std::array<float, kUnrollFactor> batch{};
         std::ranges::copy(in_span, batch.begin());
 
-        for (auto stage = 0; stage < stage_; ++stage)
+        for (auto stage = 0u; stage < stage_; ++stage)
         {
             const IIRCoeffs coeffs = coeffs_[stage];
             IIRState& state = states_[stage];
@@ -165,7 +165,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
     for (; sample < kSize; ++sample)
     {
         float s = in[sample];
-        for (auto stage = 0; stage < stage_; ++stage)
+        for (auto stage = 0u; stage < stage_; ++stage)
         {
             const IIRCoeffs coeffs = coeffs_[stage];
             IIRState& state = states_[stage];

@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <span>
 #include <cstdint>
+#include <optional>
+#include <span>
 #include <vector>
 
 namespace sfFDN
@@ -18,11 +19,13 @@ enum class ScalarMatrixType : uint8_t
     Circulant = 5,
     Allpass = 6,
     NestedAllpass = 7,
-    Count
+    VariableDiffusion = 8,
+    Count = 9
 };
 
 // Generates a square matrix of size N x N based on the specified type.
-std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t seed = 0);
+std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t seed = 0,
+                                  std::optional<float> arg = std::nullopt);
 
 std::vector<float> NestedAllpassMatrix(uint32_t N, uint32_t seed = 0, std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());

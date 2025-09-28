@@ -37,9 +37,7 @@ Delay::Delay(uint32_t delay, uint32_t maxDelay)
     this->SetDelay(delay);
 }
 
-Delay::~Delay()
-{
-}
+Delay::~Delay() = default;
 
 void Delay::Clear()
 {
@@ -116,7 +114,7 @@ float Delay::TapOut(uint32_t tap) const
         return 0.0f;
     }
 
-    uint32_t tap_point = (in_point_ + buffer_.size() - tap - 1) % buffer_.size();
+    const uint32_t tap_point = (in_point_ + buffer_.size() - tap - 1) % buffer_.size();
     return buffer_[tap_point];
 }
 
@@ -135,7 +133,7 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output)
         // We could not add all input samples at once, so just process samples one by one.
         auto input_span = input.GetChannelSpan(0);
         auto output_span = output.GetChannelSpan(0);
-        for (auto i = 0; i < input.SampleCount(); ++i)
+        for (auto i = 0u; i < input.SampleCount(); ++i)
         {
             output_span[i] = Tick(input_span[i]);
         }
@@ -144,7 +142,7 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output)
 
 bool Delay::AddNextInputs(std::span<const float> input)
 {
-    std::span<float> buffer_span = buffer_;
+    const std::span<float> buffer_span = buffer_;
 
     std::span<float> buffer_1{};
     std::span<float> buffer_2{};
@@ -168,7 +166,7 @@ bool Delay::AddNextInputs(std::span<const float> input)
 
     // Check that we have enough space between the inPoint_ and outPoint_
     // to write the input data.
-    uint32_t available_space = buffer_1.size() + buffer_2.size();
+    const uint32_t available_space = buffer_1.size() + buffer_2.size();
     if (available_space < input.size())
     {
         std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
@@ -193,7 +191,7 @@ bool Delay::AddNextInputs(std::span<const float> input)
 
 void Delay::GetNextOutputs(std::span<float> output)
 {
-    std::span<float> buffer_span = buffer_;
+    const std::span<float> buffer_span = buffer_;
 
     std::span<float> buffer_1{};
     std::span<float> buffer_2{};
@@ -216,7 +214,7 @@ void Delay::GetNextOutputs(std::span<float> output)
     }
 
     // Check that we have enough data to read from
-    uint32_t available_space = buffer_1.size() + buffer_2.size();
+    const uint32_t available_space = buffer_1.size() + buffer_2.size();
     if (available_space < output.size())
     {
         std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";

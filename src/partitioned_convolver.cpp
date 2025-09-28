@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "sffdn/partitioned_convolver.h"
 
 #include "pch.h"
@@ -63,7 +65,7 @@ void PartitionedConvolverSegment::PrintPartition() const
 void PartitionedConvolverSegment::Clear()
 {
     upols_.Clear();
-    std::fill(output_buffer_.begin(), output_buffer_.end(), 0.f);
+    std::ranges::fill(output_buffer_, 0.f);
 }
 
 class PartitionedConvolver::PartitionedConvolverImpl
@@ -131,7 +133,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         std::println("Block size: {}", block_size_);
         std::println("Number of segments: {}", segments_.size());
         std::println("Segment delays:");
-        for (auto i = 0; i < segments_.size(); ++i)
+        for (auto i = 0u; i < segments_.size(); ++i)
         {
             const auto& segment = segments_[i];
             {
@@ -139,9 +141,9 @@ class PartitionedConvolver::PartitionedConvolverImpl
             }
         }
 
-        for (auto i = 0; i < segments_.size(); ++i)
+        for (const auto& segment : segments_)
         {
-            segments_[i]->PrintPartition();
+            segment->PrintPartition();
         }
         std::println("");
     }

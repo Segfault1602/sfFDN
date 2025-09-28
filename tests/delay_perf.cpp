@@ -26,7 +26,7 @@ TEST_CASE("Delay")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -40,7 +40,7 @@ TEST_CASE("Delay")
 
     bench.minEpochIterations(50000);
     bench.run("Delay Linear", [&] {
-        for (auto i = 0; i < kBlockSize; ++i)
+        for (auto i = 0u; i < kBlockSize; ++i)
         {
             output[i] = delay.Tick(input[i]);
         }
@@ -60,7 +60,7 @@ TEST_CASE("Delay")
 
     bench.minEpochIterations(10000);
     bench.run("DelayAllpass Linear", [&] {
-        for (auto i = 0; i < kBlockSize; ++i)
+        for (auto i = 0u; i < kBlockSize; ++i)
         {
             output[i] = delay_allpass.Tick(input[i]);
         }
@@ -95,7 +95,7 @@ TEST_CASE("DelayBank")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -128,7 +128,7 @@ TEST_CASE("DelayBank_BlockSize")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -139,14 +139,14 @@ TEST_CASE("DelayBank_BlockSize")
     bench.minEpochIterations(120);
     bench.relative(true);
 
-    for (auto i = 0; i < kBlockSizes.size(); ++i)
+    for (auto i = 0u; i < kBlockSizes.size(); ++i)
     {
         uint32_t kBlockSize = kBlockSizes[i];
         sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
 
         bench.run("DelayBank BlockSize " + std::to_string(kBlockSize), [&] {
             uint32_t block_count = kInputSize / kBlockSize;
-            for (auto j = 0; j < block_count; ++j)
+            for (auto j = 0u; j < block_count; ++j)
             {
                 sfFDN::AudioBuffer input_buffer(kBlockSize, 1,
                                                 std::span<float>(input).subspan(j * kBlockSize, kBlockSize));

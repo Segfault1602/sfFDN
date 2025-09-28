@@ -54,7 +54,7 @@ void OnePoleFilter::SetLowpass(float cutoff)
     assert(cutoff >= 0.f && cutoff <= 1.f);
     const float wc = TWO_PI * cutoff;
     const float y = 1 - std::cos(wc);
-    const float p = -y + std::sqrt(y * y + 2 * y);
+    const float p = -y + std::sqrt((y * y) + (2 * y));
     SetPole(1 - p);
 }
 
@@ -73,7 +73,7 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
 
     auto input_span = input.GetChannelSpan(0);
     auto output_span = output.GetChannelSpan(0);
-    for (auto i = 0; i < input_span.size(); ++i)
+    for (auto i = 0u; i < input_span.size(); ++i)
     {
         output_span[i] = Tick(input_span[i]);
     }
@@ -128,7 +128,7 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
 
     auto input_span = input.GetChannelSpan(0);
     auto output_span = output.GetChannelSpan(0);
-    for (auto i = 0; i < input_span.size(); ++i)
+    for (auto i = 0u; i < input_span.size(); ++i)
     {
         last_out_ = coeff_ * (input_span[i] - last_out_) + last_in_;
         last_in_ = input_span[i];

@@ -21,9 +21,9 @@ class DelayMatrix::DelayMatrixImpl
     DelayMatrixImpl(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix)
         : DelayMatrixImpl(N, delays, [&mixing_matrix, N]() {
             Eigen::MatrixXf mat = Eigen::MatrixXf::Zero(N, N);
-            for (auto i = 0; i < N; ++i)
+            for (auto i = 0u; i < N; ++i)
             {
-                for (auto j = 0; j < N; ++j)
+                for (auto j = 0u; j < N; ++j)
                 {
                     mat(i, j) = mixing_matrix.GetCoefficient(i, j);
                 }
@@ -42,9 +42,9 @@ class DelayMatrix::DelayMatrixImpl
         delay_lines_.reserve(N);
 
         std::vector<uint32_t> max_delays(N, 0);
-        for (auto i = 0; i < N; ++i)
+        for (auto i = 0u; i < N; ++i)
         {
-            for (auto j = 0; j < N; ++j)
+            for (auto j = 0u; j < N; ++j)
             {
                 max_delays[i] = std::max(max_delays[i], delays[(i * N) + j]);
             }
@@ -71,21 +71,20 @@ class DelayMatrix::DelayMatrixImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == delay_lines_.size());
 
-#ifdef __cpp_lib_mdspan
         auto delay_mdspan = std::mdspan(delay_values_.data(), N_, N_);
 
-        for (auto i = 0; i < input.SampleCount(); ++i)
+        for (auto i = 0u; i < input.SampleCount(); ++i)
         {
             // Add input samples to the delay lines
-            for (auto j = 0; j < input.ChannelCount(); ++j)
+            for (auto j = 0u; j < input.ChannelCount(); ++j)
             {
                 delay_lines_[j].Tick(input.GetChannelSpan(j)[i]);
             }
 
             // Fill the signal matrix with the current outputs from the delay lines
-            for (auto j = 0; j < N_; ++j)
+            for (auto j = 0u; j < N_; ++j)
             {
-                for (auto k = 0; k < N_; ++k)
+                for (auto k = 0u; k < N_; ++k)
                 {
                     signal_matrix_(j, k) = delay_lines_[j].TapOut(delay_mdspan[j, k]);
                 }
@@ -93,12 +92,11 @@ class DelayMatrix::DelayMatrixImpl
 
             auto result = signal_matrix_.cwiseProduct(matrix_).colwise().sum();
 
-            for (auto j = 0; j < output.ChannelCount(); ++j)
+            for (auto j = 0u; j < output.ChannelCount(); ++j)
             {
                 output.GetChannelSpan(j)[i] = result[j];
             }
         }
-#endif
     }
 
     uint32_t InputChannelCount() const

@@ -7,6 +7,7 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/feedback_matrix.h"
+#include "sffdn/matrix_gallery.h"
 #include "sffdn/sffdn.h"
 
 #include "matrix_multiplication.h"
@@ -24,6 +25,21 @@ TEST_CASE("VelvetFFM")
 
     auto ffm = sfFDN::MakeFilterFeedbackMatrix(ffm_info);
     REQUIRE(ffm != nullptr);
+}
+
+TEST_CASE("VariableDiffusionMatrix")
+{
+    constexpr uint32_t N = 8;
+    auto mat = sfFDN::GenerateMatrix(N, sfFDN::ScalarMatrixType::VariableDiffusion, 0.f, 1.0f);
+
+    for (auto i = 0u; i < N; ++i)
+    {
+        for (auto j = 0u; j < N; ++j)
+        {
+            std::cout << mat[i * N + j] << " ";
+        }
+        std::cout << "\n";
+    }
 }
 
 TEST_CASE("IdentityMatrix")
@@ -68,7 +84,7 @@ TEST_CASE("Householder")
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         input[i * kBlockSize + i] = 1.f;
     }
@@ -88,19 +104,19 @@ TEST_CASE("Householder")
         -0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
     // clang-format on
 
-    for (auto i = 0; i < input.size(); i += N)
+    for (auto i = 0u; i < input.size(); i += N)
     {
         REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
 
     float energy_in = 0.f;
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         energy_in += input[i] * input[i];
     }
 
     float energy_out = 0.f;
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto i = 0u; i < output.size(); ++i)
     {
         energy_out += output[i] * output[i];
     }
@@ -125,7 +141,7 @@ TEST_CASE("FeedbackMatrixHadamard")
 
         constexpr std::array<float, N> expected = {5, -1, -2, 0};
 
-        for (auto i = 0; i < input.size(); i += N)
+        for (auto i = 0u; i < input.size(); i += N)
         {
             REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
@@ -147,7 +163,7 @@ TEST_CASE("FeedbackMatrixHadamard")
         constexpr std::array<float, N> expected = {
             12.727922061357855, -1.414213562373095, -2.828427124746190, 0, -5.656854249492380, 0, 0, 0};
 
-        for (auto i = 0; i < input.size(); i += N)
+        for (auto i = 0u; i < input.size(); i += N)
         {
             REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
@@ -168,7 +184,7 @@ TEST_CASE("FeedbackMatrixHadamard")
 
         constexpr std::array<float, N> expected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
 
-        for (auto i = 0; i < input.size(); i += N)
+        for (auto i = 0u; i < input.size(); i += N)
         {
             REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
@@ -183,7 +199,7 @@ TEST_CASE("FeedbackMatrixHadamard")
 
 //     std::vector<float> input(N * kBlockSize, 0.f);
 //     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-//     for (auto i = 0; i < N; ++i)
+//     for (auto i = 0u; i < N; ++i)
 //     {
 //         input[i * kBlockSize + i] = 1.f;
 //     }
@@ -200,7 +216,7 @@ TEST_CASE("FeedbackMatrixHadamard")
 //         -0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
 //     // clang-format on
 
-//     for (auto i = 0; i < input.size(); i += N)
+//     for (auto i = 0u; i < input.size(); i += N)
 //     {
 //         REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
 //     }
@@ -214,9 +230,9 @@ TEST_CASE("Hadamard_Block")
 
     std::vector<float> input(N * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        input[i * kBlockSize + i] = 1.f;
+        input[(i * kBlockSize) + i] = 1.f;
     }
 
     std::vector<float> output(N * kBlockSize, 0.f);
@@ -234,7 +250,7 @@ TEST_CASE("Hadamard_Block")
         0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
     // clang-format on
 
-    for (auto i = 0; i < input.size(); i += N)
+    for (auto i = 0u; i < input.size(); i += N)
     {
         REQUIRE_THAT(expected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
@@ -303,7 +319,7 @@ TEST_CASE("DelayMatrix")
     std::array<float, N * kBlockSize> input = {0.f};
     std::array<float, N * kBlockSize> output = {0.f};
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         input[i * kBlockSize] = 1.f; // Set the first sample of each channel to 1
     }
@@ -324,7 +340,7 @@ TEST_CASE("DelayMatrix")
     const std::array<float, kBlockSize> expected_output_ch4 = {
         0, 0, 0, 0, 0, -0.5, 0.5, 0, -0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    for (auto i = 0; i < output_buffer.SampleCount(); ++i)
+    for (auto i = 0u; i < output_buffer.SampleCount(); ++i)
     {
         REQUIRE_THAT(output_buffer.GetChannelSpan(0)[i],
                      Catch::Matchers::WithinAbs(expected_output_ch1[i], std::numeric_limits<float>::epsilon()));
@@ -370,10 +386,10 @@ TEST_CASE("FilterFeedbackMatrix")
 
     ffm->Process(input_buffer, output_buffer);
 
-    // for (auto i = 0; i < kBlockSize; ++i)
+    // for (auto i = 0u; i < kBlockSize; ++i)
     // {
     //     std::print("{} \t", i + 1);
-    //     for (auto j = 0; j < N; ++j)
+    //     for (auto j = 0u; j < N; ++j)
     //     {
     //         std::print("{} \t", output_buffer.GetChannelSpan(j)[i]);
     //     }

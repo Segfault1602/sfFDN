@@ -7,15 +7,15 @@ namespace sfFDN
 
 DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
 {
-    for (uint32_t i = 0; i < delays.size(); i++)
+    for (unsigned int delay : delays)
     {
-        uint32_t max_delay = delays[i] + block_size;
+        uint32_t max_delay = delay + block_size;
         if (max_delay % 64 != 0)
         {
             max_delay += 64 - (max_delay % 64);
         }
 
-        delays_.emplace_back(delays[i], max_delay);
+        delays_.emplace_back(delay, max_delay);
     }
 }
 

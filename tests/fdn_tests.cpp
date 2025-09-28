@@ -48,7 +48,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     // std::vector<float> iir_coeffs;
-    for (auto i = 0; i < N; i++)
+    for (auto i = 0u; i < N; i++)
     {
         auto sos = k_h001_AbsorbtionSOS.at(i);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
@@ -142,7 +142,7 @@ TEST_CASE("FDN")
 
         uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < REQUIRE_limit; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -191,7 +191,7 @@ TEST_CASE("FDN_Transposed")
 
         uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < REQUIRE_limit; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -234,7 +234,7 @@ TEST_CASE("FDN_FIR")
 
     input[0] = 1.f;
 
-    for (auto i = 0; i < input.size(); i += block_size)
+    for (auto i = 0u; i < input.size(); i += block_size)
     {
         sfFDN::AudioBuffer input_buffer(block_size, 1, std::span(input).subspan(i, block_size));
         sfFDN::AudioBuffer output_buffer(block_size, 1, std::span(output).subspan(i, block_size));
@@ -264,7 +264,7 @@ TEST_CASE("FDN_FIR")
 
         uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < REQUIRE_limit; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 5e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -311,7 +311,7 @@ TEST_CASE("FDN_Chirp")
 
         uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < REQUIRE_limit; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-2));
             signal_energy += expected_output[i] * expected_output[i];

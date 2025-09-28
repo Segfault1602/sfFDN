@@ -27,7 +27,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }

@@ -113,7 +113,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
         });
     }
 
-    std::array<float, N> output;
+    std::array<float, N> output{};
     bench.run("MatrixMultiply", [&]() {
         sfFDN::MatrixMultiply_C(kInput, output, kMatrix16x16, 16);
         nanobench::doNotOptimizeAway(output);
@@ -141,11 +141,11 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     constexpr uint32_t kInputSize = N * kBlockSize;
 
     std::array<float, kInputSize> input{};
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < kBlockSize; ++j)
+        for (auto j = 0u; j < kBlockSize; ++j)
         {
-            input[i * kBlockSize + j] = kInput[i];
+            input[(i * kBlockSize) + j] = kInput[i];
         }
     }
 
@@ -165,7 +165,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
         nanobench::doNotOptimizeAway(output);
     });
 
-    std::array<float, kInputSize> output;
+    std::array<float, kInputSize> output{};
     bench.run("vDSP", [&]() {
         const float* A = input.data();
         const float* B = kMatrix16x16.data();
@@ -192,7 +192,7 @@ TEST_CASE("Hadamard")
         1,  1,  1,  1,  -1, -1, 1,  -1, -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  -1, -1, 1,
     };
 
-    for (auto i = 0; i < N * N; ++i)
+    for (auto i = 0u; i < N * N; ++i)
     {
         kHadamard[i] *= 0.25f; // Scale down to avoid overflow in multiplication
     }
@@ -212,7 +212,7 @@ TEST_CASE("Hadamard")
         std::array<float, N> eigen_output_data{};
         Eigen::Map<Eigen::RowVectorXf> eigen_output(eigen_output_data.data(), N);
 
-        for (auto i = 0; i < kIterations; ++i)
+        for (auto i = 0u; i < kIterations; ++i)
         {
             eigen_output = eigen_input * eigen_mat;
             nanobench::doNotOptimizeAway(eigen_output);
@@ -221,7 +221,7 @@ TEST_CASE("Hadamard")
 
     bench.run("MatrixMultiply", [&]() {
         std::array<float, N> output{};
-        for (auto i = 0; i < kIterations; ++i)
+        for (auto i = 0u; i < kIterations; ++i)
         {
             sfFDN::MatrixMultiply_C(kInput, output, kHadamard, N);
             nanobench::doNotOptimizeAway(output);
@@ -230,7 +230,7 @@ TEST_CASE("Hadamard")
 
     bench.run("HadamardMultiply", [&]() {
         std::array<float, N> output{};
-        for (auto i = 0; i < kIterations; ++i)
+        for (auto i = 0u; i < kIterations; ++i)
         {
             sfFDN::HadamardMultiply(kInput, output);
             nanobench::doNotOptimizeAway(output);
@@ -240,7 +240,7 @@ TEST_CASE("Hadamard")
     bench.run("WalshHadamardTransform", [&]() {
         std::array<float, N> inout{};
         std::ranges::copy(kInput, inout.begin());
-        for (auto i = 0; i < kIterations; ++i)
+        for (auto i = 0u; i < kIterations; ++i)
         {
             sfFDN::WalshHadamardTransform(inout);
             nanobench::doNotOptimizeAway(inout);

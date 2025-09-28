@@ -2,9 +2,6 @@
 #include "sffdn/filterbank.h"
 
 #include "pch.h"
-#include "sffdn/filter.h"
-#include "sffdn/filterbank.h"
-#include <vecLib/vDSP.h>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
@@ -46,7 +43,7 @@ class IIRFilterBank::IIRFilterBankImpl
         const uint32_t coeffs_per_channel = coeff_per_stage * stage_count;
 
         filters_.resize(channel_count);
-        for (auto i = 0; i < channel_count; ++i)
+        for (auto i = 0u; i < channel_count; ++i)
         {
             auto coeffs_span = coeffs.subspan(i * coeffs_per_channel, coeffs_per_channel);
             filters_[i].SetCoefficients(stage_count, coeffs_span);
@@ -59,7 +56,7 @@ class IIRFilterBank::IIRFilterBankImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == filters_.size());
 
-        for (auto i = 0; i < filters_.size(); ++i)
+        for (auto i = 0u; i < filters_.size(); ++i)
         {
             auto input_buf = input.GetChannelBuffer(i);
             auto output_buf = output.GetChannelBuffer(i);
@@ -100,12 +97,11 @@ class IIRFilterBank::IIRFilterBankImpl
     }
 
     IIRFilterBankImpl(const IIRFilterBankImpl& other)
+        : channel_count_(other.channel_count_)
+        , coeffs_d_(other.coeffs_d_)
+        , input_ptrs_(other.input_ptrs_)
+        , output_ptrs_(other.output_ptrs_)
     {
-        channel_count_ = other.channel_count_;
-        coeffs_d_ = other.coeffs_d_;
-        input_ptrs_ = other.input_ptrs_;
-        output_ptrs_ = other.output_ptrs_;
-
         if (coeffs_d_.empty())
         {
             biquad_setup_ = nullptr;
@@ -173,11 +169,11 @@ class IIRFilterBank::IIRFilterBankImpl
         const uint32_t coeffs_per_channel = coeff_per_stage * stage_count;
 
         coeffs_d_.reserve(coeffs.size());
-        for (auto j = 0; j < stage_count; ++j)
+        for (auto j = 0u; j < stage_count; ++j)
         {
-            for (auto i = 0; i < channel_count; ++i)
+            for (auto i = 0u; i < channel_count; ++i)
             {
-                auto coeffs_span = coeffs.subspan(i * coeffs_per_channel + j * coeff_per_stage, coeff_per_stage);
+                auto coeffs_span = coeffs.subspan((i * coeffs_per_channel) + (j * coeff_per_stage), coeff_per_stage);
                 if (coeff_per_stage == 6)
                 {
                     // vDSP_biquadm expects 5 coefficient per stage
@@ -221,7 +217,7 @@ class IIRFilterBank::IIRFilterBankImpl
         assert(input_ptrs_.size() == channel_count_);
         assert(output_ptrs_.size() == channel_count_);
 
-        for (auto i = 0; i < channel_count_; ++i)
+        for (auto i = 0u; i < channel_count_; ++i)
         {
             input_ptrs_[i] = input.GetChannelSpan(i).data();
             output_ptrs_[i] = output.GetChannelSpan(i).data();
@@ -271,9 +267,7 @@ IIRFilterBank& IIRFilterBank::operator=(IIRFilterBank&& other) noexcept
     return *this;
 }
 
-IIRFilterBank::~IIRFilterBank()
-{
-}
+IIRFilterBank::~IIRFilterBank() = default;
 
 void IIRFilterBank::Clear()
 {

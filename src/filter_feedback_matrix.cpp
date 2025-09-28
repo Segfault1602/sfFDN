@@ -38,9 +38,9 @@ void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
         delays_.emplace_back(stage_delays, kDefaultBlockSize);
     }
 
-    for (auto i = 0; i < mixing_matrices.size(); ++i)
+    for (const auto& mixing_matrix : mixing_matrices)
     {
-        matrix_.emplace_back(mixing_matrices[i]);
+        matrix_.emplace_back(mixing_matrix);
     }
 }
 
@@ -75,7 +75,7 @@ void FilterFeedbackMatrix::PrintInfo() const
     {
         auto delays = delay.GetDelays();
         std::println("Delays: [");
-        for (auto i = 0; i < delays.size(); ++i)
+        for (auto i = 0u; i < delays.size(); ++i)
         {
             std::print("{}", delays[i]);
             if (i < delays.size() - 1)
@@ -124,7 +124,7 @@ std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFee
 
     std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
     auto all_matrices_span = std::span(info.matrices);
-    for (auto i = 0; i < info.K; i++)
+    for (auto i = 0u; i < info.K; i++)
     {
         std::span<const float> matrix_span = all_matrices_span.subspan(i * info.N * info.N, info.N * info.N);
         sfFDN::ScalarFeedbackMatrix feedback_matrix(info.N);
@@ -140,9 +140,9 @@ std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
 {
     auto clone = std::make_unique<FilterFeedbackMatrix>(N_);
 
-    for (size_t i = 0; i < delays_.size(); ++i)
+    for (const auto& delay : delays_)
     {
-        clone->delays_.emplace_back(delays_[i].GetDelays(), kDefaultBlockSize);
+        clone->delays_.emplace_back(delay.GetDelays(), kDefaultBlockSize);
     }
 
     clone->matrix_ = matrix_;

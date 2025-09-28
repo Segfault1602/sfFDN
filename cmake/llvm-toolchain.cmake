@@ -1,10 +1,15 @@
 include_guard(GLOBAL)
 
-set(CMAKE_CXX_COMPILER "/Users/alex/llvm_install/bin/clang++")
-set(CMAKE_C_COMPILER "/Users/alex/llvm_install/bin/clang")
+if(APPLE)
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm@20/bin/clang++")
+    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm@20/bin/clang")
+else()
+    set(CMAKE_CXX_COMPILER "clang++")
+    set(CMAKE_C_COMPILER "clang")
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # set(SFFDN_SANITIZER -fsanitize=address)
+    set(SFFDN_SANITIZER -fsanitize=address)
     set(SFFDN_COMPILE_DEFINITION -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
 endif()
 

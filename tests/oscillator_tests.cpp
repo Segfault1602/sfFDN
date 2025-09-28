@@ -26,7 +26,7 @@ TEST_CASE("SineWave")
     std::vector<float> output(kOutputSize, 0.f); // Two channels for stereo output
 
     const uint32_t kBlockCount = kOutputSize / kBlockSize;
-    for (auto i = 0; i < kBlockCount; ++i)
+    for (auto i = 0u; i < kBlockCount; ++i)
     {
         auto block_span = std::span(output).subspan(i * kBlockSize, kBlockSize);
         sine_wave.Generate(block_span);
@@ -48,7 +48,7 @@ TEST_CASE("SineWave")
 
     const float kPhaseIncrement = kFrequency / kSampleRate;
     float phase = 0;
-    for (auto i = 0; i < kOutputSize; ++i)
+    for (auto i = 0u; i < kOutputSize; ++i)
     {
         float expected_value = std::sinf(phase * 2.0f * std::numbers::pi);
         phase += kPhaseIncrement;
@@ -63,7 +63,7 @@ TEST_CASE("Noise")
 
     std::vector<float> output(kOutputSize, 0.f);
     sfFDN::RNG rng;
-    for (auto i = 0; i < kOutputSize; ++i)
+    for (auto i = 0u; i < kOutputSize; ++i)
     {
         output[i] = rng.NextFloat();
     }

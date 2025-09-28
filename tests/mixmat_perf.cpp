@@ -29,7 +29,7 @@ TEST_CASE("MixMatPerf")
     // Fill with white noise
     std::default_random_engine generator;
     std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = dist(generator);
     }
@@ -93,7 +93,7 @@ TEST_CASE("FFMPerf_Order")
     // fill input with random values
     sfFDN::RNG rng;
     std::vector<float> input(N * block_size, 0.f);
-    for (auto i = 0; i < input.size(); ++i)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         input[i] = rng.NextFloat();
     }

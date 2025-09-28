@@ -37,7 +37,7 @@ TEST_CASE("ParallelGainsInput")
                                        6, 6.75, 0,   1.f,  2.f, 3.f,  4.f, 5.f,  6.f, 7.f,  8.f, 9.f};
 
     REQUIRE(output.size() == expected_out.size());
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto i = 0u; i < output.size(); ++i)
     {
         REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
@@ -54,9 +54,9 @@ TEST_CASE("ParallelGainsOutput")
     std::vector<float> input(N * kBlockSize, 0.f);
     std::vector<float> output(kBlockSize, 0.f);
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < kBlockSize; ++j)
+        for (auto j = 0u; j < kBlockSize; ++j)
         {
             input[i * kBlockSize + j] = j;
         }
@@ -70,7 +70,7 @@ TEST_CASE("ParallelGainsOutput")
     std::vector<float> expected_out = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18};
     REQUIRE(output.size() == expected_out.size());
 
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto i = 0u; i < output.size(); ++i)
     {
         REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
@@ -102,7 +102,7 @@ TEST_CASE("TimeVaryingParallelGainsInput_static")
     parallel_gains.Process(input_buffer, expected_out_buffer);
 
     REQUIRE(output.size() == expected_out.size());
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto i = 0u; i < output.size(); ++i)
     {
         REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
@@ -122,7 +122,7 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
     sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
     for (auto channel : input_buffer)
     {
-        for (auto j = 0; j < kBlockSize; ++j)
+        for (auto j = 0u; j < kBlockSize; ++j)
         {
             channel[j] = j;
         }
@@ -137,7 +137,7 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
     parallel_gains.SetGains(gains);
     parallel_gains.Process(input_buffer, expected_out_buffer);
 
-    for (auto i = 0; i < output.size(); ++i)
+    for (auto i = 0u; i < output.size(); ++i)
     {
         REQUIRE(output[i] == Catch::Approx(expected_out[i]));
     }
@@ -179,10 +179,10 @@ TEST_CASE("TimeVaryingParallelGainsInput")
         return;
     }
 
-    for (auto i = 0; i < kBlockSize; ++i)
+    for (auto i = 0u; i < kBlockSize; ++i)
     {
         std::array<float, N> frame{};
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0u; j < N; ++j)
         {
             frame[j] = output_buffer.GetChannelSpan(j)[i];
         }

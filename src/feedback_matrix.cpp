@@ -90,7 +90,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
     float GetCoefficient(uint32_t row, uint32_t col) const
     {
-        return matrix_data_[row * N_ + col];
+        return matrix_data_[(row * N_) + col];
     }
 
     std::unique_ptr<ScalarFeedbackMatrixImpl> Clone() const

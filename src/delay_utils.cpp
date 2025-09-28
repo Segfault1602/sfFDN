@@ -120,12 +120,12 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         static std::vector<uint32_t> primes = GeneratePrimes(1024); // More than enough primes for practical use
         assert(primes.size() > N);
 
-        double dmin = static_cast<double>(min_delay);
-        double dmax = static_cast<double>(max_delay);
+        auto dmin = static_cast<double>(min_delay);
+        auto dmax = static_cast<double>(max_delay);
         for (uint32_t i = 0; i < N; ++i)
         {
             double dl = dmin * std::pow((dmax / dmin), i / static_cast<double>(N - 1));
-            uint32_t ppwr = std::floor(0.5 + std::log(dl) / std::log(primes[i]));
+            uint32_t ppwr = std::floor(0.5 + (std::log(dl) / std::log(primes[i])));
 
             delays[i] = static_cast<uint32_t>(std::pow(primes[i], ppwr));
             // Ensure the delay is within the specified range
@@ -145,8 +145,8 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
 
         for (uint32_t i = 0; i < N; ++i)
         {
-            uint32_t d = min_delay + distr(eng);
-            uint32_t m = std::round(std::log(d) / std::log(primes[i]));
+            const uint32_t d = min_delay + distr(eng);
+            const uint32_t m = std::round(std::log(d) / std::log(primes[i]));
             delays[i] = static_cast<uint32_t>(std::pow(primes[i], m));
         }
 
@@ -155,6 +155,31 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
     default:
         std::cerr << "[sfFDN::GetDelayLengths]: Unknown delay length type.\n";
         break;
+    }
+
+    return delays;
+}
+
+std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t N, float mean_delay_ms, float sigma, uint32_t sample_rate)
+{
+    std::vector<float> m_n(N);
+    for (uint32_t n = 0; n < N; ++n)
+    {
+        m_n[n] = std::log(static_cast<float>(n + 1));
+    }
+
+    float m_n_mean = std::accumulate(m_n.begin(), m_n.end(), 0.0f) / static_cast<float>(N);
+
+    for (uint32_t n = 0; n < N; ++n)
+    {
+        m_n[n] = (m_n[n] - m_n_mean) / sigma;
+        m_n[n] = mean_delay_ms * std::exp(m_n[n] / std::log(3.f));
+    }
+
+    std::vector<uint32_t> delays(N);
+    for (uint32_t n = 0; n < N; ++n)
+    {
+        delays[n] = static_cast<uint32_t>(std::round(m_n[n] * sample_rate / 1000.0f));
     }
 
     return delays;

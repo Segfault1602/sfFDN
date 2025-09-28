@@ -21,7 +21,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
     std::vector<float> coeffs;
     auto sos = k_h001_AbsorbtionSOS[0];
-    for (auto j = 0; j < sos.size(); j++)
+    for (auto j = 0u; j < sos.size(); j++)
     {
         std::span<const float> sos_span(sos.at(j % sos.size()));
         auto b = sos_span.first(3);
@@ -56,7 +56,7 @@ TEST_CASE("PartitionedConvolver")
     std::vector<float> output(kFirLength + kBlockSize, 0.f);
 
     const uint32_t kBlockCount = kFirLength / kBlockSize;
-    for (auto i = 0; i < kBlockCount; ++i)
+    for (auto i = 0u; i < kBlockCount; ++i)
     {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, std::span(input).subspan(i * kBlockSize, kBlockSize));
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i * kBlockSize, kBlockSize));
@@ -71,7 +71,7 @@ TEST_CASE("PartitionedConvolver")
 
     float fir_energy = 0.f;
     float signal_error = 0.f;
-    for (auto i = 0; i < kFirLength; ++i)
+    for (auto i = 0u; i < kFirLength; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(fir[i], 1e-5));
         fir_energy += fir[i] * fir[i];
@@ -108,7 +108,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     std::vector<float> output(kInputSize, 0.f);
 
     const uint32_t kBlockCount = kInputSize / kBlockSize;
-    for (auto i = 0; i < kBlockCount; ++i)
+    for (auto i = 0u; i < kBlockCount; ++i)
     {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, std::span(input_chirp).subspan(i * kBlockSize, kBlockSize));
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i * kBlockSize, kBlockSize));
@@ -119,7 +119,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     float signal_energy = 0.f;
     float signal_error = 0.f;
     float max_error = 0.f;
-    for (auto i = 0; i < kInputSize - kBlockSize; ++i)
+    for (auto i = 0u; i < kInputSize - kBlockSize; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(filter_output[i], 1e-5));
         signal_energy += filter_output[i] * filter_output[i];

@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
+#include <Eigen/src/Core/Matrix.h>
 #include <kiss_fft.h>
 
 #include "matrix_gallery_internal.h"
@@ -23,9 +24,9 @@ Eigen::MatrixXf createToeplitzMatrix(const Eigen::VectorXf& c, const Eigen::Vect
     uint32_t N = c.size();
     Eigen::MatrixXf T(N, N);
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0u; j < N; ++j)
         {
             if (i >= j)
             {
@@ -49,7 +50,7 @@ Eigen::ArrayXf RandArray(uint32_t N, uint32_t seed = 0)
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::ArrayXf random_vector(N);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         random_vector(i) = dist(gen);
     }
@@ -65,7 +66,7 @@ Eigen::MatrixXf NestedAllpassMatrix_Internal(uint32_t N, uint32_t seed,
     std::random_device rd;
     std::mt19937 gen(seed == 0 ? rd() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         g[i] = dist(gen) * 0.2f + 0.6f;
     }
@@ -104,7 +105,7 @@ Eigen::MatrixXf NestedAllpassMatrix_Internal(uint32_t N, uint32_t seed,
 
     if (!input_gains.empty() && input_gains.size() == input_gains_vec.size())
     {
-        for (auto i = 0; i < input_gains.size(); ++i)
+        for (auto i = 0u; i < input_gains.size(); ++i)
         {
             input_gains[i] = input_gains_vec[i];
         }
@@ -112,7 +113,7 @@ Eigen::MatrixXf NestedAllpassMatrix_Internal(uint32_t N, uint32_t seed,
 
     if (!output_gains.empty() && output_gains.size() == output_gain_vec.size())
     {
-        for (auto i = 0; i < output_gains.size(); ++i)
+        for (auto i = 0u; i < output_gains.size(); ++i)
         {
             output_gains[i] = output_gain_vec[i];
         }
@@ -129,17 +130,66 @@ Eigen::ArrayXf ShiftMatrixDistribute(uint32_t N, float sparsity, float pulse_siz
     return shift;
 }
 
-Eigen::MatrixXf GenerateMatrix_Internal(uint32_t N, sfFDN::ScalarMatrixType type, uint32_t seed)
+Eigen::MatrixXf KroneckerProduct(const Eigen::MatrixXf& A, const Eigen::MatrixXf& B)
+{
+    Eigen::MatrixXf C(A.rows() * B.rows(), A.cols() * B.cols());
+
+    for (auto i = 0u; i < A.rows(); ++i)
+    {
+        for (auto j = 0u; j < A.cols(); ++j)
+        {
+            C.block(i * B.rows(), j * B.cols(), B.rows(), B.cols()) = A(i, j) * B;
+        }
+    }
+
+    return C;
+}
+
+Eigen::MatrixXf VariableDiffustionMatrix(uint32_t N, float diffusion)
+{
+    if ((N & (N - 1)) != 0 || N == 0)
+    {
+        return Eigen::MatrixXf::Zero(N, N); // Return empty matrix if N is not a power of 2
+    }
+
+    diffusion = std::clamp(diffusion, 0.0f, 1.f);
+    float theta = diffusion * std::numbers::pi_v<float> * 0.25f;
+
+    Eigen::MatrixXf R(2, 2);
+    R << std::cos(theta), std::sin(theta), -std::sin(theta), std::cos(theta);
+
+    if (N == 2)
+    {
+        return R;
+    }
+
+    Eigen::MatrixXf R2 = R;
+
+    for (auto n = 4u; n <= N; n *= 2)
+    {
+        std::cout << R2 << "\n\n";
+        R2 = KroneckerProduct(R2, R);
+    }
+
+    return R2;
+}
+
+Eigen::MatrixXf GenerateMatrix_Internal(uint32_t N, sfFDN::ScalarMatrixType type, uint32_t seed,
+                                        std::optional<float> arg = std::nullopt)
 {
     Eigen::MatrixXf A(N, N);
     switch (type)
     {
     case sfFDN::ScalarMatrixType::Identity:
+    {
         A = Eigen::MatrixXf::Identity(N, N);
         break;
+    }
     case sfFDN::ScalarMatrixType::Random:
+    {
         A = sfFDN::RandomOrthogonal(N, seed);
         break;
+    }
     case sfFDN::ScalarMatrixType::Householder:
     {
         Eigen::MatrixXf v = Eigen::VectorXf::Ones(N);
@@ -153,23 +203,36 @@ Eigen::MatrixXf GenerateMatrix_Internal(uint32_t N, sfFDN::ScalarMatrixType type
         break;
     }
     case sfFDN::ScalarMatrixType::Hadamard:
+    {
         A = sfFDN::HadamardMatrix(N);
         break;
+    }
     case sfFDN::ScalarMatrixType::Circulant:
+    {
         A = sfFDN::CirculantMatrix(N, seed);
         break;
+    }
     case sfFDN::ScalarMatrixType::Allpass:
+    {
         A = sfFDN::AllpassMatrix(N, seed);
         break;
+    }
     case sfFDN::ScalarMatrixType::NestedAllpass:
+    {
         A = NestedAllpassMatrix_Internal(N, seed);
         break;
-    // case sfFDN::ScalarMatrixType::TinyRotation:
-    //     A = TinyRotationMatrix(N, 0.01f, 0.1f, seed);
-    //     break;
+    }
+    case sfFDN::ScalarMatrixType::VariableDiffusion:
+    {
+        float diffusion = arg.has_value() ? arg.value() : 1.f;
+        A = VariableDiffustionMatrix(N, diffusion);
+        break;
+    }
     default:
+    {
         std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << "\n";
         A = Eigen::MatrixXf::Zero(N, N);
+    }
     }
 
     return A;
@@ -188,9 +251,9 @@ Eigen::MatrixXf RandN(uint32_t N, uint32_t seed)
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::MatrixXf random_matrix(N, N);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0u; j < N; ++j)
         {
             random_matrix(i, j) = dist(gen);
         }
@@ -210,7 +273,7 @@ Eigen::MatrixXf RandomOrthogonal(uint32_t N, uint32_t seed)
 
     // Create diagonal matrix with signs of R's diagonal elements
     Eigen::VectorXf diag_signs(N);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         diag_signs(i) = (R(i, i) >= 0.0f) ? 1.0f : -1.0f;
     }
@@ -236,7 +299,7 @@ Eigen::MatrixXf RandomHouseholder(uint32_t N, uint32_t seed)
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::VectorXf v(N);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         v[i] = dist(gen);
     }
@@ -278,7 +341,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
     std::random_device rd;
     std::mt19937 gen(seed == 0 ? rd() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         R[i].real(dist(gen));
     }
@@ -291,7 +354,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
     kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(R.data()), reinterpret_cast<kiss_fft_cpx*>(RF.data()));
     kiss_fft_free(cfg);
 
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         // auto& rf = reinterpret_cast<std::complex<float>&>(RF[i]);
         // reinterpret_cast<std::complex<float>&>(RF[i]) = rf / std::abs(rf);
@@ -301,13 +364,13 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
     cfg = kiss_fft_alloc(N, 1, nullptr, nullptr);
     kiss_fft(cfg, reinterpret_cast<kiss_fft_cpx*>(RF.data()), reinterpret_cast<kiss_fft_cpx*>(R.data()));
     kiss_fft_free(cfg);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         R[i].real(R[i].real() / N); // Normalize the result
     }
 
     Eigen::VectorXf v(N);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
         v[i] = R[i].real();
     }
@@ -322,7 +385,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
         Eigen::VectorXf v_flipped = v.reverse();
         Eigen::VectorXf v2(N);
         v2[0] = v_flipped[N - 1]; // circshift by 1
-        for (auto i = 1; i < N; ++i)
+        for (auto i = 1u; i < N; ++i)
         {
             v2[i] = v_flipped[i - 1];
         }
@@ -334,7 +397,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t N, uint32_t seed)
     {
         Eigen::VectorXf v2(N);
         v2[0] = v[N - 1]; // circshift by 1
-        for (auto i = 1; i < N; ++i)
+        for (auto i = 1u; i < N; ++i)
         {
             v2[i] = v[i - 1];
         }
@@ -364,7 +427,7 @@ Eigen::MatrixXf AllpassMatrix(uint32_t N, uint32_t seed)
     std::random_device rd;
     std::mt19937 gen(seed == 0 ? rd() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-    for (auto i = 0; i < N / 2; ++i)
+    for (auto i = 0u; i < N / 2; ++i)
     {
         g[i] = dist(gen) * 0.2f + 0.6f;
     }
@@ -383,14 +446,15 @@ Eigen::MatrixXf AllpassMatrix(uint32_t N, uint32_t seed)
     return C;
 }
 
-std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t seed)
+std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t seed, std::optional<float> arg)
 {
-    Eigen::MatrixXf A = GenerateMatrix_Internal(N, type, seed);
+    Eigen::MatrixXf A = GenerateMatrix_Internal(N, type, seed, arg);
 
+    // Matrix is stored in column-major order
     std::vector<float> matrix(N * N, 0.0f);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0u; j < N; ++j)
         {
             matrix[(i * N) + j] = A(i, j);
         }
@@ -404,9 +468,9 @@ std::vector<float> NestedAllpassMatrix(uint32_t N, uint32_t seed, std::span<floa
 {
     Eigen::MatrixXf A = NestedAllpassMatrix_Internal(N, seed, input_gains, output_gains);
     std::vector<float> matrix(N * N, 0.0f);
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0u; i < N; ++i)
     {
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0u; j < N; ++j)
         {
             matrix[(i * N) + j] = A(i, j);
         }
@@ -433,12 +497,12 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t N, uint32_t 
     Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(K);
     sparsity_vec[0] = sparsity;
 
-    for (auto i = 0; i < K; ++i)
+    for (auto i = 0u; i < K; ++i)
     {
-        Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[i], pulse_size);
+        const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[i], pulse_size);
 
-        Eigen::DiagonalMatrix<float, Eigen::Dynamic> G1(Eigen::pow(gain_per_samples, shift_left).matrix());
-        Eigen::MatrixXf R1 = GenerateMatrix_Internal(N, type, 0) * G1;
+        const Eigen::DiagonalMatrix<float, Eigen::Dynamic> G1(Eigen::pow(gain_per_samples, shift_left).matrix());
+        const Eigen::MatrixXf R1 = GenerateMatrix_Internal(N, type, 0) * G1;
 
         pulse_size = pulse_size * N * sparsity_vec[i];
 
@@ -450,7 +514,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t N, uint32_t 
     }
 
     // Add the last delay stage
-    Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[K - 1], pulse_size);
+    const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(N, sparsity_vec[K - 1], pulse_size);
     for (auto d : shift_left)
     {
         delays.push_back(static_cast<uint32_t>(d));
@@ -465,9 +529,9 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t N, uint32_t 
     // Flatten the matrices into a single vector, column-major order
     for (const auto& matrix : matrices)
     {
-        for (auto i = 0; i < N; ++i)
+        for (auto i = 0u; i < N; ++i)
         {
-            for (auto j = 0; j < N; ++j)
+            for (auto j = 0u; j < N; ++j)
             {
                 info.matrices.push_back(matrix(i, j));
             }

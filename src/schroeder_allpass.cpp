@@ -129,7 +129,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1);
 
-    assert(allpasses_.size() >= 1);
+    assert(!allpasses_.empty());
 
     allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
 
@@ -216,7 +216,7 @@ void ParallelSchroederAllpassSection::Process(const AudioBuffer& input, AudioBuf
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == allpasses_.size());
 
-    for (auto i = 0; i < allpasses_.size(); ++i)
+    for (auto i = 0u; i < allpasses_.size(); ++i)
     {
         auto out_channel_buffer = output.GetChannelBuffer(i);
         allpasses_[i].Process(input.GetChannelBuffer(i), out_channel_buffer);

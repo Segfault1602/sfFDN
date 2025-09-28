@@ -21,16 +21,14 @@ namespace sfFDN
 {
 
 template <typename T>
-FFTBuffer<T>::FFTBuffer()
-{
-}
+FFTBuffer<T>::FFTBuffer() = default;
 
 template <typename T>
 FFTBuffer<T>::FFTBuffer(std::span<T> buffer)
     : buffer_(buffer)
 {
     assert(buffer.data() != nullptr);
-    assert(buffer.size() > 0);
+    assert(!buffer.empty());
 }
 
 template <typename T>
