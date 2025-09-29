@@ -1,8 +1,6 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
-#include <random>
-
 #include "rng.h"
 #include "sffdn/delay_utils.h"
 #include "sffdn/sffdn.h"
@@ -10,16 +8,18 @@
 #include "filter_coeffs.h"
 #include "test_utils.h"
 
+#ifdef __APPLE__
 #include <Accelerate/accelerate.h>
+#endif
 
 using namespace ankerl;
 using namespace std::chrono_literals;
 
 TEST_CASE("FilterBankPerf")
 {
-    constexpr uint32_t N = 16;
+    constexpr uint32_t kChannelCount = 16;
 
-    auto filter_bank = GetFilterBank(N, 11);
+    auto filter_bank = GetFilterBank(kChannelCount, 11);
 
     constexpr uint32_t kSampleToProcess = 512;
 
@@ -34,12 +34,12 @@ TEST_CASE("FilterBankPerf")
 
     for (const auto& block_size : kBlockSizes)
     {
-        std::vector<float> input(block_size * N, 0);
+        std::vector<float> input(block_size * kChannelCount, 0);
         for (float& i : input)
         {
-            i = rng.NextFloat();
+            i = rng();
         }
-        std::vector<float> output(block_size * N, 0);
+        std::vector<float> output(block_size * kChannelCount, 0);
 
         bench.run("FilterBank - Block Size " + std::to_string(block_size), [&] {
             const uint32_t num_blocks = kSampleToProcess / block_size;
@@ -47,8 +47,8 @@ TEST_CASE("FilterBankPerf")
 
             for (auto i = 0u; i < num_blocks; ++i)
             {
-                sfFDN::AudioBuffer input_buffer(block_size, N, input);
-                sfFDN::AudioBuffer output_buffer(block_size, N, output);
+                sfFDN::AudioBuffer input_buffer(block_size, kChannelCount, input);
+                sfFDN::AudioBuffer output_buffer(block_size, kChannelCount, output);
                 filter_bank->Process(input_buffer, output_buffer);
             }
             nanobench::doNotOptimizeAway(output);
@@ -59,7 +59,7 @@ TEST_CASE("FilterBankPerf")
 TEST_CASE("CascadedBiquadsPerf")
 {
     // clang-format off
-    constexpr std::array<std::array<float, 6>,11> sos = {{
+    constexpr std::array<std::array<float, 6>,11> kSOS = {{
         {0.81751023887136, 0.f,             0.f,             1.f,              0.f,             0.f},
         {1.03123539966583, -2.05357246743096, 1.022375294192310, 1.03111929845434, -2.05357345199080, 1.02249041084395},
         {1.01622872208192, -2.02365307479989, 1.007493166706850, 1.01612692482198, -2.02365307479989, 1.00759496396680},
@@ -76,7 +76,7 @@ TEST_CASE("CascadedBiquadsPerf")
 
     sfFDN::CascadedBiquads filter_bank;
     std::vector<float> coeffs;
-    for (const auto& biquad : sos)
+    for (const auto& biquad : kSOS)
     {
         coeffs.push_back(biquad[0] / biquad[3]);
         coeffs.push_back(biquad[1] / biquad[3]);
@@ -85,18 +85,17 @@ TEST_CASE("CascadedBiquadsPerf")
         coeffs.push_back(biquad[5] / biquad[3]);
     }
 
-    filter_bank.SetCoefficients(sos.size(), coeffs);
+    filter_bank.SetCoefficients(kSOS.size(), coeffs);
 
-    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     std::vector<float> input(kBlockSize, 0);
 
     // Fill with white noise
-    std::default_random_engine generator(std::random_device{}());
-    std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0u; i < input.size(); ++i)
+    sfFDN::RNG generator;
+    for (auto& i : input)
     {
-        input[i] = dist(generator);
+        i = generator();
     }
 
     std::vector<float> output(kBlockSize, 0);
@@ -114,28 +113,28 @@ TEST_CASE("CascadedBiquadsPerf")
 
 TEST_CASE("ParallelSchroederAllpassSection")
 {
-    constexpr uint32_t N = 16;
+    constexpr uint32_t kChannelCount = 16;
     constexpr uint32_t kBlockSize = 128;
 
-    sfFDN::ParallelSchroederAllpassSection filter(N, 1);
-    std::vector<uint32_t> delays = sfFDN::GetDelayLengths(N, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
-    std::array<float, N> gains{};
+    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, 1);
+    std::vector<uint32_t> delays = sfFDN::GetDelayLengths(kChannelCount, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
+    std::array<float, kChannelCount> gains{};
     gains.fill(0.7f);
 
     filter.SetDelays(delays);
     filter.SetGains(gains);
 
-    std::vector<float> input(N * kBlockSize, 0.f);
+    std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
-    for (uint32_t i = 0; i < N; ++i)
+    for (uint32_t i = 0; i < kChannelCount; ++i)
     {
         input[i * kBlockSize] = 1.f;
     }
 
-    std::vector<float> output(N * kBlockSize, 0.f);
+    std::vector<float> output(kChannelCount * kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
     nanobench::Bench bench;
     bench.title("ParallelSchroederAllpassSection perf");
@@ -144,7 +143,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     bench.run("ParallelSchroederAllpassSection", [&] { filter.Process(input_buffer, output_buffer); });
 }
 
-#if 1
+#ifdef __APPLE__
 TEST_CASE("VDSP_FilterBank")
 {
     constexpr uint32_t N = 16; // number of channels

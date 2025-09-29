@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
+#include <complex>
 #include <numbers>
 #include <ranges>
 #include <span>
 #include <vector>
+
 
 namespace sfFDN
 {

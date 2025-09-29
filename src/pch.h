@@ -11,6 +11,7 @@
 #include <iostream>
 #include <memory>
 #include <numbers>
+#include <numeric>
 #include <print>
 #include <random>
 #include <ranges>

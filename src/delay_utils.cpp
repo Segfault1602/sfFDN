@@ -2,7 +2,14 @@
 
 #include "sffdn/delay_utils.h"
 
-#include "pch.h"
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <iostream>
+#include <numeric>
+#include <random>
+#include <vector>
+
 
 namespace
 {
@@ -38,10 +45,10 @@ std::vector<uint32_t> GeneratePrimes(uint32_t max)
 namespace sfFDN
 {
 
-std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t max_delay, DelayLengthType type,
-                                      uint32_t seed)
+std::vector<uint32_t> GetDelayLengths(uint32_t channel_count, uint32_t min_delay, uint32_t max_delay,
+                                      DelayLengthType type, uint32_t seed)
 {
-    std::vector<uint32_t> delays(N, min_delay);
+    std::vector<uint32_t> delays(channel_count, min_delay);
     switch (type)
     {
     case DelayLengthType::Random:
@@ -50,7 +57,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         std::mt19937 eng(seed == 0 ? rd() : seed);
         std::uniform_int_distribution<uint32_t> distr(min_delay, max_delay);
 
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
             delays[i] = distr(eng); // Generate random delays
         }
@@ -61,7 +68,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         std::random_device rd;
         std::mt19937 eng(seed == 0 ? rd() : seed);
         std::normal_distribution<double> distr((min_delay + max_delay) * 0.5, (max_delay - min_delay) * 0.2);
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
             double delay = distr(eng);
             while (delay < min_delay || delay > max_delay)
@@ -79,7 +86,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
         std::random_device rd;
         std::mt19937 eng(seed == 0 ? rd() : seed);
         std::uniform_int_distribution<uint32_t> distr(0, primes.size() - 1);
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
             uint32_t prime_index = distr(eng);
             assert(prime_index < primes.size()); // Ensure the index is valid
@@ -103,11 +110,11 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
     }
     case DelayLengthType::Uniform:
     {
-        uint32_t bandwidth = (max_delay - min_delay) / N;
+        uint32_t bandwidth = (max_delay - min_delay) / channel_count;
         std::random_device rd;
         std::mt19937 eng(seed == 0 ? rd() : seed);
         std::uniform_int_distribution<uint32_t> distr(0, bandwidth);
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
             delays[i] = min_delay + i * bandwidth + distr(eng);
             // Ensure the delay is within the specified range
@@ -118,13 +125,13 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
     case DelayLengthType::PrimePower:
     {
         static std::vector<uint32_t> primes = GeneratePrimes(1024); // More than enough primes for practical use
-        assert(primes.size() > N);
+        assert(primes.size() > channel_count);
 
         auto dmin = static_cast<double>(min_delay);
         auto dmax = static_cast<double>(max_delay);
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
-            double dl = dmin * std::pow((dmax / dmin), i / static_cast<double>(N - 1));
+            double dl = dmin * std::pow((dmax / dmin), i / static_cast<double>(channel_count - 1));
             uint32_t ppwr = std::floor(0.5 + (std::log(dl) / std::log(primes[i])));
 
             delays[i] = static_cast<uint32_t>(std::pow(primes[i], ppwr));
@@ -137,13 +144,13 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
     case DelayLengthType::SteamAudio:
     {
         static std::vector<uint32_t> primes = GeneratePrimes(1024); // More than enough primes for practical use
-        assert(primes.size() > N);
+        assert(primes.size() > channel_count);
 
         std::random_device rd;
         std::mt19937 eng(seed == 0 ? rd() : seed);
         std::uniform_int_distribution<uint32_t> distr(0, 101);
 
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < channel_count; ++i)
         {
             const uint32_t d = min_delay + distr(eng);
             const uint32_t m = std::round(std::log(d) / std::log(primes[i]));
@@ -160,24 +167,25 @@ std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t m
     return delays;
 }
 
-std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t N, float mean_delay_ms, float sigma, uint32_t sample_rate)
+std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t channel_count, float mean_delay_ms, float sigma,
+                                              uint32_t sample_rate)
 {
-    std::vector<float> m_n(N);
-    for (uint32_t n = 0; n < N; ++n)
+    std::vector<float> m_n(channel_count);
+    for (uint32_t n = 0; n < channel_count; ++n)
     {
         m_n[n] = std::log(static_cast<float>(n + 1));
     }
 
-    float m_n_mean = std::accumulate(m_n.begin(), m_n.end(), 0.0f) / static_cast<float>(N);
+    float m_n_mean = std::accumulate(m_n.begin(), m_n.end(), 0.0f) / static_cast<float>(channel_count);
 
-    for (uint32_t n = 0; n < N; ++n)
+    for (uint32_t n = 0; n < channel_count; ++n)
     {
         m_n[n] = (m_n[n] - m_n_mean) / sigma;
         m_n[n] = mean_delay_ms * std::exp(m_n[n] / std::log(3.f));
     }
 
-    std::vector<uint32_t> delays(N);
-    for (uint32_t n = 0; n < N; ++n)
+    std::vector<uint32_t> delays(channel_count);
+    for (uint32_t n = 0; n < channel_count; ++n)
     {
         delays[n] = static_cast<uint32_t>(std::round(m_n[n] * sample_rate / 1000.0f));
     }

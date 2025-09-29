@@ -1,6 +1,8 @@
 #include "array_math.h"
 
-#include "pch.h"
+#include <cassert>
+#include <ranges>
+#include <span>
 
 namespace sfFDN
 {
@@ -43,7 +45,7 @@ void ArrayMath::ScaleAdd(std::span<const float> a, const float b, std::span<cons
 
     for (auto [x, y, z] : std::views::zip(a, c, out))
     {
-        z = x * b + y;
+        z = (x * b) + y;
     }
 }
 

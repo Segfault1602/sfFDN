@@ -91,7 +91,7 @@ class SchroederAllpassSection : public AudioProcessor
 class ParallelSchroederAllpassSection : public AudioProcessor
 {
   public:
-    ParallelSchroederAllpassSection(uint32_t N, uint32_t order);
+    ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count);
 
     void SetDelays(std::span<const uint32_t> delays);
     void SetGains(std::span<const float> gains);
@@ -108,6 +108,6 @@ class ParallelSchroederAllpassSection : public AudioProcessor
 
   private:
     std::vector<SchroederAllpassSection> allpasses_;
-    uint32_t order_;
+    uint32_t stage_count_;
 };
 } // namespace sfFDN

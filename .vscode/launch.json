@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/tests/sfFDN.perf",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "console": "externalTerminal"
+        },
+        {
             "name": "PyFDN",
             "type": "lldb-dap",
             "request": "launch",
@@ -31,10 +42,8 @@
             "name": "Perf",
             "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/RelWithDebInfo/tests/sfFDN.perf",
-            "args": [
-                "ParallelGainsPerf"
-            ],
+            "program": "${workspaceFolder}/build/debug/tests/sfFDN.perf",
+            "args": [],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],

@@ -16,19 +16,21 @@
 
 TEST_CASE("ParallelGainsInput")
 {
-    constexpr uint32_t N = 4;
+    constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, N> gains = {0.25f, 0.5f, 0.75f, 1.f};
+    constexpr std::array<float, kChannelCount> kGains = {0.25f, 0.5f, 0.75f, 1.f};
     sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::Multiplexed);
-    parallel_gains.SetGains(gains);
+    parallel_gains.SetGains(kGains);
 
     std::vector<float> input(kBlockSize, 0.f);
-    std::vector<float> output(N * kBlockSize, 0.f);
-
-    std::iota(input.begin(), input.end(), 0.f);
+    std::vector<float> output(kChannelCount * kBlockSize, 0.f);
+    for (auto i = 0u; i < kBlockSize; ++i)
+    {
+        input[i] = i;
+    }
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
     parallel_gains.Process(input_buffer, output_buffer);
 
@@ -45,16 +47,16 @@ TEST_CASE("ParallelGainsInput")
 
 TEST_CASE("ParallelGainsOutput")
 {
-    constexpr uint32_t N = 4;
+    constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, N> gains = {0.5f, 0.5f, 0.5f, 0.5f};
+    constexpr std::array<float, kChannelCount> kGains = {0.5f, 0.5f, 0.5f, 0.5f};
     sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
-    parallel_gains.SetGains(gains);
+    parallel_gains.SetGains(kGains);
 
-    std::vector<float> input(N * kBlockSize, 0.f);
+    std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     std::vector<float> output(kBlockSize, 0.f);
 
-    for (auto i = 0u; i < N; ++i)
+    for (auto i = 0u; i < kChannelCount; ++i)
     {
         for (auto j = 0u; j < kBlockSize; ++j)
         {
@@ -62,7 +64,7 @@ TEST_CASE("ParallelGainsOutput")
         }
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     parallel_gains.Process(input_buffer, output_buffer);
@@ -79,26 +81,29 @@ TEST_CASE("ParallelGainsOutput")
 // With frequency and amplitude to 0, this should behave the same as a normal ParallelGain
 TEST_CASE("TimeVaryingParallelGainsInput_static")
 {
-    constexpr uint32_t N = 4;
+    constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, N> gains = {0.25f, 0.5f, 0.75f, 1.f};
+    constexpr std::array<float, kChannelCount> kGains = {0.25f, 0.5f, 0.75f, 1.f};
     sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::Multiplexed);
-    tv_parallel_gains.SetCenterGains(gains);
+    tv_parallel_gains.SetCenterGains(kGains);
 
     std::vector<float> input(kBlockSize, 0.f);
-    std::vector<float> output(N * kBlockSize, 0.f);
+    std::vector<float> output(kChannelCount * kBlockSize, 0.f);
 
-    std::iota(input.begin(), input.end(), 0.f);
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = i;
+    }
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
     tv_parallel_gains.Process(input_buffer, output_buffer);
 
-    std::vector<float> expected_out(N * kBlockSize, 0.f);
-    sfFDN::AudioBuffer expected_out_buffer(kBlockSize, N, expected_out);
+    std::vector<float> expected_out(kChannelCount * kBlockSize, 0.f);
+    sfFDN::AudioBuffer expected_out_buffer(kBlockSize, kChannelCount, expected_out);
     sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::Multiplexed);
-    parallel_gains.SetGains(gains);
+    parallel_gains.SetGains(kGains);
     parallel_gains.Process(input_buffer, expected_out_buffer);
 
     REQUIRE(output.size() == expected_out.size());
@@ -110,16 +115,16 @@ TEST_CASE("TimeVaryingParallelGainsInput_static")
 
 TEST_CASE("TimeVaryingParallelGainsOutput_static")
 {
-    constexpr uint32_t N = 4;
+    constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, N> gains = {0.5f, 0.5f, 0.5f, 0.5f};
+    constexpr std::array<float, kChannelCount> kGains = {0.5f, 0.5f, 0.5f, 0.5f};
     sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
-    tv_parallel_gains.SetCenterGains(gains);
+    tv_parallel_gains.SetCenterGains(kGains);
 
-    std::vector<float> input(N * kBlockSize, 0.f);
+    std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     std::vector<float> output(kBlockSize, 0.f);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
     for (auto channel : input_buffer)
     {
         for (auto j = 0u; j < kBlockSize; ++j)
@@ -134,7 +139,7 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
     std::vector<float> expected_out(kBlockSize, 0.f);
     sfFDN::AudioBuffer expected_out_buffer(kBlockSize, 1, expected_out);
     sfFDN::ParallelGains parallel_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
-    parallel_gains.SetGains(gains);
+    parallel_gains.SetGains(kGains);
     parallel_gains.Process(input_buffer, expected_out_buffer);
 
     for (auto i = 0u; i < output.size(); ++i)
@@ -145,44 +150,45 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
 
 TEST_CASE("TimeVaryingParallelGainsInput")
 {
-    constexpr uint32_t FS = 48000;
-    constexpr uint32_t N = 4;
-    constexpr uint32_t kBlockSize = FS;
-    constexpr std::array<float, N> center_gains = {0.25f, 0.5f, -0.0f, -0.5f};
-    constexpr std::array<float, N> lfo_rates = {1.f / FS, 2.f / FS, 3.f / FS, 4.f / FS};
-    constexpr std::array<float, N> lfo_amps = {0.25f, 0.33f, 0.2f, -0.1f};
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kChannelCount = 4;
+    constexpr uint32_t kBlockSize = kSampleRate;
+    constexpr std::array<float, kChannelCount> kCenterGains = {0.25f, 0.5f, -0.0f, -0.5f};
+    constexpr std::array<float, kChannelCount> kLfoRates = {1.f / kSampleRate, 2.f / kSampleRate, 3.f / kSampleRate,
+                                                            4.f / kSampleRate};
+    constexpr std::array<float, kChannelCount> kLfoAmps = {0.25f, 0.33f, 0.2f, -0.1f};
 
     sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::Multiplexed);
-    tv_parallel_gains.SetCenterGains(center_gains);
-    tv_parallel_gains.SetLfoFrequency(lfo_rates);
-    tv_parallel_gains.SetLfoAmplitude(lfo_amps);
+    tv_parallel_gains.SetCenterGains(kCenterGains);
+    tv_parallel_gains.SetLfoFrequency(kLfoRates);
+    tv_parallel_gains.SetLfoAmplitude(kLfoAmps);
 
     std::vector<float> input(kBlockSize, 0.f);
-    std::vector<float> output(N * kBlockSize, 0.f);
+    std::vector<float> output(kChannelCount * kBlockSize, 0.f);
 
     std::ranges::fill(input, 1.f);
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
     tv_parallel_gains.Process(input_buffer, output_buffer);
 
     SF_INFO sf_info;
     sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
-    sf_info.channels = N;
-    sf_info.samplerate = FS;
+    sf_info.channels = kChannelCount;
+    sf_info.samplerate = kSampleRate;
 
     SNDFILE* file = sf_open("tv_gains.wav", SFM_WRITE, &sf_info);
-    if (!file)
+    if (file == nullptr)
     {
-        std::cerr << "Error opening file for writing: " << sf_strerror(file) << std::endl;
+        std::cerr << "Error opening file for writing: " << sf_strerror(file) << "\n";
         return;
     }
 
     for (auto i = 0u; i < kBlockSize; ++i)
     {
-        std::array<float, N> frame{};
-        for (auto j = 0u; j < N; ++j)
+        std::array<float, kChannelCount> frame{};
+        for (auto j = 0u; j < kChannelCount; ++j)
         {
             frame[j] = output_buffer.GetChannelSpan(j)[i];
         }

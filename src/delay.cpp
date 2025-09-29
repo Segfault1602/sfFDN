@@ -1,12 +1,17 @@
 #include "sffdn/delay.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
+#include <iostream>
+#include <span>
+#include <vector>
 
 namespace
 {
-uint32_t fast_mod(uint32_t input, uint32_t ceil)
+uint32_t FastMod(uint32_t input, uint32_t ceil)
 {
     return input >= ceil ? input % ceil : input;
 }
@@ -15,21 +20,21 @@ uint32_t fast_mod(uint32_t input, uint32_t ceil)
 namespace sfFDN
 {
 
-Delay::Delay(uint32_t delay, uint32_t maxDelay)
+Delay::Delay(uint32_t delay, uint32_t max_delay)
     : in_point_(0)
     , out_point_(0)
     , delay_(0)
     , last_frame_(0.0f)
 {
-    if (delay > maxDelay)
+    if (delay > max_delay)
     {
-        std::cerr << "Delay::Delay: maxDelay must be > than delay argument!\n";
+        std::cerr << "Delay::Delay: max_delay must be > than delay argument!\n";
         assert(false);
     }
 
-    if ((maxDelay + 1) > buffer_.size())
+    if ((max_delay + 1) > buffer_.size())
     {
-        buffer_.resize(maxDelay + 1, 0.0);
+        buffer_.resize(max_delay + 1, 0.0);
     }
 
     in_point_ = 0;
@@ -96,11 +101,11 @@ float Delay::NextOut() const
 float Delay::Tick(float input)
 {
     buffer_[in_point_] = input;
-    in_point_ = fast_mod(in_point_ + 1, buffer_.size());
+    in_point_ = FastMod(in_point_ + 1, buffer_.size());
 
     // Read out next value
     last_frame_ = buffer_[out_point_];
-    out_point_ = fast_mod(out_point_ + 1, buffer_.size());
+    out_point_ = FastMod(out_point_ + 1, buffer_.size());
 
     return last_frame_;
 }
@@ -185,7 +190,7 @@ bool Delay::AddNextInputs(std::span<const float> input)
         std::ranges::copy(input.subspan(buffer_1.size()), buffer_2.begin());
     }
 
-    in_point_ = fast_mod(in_point_ + input.size(), buffer_.size());
+    in_point_ = FastMod(in_point_ + input.size(), buffer_.size());
     return true;
 }
 

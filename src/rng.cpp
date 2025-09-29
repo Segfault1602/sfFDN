@@ -1,7 +1,6 @@
 #include "rng.h"
 
-#include "pch.h"
-#include <sys/types.h>
+#include <cstdint>
 
 namespace sfFDN
 {

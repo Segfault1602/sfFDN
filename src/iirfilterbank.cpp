@@ -1,7 +1,16 @@
-#include "sffdn/audio_buffer.h"
 #include "sffdn/filterbank.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/filter.h"
+
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <stdexcept>
+#include <utility>
+#include <vector>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>

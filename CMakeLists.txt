@@ -8,7 +8,7 @@ project(
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_CLANG_TIDY "clang-tidy")
+# set(CMAKE_CXX_CLANG_TIDY "clang-tidy")
 
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET 26.0)

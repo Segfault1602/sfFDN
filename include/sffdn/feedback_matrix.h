@@ -15,8 +15,8 @@ namespace sfFDN
 class ScalarFeedbackMatrix : public AudioProcessor
 {
   public:
-    ScalarFeedbackMatrix(uint32_t N = 4, ScalarMatrixType type = ScalarMatrixType::Identity);
-    ScalarFeedbackMatrix(uint32_t N, std::span<const float> matrix);
+    ScalarFeedbackMatrix(uint32_t order = 4, ScalarMatrixType type = ScalarMatrixType::Identity);
+    ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix);
 
     ~ScalarFeedbackMatrix() override;
 

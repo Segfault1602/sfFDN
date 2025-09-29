@@ -24,7 +24,7 @@ TEST_CASE("TwoFilter")
     std::vector<double> coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
 
     // clang-format off
-    constexpr std::array<double, 66> expected_sos = {
+    constexpr std::array<double, 66> kExpectedSOS = {
         0.833753922053558, -0.196112500418774, 0, 1.000000000000000, -0.300074975165566, 0,
         0.999995541761545, -1.995969983773138, 0.995991141545255, 1.000000000000000, -1.995969983773138, 0.995986683306800,
         1.000031455441331, -1.991962851696166, 0.991998061679195, 1.000000000000000, -1.991962851696166, 0.992029517120525,
@@ -41,10 +41,10 @@ TEST_CASE("TwoFilter")
 
     for (auto i = 0u; i < coeffs.size(); ++i)
     {
-        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(expected_sos.at(i), 1e-13));
+        REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kExpectedSOS.at(i), 1e-13));
     }
 
-    std::array<float, 10> t60s_f;
+    std::array<float, 10> t60s_f{};
     for (size_t i = 0; i < kT60s.size(); ++i)
     {
         t60s_f[i] = static_cast<float>(kT60s[i]);
@@ -53,7 +53,7 @@ TEST_CASE("TwoFilter")
     auto float_coeffs = sfFDN::GetTwoFilter(t60s_f, kDelay, kSR, kShelfCutoff);
     for (auto i = 0u; i < coeffs.size(); ++i)
     {
-        REQUIRE_THAT(float_coeffs[i], Catch::Matchers::WithinAbs(expected_sos.at(i), 1e-7));
+        REQUIRE_THAT(float_coeffs[i], Catch::Matchers::WithinAbs(kExpectedSOS.at(i), 1e-7));
     }
 }
 
@@ -84,7 +84,7 @@ TEST_CASE("Polyval")
                                                      std::complex<double>(-0.348206819242412, -0.732770892795190),
                                                      std::complex<double>(1.475942296183083, -0.234683626155909)};
 
-    for (auto [res, exp] : std::views::zip(result, expected))
+    for (const auto [res, exp] : std::views::zip(result, expected))
     {
         REQUIRE_THAT(res.imag(), Catch::Matchers::WithinAbs(exp.imag(), 1e-14));
         REQUIRE_THAT(res.real(), Catch::Matchers::WithinAbs(exp.real(), 1e-14));
@@ -130,7 +130,7 @@ TEST_CASE("GraphicEQ")
         std::cout << std::setprecision(15) << graphic_eq_coeffs[i] << ", ";
         if ((i + 1) % 6 == 0)
         {
-            std::cout << std::endl;
+            std::cout << "\n";
         }
     }
 }

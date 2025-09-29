@@ -22,8 +22,9 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
     auto sos = k_h001_AbsorbtionSOS[0];
     for (auto j = 0u; j < sos.size(); j++)
     {
-        auto b = std::span<const float>(&sos[j % sos.size()][0], 3);
-        auto a = std::span<const float>(&sos[j % sos.size()][3], 3);
+        auto stage_span = std::span(sos[j % sos.size()]);
+        auto b = stage_span.first(3);
+        auto a = stage_span.last(3);
         coeffs.push_back(b[0] / a[0]);
         coeffs.push_back(b[1] / a[0]);
         coeffs.push_back(b[2] / a[0]);

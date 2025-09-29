@@ -23,7 +23,7 @@ class ParallelGains : public AudioProcessor
 {
   public:
     ParallelGains(ParallelGainsMode mode);
-    ParallelGains(uint32_t N, ParallelGainsMode mode, float gain = 1.0f);
+    ParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain = 1.0f);
     ParallelGains(ParallelGainsMode mode, std::span<const float> gains);
 
     void SetMode(ParallelGainsMode mode);
@@ -52,7 +52,7 @@ class TimeVaryingParallelGains : public AudioProcessor
 {
   public:
     TimeVaryingParallelGains(ParallelGainsMode mode);
-    TimeVaryingParallelGains(uint32_t N, ParallelGainsMode mode, float gain = 1.0f);
+    TimeVaryingParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain = 1.0f);
     TimeVaryingParallelGains(ParallelGainsMode mode, std::span<const float> gains);
 
     void SetMode(ParallelGainsMode mode);

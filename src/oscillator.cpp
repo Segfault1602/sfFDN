@@ -1,26 +1,15 @@
 #include "sffdn/oscillator.h"
 
-#include "pch.h"
+#include "sine_table.h"
+
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <ranges>
+#include <span>
 
 namespace
 {
-constexpr uint32_t kSineTableSize = 1024; // Size of the sine table
-std::array<float, kSineTableSize + 1> kSineTable;
-
-struct SineTableInitializer
-{
-    SineTableInitializer() noexcept
-    {
-        for (auto i = 0u; i < kSineTableSize; ++i)
-        {
-            kSineTable[i] = std::sin((2.0 * std::numbers::pi * i) / kSineTableSize);
-        }
-
-        kSineTable[kSineTableSize] = 0.f;
-    }
-};
-const SineTableInitializer sine_table_initializer;
-
 float Sine(float phase)
 {
     while (phase < 0.f)
@@ -30,13 +19,13 @@ float Sine(float phase)
 
     phase = phase - std::floor(phase);
 
-    float index = phase * kSineTableSize;
+    float index = phase * sfFDN::kSineTableSize;
 
     auto uindex = static_cast<int32_t>(index);
     auto frac = index - static_cast<float>(uindex);
 
-    float a = kSineTable[uindex];
-    float b = kSineTable[uindex + 1];
+    float a = sfFDN::kSineTable[uindex];
+    float b = sfFDN::kSineTable[uindex + 1];
     return a + ((b - a) * frac);
 }
 

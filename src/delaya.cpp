@@ -1,12 +1,17 @@
 #include "sffdn/delaya.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+
+#include <cassert>
+#include <cstdint>
+#include <iostream>
+#include <print>
 
 namespace sfFDN
 {
 
-DelayAllpass::DelayAllpass(float delay, uint32_t maxDelay)
-    : delay_(static_cast<uint32_t>(delay + 1), maxDelay)
+DelayAllpass::DelayAllpass(float delay, uint32_t max_delay)
+    : delay_(static_cast<uint32_t>(delay + 1), max_delay)
 {
     if (delay < 0.5f)
     {

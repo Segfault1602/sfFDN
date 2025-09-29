@@ -9,7 +9,9 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(SFFDN_SANITIZER -fsanitize=address)
+    if(APPLE)
+        set(SFFDN_USE_SANITIZER ON)
+    endif()
     set(SFFDN_COMPILE_DEFINITION -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
 endif()
 
@@ -20,6 +22,10 @@ endif()
 if(APPLE)
     set(SFFDN_USE_VDSP ON)
     set(SFFDN_COMPILE_DEFINITION ${SFFDN_COMPILE_DEFINITION} -DSFFDN_USE_VDSP)
+endif()
+
+if(SFFDN_USE_SANITIZER)
+set(SFFDN_SANITIZER -fsanitize=address)
 endif()
 
 set(SFFDN_CXX_COMPILE_OPTIONS

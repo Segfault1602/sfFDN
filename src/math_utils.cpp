@@ -1,6 +1,9 @@
 #include "math_utils.h"
 
-#include "pch.h"
+#include <bit>
+#include <cassert>
+#include <cstdint>
+
 
 namespace sfFDN
 {

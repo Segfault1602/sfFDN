@@ -17,7 +17,7 @@ namespace sfFDN
 class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
-    FilterFeedbackMatrix(uint32_t N);
+    FilterFeedbackMatrix(uint32_t channel_count);
 
     void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
 
@@ -25,12 +25,12 @@ class FilterFeedbackMatrix : public AudioProcessor
 
     uint32_t InputChannelCount() const override
     {
-        return N_;
+        return channel_count_;
     }
 
     uint32_t OutputChannelCount() const override
     {
-        return N_;
+        return channel_count_;
     }
 
     void Clear() override;
@@ -43,7 +43,7 @@ class FilterFeedbackMatrix : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    uint32_t N_;
+    uint32_t channel_count_;
     std::vector<DelayBank> delays_;
     std::vector<ScalarFeedbackMatrix> matrix_;
 };

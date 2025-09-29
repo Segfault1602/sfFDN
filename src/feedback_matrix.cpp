@@ -1,8 +1,19 @@
 #include "sffdn/feedback_matrix.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 
-#include "matrix_gallery_internal.h"
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <print>
+#include <span>
+#include <utility>
+#include <vector>
+
 #include "sffdn/matrix_gallery.h"
 
 // #include <sanitizer/rtsan_interface.h>
@@ -11,27 +22,29 @@
 #include <Accelerate/Accelerate.h>
 #endif
 
+#include <Eigen/Core>
+
 namespace sfFDN
 {
 
 class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 {
   public:
-    explicit ScalarFeedbackMatrixImpl(uint32_t N, ScalarMatrixType type)
-        : N_(N)
+    explicit ScalarFeedbackMatrixImpl(uint32_t order, ScalarMatrixType type)
+        : order_(order)
     {
-        matrix_data_ = GenerateMatrix(N, type);
+        matrix_data_ = GenerateMatrix(order, type);
     }
 
     void SetMatrix(std::span<const float> matrix)
     {
-        assert(matrix.size() == N_ * N_);
+        assert(matrix.size() == order_ * order_);
         matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
     }
 
     bool GetMatrix(std::span<float> matrix) const
     {
-        if (matrix.size() != N_ * N_)
+        if (matrix.size() != order_ * order_)
         {
             return false;
         }
@@ -44,9 +57,9 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
-        assert(input.ChannelCount() == N_);
+        assert(input.ChannelCount() == order_);
 
-        const uint32_t col = N_;
+        const uint32_t col = order_;
         const uint32_t row = input.SampleCount();
 
 #ifdef SFFDN_USE_VDSP
@@ -85,12 +98,12 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
     uint32_t GetSize() const
     {
-        return N_;
+        return order_;
     }
 
     float GetCoefficient(uint32_t row, uint32_t col) const
     {
-        return matrix_data_[(row * N_) + col];
+        return matrix_data_[(row * order_) + col];
     }
 
     std::unique_ptr<ScalarFeedbackMatrixImpl> Clone() const
@@ -100,28 +113,28 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
     uint32_t InputChannelCount() const
     {
-        return N_;
+        return order_;
     }
 
     uint32_t OutputChannelCount() const
     {
-        return N_;
+        return order_;
     }
 
   private:
-    uint32_t N_;
+    uint32_t order_;
     // Eigen::MatrixXf matrix_;
     std::vector<float> matrix_data_;
 };
 
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N, ScalarMatrixType type)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, ScalarMatrixType type)
 {
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(N, type);
+    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(order, type);
 }
 
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t N, std::span<const float> matrix)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix)
 {
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(N, ScalarMatrixType::Identity);
+    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(order, ScalarMatrixType::Identity);
     impl_->SetMatrix(matrix);
 }
 
@@ -157,8 +170,8 @@ ScalarFeedbackMatrix::~ScalarFeedbackMatrix() = default;
 
 bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
 {
-    auto N = static_cast<uint32_t>(std::sqrt(matrix.size()));
-    if (N * N != matrix.size() || N == 0)
+    auto order = static_cast<uint32_t>(std::sqrt(matrix.size()));
+    if (order * order != matrix.size() || order == 0)
     {
         std::print(std::cerr, "Only square matrices are supported!\n");
         return false;

@@ -1,6 +1,15 @@
 #include "sffdn/audio_processor.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+
+#include <cassert>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <print>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace sfFDN
 {

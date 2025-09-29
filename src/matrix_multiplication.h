@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cassert>
-#include <span>
 #include <cstdint>
+#include <span>
 
 namespace sfFDN
 {
@@ -18,10 +18,11 @@ void MatrixMultiply_16(const std::span<const float, 16> input, std::span<float, 
                        const std::span<const float, 16 * 16> matrix);
 
 /// @brief Matrix multiplication
-/// @param in k x N input matrix in column-major order
-/// @param out k x N output matrix in column-major order
-/// @param matrix N x N transformation matrix in column-major order
-/// @param N size of the transformation matrix (N x N)
-void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t N);
+/// @param in k x mat_size input matrix in column-major order
+/// @param out k x mat_size output matrix in column-major order
+/// @param matrix mat_size x mat_size transformation matrix in column-major order
+/// @param mat_size size of the transformation matrix (mat_size x mat_size)
+void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix,
+                      uint32_t mat_size);
 
 } // namespace sfFDN

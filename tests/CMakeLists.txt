@@ -66,8 +66,11 @@ target_link_libraries(
             Catch2::Catch2WithMain
             SndFile::sndfile
             Eigen3::Eigen
-            "-framework Accelerate"
 )
+
+if(APPLE)
+    target_link_libraries(sfFDN.perf PRIVATE "-framework Accelerate")
+endif()
 
 target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)

@@ -16,7 +16,7 @@ namespace sfFDN
 class FDN : public AudioProcessor
 {
   public:
-    FDN(uint32_t N, uint32_t block_size = 0, bool transpose = false);
+    FDN(uint32_t order, uint32_t block_size = 0, bool transpose = false);
     ~FDN() = default;
 
     FDN(const FDN&) = delete;
@@ -26,11 +26,11 @@ class FDN : public AudioProcessor
     FDN& operator=(FDN&&) noexcept;
 
     /// @brief Set the number of channels of the FDN
-    /// @param N The number of channels. Must be at least 4.
+    /// @param order The number of channels. Must be at least 4.
     /// Calling this method will reset the internal components of the FDN to the default state.
-    void SetN(uint32_t N);
+    void SetOrder(uint32_t order);
 
-    uint32_t GetN() const;
+    uint32_t GetOrder() const;
 
     void SetTranspose(bool transpose);
     bool GetTranspose() const;
@@ -87,7 +87,7 @@ class FDN : public AudioProcessor
     std::unique_ptr<AudioProcessor> input_gains_;
     std::unique_ptr<AudioProcessor> output_gains_;
 
-    uint32_t N_;
+    uint32_t order_;
     uint32_t block_size_;
     float direct_gain_;
 

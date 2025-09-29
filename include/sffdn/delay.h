@@ -17,8 +17,8 @@ class Delay
   public:
     /// @brief Constructs a delay line with a specified delay and maximum delay.
     /// @param delay The initial delay in samples.
-    /// @param maxDelay The maximum delay in samples, ie. the size of the internal buffer.
-    Delay(uint32_t delay = 0, uint32_t maxDelay = 4095);
+    /// @param max_delay The maximum delay in samples, ie. the size of the internal buffer.
+    Delay(uint32_t delay = 0, uint32_t max_delay = 4095);
 
     ~Delay();
 

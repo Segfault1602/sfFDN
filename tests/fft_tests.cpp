@@ -1,12 +1,12 @@
 #include <algorithm>
 #include <array>
 #include <format>
-#include <random>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "fft.h"
+#include "rng.h"
 
 TEST_CASE("FFT")
 {
@@ -24,11 +24,10 @@ TEST_CASE("FFT")
 
             // Fill with white noise
             std::vector<float> expected_buffer(input_buffer.Data().size(), 0.f);
-            std::default_random_engine generator;
-            std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+            sfFDN::RNG rng;
             for (auto i = 0u; i < input_buffer.Data().size(); ++i)
             {
-                input_buffer.Data()[i] = dist(generator);
+                input_buffer.Data()[i] = rng();
                 expected_buffer[i] = input_buffer.Data()[i];
             }
 

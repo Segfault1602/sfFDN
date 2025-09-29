@@ -1,16 +1,27 @@
 #include "sffdn/filter.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <print>
+#include <ranges>
+#include <span>
+#include <utility>
 
 namespace
 {
 float ComputeSample(float x, const sfFDN::CascadedBiquads::IIRCoeffs& coeffs, sfFDN::CascadedBiquads::IIRState& state)
 {
-    const float y = (coeffs.b0 * (x)) + state.s0;
-    state.s0 = coeffs.b1 * (x) + state.s1;
-    state.s0 -= coeffs.a1 * (y);
-    state.s1 = coeffs.b2 * (x);
-    state.s1 -= coeffs.a2 * (y);
+    const float y = (coeffs.b0 * x) + state.s0;
+    state.s0 = (coeffs.b1 * x) + state.s1;
+    state.s0 -= coeffs.a1 * y;
+    state.s1 = coeffs.b2 * x;
+    state.s1 -= coeffs.a2 * y;
     return y;
 }
 } // namespace
@@ -97,14 +108,14 @@ void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float>
         }
     }
 
-    states_.resize(num_stage, {0.0f, 0.0f});
+    states_.resize(num_stage, {.s0 = 0.0f, .s1 = 0.0f});
     stage_ = num_stage;
 }
 
 void CascadedBiquads::Clear()
 {
     states_.clear();
-    states_.resize(stage_, {0.0f, 0.0f});
+    states_.resize(stage_, {.s0 = 0.0f, .s1 = 0.0f});
 }
 
 float CascadedBiquads::Tick(float in)
@@ -132,8 +143,8 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
     auto out = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 8;
-    const uint32_t kSize = in.size();
-    const uint32_t unroll_size = kSize & ~(kUnrollFactor - 1);
+    const uint32_t size = in.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1);
 
     uint32_t sample = 0;
     for (; sample < unroll_size; sample += kUnrollFactor)
@@ -162,7 +173,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
         }
     }
 
-    for (; sample < kSize; ++sample)
+    for (; sample < size; ++sample)
     {
         float s = in[sample];
         for (auto stage = 0u; stage < stage_; ++stage)

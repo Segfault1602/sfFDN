@@ -23,17 +23,18 @@ enum class ScalarMatrixType : uint8_t
     Count = 9
 };
 
-// Generates a square matrix of size N x N based on the specified type.
-std::vector<float> GenerateMatrix(uint32_t N, ScalarMatrixType type, uint32_t seed = 0,
+// Generates a square matrix of size mat_size x mat_size based on the specified type.
+std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint32_t seed = 0,
                                   std::optional<float> arg = std::nullopt);
 
-std::vector<float> NestedAllpassMatrix(uint32_t N, uint32_t seed = 0, std::span<float> input_gains = std::span<float>(),
+std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed = 0,
+                                       std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());
 
 struct CascadedFeedbackMatrixInfo
 {
-    uint32_t N;                   // Number of channels
-    uint32_t K;                   // Number of stages
+    uint32_t channel_count;       // Number of channels
+    uint32_t stage_count;         // Number of stages
     std::vector<uint32_t> delays; // Delays, size: (K - 1) x N
     std::vector<float> matrices;  // Feedback matrices, size: K x N x N
 };
@@ -41,13 +42,13 @@ struct CascadedFeedbackMatrixInfo
 /**
  * @brief Constructs a Cascaded feedback matrix.
  *
- * @param N Number of channels
- * @param K Number of stages
+ * @param channel_count Number of channels
+ * @param stage_count Number of stages
  * @param sparsity Sparsity level (>= 1)
  * @param gain_per_samples Gain per sample (default: 1.0)
  * @return CascadedFeedbackMatrixInfo
  */
-CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t N, uint32_t K, float sparsity,
+CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count, float sparsity,
                                                            ScalarMatrixType type, float gain_per_samples = 1.f);
 
 } // namespace sfFDN

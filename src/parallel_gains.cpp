@@ -1,8 +1,14 @@
 #include <algorithm>
 
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 #include "sffdn/parallel_gains.h"
 
-#include "pch.h"
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
 
 #include "array_math.h"
 
@@ -15,8 +21,8 @@ ParallelGains::ParallelGains(ParallelGainsMode mode)
 {
 }
 
-ParallelGains::ParallelGains(uint32_t N, ParallelGainsMode mode, float gain)
-    : gains_(N, gain)
+ParallelGains::ParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain)
+    : gains_(channel_count, gain)
     , mode_(mode)
 {
 }

@@ -25,7 +25,7 @@ TEST_CASE("SineWave")
     constexpr uint32_t kOutputSize = 1 << 10;
     std::vector<float> output(kOutputSize, 0.f); // Two channels for stereo output
 
-    const uint32_t kBlockCount = kOutputSize / kBlockSize;
+    constexpr uint32_t kBlockCount = kOutputSize / kBlockSize;
     for (auto i = 0u; i < kBlockCount; ++i)
     {
         auto block_span = std::span(output).subspan(i * kBlockSize, kBlockSize);
@@ -37,7 +37,7 @@ TEST_CASE("SineWave")
     sf_info.channels = 1;
     sf_info.samplerate = kSampleRate;
     SNDFILE* file = sf_open("sine_wave.wav", SFM_WRITE, &sf_info);
-    if (!file)
+    if (file == nullptr)
     {
         std::print("Error opening file for writing: {}\n", sf_strerror(file));
         return;
@@ -46,7 +46,7 @@ TEST_CASE("SineWave")
     sf_writef_float(file, output.data(), kOutputSize);
     sf_close(file);
 
-    const float kPhaseIncrement = kFrequency / kSampleRate;
+    constexpr float kPhaseIncrement = kFrequency / kSampleRate;
     float phase = 0;
     for (auto i = 0u; i < kOutputSize; ++i)
     {
@@ -65,7 +65,7 @@ TEST_CASE("Noise")
     sfFDN::RNG rng;
     for (auto i = 0u; i < kOutputSize; ++i)
     {
-        output[i] = rng.NextFloat();
+        output[i] = rng();
     }
 
     SF_INFO sf_info;
@@ -73,7 +73,7 @@ TEST_CASE("Noise")
     sf_info.channels = 1;
     sf_info.samplerate = kSampleRate;
     SNDFILE* file = sf_open("rng_noise.wav", SFM_WRITE, &sf_info);
-    if (!file)
+    if (file == nullptr)
     {
         std::print("Error opening file for writing: {}\n", sf_strerror(file));
         return;

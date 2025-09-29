@@ -18,9 +18,9 @@ class DelayMatrix : public AudioProcessor
 {
   public:
     /// @brief Constructs a DelayMatrix with the specified size and delay values.
-    /// @param N the size of the matrix
-    /// @param delays the delay values for each channel. The size of the delays span must match N.
-    DelayMatrix(uint32_t N, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix);
+    /// @param order the size of the square matrix (order x order)
+    /// @param delays the delay values for each channel. The size of the delays span must match order.
+    DelayMatrix(uint32_t order, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix);
 
     ~DelayMatrix() override;
 

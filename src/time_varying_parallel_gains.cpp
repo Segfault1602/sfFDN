@@ -1,10 +1,13 @@
-#include <algorithm>
-
 #include "sffdn/parallel_gains.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 
-#include "array_math.h"
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
 
 namespace sfFDN
 {
@@ -16,11 +19,11 @@ TimeVaryingParallelGains::TimeVaryingParallelGains(ParallelGainsMode mode)
     lfos_[0].SetOffset(1.0f);
 }
 
-TimeVaryingParallelGains::TimeVaryingParallelGains(uint32_t N, ParallelGainsMode mode, float gain)
+TimeVaryingParallelGains::TimeVaryingParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain)
     : mode_(mode)
 {
-    lfos_.reserve(N);
-    for (uint32_t i = 0; i < N; ++i)
+    lfos_.reserve(channel_count);
+    for (uint32_t i = 0; i < channel_count; ++i)
     {
         lfos_.emplace_back(0.0f, 0.0f);
         lfos_[i].SetAmplitude(0.0f);
@@ -44,7 +47,7 @@ void TimeVaryingParallelGains::SetCenterGains(std::span<const float> gains)
 {
     assert(!gains.empty());
     lfos_.resize(gains.size());
-    for (size_t i = 0; i < gains.size(); ++i)
+    for (auto i = 0u; i < gains.size(); ++i)
     {
         lfos_[i].SetOffset(gains[i]);
     }
@@ -66,7 +69,7 @@ void TimeVaryingParallelGains::SetLfoFrequency(std::span<const float> frequencie
 
     lfos_.resize(frequencies.size());
 
-    for (size_t i = 0; i < frequencies.size(); ++i)
+    for (auto i = 0u; i < frequencies.size(); ++i)
     {
         lfos_[i].SetFrequency(frequencies[i]);
     }
@@ -79,7 +82,7 @@ void TimeVaryingParallelGains::SetLfoAmplitude(std::span<const float> amplitudes
 
     lfos_.resize(amplitudes.size());
 
-    for (size_t i = 0; i < amplitudes.size(); ++i)
+    for (auto i = 0u; i < amplitudes.size(); ++i)
     {
         lfos_[i].SetAmplitude(amplitudes[i]);
     }

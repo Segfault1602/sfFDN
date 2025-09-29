@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 namespace
 {
-void std_sin(std::span<float> output, float frequency, uint32_t sample_rate)
+void StdSin(std::span<float> output, float frequency, uint32_t sample_rate)
 {
     float phase = 0;
     float phase_increment = frequency / sample_rate;
@@ -48,7 +48,7 @@ TEST_CASE("SineWave")
     });
 
     bench.run("std::sinf", [&]() {
-        std_sin(output, 10.0f, kSampleRate);
+        StdSin(output, 10.0f, kSampleRate);
         nanobench::doNotOptimizeAway(output);
     });
 }

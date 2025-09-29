@@ -1,7 +1,13 @@
 #include "sffdn/filterbank.h"
-#include "sffdn/audio_buffer.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace sfFDN
 {

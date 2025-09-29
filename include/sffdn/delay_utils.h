@@ -33,14 +33,48 @@ enum class DelayLengthType : uint8_t
 };
 
 /// @brief Generates a list of delay lengths based on the specified parameters.
-/// @param N the number of delay lengths to generate
+/// @param channel_count the number of delay lengths to generate
 /// @param min_delay the minimum delay length
 /// @param max_delay the maximum delay length
 /// @param type the type of delay length distribution to use
 /// @param seed the random seed to use for generating delays
 /// @return a vector containing the generated delay lengths
-std::vector<uint32_t> GetDelayLengths(uint32_t N, uint32_t min_delay, uint32_t max_delay, DelayLengthType type,
-                                      uint32_t seed = 0);
+std::vector<uint32_t> GetDelayLengths(uint32_t channel_count, uint32_t min_delay, uint32_t max_delay,
+                                      DelayLengthType type, uint32_t seed = 0);
 
-std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t N, float mean_delay_ms, float sigma, uint32_t sample_rate);
+std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t channel_count, float mean_delay_ms, float sigma,
+                                              uint32_t sample_rate);
 } // namespace sfFDN
+
+/**
+ * @brief Utility functions for delay calculations.
+ */
+namespace DelayUtils
+{
+/**
+ * @brief Convert delay time from milliseconds to samples.
+ * @param delay_ms Delay time in milliseconds.
+ * @param sample_rate Sample rate in Hz.
+ * @return Delay time in samples.
+ */
+uint32_t MsToSamples(float delay_ms, float sample_rate);
+
+/**
+ * @brief Convert delay time from samples to milliseconds.
+ * @param delay_samples Delay time in samples.
+ * @param sample_rate Sample rate in Hz.
+ * @return Delay time in milliseconds.
+ */
+float SamplesToMs(uint32_t delay_samples, float sample_rate);
+
+/**
+ * @brief Generate optimal delay times for FDN.
+ * @param num_delays Number of delay lines.
+ * @param min_delay_ms Minimum delay time in milliseconds.
+ * @param max_delay_ms Maximum delay time in milliseconds.
+ * @param sample_rate Sample rate in Hz.
+ * @return Vector of delay times in samples.
+ */
+std::vector<uint32_t> GenerateOptimalDelays(uint32_t num_delays, float min_delay_ms, float max_delay_ms,
+                                            float sample_rate);
+} // namespace DelayUtils

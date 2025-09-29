@@ -1,14 +1,17 @@
 #include "delay_time_varying.h"
 
-#include "pch.h"
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <numbers>
 
 namespace sfFDN
 {
 
-DelayTimeVarying::DelayTimeVarying(float delay, uint32_t maxDelay, uint32_t samplerate)
-    : delayA_(delay, maxDelay)
+DelayTimeVarying::DelayTimeVarying(float delay, uint32_t max_delay, uint32_t sample_rate)
+    : delayA_(delay, max_delay)
     , delay_(delay)
-    , samplerate_(samplerate)
+    , samplerate_(sample_rate)
     , mod_freq_(0)
     , mod_depth_(0)
     , mod_phase_(0)

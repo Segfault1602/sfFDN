@@ -1,8 +1,14 @@
 #include "sffdn/schroeder_allpass.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+
+#include <cassert>
 #include <cstdint>
-#include <sys/types.h>
+#include <memory>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace sfFDN
 {
@@ -133,7 +139,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 
     allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
 
-    for (size_t i = 1; i < allpasses_.size(); ++i)
+    for (auto i = 1u; i < allpasses_.size(); ++i)
     {
         allpasses_[i].ProcessBlock(output.GetChannelSpan(0), output.GetChannelSpan(0));
     }
@@ -161,7 +167,7 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
 {
     auto clone = std::make_unique<SchroederAllpassSection>(allpasses_.size());
     assert(clone->allpasses_.size() == allpasses_.size());
-    for (size_t i = 0; i < allpasses_.size(); ++i)
+    for (auto i = 0u; i < allpasses_.size(); ++i)
     {
         clone->allpasses_[i].SetDelay(allpasses_[i].GetDelay());
         clone->allpasses_[i].SetG(allpasses_[i].GetG());
@@ -169,24 +175,24 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
     return clone;
 }
 
-ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t N, uint32_t order)
-    : order_(order)
+ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
+    : stage_count_(stage_count)
 {
-    allpasses_.reserve(N);
-    for (uint32_t i = 0; i < N; i++)
+    allpasses_.reserve(channel_count);
+    for (uint32_t i = 0; i < channel_count; i++)
     {
-        allpasses_.emplace_back(order);
+        allpasses_.emplace_back(stage_count);
     }
 }
 
 void ParallelSchroederAllpassSection::SetDelays(std::span<const uint32_t> delays)
 {
     assert(delays.size() % allpasses_.size() == 0);
-    const uint32_t order = delays.size() / allpasses_.size();
+    const uint32_t stage_count = delays.size() / allpasses_.size();
 
     for (uint32_t i = 0; i < allpasses_.size(); i++)
     {
-        auto delay_span = delays.subspan(i * order, order);
+        auto delay_span = delays.subspan(i * stage_count, stage_count);
         allpasses_[i].SetDelays(delay_span);
     }
 }
@@ -233,9 +239,9 @@ void ParallelSchroederAllpassSection::Clear()
 
 std::unique_ptr<AudioProcessor> ParallelSchroederAllpassSection::Clone() const
 {
-    auto clone = std::make_unique<ParallelSchroederAllpassSection>(allpasses_.size(), order_);
+    auto clone = std::make_unique<ParallelSchroederAllpassSection>(allpasses_.size(), stage_count_);
     assert(clone->allpasses_.size() == allpasses_.size());
-    for (size_t i = 0; i < allpasses_.size(); ++i)
+    for (auto i = 0u; i < allpasses_.size(); ++i)
     {
         clone->allpasses_[i].SetDelays(allpasses_[i].GetDelays());
         clone->allpasses_[i].SetGains(allpasses_[i].GetGains());

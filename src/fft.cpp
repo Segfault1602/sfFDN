@@ -2,7 +2,12 @@
 
 #include <pffft/pffft.h>
 
-#include "pch.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <format>
+#include <span>
+#include <stdexcept>
 
 namespace
 {

@@ -9,38 +9,38 @@
 
 #include "filter_coeffs.h"
 
-std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, uint32_t sparsity)
+std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32_t stage_count, uint32_t sparsity)
 {
-    assert(N <= 32);
+    assert(mat_size <= 32);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(-1.f, 1.f);
 
-    std::vector<float> sparsity_vect(K, 1);
+    std::vector<float> sparsity_vect(stage_count, 1);
     sparsity_vect[0] = sparsity;
 
-    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(N);
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(mat_size);
 
-    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(K);
-    for (uint32_t i = 0; i < K; ++i)
+    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(stage_count);
+    for (uint32_t i = 0; i < stage_count; ++i)
     {
-        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::RandomHouseholder);
+        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::RandomHouseholder);
     }
 
     std::uniform_real_distribution<float> dis2(0.f, 1.f);
     std::vector<uint32_t> ffm_delays;
     float pulse_size = 1;
-    for (uint32_t k = 0; k < K + 1; ++k)
+    for (uint32_t k = 0; k < stage_count + 1; ++k)
     {
         float sparsity_factor = (k == 0) ? sparsity : 1;
-        for (uint32_t i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < mat_size; ++i)
         {
             float random = dis2(gen);
             float shift = std::floor(sparsity_factor * (i + random));
             shift *= pulse_size;
             ffm_delays.push_back(static_cast<uint32_t>(shift));
         }
-        pulse_size = pulse_size * N * sparsity_factor;
+        pulse_size = pulse_size * mat_size * sparsity_factor;
     }
 
     ffm->ConstructMatrix(ffm_delays, mixing_matrices);
@@ -48,11 +48,11 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t N, uint32_t K, u
     return ffm;
 }
 
-std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t N, uint32_t order)
+std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t channel_count, uint32_t order)
 {
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
 
-    for (uint32_t i = 0; i < N; i++)
+    for (uint32_t i = 0; i < channel_count; i++)
     {
         // Just use the first filter for now
         auto sos = k_h001_AbsorbtionSOS[0];
@@ -96,54 +96,52 @@ std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
     return filter;
 }
 
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t count)
 {
-    std::vector<float> input_gains(N, 1.f);
+    std::vector<float> input_gains(count, 1.f);
     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, input_gains);
 }
 
-std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t N)
+std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t count)
 {
-    std::vector<float> output_gains(N, 1.f);
+    std::vector<float> output_gains(count, 1.f);
     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed, output_gains);
 }
 
-std::vector<uint32_t> GetDefaultDelays(uint32_t N)
+std::vector<uint32_t> GetDefaultDelays(uint32_t count)
 {
     std::vector<uint32_t> delays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593, 3253, 3343, 3547,
                                     3559, 4483, 4507, 4663, 5483, 5801, 6863, 6917, 6983, 7457, 7481,
                                     7759, 8081, 8269, 8737, 8747, 8863, 8929, 9437, 9643, 9677};
 
-    if (N > delays.size())
+    if (count > delays.size())
     {
         // Add more delays if needed
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<uint32_t> dis(1000, 10000);
-        for (uint32_t i = delays.size(); i < N; ++i)
+        for (uint32_t i = delays.size(); i < count; ++i)
         {
             delays.push_back(dis(gen));
         }
     }
-    delays.erase(delays.begin() + N, delays.end());
+    delays.erase(delays.begin() + count, delays.end());
     return delays;
 }
 
-std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t N)
+std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
 {
-    assert(N <= 32);
-
-    auto fdn = std::make_unique<sfFDN::FDN>(N, block_size, false);
-    fdn->SetInputGains(GetDefaultInputGains(N));
-    fdn->SetOutputGains(GetDefaultOutputGains(N));
+    auto fdn = std::make_unique<sfFDN::FDN>(fdn_order, block_size, false);
+    fdn->SetInputGains(GetDefaultInputGains(fdn_order));
+    fdn->SetOutputGains(GetDefaultOutputGains(fdn_order));
     fdn->SetDirectGain(0.f);
-    fdn->SetDelays(GetDefaultDelays(N));
+    fdn->SetDelays(GetDefaultDelays(fdn_order));
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrix(N, sfFDN::ScalarMatrixType::Householder));
+        sfFDN::ScalarFeedbackMatrix(fdn_order, sfFDN::ScalarMatrixType::Householder));
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
-    auto filter_bank = GetFilterBank(N, 11);
+    auto filter_bank = GetFilterBank(fdn_order, 11);
     fdn->SetFilterBank(std::move(filter_bank));
 
     std::vector<float> coeffs;
@@ -211,7 +209,7 @@ void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 
 std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter)
 {
-    if (!filter)
+    if (filter == nullptr)
     {
         return {};
     }

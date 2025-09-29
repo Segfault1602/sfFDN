@@ -6,25 +6,25 @@
 
 TEST_CASE("AudioBuffer_Offset")
 {
-    constexpr uint32_t frame_size = 128;
-    constexpr uint32_t channels = 8;
+    constexpr uint32_t kFrameSize = 128;
+    constexpr uint32_t kChannelCount = 8;
 
-    std::array<float, frame_size * channels> buffer{};
+    std::array<float, kFrameSize * kChannelCount> buffer{};
 
-    for (uint32_t i = 0; i < channels; ++i)
+    for (uint32_t i = 0; i < kChannelCount; ++i)
     {
-        for (uint32_t j = 0; j < frame_size; ++j)
+        for (uint32_t j = 0; j < kFrameSize; ++j)
         {
-            buffer.at((i * frame_size) + j) = static_cast<float>(j);
+            buffer.at((i * kFrameSize) + j) = static_cast<float>(j);
         }
     }
 
-    sfFDN::AudioBuffer audio_buffer(frame_size, channels, buffer);
-    REQUIRE(audio_buffer.SampleCount() == frame_size);
-    REQUIRE(audio_buffer.ChannelCount() == channels);
+    sfFDN::AudioBuffer audio_buffer(kFrameSize, kChannelCount, buffer);
+    REQUIRE(audio_buffer.SampleCount() == kFrameSize);
+    REQUIRE(audio_buffer.ChannelCount() == kChannelCount);
 
     // Check that every channel contains the expected values
-    for (uint32_t i = 0; i < channels; ++i)
+    for (uint32_t i = 0; i < kChannelCount; ++i)
     {
         auto channel_span = audio_buffer.GetChannelSpan(i);
         for (uint32_t j = 0; j < channel_span.size(); ++j)
@@ -33,40 +33,40 @@ TEST_CASE("AudioBuffer_Offset")
         }
     }
 
-    constexpr uint32_t offset = 16;
-    constexpr uint32_t new_frame_size = 32;
+    constexpr uint32_t kOffset = 16;
+    constexpr uint32_t kNewFrameSize = 32;
 
-    auto offset_buffer = audio_buffer.Offset(offset, new_frame_size);
-    REQUIRE(offset_buffer.SampleCount() == new_frame_size);
-    REQUIRE(offset_buffer.ChannelCount() == channels);
+    auto offset_buffer = audio_buffer.Offset(kOffset, kNewFrameSize);
+    REQUIRE(offset_buffer.SampleCount() == kNewFrameSize);
+    REQUIRE(offset_buffer.ChannelCount() == kChannelCount);
 
     // Check that every channel contains the expected values
-    for (uint32_t i = 0; i < channels; ++i)
+    for (uint32_t i = 0; i < kChannelCount; ++i)
     {
         auto channel_span = offset_buffer.GetChannelSpan(i);
         for (uint32_t j = 0; j < channel_span.size(); ++j)
         {
-            REQUIRE(channel_span[j] == static_cast<float>(j) + offset);
+            REQUIRE(channel_span[j] == static_cast<float>(j) + kOffset);
         }
     }
 
-    auto twice_offset_buffer = offset_buffer.Offset(offset, new_frame_size);
-    REQUIRE(twice_offset_buffer.SampleCount() == new_frame_size);
-    REQUIRE(twice_offset_buffer.ChannelCount() == channels);
+    auto twice_offset_buffer = offset_buffer.Offset(kOffset, kNewFrameSize);
+    REQUIRE(twice_offset_buffer.SampleCount() == kNewFrameSize);
+    REQUIRE(twice_offset_buffer.ChannelCount() == kChannelCount);
 
-    auto twice_offset_from_original = audio_buffer.Offset(2 * offset, new_frame_size);
-    REQUIRE(twice_offset_from_original.SampleCount() == new_frame_size);
-    REQUIRE(twice_offset_from_original.ChannelCount() == channels);
+    auto twice_offset_from_original = audio_buffer.Offset(2 * kOffset, kNewFrameSize);
+    REQUIRE(twice_offset_from_original.SampleCount() == kNewFrameSize);
+    REQUIRE(twice_offset_from_original.ChannelCount() == kChannelCount);
 
     // Check that every channel contains the expected values
-    for (uint32_t i = 0; i < channels; ++i)
+    for (uint32_t i = 0; i < kChannelCount; ++i)
     {
         auto channel_span = twice_offset_buffer.GetChannelSpan(i);
         auto channel_span2 = twice_offset_from_original.GetChannelSpan(i);
         for (uint32_t j = 0; j < channel_span.size(); ++j)
         {
-            REQUIRE(channel_span[j] == static_cast<float>(j) + (2 * offset));
-            REQUIRE(channel_span2[j] == static_cast<float>(j) + (2 * offset));
+            REQUIRE(channel_span[j] == static_cast<float>(j) + (2 * kOffset));
+            REQUIRE(channel_span2[j] == static_cast<float>(j) + (2 * kOffset));
         }
     }
 }

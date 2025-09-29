@@ -6,30 +6,29 @@
 #include <format>
 #include <fstream>
 #include <iostream>
-#include <random>
 
-#include "sffdn/parallel_gains.h"
 #include "sffdn/sffdn.h"
+
+#include "rng.h"
 
 using namespace ankerl;
 using namespace std::chrono_literals;
 
 TEST_CASE("ParallelGainsPerf", "[Gains]")
 {
-    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
-    constexpr uint32_t N = 16;
+    constexpr uint32_t kChannelCount = 16;
     constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
                                    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
     std::vector<float> input(kBlockSize, 0.f);
-    std::vector<float> output(kBlockSize * N, 0.f);
+    std::vector<float> output(kBlockSize * kChannelCount, 0.f);
     // Fill with white noise
-    std::default_random_engine generator;
-    std::normal_distribution<double> dist(0, 0.1);
-    for (auto i = 0u; i < input.size(); ++i)
+    sfFDN::RNG generator;
+    for (auto& i : input)
     {
-        input[i] = dist(generator);
+        i = generator();
     }
 
     nanobench::Bench bench;
@@ -41,21 +40,22 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     input_gains.SetGains(kGains);
     bench.run("ParallelGains - Input", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
         input_gains.Process(input_buffer, output_buffer);
     });
 
     sfFDN::ParallelGains output_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
     output_gains.SetGains(kGains);
     bench.run("ParallelGains - Output", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, output);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, input);
         output_gains.Process(input_buffer, output_buffer);
     });
 
-    constexpr std::array kFreqs = {0.5f / SR, 1.0f / SR, 1.5f / SR, 2.0f / SR, 2.5f / SR, 3.0f / SR,
-                                   3.5f / SR, 4.0f / SR, 4.5f / SR, 5.0f / SR, 5.5f / SR, 6.0f / SR,
-                                   6.5f / SR, 7.0f / SR, 7.5f / SR, 8.0f / SR};
+    constexpr std::array kFreqs = {0.5f / kSampleRate, 1.0f / kSampleRate, 1.5f / kSampleRate, 2.0f / kSampleRate,
+                                   2.5f / kSampleRate, 3.0f / kSampleRate, 3.5f / kSampleRate, 4.0f / kSampleRate,
+                                   4.5f / kSampleRate, 5.0f / kSampleRate, 5.5f / kSampleRate, 6.0f / kSampleRate,
+                                   6.5f / kSampleRate, 7.0f / kSampleRate, 7.5f / kSampleRate, 8.0f / kSampleRate};
 
     sfFDN::TimeVaryingParallelGains tv_input_gains(sfFDN::ParallelGainsMode::Multiplexed);
     tv_input_gains.SetCenterGains(kGains);
@@ -64,7 +64,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     bench.minEpochIterations(5000);
     bench.run("Time Varying ParallelGains - Input", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
         tv_input_gains.Process(input_buffer, output_buffer);
     });
 
@@ -73,7 +73,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     tv_output_gains.SetLfoFrequency(kFreqs);
 
     bench.run("Time Varying ParallelGains - Output", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, N, output);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, output);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, input);
         tv_output_gains.Process(input_buffer, output_buffer);
     });

@@ -17,8 +17,8 @@ class DelayAllpass
   public:
     /// @brief Constructs a delay line with allpass interpolation.
     /// @param delay The initial delay in samples. This value must be >= 0.5.
-    /// @param maxDelay The maximum delay in samples.
-    DelayAllpass(float delay = 0.5, uint32_t maxDelay = 4095);
+    /// @param max_delay The maximum delay in samples.
+    DelayAllpass(float delay = 0.5, uint32_t max_delay = 4095);
 
     /// @brief Clears all internal states of the delay line.
     void Clear(void);

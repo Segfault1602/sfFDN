@@ -254,7 +254,7 @@ class PyFDN
 
   private:
     sfFDN::FDN fdn_;
-    uint32_t N_;
+    uint32_t order_;
     uint32_t block_size_;
     uint32_t SR_;
 };

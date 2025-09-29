@@ -64,11 +64,8 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/sffdn.h
 )
 
-target_precompile_headers(sfFDN.sfFDN PRIVATE pch.h)
-target_include_directories(
-    sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR}
-                        ${PROJECT_SOURCE_DIR}/../../../scratch/math_approx/include
-)
+target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
+
 target_link_libraries(sfFDN.sfFDN PRIVATE Eigen3::Eigen pffft::pffft kissfft::kissfft-float)
 target_compile_options(sfFDN.sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
 target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)

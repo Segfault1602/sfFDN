@@ -17,15 +17,15 @@ namespace
 
 std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 {
-    constexpr uint32_t block_size = 256;
-    constexpr uint32_t N = 6;
-    constexpr std::array<float, N> input_gains = {0.072116069, 0.24890353,   0.97228086,
-                                                  -0.38236806, -0.057921566, -0.39115807};
-    constexpr std::array<float, N> output_gains = {-0.46316639, -0.36613876, 0.30902779,
-                                                   0.30143532,  -0.49200505, 0.58704174};
-    constexpr std::array<uint32_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr uint32_t kBlockSize = 256;
+    constexpr uint32_t kFDNOrder = 6;
+    constexpr std::array<float, kFDNOrder> kInputGains = {0.072116069, 0.24890353,   0.97228086,
+                                                          -0.38236806, -0.057921566, -0.39115807};
+    constexpr std::array<float, kFDNOrder> kOutputGains = {-0.46316639, -0.36613876, 0.30902779,
+                                                           0.30143532,  -0.49200505, 0.58704174};
+    constexpr std::array<uint32_t, kFDNOrder> kDelays = {593, 743, 929, 1153, 1399, 1699};
 
-    constexpr std::array<float, N * N> mixing_matrix = {
+    constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {
         0.590748429298401,  0.457586556673050,  0.0557801127433777, -0.148047655820847,  -0.478258520364761,
         -0.433439940214157, -0.158531382679939, 0.433001756668091,  -0.0591235160827637, 0.626041889190674,
         0.430089294910431,  -0.454946815967560, -0.665803074836731, 0.195845842361450,   0.568070054054260,
@@ -35,20 +35,20 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
         0.233208581805229,  0.508312821388245,  0.409773439168930,  -0.265208065509796,  0.494672924280167,
         0.451974451541901};
 
-    auto fdn = std::make_unique<sfFDN::FDN>(N, block_size, transpose);
-    fdn->SetInputGains(input_gains);
-    fdn->SetOutputGains(output_gains);
+    auto fdn = std::make_unique<sfFDN::FDN>(kFDNOrder, kBlockSize, transpose);
+    fdn->SetInputGains(kInputGains);
+    fdn->SetOutputGains(kOutputGains);
     fdn->SetDirectGain(0.f);
-    fdn->SetDelays(delays);
+    fdn->SetDelays(kDelays);
 
-    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(N);
-    mix_mat->SetMatrix(mixing_matrix);
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(kFDNOrder);
+    mix_mat->SetMatrix(kMixingMatrix);
 
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     // std::vector<float> iir_coeffs;
-    for (auto i = 0u; i < N; i++)
+    for (auto i = 0u; i < kFDNOrder; i++)
     {
         auto sos = k_h001_AbsorbtionSOS.at(i);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
@@ -94,8 +94,8 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
 TEST_CASE("FDN")
 {
-    constexpr uint32_t SR = 48000;
-    constexpr uint32_t ITER = SR;
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kIter = kSampleRate;
 
     auto fdn = CreateReferenceFDN(false);
 
@@ -106,31 +106,31 @@ TEST_CASE("FDN")
 
     // fdn->Clear();
 
-    std::vector<float> input(ITER, 0.f);
+    std::vector<float> input(kIter, 0.f);
     input[0] = 1.f;
 
-    std::vector<float> output(ITER, 0.f);
+    std::vector<float> output(kIter, 0.f);
     auto clone_input = input;
     auto clone_output = output;
 
-    sfFDN::AudioBuffer input_buffer(ITER, 1, input);
-    sfFDN::AudioBuffer output_buffer(ITER, 1, output);
+    sfFDN::AudioBuffer input_buffer(kIter, 1, input);
+    sfFDN::AudioBuffer output_buffer(kIter, 1, output);
     fdn->Process(input_buffer, output_buffer);
 
-    sfFDN::AudioBuffer clone_input_buffer(ITER, 1, clone_input);
-    sfFDN::AudioBuffer clone_output_buffer(ITER, 1, clone_output);
+    sfFDN::AudioBuffer clone_input_buffer(kIter, 1, clone_input);
+    sfFDN::AudioBuffer clone_output_buffer(kIter, 1, clone_output);
     auto clone_fdn = fdn->Clone();
     clone_fdn->Process(clone_input_buffer, clone_output_buffer);
 
     {
-        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_test.wav";
+        constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test.wav";
         SF_INFO sfinfo;
-        SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
+        SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
 
         REQUIRE(sfinfo.channels == 1);
-        REQUIRE(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.samplerate == kSampleRate);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
@@ -140,9 +140,9 @@ TEST_CASE("FDN")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
+        uint32_t testing_boundary = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0u; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < testing_boundary; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -158,28 +158,28 @@ TEST_CASE("FDN")
 
 TEST_CASE("FDN_Transposed")
 {
-    constexpr uint32_t SR = 48000;
-    constexpr uint32_t ITER = SR;
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kIter = kSampleRate;
 
     auto fdn = CreateReferenceFDN(true);
 
-    std::vector<float> input(ITER, 0.f);
-    std::vector<float> output(ITER, 0.f);
+    std::vector<float> input(kIter, 0.f);
+    std::vector<float> output(kIter, 0.f);
     input[0] = 1.f;
 
-    sfFDN::AudioBuffer input_buffer(ITER, 1, input);
-    sfFDN::AudioBuffer output_buffer(ITER, 1, output);
+    sfFDN::AudioBuffer input_buffer(kIter, 1, input);
+    sfFDN::AudioBuffer output_buffer(kIter, 1, output);
     fdn->Process(input_buffer, output_buffer);
 
     {
-        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_test_transposed.wav";
+        constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test_transposed.wav";
         SF_INFO sfinfo;
-        SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
+        SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
 
         REQUIRE(sfinfo.channels == 1);
-        REQUIRE(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.samplerate == kSampleRate);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
@@ -189,9 +189,9 @@ TEST_CASE("FDN_Transposed")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
+        uint32_t testing_boundary = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0u; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < testing_boundary; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -204,19 +204,19 @@ TEST_CASE("FDN_Transposed")
 
 TEST_CASE("FDN_FIR")
 {
-    constexpr uint32_t SR = 48000;
-    constexpr uint32_t block_size = 64;
-    constexpr uint32_t N = 6;
-    constexpr uint32_t ITER = ((SR / block_size) + 1) * block_size;
-    constexpr std::array<uint32_t, N> delays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 64;
+    constexpr uint32_t kN = 6;
+    constexpr uint32_t kIter = ((kSampleRate / kBlockSize) + 1) * kBlockSize;
+    constexpr std::array<uint32_t, kN> kDelays = {593, 743, 929, 1153, 1399, 1699};
 
     auto fdn = CreateReferenceFDN(false);
 
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto delay : delays)
+    for (auto delay : kDelays)
     {
         auto fir = ReadWavFile("./tests/data/att_fir_" + std::to_string(delay) + ".wav");
-        auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(block_size, fir);
+        auto convolver = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir);
 
         filter_bank->AddFilter(std::move(convolver));
     }
@@ -225,19 +225,19 @@ TEST_CASE("FDN_FIR")
 
     {
         auto eq_fir = ReadWavFile("./tests/data/equalization_fir.wav");
-        auto tc_filter = std::make_unique<sfFDN::PartitionedConvolver>(block_size, eq_fir);
+        auto tc_filter = std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, eq_fir);
         fdn->SetTCFilter(std::move(tc_filter));
     }
 
-    std::vector<float> input(ITER, 0.f);
-    std::vector<float> output(ITER, 0.f);
+    std::vector<float> input(kIter, 0.f);
+    std::vector<float> output(kIter, 0.f);
 
     input[0] = 1.f;
 
-    for (auto i = 0u; i < input.size(); i += block_size)
+    for (auto i = 0u; i < input.size(); i += kBlockSize)
     {
-        sfFDN::AudioBuffer input_buffer(block_size, 1, std::span(input).subspan(i, block_size));
-        sfFDN::AudioBuffer output_buffer(block_size, 1, std::span(output).subspan(i, block_size));
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, std::span(input).subspan(i, kBlockSize));
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i, kBlockSize));
 
         fdn->Process(input_buffer, output_buffer);
     }
@@ -245,14 +245,14 @@ TEST_CASE("FDN_FIR")
     WriteWavFile("fdn_fir_test.wav", output);
 
     {
-        constexpr const char* expected_output_filename = "./tests/data/fdn_gold_fir_test.wav";
+        constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_fir_test.wav";
         SF_INFO sfinfo;
-        SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
+        SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
 
         REQUIRE(sfinfo.channels == 1);
-        REQUIRE(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.samplerate == kSampleRate);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
@@ -262,9 +262,9 @@ TEST_CASE("FDN_FIR")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
+        uint32_t test_boundary = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0u; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < test_boundary; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 5e-4));
             signal_energy += expected_output[i] * expected_output[i];
@@ -277,7 +277,7 @@ TEST_CASE("FDN_FIR")
 
 TEST_CASE("FDN_Chirp")
 {
-    constexpr uint32_t SR = 48000;
+    constexpr uint32_t kSampleRate = 48000;
 
     auto fdn = CreateReferenceFDN(false);
 
@@ -292,14 +292,14 @@ TEST_CASE("FDN_Chirp")
     WriteWavFile("fdn_chirp_test.wav", output);
 
     {
-        constexpr const char* expected_output_filename = "./tests/data/chirp_reverb.wav";
+        constexpr const char* kExpectedOutputFilename = "./tests/data/chirp_reverb.wav";
         SF_INFO sfinfo;
-        SNDFILE* expected_output_file = sf_open(expected_output_filename, SFM_READ, &sfinfo);
+        SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
 
         REQUIRE(sfinfo.channels == 1);
-        REQUIRE(sfinfo.samplerate == SR);
+        REQUIRE(sfinfo.samplerate == kSampleRate);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
@@ -309,9 +309,9 @@ TEST_CASE("FDN_Chirp")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t REQUIRE_limit = std::min(output.size(), expected_output.size());
+        uint32_t test_boundary = std::min(output.size(), expected_output.size());
 
-        for (auto i = 0u; i < REQUIRE_limit; ++i)
+        for (auto i = 0u; i < test_boundary; ++i)
         {
             REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-2));
             signal_energy += expected_output[i] * expected_output[i];

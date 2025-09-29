@@ -9,7 +9,7 @@ namespace sfFDN
 class DelayTimeVarying
 {
   public:
-    DelayTimeVarying(float delay = 0.5, uint32_t maxDelay = 4095, uint32_t samplerate = 48000);
+    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095, uint32_t sample_rate = 48000);
 
     void Clear();
 

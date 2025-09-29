@@ -1,8 +1,16 @@
-#include <algorithm>
-
 #include "sffdn/partitioned_convolver.h"
 
-#include "pch.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <print>
+#include <span>
+#include <utility>
+#include <vector>
 
 #include "circular_buffer.h"
 #include "upols.h"

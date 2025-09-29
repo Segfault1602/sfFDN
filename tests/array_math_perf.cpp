@@ -8,10 +8,10 @@ using namespace std::chrono_literals;
 
 TEST_CASE("Accumulate", "[ArrayMath]")
 {
-    constexpr uint32_t N = 128;
-    std::vector<float> a(N, 1.f);
-    std::vector<float> b(N, 2.f);
-    std::vector<float> out(N, 0.f);
+    constexpr uint32_t kSize = 128;
+    std::vector<float> a(kSize, 1.f);
+    std::vector<float> b(kSize, 2.f);
+    std::vector<float> out(kSize, 0.f);
 
     nanobench::Bench bench;
     bench.title("Accumulate");

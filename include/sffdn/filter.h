@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -28,10 +29,10 @@ class OnePoleFilter : public AudioProcessor
     void SetCoefficients(float b0, float a1);
 
     /// @brief Set the pole of the filter to obtain an exponential decay filter.
-    /// @param decayDb The decay in decibels.
-    /// @param timeMs The time in milliseconds.
-    /// @param samplerate The samplerate.
-    void SetDecayFilter(float decayDb, float timeMs, float samplerate);
+    /// @param decay_db The decay in decibels.
+    /// @param time_ms The time in milliseconds.
+    /// @param sample_rate The sample rate.
+    void SetDecayFilter(float decay_db, float time_ms, float sample_rate);
 
     /// @brief Set the pole of the filter to obtain a lowpass filter with a 3dB cutoff frequency.
     /// @param cutoff The cutoff frequency, normalized between 0 and 1.

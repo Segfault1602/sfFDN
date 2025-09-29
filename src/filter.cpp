@@ -1,12 +1,16 @@
 #include "sffdn/filter.h"
+
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 #include "sffdn/filter_design.h"
 
-#include "pch.h"
-
-namespace
-{
-constexpr float TWO_PI = std::numbers::pi_v<float> * 2;
-}
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <numbers>
+#include <span>
 
 namespace sfFDN
 {
@@ -41,18 +45,18 @@ void OnePoleFilter::SetCoefficients(float b0, float a1)
     a1_ = a1;
 }
 
-void OnePoleFilter::SetDecayFilter(float decayDb, float timeMs, float samplerate)
+void OnePoleFilter::SetDecayFilter(float decay_db, float time_ms, float sample_rate)
 {
-    assert(decayDb < 0.f);
-    const float lambda = std::log(std::pow(10.f, (decayDb / 20.f)));
-    const float pole = std::exp(lambda / (timeMs / 1000.f) / samplerate);
+    assert(decay_db < 0.f);
+    const float lambda = std::log(std::pow(10.f, (decay_db / 20.f)));
+    const float pole = std::exp(lambda / (time_ms / 1000.f) / sample_rate);
     SetPole(pole);
 }
 
 void OnePoleFilter::SetLowpass(float cutoff)
 {
     assert(cutoff >= 0.f && cutoff <= 1.f);
-    const float wc = TWO_PI * cutoff;
+    const float wc = std::numbers::pi_v<float> * 2.f * cutoff;
     const float y = 1 - std::cos(wc);
     const float p = -y + std::sqrt((y * y) + (2 * y));
     SetPole(1 - p);

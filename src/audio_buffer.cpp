@@ -1,6 +1,8 @@
 #include "sffdn/audio_buffer.h"
 
-#include "pch.h"
+#include <cassert>
+#include <cstdint>
+#include <span>
 
 namespace sfFDN
 {
