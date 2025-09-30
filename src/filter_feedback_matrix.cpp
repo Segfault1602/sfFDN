@@ -72,9 +72,6 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
             delays_[i].Process(output, output);
             matrix_[i].Process(output, output);
         }
-
-        // Apply last delays
-        // delays_.back().Process(output, output);
     }
 }
 

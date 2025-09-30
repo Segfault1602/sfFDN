@@ -17,12 +17,12 @@ TEST_CASE("AudioProcessorChain")
 
     constexpr std::array<float, kSize> kInputGains = {3.f, 1.f, 2.f, 4.f};
     std::unique_ptr<sfFDN::ParallelGains> input_gains =
-        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed);
+        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split);
     input_gains->SetGains(kInputGains);
 
     constexpr std::array<float, kSize> kOutputGains = {0.5f, 0.5f, 0.5f, 0.5f};
     std::unique_ptr<sfFDN::ParallelGains> output_gains =
-        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed);
+        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge);
     output_gains->SetGains(kOutputGains);
 
     chain.AddProcessor(std::move(input_gains));

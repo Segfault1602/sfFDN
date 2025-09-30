@@ -44,4 +44,6 @@ imgui.ini
 /perf
 /.venv
 
+/docs/html
+
 *.wav

@@ -36,7 +36,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     bench.warmup(100);
 
     bench.minEpochIterations(100000);
-    sfFDN::ParallelGains input_gains(sfFDN::ParallelGainsMode::Multiplexed);
+    sfFDN::ParallelGains input_gains(sfFDN::ParallelGainsMode::Split);
     input_gains.SetGains(kGains);
     bench.run("ParallelGains - Input", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
@@ -44,7 +44,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
         input_gains.Process(input_buffer, output_buffer);
     });
 
-    sfFDN::ParallelGains output_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
+    sfFDN::ParallelGains output_gains(sfFDN::ParallelGainsMode::Merge);
     output_gains.SetGains(kGains);
     bench.run("ParallelGains - Output", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, output);
@@ -57,7 +57,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
                                    4.5f / kSampleRate, 5.0f / kSampleRate, 5.5f / kSampleRate, 6.0f / kSampleRate,
                                    6.5f / kSampleRate, 7.0f / kSampleRate, 7.5f / kSampleRate, 8.0f / kSampleRate};
 
-    sfFDN::TimeVaryingParallelGains tv_input_gains(sfFDN::ParallelGainsMode::Multiplexed);
+    sfFDN::TimeVaryingParallelGains tv_input_gains(sfFDN::ParallelGainsMode::Split);
     tv_input_gains.SetCenterGains(kGains);
     tv_input_gains.SetLfoFrequency(kFreqs);
 
@@ -68,7 +68,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
         tv_input_gains.Process(input_buffer, output_buffer);
     });
 
-    sfFDN::TimeVaryingParallelGains tv_output_gains(sfFDN::ParallelGainsMode::DeMultiplexed);
+    sfFDN::TimeVaryingParallelGains tv_output_gains(sfFDN::ParallelGainsMode::Merge);
     tv_output_gains.SetCenterGains(kGains);
     tv_output_gains.SetLfoFrequency(kFreqs);
 

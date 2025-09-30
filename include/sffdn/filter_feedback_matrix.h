@@ -13,33 +13,75 @@
 
 namespace sfFDN
 {
-
+/**
+ * @brief A filter feedback matrix processor.
+ * This processor implements a filter feedback matrix as described in [1]
+ *
+ * Structure: Input──[D₁]──[U₁]──[D₂]──[U₂]──...──[Dₖ]──[Uₖ]──Output
+ * Where: Dᵢ = delay bank, Uᵢ = mixing matrix, K = number of stages
+ *
+ * [1] S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks,” IEEE/ACM Transactions on Audio,
+ Speech, and Language Processing, vol. 28, June 2020.
+ */
 class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
+    /** @brief Constructs a filter feedback matrix with a specified number of channels.
+     * @param channel_count The number of channels (size of the square matrix).
+     */
     FilterFeedbackMatrix(uint32_t channel_count);
 
+    /**
+     * @brief Constructs the filter feedback matrix from the given delays and mixing matrices.
+     *
+     * @param delays A span of delay values for each channel.
+     * @param mixing_matrices A span of scalar feedback matrices
+     * The number of matrices must be equal to (delays.size() / channel_count).
+     */
     void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
 
+    /**
+     * @brief Processes the input audio buffer and produces the output audio buffer.
+     *
+     * @param input AudioBuffer containing the input audio data. The number of channels must match the channel count.
+     * @param output AudioBuffer containing the output audio data. The number of channels must match the channel count.
+     */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
+    /**
+     * @brief Returns the number of input channels supported by this processor.
+     *
+     * @return The number of input channels.
+     */
     uint32_t InputChannelCount() const override
     {
         return channel_count_;
     }
 
+    /**
+     * @brief Returns the number of output channels produced by this processor.
+     *
+     * @return The number of output channels.
+     */
     uint32_t OutputChannelCount() const override
     {
         return channel_count_;
     }
 
+    /** @brief Clears the internal state of the processor.
+     * This function clears the internal state of all delay banks.
+     */
     void Clear() override;
 
+    /** @brief Prints information about the filter feedback matrix to the standard output. */
     void PrintInfo() const;
 
     // TODO: this is just for the GUI in FDNSandbox
     bool GetFirstMatrix(std::span<float> matrix) const;
 
+    /** @brief Creates a copy of the filter feedback matrix.
+     * @return A unique pointer to the cloned filter feedback matrix.
+     */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:

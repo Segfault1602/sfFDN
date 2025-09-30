@@ -54,9 +54,9 @@ uint32_t ParallelGains::InputChannelCount() const
 {
     switch (mode_)
     {
-    case ParallelGainsMode::Multiplexed:
+    case ParallelGainsMode::Split:
         return 1; // Single input channel for multiplexed mode
-    case ParallelGainsMode::DeMultiplexed:
+    case ParallelGainsMode::Merge:
     case ParallelGainsMode::Parallel:
         return gains_.size(); // One input channel per gain in de-multiplexed and parallel modes
     default:
@@ -69,9 +69,9 @@ uint32_t ParallelGains::OutputChannelCount() const
 {
     switch (mode_)
     {
-    case ParallelGainsMode::Multiplexed:
+    case ParallelGainsMode::Split:
         return gains_.size(); // One output channel per gain in multiplexed mode
-    case ParallelGainsMode::DeMultiplexed:
+    case ParallelGainsMode::Merge:
         return 1; // Single output channel for de-multiplexed mode
     case ParallelGainsMode::Parallel:
         return gains_.size(); // One output channel per gain in parallel mode
@@ -83,11 +83,11 @@ uint32_t ParallelGains::OutputChannelCount() const
 
 void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
-    if (mode_ == ParallelGainsMode::Multiplexed)
+    if (mode_ == ParallelGainsMode::Split)
     {
         ProcessBlockMultiplexed(input, output);
     }
-    else if (mode_ == ParallelGainsMode::DeMultiplexed)
+    else if (mode_ == ParallelGainsMode::Merge)
     {
         ProcessBlockDeMultiplexed(input, output);
     }

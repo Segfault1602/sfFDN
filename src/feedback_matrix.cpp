@@ -91,11 +91,6 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 #endif
     }
 
-    void Print() const
-    {
-        // std::cout << matrix_ << '\n';
-    }
-
     uint32_t GetSize() const
     {
         return order_;
@@ -123,7 +118,6 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
   private:
     uint32_t order_;
-    // Eigen::MatrixXf matrix_;
     std::vector<float> matrix_data_;
 };
 
@@ -188,11 +182,6 @@ bool ScalarFeedbackMatrix::GetMatrix(std::span<float> matrix) const
 void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     impl_->Process(input, output);
-}
-
-void ScalarFeedbackMatrix::Print() const
-{
-    impl_->Print();
 }
 
 uint32_t ScalarFeedbackMatrix::GetSize() const

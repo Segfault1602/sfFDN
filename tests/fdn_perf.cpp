@@ -48,8 +48,8 @@ TEST_CASE("FDNPerf")
     });
 
     // Benchmark the individual components
-    auto input_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed,
-                                                              std::vector<float>(kFDNOrder, 1.f));
+    auto input_gains =
+        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, std::vector<float>(kFDNOrder, 1.f));
     bench.minEpochIterations(50000);
     bench.run("Input Gains", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);

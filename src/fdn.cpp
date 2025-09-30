@@ -6,7 +6,6 @@
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 
-
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -35,8 +34,8 @@ FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
     , tc_filter_(nullptr)
     , transpose_(transpose)
 {
-    input_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Multiplexed, 0.5f);
-    output_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::DeMultiplexed, 0.5f);
+    input_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Split, 0.5f);
+    output_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Merge, 0.5f);
     delay_bank_.SetDelays(std::vector<uint32_t>(order, 500), block_size_);
 }
 
@@ -97,8 +96,8 @@ void FDN::SetOrder(uint32_t order)
     filter_bank_ = nullptr;
 
     SetFeedbackMatrix(std::make_unique<ScalarFeedbackMatrix>(order));
-    SetInputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Multiplexed, std::vector<float>(order, 0.5f)));
-    SetOutputGains(std::make_unique<ParallelGains>(ParallelGainsMode::DeMultiplexed, std::vector<float>(order, 0.5f)));
+    SetInputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Split, std::vector<float>(order, 0.5f)));
+    SetOutputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Merge, std::vector<float>(order, 0.5f)));
 
     // tc_filter is always one channel so it is not impacted
     assert(tc_filter_ == nullptr || tc_filter_->InputChannelCount() == 1);
@@ -140,7 +139,7 @@ bool FDN::SetInputGains(std::span<const float> gains)
         assert(false);
         return false;
     }
-    input_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::Multiplexed, gains);
+    input_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::Split, gains);
     return true;
 }
 
@@ -168,7 +167,7 @@ bool FDN::SetOutputGains(std::span<const float> gains)
         std::println(std::cerr, "Output gains must have {} elements.", order_);
         return false;
     }
-    output_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::DeMultiplexed, gains);
+    output_gains_ = std::make_unique<ParallelGains>(ParallelGainsMode::Merge, gains);
     return true;
 }
 

@@ -70,7 +70,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const PyFDNCon
         throw std::runtime_error("Input gains size must be equal to N");
     }
 
-    auto input_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, gain_span);
+    auto input_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, gain_span);
 
     return input_gains;
 }
@@ -84,7 +84,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const PyFDNCo
         throw std::runtime_error("Output gains size must be equal to N");
     }
 
-    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed, gain_span);
+    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, gain_span);
 }
 } // namespace
 

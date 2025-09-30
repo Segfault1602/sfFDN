@@ -99,13 +99,13 @@ std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
 std::unique_ptr<sfFDN::ParallelGains> GetDefaultInputGains(uint32_t count)
 {
     std::vector<float> input_gains(count, 1.f);
-    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Multiplexed, input_gains);
+    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, input_gains);
 }
 
 std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t count)
 {
     std::vector<float> output_gains(count, 1.f);
-    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::DeMultiplexed, output_gains);
+    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, output_gains);
 }
 
 std::vector<uint32_t> GetDefaultDelays(uint32_t count)

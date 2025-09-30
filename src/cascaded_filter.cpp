@@ -197,15 +197,6 @@ uint32_t CascadedBiquads::OutputChannelCount() const
     return 1;
 }
 
-void CascadedBiquads::dump_coeffs()
-{
-    for (uint32_t i = 0; i < stage_; i++)
-    {
-        std::println("Coeffs[{}]: b0 = {}, b1 = {}, b2 = {}, a1 = {}, a2 = {}", i, coeffs_[i].b0, coeffs_[i].b1,
-                     coeffs_[i].b2, coeffs_[i].a1, coeffs_[i].a2);
-    }
-}
-
 std::unique_ptr<AudioProcessor> CascadedBiquads::Clone() const
 {
     auto clone = std::make_unique<CascadedBiquads>();
