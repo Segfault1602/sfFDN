@@ -28,6 +28,7 @@ enum class ParallelGainsMode : uint8_t
  * channels scaled by their respective gains.
  * - Parallel: Multiple input channels, multiple output channels. Each output channel is equal to the corresponding
  * input channel scaled by a gain.
+ * @ingroup AudioProcessors
  */
 class ParallelGains : public AudioProcessor
 {
@@ -113,6 +114,7 @@ class ParallelGains : public AudioProcessor
 
 /** @brief A time-varying parallel gains processor.
  * Similar to ParallelGains but with time-varying gains modulated by LFOs.
+ * @ingroup AudioProcessors
  */
 class TimeVaryingParallelGains : public AudioProcessor
 {

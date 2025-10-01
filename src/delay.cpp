@@ -42,8 +42,6 @@ Delay::Delay(uint32_t delay, uint32_t max_delay)
     this->SetDelay(delay);
 }
 
-Delay::~Delay() = default;
-
 void Delay::Clear()
 {
     std::ranges::fill(buffer_, 0.0f);

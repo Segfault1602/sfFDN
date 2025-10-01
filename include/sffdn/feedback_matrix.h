@@ -15,6 +15,8 @@ namespace sfFDN
 /** @brief A scalar feedback matrix processor.
  * This processor applies a square feedback matrix to the input audio buffer.
  * The matrix is defined as a flat array in column-major order.
+ *
+ * @ingroup AudioProcessors
  */
 class ScalarFeedbackMatrix : public AudioProcessor
 {
@@ -33,10 +35,8 @@ class ScalarFeedbackMatrix : public AudioProcessor
     ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix);
 
     ~ScalarFeedbackMatrix() override;
-
     ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other);
     ScalarFeedbackMatrix& operator=(const ScalarFeedbackMatrix& other);
-
     ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept;
     ScalarFeedbackMatrix& operator=(ScalarFeedbackMatrix&& other) noexcept;
 
@@ -65,7 +65,9 @@ class ScalarFeedbackMatrix : public AudioProcessor
      */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
-    /** @brief Returns the size of the square matrix (number of rows/columns). */
+    /** @brief Returns the size of the square matrix (number of rows/columns).
+     * @return The size of the matrix.
+     */
     uint32_t GetSize() const;
 
     /**

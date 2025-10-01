@@ -10,7 +10,6 @@
 #include <utility>
 #include <vector>
 
-
 namespace sfFDN
 {
 
@@ -26,6 +25,20 @@ DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
 
         delays_.emplace_back(delay, max_delay);
     }
+}
+
+DelayBank::DelayBank(const DelayBank& other)
+    : delays_(other.delays_)
+{
+}
+
+DelayBank& DelayBank::operator=(const DelayBank& other)
+{
+    if (this != &other)
+    {
+        delays_ = other.delays_;
+    }
+    return *this;
 }
 
 DelayBank::DelayBank(DelayBank&& other) noexcept
@@ -132,13 +145,7 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
 
 std::unique_ptr<AudioProcessor> DelayBank::Clone() const
 {
-    auto clone = std::make_unique<DelayBank>();
-
-    for (const auto& delay : delays_)
-    {
-        clone->delays_.emplace_back(delay.GetDelay(), delay.GetMaximumDelay());
-    }
-
+    auto clone = std::make_unique<DelayBank>(*this);
     return clone;
 }
 

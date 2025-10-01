@@ -10,6 +10,11 @@
 
 namespace sfFDN
 {
+/** @defgroup FilterDesign Filter Design
+ * @brief A collection of functions to design filters for feedback delay networks.
+ * @{
+ */
+
 /**
  * @brief Get the coefficients of a one-pole absorption filter
  * @param t60_dc Reverberation time in seconds at DC (0 Hz)
@@ -61,4 +66,6 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
  */
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(std::span<const float> t60s,
                                                             std::span<const uint32_t> delays, float sample_rate);
+
+/** @} */
 } // namespace sfFDN

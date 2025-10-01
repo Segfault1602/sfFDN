@@ -118,7 +118,6 @@ class FDN : public AudioProcessor
     AudioProcessor* GetOutputGains() const;
 
     /** @brief Set the direct gain applied to the input signal when mixed to the output.
-     * @returns The direct gain value.
      */
     void SetDirectGain(float gain);
 

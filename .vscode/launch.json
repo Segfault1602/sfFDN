@@ -5,11 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Launch",
+            "name": "(Windows) sfFDN.tests",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/tests/sfFDN.perf",
-            "args": [],
+            "program": "${workspaceFolder}/build/debug/tests/sfFDN.tests",
+            "args": [
+                "IIRFilterBank"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "(Windows) sfFDN.perf",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/relwithdebinfo/tests/sfFDN.perf",
+            "args": [
+                "IIRFilterBankPerf"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

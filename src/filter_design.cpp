@@ -80,19 +80,18 @@ void Freqz(std::span<const T> b, std::span<const T> a, std::span<std::complex<T>
     }
 }
 
-template <typename T, size_t kNBands, size_t kNFreqs>
-Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> InteractionMatrix(std::span<const T> gains, T gain_factor,
-                                                                   std::span<const T> command_frequencies,
-                                                                   std::span<const T> design_frequencies,
-                                                                   std::span<const T> bandwidths)
+template <size_t kNBands, size_t kNFreqs>
+Eigen::MatrixXd InteractionMatrix(std::span<const double> gains, double gain_factor,
+                                  std::span<const double> command_frequencies,
+                                  std::span<const double> design_frequencies, std::span<const double> bandwidths)
 {
-    Eigen::Matrix<T, kNBands, kNFreqs> leak = Eigen::Matrix<T, kNBands, kNFreqs>::Zero();
+    Eigen::MatrixXd leak = Eigen::MatrixXd::Zero(kNBands, kNFreqs);
 
-    std::array<T, kNBands> gains_db{};
-    ToDb<T>(gains, gains_db);
+    std::array<double, kNBands> gains_db{};
+    ToDb<double>(gains, gains_db);
 
-    T gdb_abs_sum = std::accumulate(gains_db.begin(), gains_db.end(), static_cast<T>(0),
-                                    [](T sum, T val) { return sum + std::abs(val); });
+    double gdb_abs_sum = std::accumulate(gains_db.begin(), gains_db.end(), 0.0,
+                                         [](double sum, double val) { return sum + std::abs(val); });
     if (gdb_abs_sum <= 1e-10)
     {
         for (int i = 0; i < kNBands; ++i)
@@ -102,24 +101,24 @@ Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> InteractionMatrix(std::span<con
         return leak;
     }
 
-    std::array<T, kNBands> gains_linear{};
+    std::array<double, kNBands> gains_linear{};
     std::ranges::transform(gains_db, gains_linear.begin(),
-                           [gain_factor](T val) -> T { return Db2Mag(gain_factor * val); });
+                           [gain_factor](double val) -> double { return Db2Mag(gain_factor * val); });
 
-    std::array<std::complex<T>, kNFreqs> dig_w_arr{};
+    std::array<std::complex<double>, kNFreqs> dig_w_arr{};
     for (auto [w, f] : std::views::zip(dig_w_arr, design_frequencies))
     {
-        w = std::exp(std::complex<T>(0.0, 1.0) * f);
+        w = std::exp(std::complex<double>(0.0, 1.0) * f);
     }
 
     for (auto i = 0u; i < kNBands; ++i)
     {
-        std::array<T, 6> sos = sfFDN::Pareq(gains[i], gains_linear[i], command_frequencies[i], bandwidths[i]);
-        auto sos_span = std::span<T>(sos);
+        std::array<double, 6> sos = sfFDN::Pareq(gains[i], gains_linear[i], command_frequencies[i], bandwidths[i]);
+        auto sos_span = std::span<double>(sos);
         auto num = sos_span.first(3);
         auto den = sos_span.last(3);
-        std::array<T, kNFreqs> filter_response{};
-        Freqz<T>(num, den, dig_w_arr, filter_response);
+        std::array<double, kNFreqs> filter_response{};
+        Freqz<double>(num, den, dig_w_arr, filter_response);
 
         for (auto j = 0u; j < filter_response.size(); ++j)
         {
@@ -130,8 +129,8 @@ Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> InteractionMatrix(std::span<con
     return leak;
 }
 
-template <typename T, size_t kNBands>
-std::vector<T> Aceq(std::span<const T> diff_mag, std::span<const T> freqs, T sr)
+template <size_t kNBands>
+std::vector<double> Aceq(std::span<const double> diff_mag, std::span<const double> freqs, double sr)
 {
     if (diff_mag.size() != kNBands || freqs.size() != kNBands)
     {
@@ -139,10 +138,10 @@ std::vector<T> Aceq(std::span<const T> diff_mag, std::span<const T> freqs, T sr)
     }
 
     constexpr size_t kNFreqs = (kNBands * 2) - 1;
-    constexpr T kGW = 0.3; // Gain factor at bandwidth
+    constexpr double kGW = 0.3; // Gain factor at bandwidth
 
     // array of center frequencies + intermediate frequencies
-    std::array<T, kNFreqs> fc2 = {0};
+    std::array<double, kNFreqs> fc2 = {0};
     for (auto i = 0u; i < freqs.size(); ++i)
     {
         fc2.at(i * 2) = freqs[i];
@@ -154,20 +153,20 @@ std::vector<T> Aceq(std::span<const T> diff_mag, std::span<const T> freqs, T sr)
     }
 
     // Command gain frequencies in radians
-    std::array<T, kNBands> wg = {0.0f};
+    std::array<double, kNBands> wg = {0.0f};
     for (auto [w, f] : std::views::zip(wg, freqs))
     {
-        w = 2 * std::numbers::pi_v<T> * f / sr;
+        w = 2 * std::numbers::pi_v<double> * f / sr;
     }
 
     // Center frequencies in radian for iterative design
-    std::array<T, kNFreqs> wc = {0.0f};
+    std::array<double, kNFreqs> wc = {0.0f};
     for (auto [w, f] : std::views::zip(wc, fc2))
     {
-        w = 2 * std::numbers::pi_v<T> * f / sr;
+        w = 2 * std::numbers::pi_v<double> * f / sr;
     }
 
-    std::array<T, kNBands> bw = {0.0f};
+    std::array<double, kNBands> bw = {0.0f};
     for (auto [b, w] : std::views::zip(bw, wg))
     {
         b = 1.5 * w;
@@ -181,45 +180,44 @@ std::vector<T> Aceq(std::span<const T> diff_mag, std::span<const T> freqs, T sr)
         bw[9] = 0.76 * wg[9];
     }
 
-    std::array<T, kNBands> gains_db{};
+    std::array<double, kNBands> gains_db{};
     gains_db.fill(std::pow(10.0, kNFreqs / 20.0));
 
-    Eigen::Matrix<T, kNBands, kNFreqs> leak = InteractionMatrix<T, kNBands, kNFreqs>(gains_db, kGW, wg, wc, bw);
+    auto leak = InteractionMatrix<kNBands, kNFreqs>(gains_db, kGW, wg, wc, bw);
 
-    Eigen::Map<const Eigen::Array<T, kNBands, 1>> diff_mag_map(diff_mag.data(), diff_mag.size());
+    Eigen::Map<const Eigen::ArrayXd> diff_mag_map(diff_mag.data(), diff_mag.size());
 
-    Eigen::Vector<T, kNFreqs> gains_db_2 = Eigen::Vector<T, kNFreqs>::Zero();
+    Eigen::VectorXd gains_db_2 = Eigen::VectorXd::Zero(kNFreqs);
     gains_db_2(Eigen::seq(0, kNFreqs - 1, 2)) = diff_mag_map;
     gains_db_2(Eigen::seq(1, kNFreqs - 1, 2)) =
         (gains_db_2(Eigen::seq(0, kNFreqs - 3, 2)) + gains_db_2(Eigen::seq(2, kNFreqs - 1, 2))) / 2;
 
     // Solve least squares optmization problem
-    Eigen::Vector<T, kNBands> solution = (leak * leak.transpose()).ldlt().solve(leak * gains_db_2);
+    Eigen::VectorXd solution = (leak * leak.transpose()).ldlt().solve(leak * gains_db_2);
 
-    std::array<T, kNBands> goptdb{};
-    Eigen::Map<Eigen::Array<T, kNBands, 1>> goptdb_map(goptdb.data());
+    std::array<double, kNBands> goptdb{};
+    Eigen::Map<Eigen::ArrayXd> goptdb_map(goptdb.data(), goptdb.size());
     goptdb_map = Eigen::pow(10.0, solution.array() / 20);
 
-    Eigen::Array<T, kNBands, 1> gwopt = Eigen::pow(10.0, kGW * solution.array() / 20.0);
+    Eigen::ArrayXd gwopt = Eigen::pow(10.0, kGW * solution.array() / 20.0);
 
-    Eigen::Matrix<T, kNBands, kNFreqs> leak2 = InteractionMatrix<T, kNBands, kNFreqs>(goptdb, kGW, wg, wc, bw);
-    Eigen::Vector<T, kNBands> solution2 = (leak2 * leak2.transpose()).ldlt().solve(leak2 * gains_db_2);
+    Eigen::MatrixXd leak2 = InteractionMatrix<kNBands, kNFreqs>(goptdb, kGW, wg, wc, bw);
+    Eigen::VectorXd solution2 = (leak2 * leak2.transpose()).ldlt().solve(leak2 * gains_db_2);
 
     goptdb_map = Eigen::pow(10.0, solution2.array() / 20);
     gwopt = Eigen::pow(10.0, kGW * solution2.array() / 20);
 
-    std::vector<T> sos;
+    std::vector<double> sos;
     for (auto i = 0u; i < kNBands; ++i)
     {
-        std::array<T, 6> coeffs = sfFDN::Pareq(goptdb[i], gwopt[i], wg.at(i), bw.at(i));
+        std::array<double, 6> coeffs = sfFDN::Pareq(goptdb[i], gwopt[i], wg.at(i), bw.at(i));
         sos.insert(sos.end(), coeffs.begin(), coeffs.end());
     }
 
     return sos;
 }
 
-template <typename T>
-std::vector<T> GetTwoFilterImpl(std::span<const T> t60s, T delay, T sr, T shelf_cutoff)
+std::vector<double> GetTwoFilterImpl(std::span<const double> t60s, double delay, double sr, double shelf_cutoff)
 {
     constexpr size_t kNBands = 10;
 
@@ -228,14 +226,14 @@ std::vector<T> GetTwoFilterImpl(std::span<const T> t60s, T delay, T sr, T shelf_
         throw std::runtime_error("t60s must have size " + std::to_string(kNBands));
     }
 
-    std::vector<T> freqs(kNBands, 0.0);
-    constexpr T kUpperLimit = 16000.0f;
+    std::vector<double> freqs(kNBands, 0.0);
+    constexpr double kUpperLimit = 16000.0f;
     for (auto i = 0u; i < kNBands; ++i)
     {
-        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<T>(kNBands - 1 - i));
+        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(kNBands - 1 - i));
     }
 
-    std::vector<T> gains(kNBands, 0.0f);
+    std::vector<double> gains(kNBands, 0.0f);
     for (auto i = 0u; i < kNBands; ++i)
     {
         gains[i] = std::pow(10.0, -3.0 / t60s[i]);
@@ -243,46 +241,46 @@ std::vector<T> GetTwoFilterImpl(std::span<const T> t60s, T delay, T sr, T shelf_
         gains[i] = 20.0 * std::log10(gains[i]);
     }
 
-    std::vector<T> linear_gains(gains.size(), 0.0);
+    std::vector<double> linear_gains(gains.size(), 0.0);
     for (auto i = 0u; i < gains.size(); ++i)
     {
         linear_gains[i] = Db2Mag(gains[i]);
     }
 
     // Build first-order low shelf filter
-    T gain_low = linear_gains[0];
-    T gain_high = linear_gains[linear_gains.size() - 1];
+    double gain_low = linear_gains[0];
+    double gain_high = linear_gains[linear_gains.size() - 1];
 
-    std::array<T, 4> shelf_sos = sfFDN::LowShelf(shelf_cutoff, sr, gain_low, gain_high);
+    std::array<double, 4> shelf_sos = sfFDN::LowShelf(shelf_cutoff, sr, gain_low, gain_high);
     const std::span shelf_sos_span{shelf_sos};
 
-    std::array<T, 3> b_coeffs = {shelf_sos[0] / shelf_sos[2], shelf_sos[1] / shelf_sos[2], 0.0f};
-    std::array<T, 3> a_coeffs = {1.0f, shelf_sos[3] / shelf_sos[2], 0.0f};
+    std::array<double, 3> b_coeffs = {shelf_sos[0] / shelf_sos[2], shelf_sos[1] / shelf_sos[2], 0.0f};
+    std::array<double, 3> a_coeffs = {1.0f, shelf_sos[3] / shelf_sos[2], 0.0f};
 
-    std::vector<std::complex<T>> dig_w(kNBands);
+    std::vector<std::complex<double>> dig_w(kNBands);
     for (size_t i = 0; i < kNBands; ++i)
     {
-        dig_w[i] = std::exp(std::complex<T>(0.0, 1.0) * freqs[i] * (-2 * std::numbers::pi_v<T> / sr));
+        dig_w[i] = std::exp(std::complex<double>(0.0, 1.0) * freqs[i] * (-2 * std::numbers::pi_v<double> / sr));
     }
 
-    std::array<T, kNBands> h_shelf{};
-    Freqz<T>(b_coeffs, a_coeffs, dig_w, h_shelf);
+    std::array<double, kNBands> h_shelf{};
+    Freqz<double>(b_coeffs, a_coeffs, dig_w, h_shelf);
 
-    std::vector<T> diff_mag(freqs.size(), 0.0f);
+    std::vector<double> diff_mag(freqs.size(), 0.0f);
     for (auto i = 0u; i < freqs.size(); ++i)
     {
         diff_mag[i] = gains[i] - 20 * std::log10(h_shelf[i]);
     }
 
-    std::vector<T> sos_t;
+    std::vector<double> sos_t;
     if (kNBands == 10) // octave bands
     {
-        sos_t = Aceq<T, kNBands>(diff_mag, freqs, sr);
+        sos_t = Aceq<kNBands>(diff_mag, freqs, sr);
     }
 
     assert(sos_t.size() == kNBands * 6);
 
-    std::vector<T> sos(sos_t.size() + 6, 0.0f);
+    std::vector<double> sos(sos_t.size() + 6, 0.0f);
 
     // Copy the low shelf filter coefficients
     sos[0] = shelf_sos[0] / shelf_sos[2];
@@ -319,7 +317,7 @@ void GetOnePoleAbsorption(float t60_dc, float t60_ny, float sr, float delay, flo
 
 std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, double sr, double shelf_cutoff)
 {
-    return GetTwoFilterImpl<double>(t60s, delay, sr, shelf_cutoff);
+    return GetTwoFilterImpl(t60s, delay, sr, shelf_cutoff);
 }
 
 std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff)
@@ -327,7 +325,8 @@ std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float 
     // The coefficients are computed in double precision, otherwise there is a significant loss of precision and the
     // filter is not as accurate as it could be.
     std::vector<double> t60s_d(t60s.begin(), t60s.end());
-    std::vector<double> sos = GetTwoFilter_d(t60s_d, static_cast<double>(delay), static_cast<double>(sr), shelf_cutoff);
+    std::vector<double> sos =
+        GetTwoFilterImpl(t60s_d, static_cast<double>(delay), static_cast<double>(sr), shelf_cutoff);
 
     std::vector<float> sos_f(sos.begin(), sos.end());
 
@@ -378,7 +377,7 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
         diff_mag[i] = mag_d[i] - 20 * std::log10(low_shelf_response.at(i)) - 20 * std::log10(high_shelf_response.at(i));
     }
 
-    const std::vector<double> geq_sos = Aceq<double, 8>(diff_mag, freqs_d, static_cast<double>(sr));
+    const std::vector<double> geq_sos = Aceq<8>(diff_mag, freqs_d, static_cast<double>(sr));
 
     std::vector<float> sos_f;
     sos_f.reserve((8 + 2) * 6);

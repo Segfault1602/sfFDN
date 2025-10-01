@@ -211,6 +211,7 @@ TEST_CASE("Hadamard")
         }
     });
 
+    bench.minEpochIterations(5000);
     bench.run("MatrixMultiply", [&]() {
         std::array<float, kMatSize> output{};
         for (auto i = 0u; i < kIterations; ++i)
@@ -220,6 +221,7 @@ TEST_CASE("Hadamard")
         }
     });
 
+    bench.minEpochIterations(1000);
     bench.run("HadamardMultiply", [&]() {
         std::array<float, kMatSize> output{};
         for (auto i = 0u; i < kIterations; ++i)

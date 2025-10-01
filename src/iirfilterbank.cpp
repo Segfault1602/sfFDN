@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -14,6 +15,11 @@
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
+#endif
+
+#define IIRFILTERBANK_USE_EIGEN 0
+#if IIRFILTERBANK_USE_EIGEN
+#include <Eigen/Core>
 #endif
 
 namespace sfFDN
@@ -31,6 +37,10 @@ class IIRFilterBank::IIRFilterBankImpl
         {
             filter.Clear();
         }
+#if IIRFILTERBANK_USE_EIGEN
+        state1_.setZero();
+        state2_.setZero();
+#endif
     }
 
     void SetFilter(std::span<float> coeffs, uint32_t channel_count, uint32_t stage_count)
@@ -51,11 +61,44 @@ class IIRFilterBank::IIRFilterBankImpl
 
         const uint32_t coeffs_per_channel = coeff_per_stage * stage_count;
 
+#if IIRFILTERBANK_USE_EIGEN
+        b0_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+        b1_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+        b2_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+        a1_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+        a2_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+
+        state1_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+        state2_ = Eigen::ArrayXXf::Zero(channel_count, stage_count);
+#endif
+
         filters_.resize(channel_count);
         for (auto i = 0u; i < channel_count; ++i)
         {
             auto coeffs_span = coeffs.subspan(i * coeffs_per_channel, coeffs_per_channel);
             filters_[i].SetCoefficients(stage_count, coeffs_span);
+#if IIRFILTERBANK_USE_EIGEN
+            for (auto j = 0u; j < stage_count; ++j)
+            {
+                auto stage_coeffs = coeffs_span.subspan(j * coeff_per_stage, coeff_per_stage);
+                if (coeff_per_stage == 6)
+                {
+                    b0_(i, j) = stage_coeffs[0] / stage_coeffs[3];
+                    b1_(i, j) = stage_coeffs[1] / stage_coeffs[3];
+                    b2_(i, j) = stage_coeffs[2] / stage_coeffs[3];
+                    a1_(i, j) = stage_coeffs[4] / stage_coeffs[3];
+                    a2_(i, j) = stage_coeffs[5] / stage_coeffs[3];
+                }
+                else
+                {
+                    b0_(i, j) = stage_coeffs[0];
+                    b1_(i, j) = stage_coeffs[1];
+                    b2_(i, j) = stage_coeffs[2];
+                    a1_(i, j) = stage_coeffs[3];
+                    a2_(i, j) = stage_coeffs[4];
+                }
+            }
+#endif
         }
     }
 
@@ -65,12 +108,35 @@ class IIRFilterBank::IIRFilterBankImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == filters_.size());
 
+#if !IIRFILTERBANK_USE_EIGEN
         for (auto i = 0u; i < filters_.size(); ++i)
         {
             auto input_buf = input.GetChannelBuffer(i);
             auto output_buf = output.GetChannelBuffer(i);
             filters_[i].Process(input_buf, output_buf);
         }
+#else
+        Eigen::Array<float, Eigen::Dynamic, 1, Eigen::AutoAlign> in(input.ChannelCount());
+        Eigen::Array<float, Eigen::Dynamic, 1, Eigen::AutoAlign> out(input.ChannelCount());
+        for (auto i = 0u; i < input.SampleCount(); ++i)
+        {
+            for (auto n = 0u; n < input.ChannelCount(); ++n)
+            {
+                in(n) = input.GetChannelSpan(n)[i];
+            }
+            for (auto stage = 0u; stage < b0_.cols(); ++stage)
+            {
+                out = b0_.col(stage) * in + state1_.col(stage);
+                state1_.col(stage) = b1_.col(stage) * in + state2_.col(stage) - a1_.col(stage) * out;
+                state2_.col(stage) = b2_.col(stage) * in - a2_.col(stage) * out;
+                in = out;
+            }
+            for (auto n = 0u; n < input.ChannelCount(); ++n)
+            {
+                output.GetChannelSpan(n)[i] = out(n);
+            }
+        }
+#endif
     }
 
     uint32_t InputChannelCount() const
@@ -85,6 +151,16 @@ class IIRFilterBank::IIRFilterBankImpl
 
   private:
     std::vector<CascadedBiquads> filters_;
+#if IIRFILTERBANK_USE_EIGEN
+    Eigen::ArrayXXf b0_;
+    Eigen::ArrayXXf b1_;
+    Eigen::ArrayXXf b2_;
+    Eigen::ArrayXXf a1_;
+    Eigen::ArrayXXf a2_;
+
+    Eigen::ArrayXXf state1_;
+    Eigen::ArrayXXf state2_;
+#endif
 };
 #else
 class IIRFilterBank::IIRFilterBankImpl
@@ -308,6 +384,7 @@ std::unique_ptr<AudioProcessor> IIRFilterBank::Clone() const
     auto clone = std::make_unique<IIRFilterBank>();
 
     clone->impl_ = std::make_unique<IIRFilterBank::IIRFilterBankImpl>(*impl_);
+    clone->impl_->Clear();
 
     return clone;
 }

@@ -17,14 +17,12 @@ namespace sfFDN
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
  * of audio with different delays.
  * @note The delay lines are instances of the Delay class, which is a non-interpolating delay line.
+ *
+ * @ingroup AudioProcessors
  */
 class DelayBank : public AudioProcessor
 {
   public:
-    /** @brief Constructs a delay bank with a specified number of delays and maximum delay. */
-    // DelayBank(uint32_t delayCount, uint32_t maxDelay = 4095);
-    DelayBank() = default;
-
     /**
      * @brief Constructs a delay bank with a specified set of delays and block size.
      * @param delays A span of delay values for each channel.
@@ -35,8 +33,8 @@ class DelayBank : public AudioProcessor
 
     ~DelayBank() = default;
 
-    DelayBank(const DelayBank&) = delete;
-    DelayBank& operator=(const DelayBank&) = delete;
+    DelayBank(const DelayBank&);
+    DelayBank& operator=(const DelayBank&);
 
     DelayBank(DelayBank&&) noexcept;
     DelayBank& operator=(DelayBank&&) noexcept;

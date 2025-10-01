@@ -66,15 +66,7 @@ std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed = 0,
                                        std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());
 
-/** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
- */
-struct CascadedFeedbackMatrixInfo
-{
-    uint32_t channel_count;       /**< Number of channels */
-    uint32_t stage_count;         /**< Number of stages */
-    std::vector<uint32_t> delays; /**< Delays, size: stage_count x N */
-    std::vector<float> matrices;  /**< Feedback matrices, size: K x N x N */
-};
+struct CascadedFeedbackMatrixInfo;
 
 /**
  * @brief Constructs a Cascaded feedback matrix.

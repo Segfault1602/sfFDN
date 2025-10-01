@@ -36,6 +36,7 @@ set(SFFDN_CXX_COMPILE_OPTIONS
     -Wno-sign-compare
     -Wunsafe-buffer-usage
     -fno-omit-frame-pointer
+    -march=native
     ${SFFDN_SANITIZER}
 )
 

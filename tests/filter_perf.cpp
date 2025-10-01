@@ -56,6 +56,66 @@ TEST_CASE("FilterBankPerf")
     }
 }
 
+TEST_CASE("IIRFilterBankPerf")
+{
+    constexpr uint32_t kChannelCount = 16;
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 128;
+
+    constexpr std::array<float, 10> kRT60s = {2.f, 2.1f, 2.5f, 2.f, 1.5f, 1.f, 0.8f, 0.5f, 0.3f, 0.21f};
+    auto delays = sfFDN::GetDelayLengths(kChannelCount, 500, 5000, sfFDN::DelayLengthType::Uniform);
+
+    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+
+        auto order = filter_coeffs.size() / 6;
+        filter->SetCoefficients(order, filter_coeffs);
+        filter_bank->AddFilter(std::move(filter));
+    }
+
+    nanobench::Bench bench;
+    bench.title("FilterBank vs IIRFilterBank perf");
+    bench.minEpochIterations(200);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    std::vector<float> input(kBlockSize * kChannelCount, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize * kChannelCount, 0);
+
+    bench.run("FilterBank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+        filter_bank->Process(input_buffer, output_buffer);
+
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    auto iir_filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    std::vector<float> coeffs;
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
+        coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
+    }
+    iir_filter_bank->SetFilter(coeffs, kChannelCount, 11);
+
+    bench.run("IIRFilterBank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+        iir_filter_bank->Process(input_buffer, output_buffer);
+
+        nanobench::doNotOptimizeAway(output);
+    });
+}
+
 TEST_CASE("CascadedBiquadsPerf")
 {
     // clang-format off
@@ -117,7 +177,8 @@ TEST_CASE("ParallelSchroederAllpassSection")
     constexpr uint32_t kBlockSize = 128;
 
     sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, 1);
-    std::vector<uint32_t> delays = sfFDN::GetDelayLengths(kChannelCount, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
+    std::vector<uint32_t> delays =
+        sfFDN::GetDelayLengths(kChannelCount, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
     std::array<float, kChannelCount> gains{};
     gains.fill(0.7f);
 

@@ -94,6 +94,10 @@
         {
             "name": "llvm-relwithdebinfo",
             "configurePreset": "llvm-relwithdebinfo"
+        },
+        {
+            "name": "windows",
+            "configurePreset": "windows"
         }
     ]
 }

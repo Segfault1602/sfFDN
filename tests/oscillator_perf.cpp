@@ -29,13 +29,13 @@ void StdSin(std::span<float> output, float frequency, uint32_t sample_rate)
 TEST_CASE("SineWave")
 {
     constexpr uint32_t kSampleRate = 48000;
-    constexpr uint32_t kBlockSize = 64;
+    constexpr uint32_t kBlockSize = 512;
 
     sfFDN::SineWave sine_wave(10.0f, kSampleRate);
 
     nanobench::Bench bench;
     bench.title("SineWave");
-    bench.minEpochIterations(500000);
+    bench.minEpochIterations(50000);
     bench.relative(true);
     bench.batch(kBlockSize);
     // bench.timeUnit(1us, "us");

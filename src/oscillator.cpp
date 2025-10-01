@@ -12,20 +12,17 @@ namespace
 {
 float Sine(float phase)
 {
-    while (phase < 0.f)
-    {
-        phase += 1.f;
-    }
+    assert(phase >= 0.f);
 
     phase = phase - std::floor(phase);
 
-    float index = phase * sfFDN::kSineTableSize;
+    const float index = phase * sfFDN::kSineTableSize;
 
-    auto uindex = static_cast<int32_t>(index);
-    auto frac = index - static_cast<float>(uindex);
+    const auto uindex = static_cast<int32_t>(index);
+    const auto frac = index - static_cast<float>(uindex);
 
-    float a = sfFDN::kSineTable[uindex];
-    float b = sfFDN::kSineTable[uindex + 1];
+    const float a = sfFDN::kSineTable[uindex];
+    const float b = sfFDN::kSineTable[uindex + 1];
     return a + ((b - a) * frac);
 }
 
@@ -94,6 +91,7 @@ void SineWave::Generate(std::span<float> output)
         i = (Sine(phase + phase_offset_) * amplitude_) + offset_;
         phase += phase_increment_;
     }
+
     phase_ = phase;
     phase_ -= std::floor(phase_);
 }

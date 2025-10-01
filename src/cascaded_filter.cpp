@@ -39,7 +39,7 @@ CascadedBiquads::CascadedBiquads(const CascadedBiquads& other)
     , states_(other.states_)
     , coeffs_(other.coeffs_)
 {
-    CascadedBiquads::Clear();
+    Clear();
 }
 
 CascadedBiquads& CascadedBiquads::operator=(const CascadedBiquads& other)
@@ -189,7 +189,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
 
 uint32_t CascadedBiquads::InputChannelCount() const
 {
-    return 1; // This filter processes a single input channel
+    return 1;
 }
 
 uint32_t CascadedBiquads::OutputChannelCount() const
@@ -199,10 +199,7 @@ uint32_t CascadedBiquads::OutputChannelCount() const
 
 std::unique_ptr<AudioProcessor> CascadedBiquads::Clone() const
 {
-    auto clone = std::make_unique<CascadedBiquads>();
-    clone->stage_ = stage_;
-    clone->states_.resize(states_.size());
-    clone->coeffs_ = coeffs_;
+    auto clone = std::make_unique<CascadedBiquads>(*this);
     return clone;
 }
 

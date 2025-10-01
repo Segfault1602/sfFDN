@@ -9,17 +9,12 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <mdspan>
 #include <memory>
 #include <print>
 #include <span>
 #include <utility>
 #include <vector>
-
-#ifdef __cpp_lib_mdspan
-#include <mdspan>
-#else
-#pragma message("C++23 mdspan support is required for delay matrix. Please enable C++23 in your compiler settings.")
-#endif
 
 #include <Eigen/Core>
 
@@ -30,27 +25,21 @@ class DelayMatrix::DelayMatrixImpl
 {
   public:
     DelayMatrixImpl(uint32_t order, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix)
-        : DelayMatrixImpl(order, delays, [&mixing_matrix, order]() {
-            Eigen::MatrixXf mat = Eigen::MatrixXf::Zero(order, order);
-            for (auto i = 0u; i < order; ++i)
-            {
-                for (auto j = 0u; j < order; ++j)
-                {
-                    mat(i, j) = mixing_matrix.GetCoefficient(i, j);
-                }
-            }
-            return mat;
-        }())
-    {
-    }
-
-    DelayMatrixImpl(uint32_t order, std::span<const uint32_t> delays, const Eigen::MatrixXf& mixing_matrix)
         : order_(order)
     {
         assert(delays.size() == order * order);
 
         delay_values_.assign(delays.begin(), delays.end());
         delay_lines_.reserve(order);
+
+        matrix_ = Eigen::MatrixXf::Zero(order, order);
+        for (auto i = 0u; i < order; ++i)
+        {
+            for (auto j = 0u; j < order; ++j)
+            {
+                matrix_(i, j) = mixing_matrix.GetCoefficient(i, j);
+            }
+        }
 
         std::vector<uint32_t> max_delays(order, 0);
         for (auto i = 0u; i < order; ++i)
@@ -62,8 +51,6 @@ class DelayMatrix::DelayMatrixImpl
 
             delay_lines_.emplace_back(max_delays[i], max_delays[i]);
         }
-
-        matrix_ = mixing_matrix;
 
         signal_matrix_ = Eigen::MatrixXf::Zero(order_, order_);
     }
@@ -134,7 +121,7 @@ class DelayMatrix::DelayMatrixImpl
 
     std::unique_ptr<DelayMatrixImpl> Clone() const
     {
-        return std::make_unique<DelayMatrixImpl>(order_, delay_values_, matrix_);
+        return std::make_unique<DelayMatrixImpl>(*this);
     }
 
   private:
@@ -151,6 +138,20 @@ DelayMatrix::DelayMatrix(uint32_t order, std::span<const uint32_t> delays, const
 }
 
 DelayMatrix::~DelayMatrix() = default;
+
+DelayMatrix::DelayMatrix(const DelayMatrix& other)
+    : impl_(other.impl_->Clone())
+{
+}
+
+DelayMatrix& DelayMatrix::operator=(const DelayMatrix& other)
+{
+    if (this != &other)
+    {
+        impl_ = other.impl_->Clone();
+    }
+    return *this;
+}
 
 DelayMatrix::DelayMatrix(DelayMatrix&& other) noexcept
     : impl_(std::move(other.impl_))
@@ -190,8 +191,7 @@ void DelayMatrix::PrintInfo() const
 
 std::unique_ptr<AudioProcessor> DelayMatrix::Clone() const
 {
-    auto clone = std::unique_ptr<DelayMatrix>(new DelayMatrix);
-    clone->impl_ = impl_->Clone();
+    auto clone = std::make_unique<DelayMatrix>(*this);
     return clone;
 }
 

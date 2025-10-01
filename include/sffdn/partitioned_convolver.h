@@ -11,7 +11,9 @@
 
 namespace sfFDN
 {
-/** @brief A partitioned convolution engine that can filter audio signals with an FIR filter. */
+/** @brief A partitioned convolution engine that can filter audio signals with an FIR filter.
+ * @ingroup AudioProcessors
+ */
 class PartitionedConvolver : public AudioProcessor
 {
   public:
@@ -40,7 +42,6 @@ class PartitionedConvolver : public AudioProcessor
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     /** @brief Dumps internal information to the standard output for debugging purposes.
-     * @returns void
      */
     void DumpInfo() const;
 
@@ -64,7 +65,6 @@ class PartitionedConvolver : public AudioProcessor
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal buffers and states of the convolver, but keeps the FIR filter intact.
-     * @returns
      */
     void Clear() override;
 

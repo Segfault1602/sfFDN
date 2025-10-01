@@ -1,5 +1,7 @@
 #include "sffdn/matrix_gallery.h"
 
+#include "sffdn/filter_feedback_matrix.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -366,8 +368,6 @@ Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
 
     for (auto i = 0u; i < mat_size; ++i)
     {
-        // auto& rf = reinterpret_cast<std::complex<float>&>(RF[i]);
-        // reinterpret_cast<std::complex<float>&>(RF[i]) = rf / std::abs(rf);
         rf[i] = rf[i] / std::abs(rf[i]);
     }
 

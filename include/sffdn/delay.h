@@ -22,13 +22,6 @@ class Delay
      */
     Delay(uint32_t delay = 0, uint32_t max_delay = 4095);
 
-    ~Delay();
-
-    Delay(const Delay&) = delete;
-    Delay& operator=(const Delay&) = delete;
-    Delay(Delay&&) = default;
-    Delay& operator=(Delay&&) = default;
-
     /** @brief Clears the delay line, resetting the internal buffer. The delay value remains unchanged. */
     void Clear();
 

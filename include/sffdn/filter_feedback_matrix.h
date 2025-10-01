@@ -13,32 +13,42 @@
 
 namespace sfFDN
 {
+
+/** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
+ */
+struct CascadedFeedbackMatrixInfo
+{
+    uint32_t channel_count;       /**< Number of channels */
+    uint32_t stage_count;         /**< Number of stages */
+    std::vector<uint32_t> delays; /**< Delays, size: stage_count x N */
+    std::vector<float> matrices;  /**< Feedback matrices, size: K x N x N */
+};
+
 /**
  * @brief A filter feedback matrix processor.
  * This processor implements a filter feedback matrix as described in [1]
  *
- * Structure: Input──[D₁]──[U₁]──[D₂]──[U₂]──...──[Dₖ]──[Uₖ]──Output
+ * Structure: Input──[D₀]──[U₁]──[D₂]──[U₂]──...──[Uₖ]──[Dₖ]──Output
  * Where: Dᵢ = delay bank, Uᵢ = mixing matrix, K = number of stages
  *
  * [1] S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks,” IEEE/ACM Transactions on Audio,
- Speech, and Language Processing, vol. 28, June 2020.
+ * Speech, and Language Processing, vol. 28, June 2020.
+ *
+ * @ingroup AudioProcessors
  */
 class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
     /** @brief Constructs a filter feedback matrix with a specified number of channels.
-     * @param channel_count The number of channels (size of the square matrix).
+     * @param info The information structure containing channel and stage counts, delays, and matrices.
      */
-    FilterFeedbackMatrix(uint32_t channel_count);
+    FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info);
 
-    /**
-     * @brief Constructs the filter feedback matrix from the given delays and mixing matrices.
-     *
-     * @param delays A span of delay values for each channel.
-     * @param mixing_matrices A span of scalar feedback matrices
-     * The number of matrices must be equal to (delays.size() / channel_count).
-     */
-    void ConstructMatrix(std::span<const uint32_t> delays, std::span<const ScalarFeedbackMatrix> mixing_matrices);
+    ~FilterFeedbackMatrix() override = default;
+    FilterFeedbackMatrix(const FilterFeedbackMatrix& other);
+    FilterFeedbackMatrix& operator=(const FilterFeedbackMatrix& other);
+    FilterFeedbackMatrix(FilterFeedbackMatrix&& other) noexcept;
+    FilterFeedbackMatrix& operator=(FilterFeedbackMatrix&& other) noexcept;
 
     /**
      * @brief Processes the input audio buffer and produces the output audio buffer.
@@ -86,10 +96,8 @@ class FilterFeedbackMatrix : public AudioProcessor
 
   private:
     uint32_t channel_count_;
-    std::vector<DelayBank> delays_;
+    std::vector<DelayBank> delaybanks_;
     std::vector<ScalarFeedbackMatrix> matrix_;
 };
-
-std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info);
 
 } // namespace sfFDN

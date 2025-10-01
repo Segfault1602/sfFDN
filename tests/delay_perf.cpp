@@ -133,11 +133,11 @@ TEST_CASE("DelayBank_BlockSize")
     nanobench::Bench bench;
     bench.title("DelayBank Perf - Block Size");
     bench.batch(kInputSize);
-    bench.minEpochIterations(120);
     bench.relative(true);
 
     for (auto block_size : kBlockSizes)
     {
+        bench.minEpochIterations(std::min(100 * block_size, 1000));
         sfFDN::DelayBank delay_bank(kDelays, block_size);
 
         bench.run("DelayBank BlockSize " + std::to_string(block_size), [&] {

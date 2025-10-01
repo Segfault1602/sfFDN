@@ -14,12 +14,23 @@
 namespace sfFDN
 {
 
-/** @brief Implements a simple one pole filter with differential equation y(n) = b0*x(n) - a1*y(n-1) */
+/** @brief Implements a simple one pole filter with differential equation \f$y(n) = b_0x(n) - a_1y(n-1)\f$
+ * @ingroup AudioProcessors
+ */
 class OnePoleFilter : public AudioProcessor
 {
   public:
+    /** @brief Constructs a one pole filter. */
     OnePoleFilter();
 
+    /** @brief Sets the pole of the filter based on T60 times.
+     * @param dc The T60 time in seconds at DC (0 Hz).
+     * @param ny The T60 time in seconds at Nyquist frequency.
+     * @param delay The delay in samples for the delay line preceding the filter.
+     * @param sample_rate The sample rate in Hz.
+     *
+     * See sfFDN::GetOnePoleAbsorption.
+     */
     void SetT60s(float dc, float ny, uint32_t delay, float sample_rate);
 
     /**
@@ -86,7 +97,9 @@ class OnePoleFilter : public AudioProcessor
     std::array<float, 2> state_;
 };
 
-/** @brief Implements a simple allpass filter with differential equation y(n) = g*x(n) + x(n-1) -g*y(n-1) */
+/** @brief Implements a simple allpass filter with differential equation \f$y(n) = g*x(n) + x(n-1) -g*y(n-1)\f$
+ * @ingroup AudioProcessors
+ */
 class AllpassFilter : public AudioProcessor
 {
   public:
@@ -140,7 +153,9 @@ class AllpassFilter : public AudioProcessor
     float last_out_;
 };
 
-/** @brief Implements a cascade of biquad IIR filters. */
+/** @brief Implements a cascade of biquad IIR filters.
+ * @ingroup AudioProcessors
+ */
 class CascadedBiquads : public AudioProcessor
 {
   public:

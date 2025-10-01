@@ -1,10 +1,12 @@
 #include "sffdn/fdn.h"
 
-#include "array_math.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
+#include "sffdn/delay_utils.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
+
+#include "array_math.h"
 
 #include <algorithm>
 #include <cassert>
@@ -24,7 +26,8 @@ constexpr uint32_t kDefaultBlockSize = 64;
 namespace sfFDN
 {
 FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
-    : filter_bank_(nullptr)
+    : delay_bank_(GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random), block_size)
+    , filter_bank_(nullptr)
     , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(order))
     , order_(order)
     , block_size_(block_size == 0 ? kDefaultBlockSize : block_size)

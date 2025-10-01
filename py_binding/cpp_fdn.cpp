@@ -164,7 +164,7 @@ class PyFDN
                     auto matrix_span = std::span<float>(matrix_info.matrices.data(), matrix_info.matrices.size());
                     cascaded_info.matrices.assign(matrix_span.begin(), matrix_span.end());
 
-                    auto filter_matrix = sfFDN::MakeFilterFeedbackMatrix(cascaded_info);
+                    auto filter_matrix = std::make_unique<sfFDN::FilterFeedbackMatrix>(cascaded_info);
                     fdn_.SetFeedbackMatrix(std::move(filter_matrix));
                 }
             },

@@ -23,7 +23,7 @@ TEST_CASE("VelvetFFM")
     sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         kMatSize, kStageCount, kSparsity, sfFDN::ScalarMatrixType::Hadamard, kCascadeGain);
 
-    auto ffm = sfFDN::MakeFilterFeedbackMatrix(ffm_info);
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(ffm_info);
     REQUIRE(ffm != nullptr);
 }
 

@@ -15,6 +15,7 @@ namespace sfFDN
 
 /** @brief A single Schroeder allpass filter.
  * The allpass filter is implemented by cascading a feedback comb filter and a feedforward comb filter.
+ * @ingroup AudioProcessors
  */
 class SchroederAllpass
 {

@@ -10,7 +10,6 @@
 #include <span>
 #include <vector>
 
-
 namespace sfFDN
 {
 template <typename T>

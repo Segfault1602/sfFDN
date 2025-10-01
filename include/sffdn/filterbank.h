@@ -11,7 +11,9 @@
 
 namespace sfFDN
 {
-/** @brief Implements a bank of filters. */
+/** @brief Implements a bank of filters.
+ * @ingroup AudioProcessors
+ */
 class FilterBank : public AudioProcessor
 {
   public:
@@ -59,6 +61,7 @@ class FilterBank : public AudioProcessor
 /** @brief Implements a bank of IIR filters.
  * On MacOS, this uses the Accelerate framework for optimized processing.
  * On other platforms, this is equivalent to using a FilterBank with CascadedBiquads filters.
+ * @ingroup AudioProcessors
  */
 class IIRFilterBank : public AudioProcessor
 {

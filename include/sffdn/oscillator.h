@@ -15,13 +15,17 @@ class Generator
     virtual void Generate(std::span<float> output) = 0;
 };
 
-/** @brief A sine wave oscillator. */
+/** @brief A sine wave oscillator.
+ * The output of the oscillator is given by: output = (sin(phase) * amplitude) + offset
+ */
 class SineWave : public Generator
 {
   public:
     /** @brief Constructs a sine wave oscillator.
      * @param frequency The frequency of the sine wave in, normalized [0, 1].
      * @param initial_phase The initial phase of the sine wave, normalized [0, 1].
+     *
+     * The normalized frequency is obtained by dividing the desired frequency in Hz by the sample rate.
      */
     SineWave(float frequency = 0.0f, float initial_phase = 0.0f);
 
@@ -38,15 +42,21 @@ class SineWave : public Generator
      */
     void SetAmplitude(float amplitude);
 
+    /** @brief Returns the amplitude of the sine wave oscillator.
+     * @return The amplitude of the sine wave oscillator.
+     */
+    float GetAmplitude() const;
+
     /** @brief Sets the DC offset of the sine wave oscillator.
      * @param offset The offset of the sine wave.
+     *
+     * The offset is a scalar value added to the output of the sine wave.
      */
     void SetOffset(float offset);
 
-    /** @brief Returns the amplitude of the sine wave oscillator. */
-    float GetAmplitude() const;
-
-    /** @brief Returns the DC offset of the sine wave oscillator. */
+    /** @brief Returns the DC offset of the sine wave oscillator.
+     * @return The DC offset of the sine wave oscillator.
+     */
     float GetOffset() const;
 
     /** @brief Returns the next output sample without advancing the phase. */

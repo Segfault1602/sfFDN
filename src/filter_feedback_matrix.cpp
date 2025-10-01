@@ -20,38 +20,73 @@ constexpr uint32_t kDefaultBlockSize = 1024; // Default block size for delay ban
 
 namespace sfFDN
 {
-FilterFeedbackMatrix::FilterFeedbackMatrix(uint32_t channel_count)
-    : channel_count_(channel_count)
+FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
+    : channel_count_(info.channel_count)
 {
-    delays_.clear();
-    matrix_.clear();
+    delaybanks_.reserve(info.stage_count);
+    matrix_.reserve(info.stage_count);
+
+    assert(info.delays.size() == (info.stage_count + 1) * channel_count_);
+    assert(info.matrices.size() == info.stage_count * channel_count_ * channel_count_);
+
+    auto delay_span = std::span(info.delays);
+
+    for (uint32_t i = 0; i < info.stage_count; ++i)
+    {
+        auto stage_delays = delay_span.subspan(i * channel_count_, channel_count_);
+        delaybanks_.emplace_back(stage_delays, kDefaultBlockSize);
+    }
+
+    auto all_matrices_span = std::span(info.matrices);
+    const uint32_t matrix_size = channel_count_ * channel_count_;
+    for (uint32_t i = 0; i < info.stage_count; ++i)
+    {
+        std::span<const float> matrix_span = all_matrices_span.subspan(i * matrix_size, matrix_size);
+        matrix_.emplace_back(channel_count_, matrix_span);
+    }
+}
+
+FilterFeedbackMatrix::FilterFeedbackMatrix(const FilterFeedbackMatrix& other)
+    : channel_count_(other.channel_count_)
+    , delaybanks_(other.delaybanks_)
+    , matrix_(other.matrix_)
+{
+}
+
+FilterFeedbackMatrix& FilterFeedbackMatrix::operator=(const FilterFeedbackMatrix& other)
+{
+    if (this != &other)
+    {
+        channel_count_ = other.channel_count_;
+        delaybanks_ = other.delaybanks_;
+        matrix_ = other.matrix_;
+    }
+    return *this;
+}
+
+FilterFeedbackMatrix::FilterFeedbackMatrix(FilterFeedbackMatrix&& other) noexcept
+    : channel_count_(other.channel_count_)
+    , delaybanks_(std::move(other.delaybanks_))
+    , matrix_(std::move(other.matrix_))
+{
+}
+
+FilterFeedbackMatrix& FilterFeedbackMatrix::operator=(FilterFeedbackMatrix&& other) noexcept
+{
+    if (this != &other)
+    {
+        channel_count_ = other.channel_count_;
+        delaybanks_ = std::move(other.delaybanks_);
+        matrix_ = std::move(other.matrix_);
+    }
+    return *this;
 }
 
 void FilterFeedbackMatrix::Clear()
 {
-    for (auto& delay : delays_)
+    for (auto& delay : delaybanks_)
     {
         delay.Clear();
-    }
-}
-
-void FilterFeedbackMatrix::ConstructMatrix(std::span<const uint32_t> delays,
-                                           std::span<const ScalarFeedbackMatrix> mixing_matrices)
-{
-    const uint32_t num_stages = (delays.size() / channel_count_) - 1;
-    assert(mixing_matrices.size() == num_stages);
-
-    delays_.reserve(num_stages + 1);
-    matrix_.reserve(mixing_matrices.size());
-    for (uint32_t i = 0; i < num_stages + 1; ++i)
-    {
-        auto stage_delays = delays.subspan(i * channel_count_, channel_count_);
-        delays_.emplace_back(stage_delays, kDefaultBlockSize);
-    }
-
-    for (const auto& mixing_matrix : mixing_matrices)
-    {
-        matrix_.emplace_back(mixing_matrix);
     }
 }
 
@@ -61,25 +96,28 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == channel_count_);
     assert(output.ChannelCount() == channel_count_);
 
-    if (!delays_.empty())
+    if (!delaybanks_.empty())
     {
         // Apply first stage
-        delays_[0].Process(input, output);
+        delaybanks_[0].Process(input, output);
         matrix_[0].Process(output, output);
 
         for (uint32_t i = 1; i < matrix_.size(); ++i)
         {
-            delays_[i].Process(output, output);
+            delaybanks_[i].Process(output, output);
             matrix_[i].Process(output, output);
         }
+
+        // Process last delay stage
+        delaybanks_.back().Process(output, output);
     }
 }
 
 void FilterFeedbackMatrix::PrintInfo() const
 {
     std::println("FilterFeedbackMatrix Info:");
-    std::println("Number of stages: {}", delays_.size());
-    for (const auto& delay : delays_)
+    std::println("Number of stages: {}", delaybanks_.size());
+    for (const auto& delay : delaybanks_)
     {
         auto delays = delay.GetDelays();
         std::println("Delays: [");
@@ -110,51 +148,9 @@ bool FilterFeedbackMatrix::GetFirstMatrix(std::span<float> matrix) const
     return matrix_[0].GetMatrix(matrix);
 }
 
-std::unique_ptr<FilterFeedbackMatrix> MakeFilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
-{
-    if (info.delays.size() % info.channel_count != 0)
-    {
-        std::println(std::cerr, "Delays size must be a multiple of channel_count.");
-        return nullptr;
-    }
-
-    if (info.delays.size() / info.channel_count != info.stage_count + 1)
-    {
-        std::println(std::cerr, "Delays size does not match the expected number of stages.");
-        return nullptr;
-    }
-
-    if (info.matrices.size() != info.stage_count * info.channel_count * info.channel_count)
-    {
-        std::println(std::cerr, "Matrices size does not match the expected size for stage_count stages.");
-        return nullptr;
-    }
-
-    std::vector<sfFDN::ScalarFeedbackMatrix> feedback_matrices;
-    auto all_matrices_span = std::span(info.matrices);
-    for (auto i = 0u; i < info.stage_count; i++)
-    {
-        std::span<const float> matrix_span = all_matrices_span.subspan(i * info.channel_count * info.channel_count,
-                                                                       info.channel_count * info.channel_count);
-        sfFDN::ScalarFeedbackMatrix feedback_matrix(info.channel_count);
-        feedback_matrix.SetMatrix(matrix_span);
-        feedback_matrices.push_back(feedback_matrix);
-    }
-    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info.channel_count);
-    ffm->ConstructMatrix(info.delays, feedback_matrices);
-    return ffm;
-}
-
 std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
 {
-    auto clone = std::make_unique<FilterFeedbackMatrix>(channel_count_);
-
-    for (const auto& delay : delays_)
-    {
-        clone->delays_.emplace_back(delay.GetDelays(), kDefaultBlockSize);
-    }
-
-    clone->matrix_ = matrix_;
+    auto clone = std::make_unique<FilterFeedbackMatrix>(*this);
     return clone;
 }
 

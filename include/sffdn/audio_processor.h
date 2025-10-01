@@ -10,6 +10,10 @@
 
 namespace sfFDN
 {
+/** @defgroup AudioProcessors Audio Processors
+ * @brief Classes for audio processing.
+ */
+
 /** @brief Base class for audio processors.
  * An AudioProcessor processes audio samples and outputs the result, e.g., applying effects or transformations.
  */

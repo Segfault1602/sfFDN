@@ -11,40 +11,10 @@
 
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32_t stage_count, uint32_t sparsity)
 {
-    assert(mat_size <= 32);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-1.f, 1.f);
+    sfFDN::CascadedFeedbackMatrixInfo info = sfFDN::ConstructCascadedFeedbackMatrix(
+        mat_size, stage_count, static_cast<float>(sparsity), sfFDN::ScalarMatrixType::Hadamard, 1.0f);
 
-    std::vector<float> sparsity_vect(stage_count, 1);
-    sparsity_vect[0] = sparsity;
-
-    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(mat_size);
-
-    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices(stage_count);
-    for (uint32_t i = 0; i < stage_count; ++i)
-    {
-        mixing_matrices[i] = sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::RandomHouseholder);
-    }
-
-    std::uniform_real_distribution<float> dis2(0.f, 1.f);
-    std::vector<uint32_t> ffm_delays;
-    float pulse_size = 1;
-    for (uint32_t k = 0; k < stage_count + 1; ++k)
-    {
-        float sparsity_factor = (k == 0) ? sparsity : 1;
-        for (uint32_t i = 0; i < mat_size; ++i)
-        {
-            float random = dis2(gen);
-            float shift = std::floor(sparsity_factor * (i + random));
-            shift *= pulse_size;
-            ffm_delays.push_back(static_cast<uint32_t>(shift));
-        }
-        pulse_size = pulse_size * mat_size * sparsity_factor;
-    }
-
-    ffm->ConstructMatrix(ffm_delays, mixing_matrices);
-
+    auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info);
     return ffm;
 }
 

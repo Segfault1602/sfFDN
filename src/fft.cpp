@@ -93,7 +93,14 @@ FFT::FFT(uint32_t fft_size)
         throw std::runtime_error(std::format("FFT size ({}) is unsuitable for PFFFT", fft_size_));
     }
 
-    work_buffer_ = static_cast<float*>(pffft_aligned_malloc(fft_size * sizeof(float)));
+    if (fft_size_ > 4096)
+    {
+        work_buffer_ = static_cast<float*>(pffft_aligned_malloc(fft_size * sizeof(float)));
+    }
+    else
+    {
+        work_buffer_ = nullptr;
+    }
 }
 
 FFT::~FFT()

@@ -14,6 +14,8 @@ namespace sfFDN
  * [1] S. J. Schlecht and E. A. P. Habets, "Dense Reverberation with Delay Feedback Matrices," in 2019 IEEE Workshop on
  * Applications of Signal Processing to Audio and Acoustics (WASPAA), Oct. 2019, pp. 150–154.
  * doi: 10.1109/WASPAA.2019.8937284.
+ *
+ * @ingroup AudioProcessors
  */
 class DelayMatrix : public AudioProcessor
 {
@@ -26,8 +28,8 @@ class DelayMatrix : public AudioProcessor
 
     ~DelayMatrix() override;
 
-    DelayMatrix(const DelayMatrix&) = delete;
-    DelayMatrix& operator=(const DelayMatrix&) = delete;
+    DelayMatrix(const DelayMatrix&);
+    DelayMatrix& operator=(const DelayMatrix&);
 
     DelayMatrix(DelayMatrix&&) noexcept;
     DelayMatrix& operator=(DelayMatrix&&) noexcept;

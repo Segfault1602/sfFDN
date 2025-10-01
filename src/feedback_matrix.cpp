@@ -75,6 +75,7 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
 
         Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
         Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
+
         // The input and output buffers must not overlap
         // This is a requirement to avoid memory allocation in Eigen by using noalias()
         if (input.Data() != output.Data())
@@ -99,11 +100,6 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
     float GetCoefficient(uint32_t row, uint32_t col) const
     {
         return matrix_data_[(row * order_) + col];
-    }
-
-    std::unique_ptr<ScalarFeedbackMatrixImpl> Clone() const
-    {
-        return std::make_unique<ScalarFeedbackMatrixImpl>(*this);
     }
 
     uint32_t InputChannelCount() const
@@ -134,14 +130,14 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, std::span<const float
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other)
 {
-    impl_ = other.impl_->Clone();
+    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(*other.impl_);
 }
 
 ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(const ScalarFeedbackMatrix& other)
 {
     if (this != &other)
     {
-        impl_ = other.impl_->Clone();
+        impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(*other.impl_);
     }
     return *this;
 }
@@ -211,8 +207,7 @@ void ScalarFeedbackMatrix::Clear()
 
 std::unique_ptr<AudioProcessor> ScalarFeedbackMatrix::Clone() const
 {
-    auto clone = std::make_unique<ScalarFeedbackMatrix>();
-    clone->impl_ = impl_->Clone();
+    auto clone = std::make_unique<ScalarFeedbackMatrix>(*this);
     return clone;
 }
 
