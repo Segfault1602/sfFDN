@@ -109,7 +109,7 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
         }
 
         // Process last delay stage
-        delaybanks_.back().Process(output, output);
+        // delaybanks_.back().Process(output, output);
     }
 }
 
