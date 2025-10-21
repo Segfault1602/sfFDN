@@ -1,11 +1,13 @@
 #include "sffdn/delay.h"
 
+#include "array_math.h"
 #include "sffdn/audio_buffer.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <ranges>
 #include <span>
 #include <vector>
 
@@ -172,7 +174,7 @@ bool Delay::AddNextInputs(std::span<const float> input)
     const uint32_t available_space = buffer_1.size() + buffer_2.size();
     if (available_space < input.size())
     {
-        std::cerr << "Delay::Tick: Not enough space in buffer to write input data!\n";
+        std::cerr << "Delay::AddNextInputs: Not enough space in buffer to write input data!\n";
         assert(false);
         return false;
     }
@@ -237,6 +239,58 @@ void Delay::GetNextOutputs(std::span<float> output)
 
     out_point_ = (out_point_ + output.size()) % buffer_.size();
     last_frame_ = output.back();
+}
+
+void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, std::span<float> coeffs)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    assert(taps.size() == coeffs.size());
+
+    for (auto [delay, coeff] : std::views::zip(taps, coeffs))
+    {
+        // read chases write
+        int tap_point = (in_point_ + buffer_.size() - delay) % buffer_.size();
+        tap_point -= output.size();
+        while (tap_point < 0)
+        {
+            tap_point += buffer_.size();
+        }
+        std::span<float> buffer_1{};
+        std::span<float> buffer_2{};
+
+        if (tap_point > in_point_)
+        {
+            buffer_1 = buffer_span.subspan(tap_point);
+            buffer_2 = buffer_span.subspan(0, in_point_);
+        }
+        else
+        {
+            buffer_1 = buffer_span.subspan(tap_point, in_point_ - tap_point);
+            buffer_2 = {};
+        }
+
+        // Check that we have enough data to read from
+        const uint32_t available_space = buffer_1.size() + buffer_2.size();
+        if (available_space < output.size())
+        {
+            std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
+            assert(false);
+            return;
+        }
+
+        if (buffer_1.size() >= output.size())
+        {
+            ArrayMath::ScaleAccumulate(buffer_1.first(output.size()), coeff, output);
+        }
+        else
+        {
+            ArrayMath::ScaleAccumulate(buffer_1, coeff, output.first(buffer_1.size()));
+            ArrayMath::ScaleAccumulate(buffer_2.first(output.size() - buffer_1.size()), coeff,
+                                       output.subspan(buffer_1.size()));
+        }
+    }
+    out_point_ = (out_point_ + output.size()) % buffer_.size();
 }
 
 } // namespace sfFDN

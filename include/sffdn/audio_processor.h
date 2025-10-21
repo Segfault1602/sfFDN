@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_buffer.h"
+
 #include <cstdint>
 #include <memory>
 #include <vector>
-
-#include "audio_buffer.h"
 
 namespace sfFDN
 {
@@ -32,8 +32,7 @@ class AudioProcessor
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      */
-    virtual void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
-        [[clang::nonblocking]] [[clang::nonallocating]] = 0;
+    virtual void Process(const AudioBuffer& input, AudioBuffer& output) noexcept = 0;
 
     /** @brief Returns the number of input channels this processor expects. */
     virtual uint32_t InputChannelCount() const = 0;
@@ -72,6 +71,10 @@ class AudioProcessorChain : public AudioProcessor
      * does not match the input channel count of the new processor.
      */
     bool AddProcessor(std::unique_ptr<AudioProcessor>&& processor);
+
+    uint32_t GetProcessorCount() const;
+
+    AudioProcessor* GetProcessor(uint32_t index) const;
 
     /** @brief Processes the audio buffers through the chain.
      * @param input The input audio buffer.

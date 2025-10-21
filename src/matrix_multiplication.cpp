@@ -3,14 +3,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <span>
-
-#ifdef __cpp_lib_mdspan
 #include <mdspan>
-#else
-#pragma message(                                                                                                       \
-    "C++23 mdspan support is required for matrix multiplication. Please enable C++20 in your compiler settings.")
-#endif
+#include <span>
 
 namespace
 {

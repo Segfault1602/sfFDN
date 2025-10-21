@@ -36,13 +36,6 @@ TEST_CASE("Accumulate", "[ArrayMath]")
         nanobench::doNotOptimizeAway(out);
     });
 
-    bench.run("ScaleAdd", [&] {
-        sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
-        nanobench::doNotOptimizeAway(a);
-        nanobench::doNotOptimizeAway(b);
-        nanobench::doNotOptimizeAway(out);
-    });
-
     bench.run("ScaleAccumulate", [&] {
         sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, b);
         nanobench::doNotOptimizeAway(a);

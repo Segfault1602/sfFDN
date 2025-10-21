@@ -19,11 +19,6 @@ void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> 
     vDSP_vsmul(a.data(), 1, &b, out.data(), 1, a.size());
 }
 
-void ArrayMath::ScaleAdd(std::span<const float> a, const float b, std::span<const float> c, std::span<float> out)
-{
-    vDSP_vsma(a.data(), 1, &b, c.data(), 1, out.data(), 1, a.size());
-}
-
 void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out)
 {
     vDSP_vsma(a.data(), 1, &b, out.data(), 1, out.data(), 1, a.size());

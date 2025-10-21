@@ -1,12 +1,12 @@
 #include "sffdn/fdn.h"
 
+#include "array_math.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_utils.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 
-#include "array_math.h"
 
 #include <algorithm>
 #include <cassert>

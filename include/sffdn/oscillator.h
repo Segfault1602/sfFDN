@@ -1,6 +1,8 @@
+// Copyright (C) 2025 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
 #pragma once
 
-#include "sffdn/audio_buffer.h"
+#include "audio_buffer.h"
 
 namespace sfFDN
 {
@@ -58,6 +60,11 @@ class SineWave : public Generator
      * @return The DC offset of the sine wave oscillator.
      */
     float GetOffset() const;
+
+    /** @brief Sets the phase offset of the sine wave oscillator.
+     * @param phase_offset The phase offset, normalized [0, 1].
+     */
+    void SetPhaseOffset(float phase_offset);
 
     /** @brief Returns the next output sample without advancing the phase. */
     float NextOut() const;

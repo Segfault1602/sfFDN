@@ -8,6 +8,9 @@
 #include "filter_coeffs.h"
 #include "test_utils.h"
 
+#include <iostream>
+#include <random>
+
 #ifdef __APPLE__
 #include <Accelerate/accelerate.h>
 #endif
@@ -162,13 +165,90 @@ TEST_CASE("CascadedBiquadsPerf")
 
     nanobench::Bench bench;
     bench.title("CascadedBiquads perf");
-    bench.batch(kBlockSize);
+    // bench.batch(kBlockSize);
     bench.minEpochIterations(20000);
+    bench.timeUnit(1us, "us");
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
+}
+
+TEST_CASE("FirFilter")
+{
+    nanobench::Bench bench;
+    bench.title("Fir perf");
+    bench.minEpochIterations(10000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kFirSizes = {16, 32, 64, 128, 256};
+    sfFDN::RNG rng;
+
+    for (const auto& fir_size : kFirSizes)
+    {
+        std::vector<float> ir(fir_size, 0.f);
+        for (auto& coeff : ir)
+        {
+            coeff = rng();
+        }
+        sfFDN::Fir filter;
+        filter.SetCoefficients(ir);
+
+        constexpr uint32_t kSize = 128;
+        std::array<float, kSize> input = {0.f};
+        input[0] = 1.f;
+        std::array<float, kSize> output{};
+
+        sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+
+        bench.run("Fir - Size " + std::to_string(fir_size), [&] { filter.Process(input_buffer, output_buffer); });
+    }
+}
+
+TEST_CASE("FirFilterSparse")
+{
+    nanobench::Bench bench;
+    bench.title("Fir sparse perf");
+    bench.minEpochIterations(10000);
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+
+    constexpr std::array kFirSizes = {64, 128, 256, 512, 1024, 2048, 4096, 8192};
+    constexpr uint32_t kFirTapCount = 32;
+    sfFDN::RNG rng;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    for (const auto& fir_size : kFirSizes)
+    {
+        std::uniform_int_distribution<> distribution(0, fir_size - 1);
+        std::vector<float> ir;
+        std::vector<uint32_t> indices;
+
+        for (auto i = 0u; i < kFirTapCount; i++)
+        {
+            ir.push_back(rng());
+            auto idx = distribution(gen);
+            indices.insert(std::upper_bound(indices.begin(), indices.end(), idx), idx);
+        }
+
+        sfFDN::SparseFir filter;
+        filter.SetCoefficients(ir, indices);
+
+        constexpr uint32_t kSize = 128;
+        std::array<float, kSize> input = {0.f};
+        input[0] = 1.f;
+        std::array<float, kSize> output{};
+
+        sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+
+        bench.run("Fir - Size " + std::to_string(fir_size), [&] { filter.Process(input_buffer, output_buffer); });
+    }
 }
 
 TEST_CASE("ParallelSchroederAllpassSection")

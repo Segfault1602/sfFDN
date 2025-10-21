@@ -15,16 +15,54 @@
 
 TEST_CASE("VelvetFFM")
 {
-    constexpr uint32_t kStageCount = 2;
-    constexpr float kSparsity = 2.f;
+    constexpr uint32_t kStageCount = 0;
+    constexpr float kSparsity = 3.f;
     constexpr uint32_t kMatSize = 4;
     constexpr float kCascadeGain = 1.f;
 
     sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         kMatSize, kStageCount, kSparsity, sfFDN::ScalarMatrixType::Hadamard, kCascadeGain);
 
+    REQUIRE(ffm_info.channel_count == kMatSize);
+    REQUIRE(ffm_info.stage_count == kStageCount);
+    REQUIRE(ffm_info.delays.size() == kStageCount);
+    REQUIRE(ffm_info.matrices.size() == kStageCount + 1);
+
+    // Print delays
+    for (auto i = 0u; i < ffm_info.delays.size(); ++i)
+    {
+        auto stage_delays = ffm_info.delays[i];
+        for (auto d : stage_delays)
+        {
+            std::cout << d << " ";
+        }
+        std::cout << "\n";
+    }
+
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(ffm_info);
     REQUIRE(ffm != nullptr);
+
+    constexpr uint32_t kBlockSize = 16;
+    std::vector<float> input_buffer_data(kMatSize * kBlockSize, 0.f);
+    std::vector<float> output_buffer_data(kMatSize * kBlockSize, 0.f);
+
+    // Impulse input
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input_buffer_data);
+    input_buffer.GetChannelSpan(0)[0] = 1.f;
+
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output_buffer_data);
+
+    ffm->Process(input_buffer, output_buffer);
+
+    for (auto i = 0u; i < kMatSize; ++i)
+    {
+        std::cout << "Output Channel " << i << ": ";
+        for (auto j = 0u; j < kBlockSize; ++j)
+        {
+            std::cout << output_buffer.GetChannelSpan(i)[j] << " ";
+        }
+        std::cout << "\n";
+    }
 }
 
 TEST_CASE("VariableDiffusionMatrix")

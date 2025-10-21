@@ -5,8 +5,6 @@
 #include <cstdint>
 #include <span>
 
-// #include <pffft.h>
-
 struct PFFFT_Setup;
 
 using complex_t = std::complex<float>;

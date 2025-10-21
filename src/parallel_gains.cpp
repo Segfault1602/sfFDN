@@ -1,5 +1,6 @@
 #include <algorithm>
 
+#include "array_math.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/parallel_gains.h"
@@ -9,8 +10,6 @@
 #include <memory>
 #include <span>
 #include <vector>
-
-#include "array_math.h"
 
 namespace sfFDN
 {

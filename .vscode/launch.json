@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/tests/sfFDN.tests",
             "args": [
-                "IIRFilterBank"
+                "DelayMultiTap"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

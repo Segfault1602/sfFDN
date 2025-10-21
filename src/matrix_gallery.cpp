@@ -1,6 +1,12 @@
 #include "sffdn/matrix_gallery.h"
 
+#include "matrix_gallery_internal.h"
 #include "sffdn/filter_feedback_matrix.h"
+
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
+#include <Eigen/QR>
+#include <kiss_fft.h>
 
 #include <algorithm>
 #include <cassert>
@@ -14,13 +20,6 @@
 #include <span>
 #include <utility>
 #include <vector>
-
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
-#include <Eigen/QR>
-#include <kiss_fft.h>
-
-#include "matrix_gallery_internal.h"
 
 // Most, if not all, of these matrix generation functions are based on the implementation found in the excellent FDN
 // toolbox https://github.com/SebastianJiroSchlecht/fdnToolbox/blob/master/Generate/fdnMatrixGallery.m
@@ -499,12 +498,15 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         sparsity = 1.f;
     }
 
-    std::vector<uint32_t> delays;
+    std::vector<std::vector<uint32_t>> delays;
     std::vector<Eigen::MatrixXf> matrices;
+
+    const Eigen::MatrixXf r0 = GenerateMatrixInternal(channel_count, type, 0);
+    matrices.push_back(r0);
 
     float pulse_size = 1.f;
 
-    Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(stage_count);
+    Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(stage_count + 1);
     sparsity_vec[0] = sparsity;
 
     for (auto i = 0u; i < stage_count; ++i)
@@ -512,40 +514,38 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(channel_count, sparsity_vec[i], pulse_size);
 
         const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(Eigen::pow(gain_per_samples, shift_left).matrix());
-        const Eigen::MatrixXf r1 = GenerateMatrixInternal(channel_count, type, 0) * g1;
+        const Eigen::MatrixXf r1 = r0 * g1;
 
         pulse_size = pulse_size * channel_count * sparsity_vec[i];
 
         matrices.push_back(r1);
+        std::vector<uint32_t> delays_stage;
         for (auto d : shift_left)
         {
-            delays.push_back(static_cast<uint32_t>(d));
+            delays_stage.push_back(static_cast<uint32_t>(d));
         }
-    }
-
-    // Add the last delay stage
-    const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(channel_count, sparsity_vec[stage_count - 1], pulse_size);
-    for (auto d : shift_left)
-    {
-        delays.push_back(static_cast<uint32_t>(d));
+        delays.push_back(delays_stage);
     }
 
     CascadedFeedbackMatrixInfo info;
     info.channel_count = channel_count;
     info.stage_count = stage_count;
     info.delays = delays;
-    info.matrices.reserve(matrices.size() * channel_count * channel_count);
+    info.matrices.reserve(matrices.size());
 
     // Flatten the matrices into a single vector, column-major order
     for (const auto& matrix : matrices)
     {
+        std::vector<float> flat_matrix;
+        flat_matrix.reserve(channel_count * channel_count);
         for (auto i = 0u; i < channel_count; ++i)
         {
             for (auto j = 0u; j < channel_count; ++j)
             {
-                info.matrices.push_back(matrix(i, j));
+                flat_matrix.push_back(matrix(i, j));
             }
         }
+        info.matrices.push_back(flat_matrix);
     }
 
     return info;

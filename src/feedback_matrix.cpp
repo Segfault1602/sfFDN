@@ -2,6 +2,7 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
+#include "sffdn/matrix_gallery.h"
 
 #include <algorithm>
 #include <cassert>
@@ -13,8 +14,6 @@
 #include <span>
 #include <utility>
 #include <vector>
-
-#include "sffdn/matrix_gallery.h"
 
 // #include <sanitizer/rtsan_interface.h>
 

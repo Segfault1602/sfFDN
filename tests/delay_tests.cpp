@@ -89,6 +89,27 @@ TEST_CASE("DelayTapOut")
     }
 }
 
+TEST_CASE("DelayMultiTap")
+{
+    sfFDN::Delay delay(8, 64);
+
+    constexpr uint32_t kBlockSize = 32;
+    std::vector<float> input_block(kBlockSize, 0.f);
+    input_block[0] = 1.f;
+
+    delay.AddNextInputs(input_block);
+
+    std::vector<uint32_t> taps = {0, 2, 4, 6, 8, 16};
+    std::vector<float> coeffs(taps.size(), 1.f);
+    std::vector<float> output_block(kBlockSize, 0.f);
+    delay.GetNextOutputsAt(taps, output_block, coeffs);
+
+    for (auto i : output_block)
+    {
+        std::cout << i << ", ";
+    }
+}
+
 TEST_CASE("ZeroDelay")
 {
     sfFDN::Delay delay(0, 10);

@@ -6,6 +6,9 @@
 #include "sffdn/filterbank.h"
 #include "sffdn/parallel_gains.h"
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -21,9 +24,6 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-
-#include <Eigen/Core>
-#include <Eigen/Dense>
 
 namespace
 {
@@ -217,28 +217,14 @@ std::vector<double> Aceq(std::span<const double> diff_mag, std::span<const doubl
     return sos;
 }
 
-std::vector<double> GetTwoFilterImpl(std::span<const double> t60s, double delay, double sr, double shelf_cutoff)
+std::vector<double> GetTwoFilterImpl(std::span<const double> gains, std::span<const double> freqs, double sr,
+                                     double shelf_cutoff)
 {
     constexpr size_t kNBands = 10;
 
-    if (t60s.size() != kNBands)
+    if (gains.size() != kNBands)
     {
-        throw std::runtime_error("t60s must have size " + std::to_string(kNBands));
-    }
-
-    std::vector<double> freqs(kNBands, 0.0);
-    constexpr double kUpperLimit = 16000.0f;
-    for (auto i = 0u; i < kNBands; ++i)
-    {
-        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(kNBands - 1 - i));
-    }
-
-    std::vector<double> gains(kNBands, 0.0f);
-    for (auto i = 0u; i < kNBands; ++i)
-    {
-        gains[i] = std::pow(10.0, -3.0 / t60s[i]);
-        gains[i] = std::pow(gains[i], delay / sr);
-        gains[i] = 20.0 * std::log10(gains[i]);
+        throw std::runtime_error("gains must have size " + std::to_string(kNBands));
     }
 
     std::vector<double> linear_gains(gains.size(), 0.0);
@@ -317,16 +303,43 @@ void GetOnePoleAbsorption(float t60_dc, float t60_ny, float sr, float delay, flo
 
 std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, double sr, double shelf_cutoff)
 {
-    return GetTwoFilterImpl(t60s, delay, sr, shelf_cutoff);
+    std::vector<double> gains(t60s.size(), 0.0f);
+    for (auto i = 0u; i < gains.size(); ++i)
+    {
+        gains[i] = std::pow(10.0, -3.0 / t60s[i]);
+        gains[i] = std::pow(gains[i], delay / sr);
+        gains[i] = 20.0 * std::log10(gains[i]);
+    }
+
+    std::vector<double> freqs(t60s.size(), 0.0);
+    constexpr double kUpperLimit = 16000.0f;
+    for (auto i = 0u; i < t60s.size(); ++i)
+    {
+        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(t60s.size() - 1 - i));
+    }
+
+    return GetTwoFilterImpl(gains, freqs, sr, shelf_cutoff);
 }
 
 std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff)
 {
     // The coefficients are computed in double precision, otherwise there is a significant loss of precision and the
     // filter is not as accurate as it could be.
-    std::vector<double> t60s_d(t60s.begin(), t60s.end());
-    std::vector<double> sos =
-        GetTwoFilterImpl(t60s_d, static_cast<double>(delay), static_cast<double>(sr), shelf_cutoff);
+    std::vector<double> gains(t60s.size(), 0.0f);
+    for (auto i = 0u; i < gains.size(); ++i)
+    {
+        gains[i] = std::pow(10.0, -3.0 / t60s[i]);
+        gains[i] = std::pow(gains[i], delay / sr);
+        gains[i] = 20.0 * std::log10(gains[i]);
+    }
+    std::vector<double> freqs(t60s.size(), 0.0);
+    constexpr double kUpperLimit = 16000.0f;
+    for (auto i = 0u; i < t60s.size(); ++i)
+    {
+        freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(t60s.size() - 1 - i));
+    }
+
+    std::vector<double> sos = GetTwoFilterImpl(gains, freqs, static_cast<double>(sr), shelf_cutoff);
 
     std::vector<float> sos_f(sos.begin(), sos.end());
 
@@ -340,60 +353,12 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
         throw std::runtime_error("mag and freqs must have size 10");
     }
 
-    constexpr size_t kNBands = 8;
-    std::vector<double> mag_d(mag.begin() + 1, mag.end() - 1);
-    std::vector<double> freqs_d(freqs.begin() + 1, freqs.end() - 1);
+    std::vector<double> gains(mag.begin(), mag.end());
+    std::vector<double> freqs_d(freqs.begin(), freqs.end());
 
-    // Low shelf
-    const double db_gains_low = mag[0];
-    const double wc_low = freqs[1] / sr;
-    constexpr double kQ = std::numbers::sqrt2 / 2;
-    auto low_shelf_sos = LowShelfRBJ<double>(wc_low, db_gains_low, kQ);
+    std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
 
-    auto b_coeffs = std::span<double>(low_shelf_sos).first(3);
-    auto a_coeffs = std::span<double>(low_shelf_sos).last(3);
-
-    std::vector<std::complex<double>> dig_w(kNBands);
-    for (size_t i = 0; i < kNBands; ++i)
-    {
-        dig_w[i] = std::exp(std::complex<double>(0.0, 1.0) * freqs_d[i] * (-2.0 * std::numbers::pi / sr));
-    }
-
-    std::array<double, kNBands> low_shelf_response{};
-    Freqz<double>(b_coeffs, a_coeffs, dig_w, low_shelf_response);
-
-    const double db_gains_high = mag[mag.size() - 1];
-    const double wc_high = freqs[freqs.size() - 2] / sr;
-    auto high_shelf_sos = HighShelfRBJ<double>(wc_high, db_gains_high, kQ);
-
-    b_coeffs = std::span<double>(high_shelf_sos).first(3);
-    a_coeffs = std::span<double>(high_shelf_sos).last(3);
-    std::array<double, kNBands> high_shelf_response{};
-    Freqz<double>(b_coeffs, a_coeffs, dig_w, high_shelf_response);
-
-    std::vector<double> diff_mag(mag_d.size(), 0.0);
-    for (auto i = 0u; i < mag_d.size(); ++i)
-    {
-        diff_mag[i] = mag_d[i] - 20 * std::log10(low_shelf_response.at(i)) - 20 * std::log10(high_shelf_response.at(i));
-    }
-
-    const std::vector<double> geq_sos = Aceq<8>(diff_mag, freqs_d, static_cast<double>(sr));
-
-    std::vector<float> sos_f;
-    sos_f.reserve((8 + 2) * 6);
-    for (auto coeff : low_shelf_sos)
-    {
-        sos_f.push_back(static_cast<float>(coeff));
-    }
-    for (auto coeff : geq_sos)
-    {
-        sos_f.push_back(static_cast<float>(coeff));
-    }
-    for (auto coeff : high_shelf_sos)
-    {
-        sos_f.push_back(static_cast<float>(coeff));
-    }
-
+    std::vector<float> sos_f(sos.begin(), sos.end());
     return sos_f;
 }
 

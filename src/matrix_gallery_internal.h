@@ -1,9 +1,9 @@
 #pragma once
 
+#include <Eigen/Core>
+
 #include <cstddef>
 #include <cstdint>
-
-#include <Eigen/Core>
 
 namespace sfFDN
 {

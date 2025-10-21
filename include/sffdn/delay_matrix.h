@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "sffdn/audio_processor.h"
+
 #include <cstdint>
 #include <span>
 
-#include "sffdn/feedback_matrix.h"
-
 namespace sfFDN
 {
+// Forward declaration
+class ScalarFeedbackMatrix;
+
 /** @brief DelayMatrix implementation as presented in [1].
  *
  * [1] S. J. Schlecht and E. A. P. Habets, "Dense Reverberation with Delay Feedback Matrices," in 2019 IEEE Workshop on

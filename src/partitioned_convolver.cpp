@@ -1,7 +1,9 @@
 #include "sffdn/partitioned_convolver.h"
 
+#include "circular_buffer.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
+#include "upols.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,9 +13,6 @@
 #include <span>
 #include <utility>
 #include <vector>
-
-#include "circular_buffer.h"
-#include "upols.h"
 
 namespace sfFDN
 {

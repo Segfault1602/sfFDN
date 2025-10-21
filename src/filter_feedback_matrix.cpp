@@ -24,25 +24,21 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& inf
     : channel_count_(info.channel_count)
 {
     delaybanks_.reserve(info.stage_count);
-    matrix_.reserve(info.stage_count);
+    matrix_.reserve(info.stage_count + 1);
 
-    assert(info.delays.size() == (info.stage_count + 1) * channel_count_);
-    assert(info.matrices.size() == info.stage_count * channel_count_ * channel_count_);
+    assert(info.delays.size() == info.stage_count);
+    assert(info.matrices.size() == info.stage_count + 1);
 
-    auto delay_span = std::span(info.delays);
-
-    for (uint32_t i = 0; i < info.stage_count; ++i)
+    for (uint32_t i = 0; i < info.delays.size(); ++i)
     {
-        auto stage_delays = delay_span.subspan(i * channel_count_, channel_count_);
+        auto stage_delays = info.delays[i];
         delaybanks_.emplace_back(stage_delays, kDefaultBlockSize);
     }
 
-    auto all_matrices_span = std::span(info.matrices);
-    const uint32_t matrix_size = channel_count_ * channel_count_;
-    for (uint32_t i = 0; i < info.stage_count; ++i)
+    for (uint32_t i = 0; i < info.matrices.size(); ++i)
     {
-        std::span<const float> matrix_span = all_matrices_span.subspan(i * matrix_size, matrix_size);
-        matrix_.emplace_back(channel_count_, matrix_span);
+        const std::vector<float>& matrix = info.matrices[i];
+        matrix_.emplace_back(channel_count_, matrix);
     }
 }
 
@@ -96,20 +92,13 @@ void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     assert(input.ChannelCount() == channel_count_);
     assert(output.ChannelCount() == channel_count_);
 
-    if (!delaybanks_.empty())
+    matrix_[0].Process(input, output);
+
+    assert(delaybanks_.size() + 1 == matrix_.size());
+    for (auto i = 0u; i < delaybanks_.size(); ++i)
     {
-        // Apply first stage
-        delaybanks_[0].Process(input, output);
-        matrix_[0].Process(output, output);
-
-        for (uint32_t i = 1; i < matrix_.size(); ++i)
-        {
-            delaybanks_[i].Process(output, output);
-            matrix_[i].Process(output, output);
-        }
-
-        // Process last delay stage
-        // delaybanks_.back().Process(output, output);
+        delaybanks_[i].Process(output, output);
+        matrix_[i + 1].Process(output, output);
     }
 }
 

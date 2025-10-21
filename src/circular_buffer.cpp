@@ -6,7 +6,6 @@
 #include <span>
 #include <vector>
 
-
 namespace sfFDN
 {
 CircularBuffer::CircularBuffer(uint32_t size)

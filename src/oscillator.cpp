@@ -70,6 +70,11 @@ float SineWave::GetOffset() const
     return offset_;
 }
 
+void SineWave::SetPhaseOffset(float phase_offset)
+{
+    phase_offset_ = phase_offset;
+}
+
 float SineWave::NextOut() const
 {
     return (Sine(phase_ + phase_offset_) * amplitude_) + offset_;

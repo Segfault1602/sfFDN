@@ -55,20 +55,6 @@ TEST_CASE("Scale")
     }
 }
 
-TEST_CASE("ScaleAdd")
-{
-    constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> b(kSize, 2.f);
-    std::vector<float> out(kSize, 0.f);
-
-    sfFDN::ArrayMath::ScaleAdd(a, 2.f, b, out);
-    for (auto i = 0u; i < kSize; ++i)
-    {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(4.f, 0.0001));
-    }
-}
-
 TEST_CASE("ScaleAccumulate")
 {
     constexpr uint32_t kSize = 1024;

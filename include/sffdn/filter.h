@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_processor.h"
+#include "delay.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
-
-#include "audio_processor.h"
 
 namespace sfFDN
 {
@@ -229,4 +230,113 @@ class CascadedBiquads : public AudioProcessor
     std::vector<IIRState> states_;
     std::vector<IIRCoeffs> coeffs_;
 };
+
+class Fir : public AudioProcessor
+{
+  public:
+    /** @brief Constructs a FIR filter. */
+    Fir() = default;
+
+    /** @brief Sets the FIR coefficients.
+     * @param coeffs The FIR coefficients.
+     */
+    void SetCoefficients(std::span<const float> coeffs);
+
+    /**
+     * @brief Input a sample in the filter and return the next output
+     * @param in The input sample
+     * @return The next output sample
+     */
+    float Tick(float in);
+
+    /** @brief Processes a block of input samples through the filter.
+     * @param input The input audio buffer.
+     * @param output The output audio buffer.
+     * The input and output buffers must have the same number of channels and sample count.
+     */
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    /** @brief Returns the number of input channels supported by this processor.
+     *
+     * @return The number of input channels.
+     */
+    uint32_t InputChannelCount() const override;
+
+    /** @brief Returns the number of output channels produced by this processor.
+     *
+     * @return The number of output channels.
+     */
+    uint32_t OutputChannelCount() const override;
+
+    /** @brief Clears the internal state of the processor.
+     * This function resets the internal state of the filter to zero.
+     */
+    void Clear() override;
+
+    /** @brief Creates a copy of the filter.
+     * @return A unique pointer to the cloned filter.
+     */
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+  private:
+    std::vector<float> coeffs_;
+    std::vector<float> delay_line_;
+    uint32_t delay_index_;
+};
+
+class SparseFir : public AudioProcessor
+{
+  public:
+    /** @brief Constructs a sparse FIR filter. */
+    SparseFir() = default;
+
+    /** @brief Sets the FIR coefficients.
+     * @param coeffs The FIR coefficients.
+     */
+    void SetCoefficients(std::span<const float> coeffs, std::span<const uint32_t> indices);
+
+    /**
+     * @brief Input a sample in the filter and return the next output
+     * @param in The input sample
+     * @return The next output sample
+     */
+    float Tick(float in);
+
+    /** @brief Processes a block of input samples through the filter.
+     * @param input The input audio buffer.
+     * @param output The output audio buffer.
+     * The input and output buffers must have the same number of channels and sample count.
+     */
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    /** @brief Returns the number of input channels supported by this processor.
+     *
+     * @return The number of input channels.
+     */
+    uint32_t InputChannelCount() const override;
+
+    /** @brief Returns the number of output channels produced by this processor.
+     *
+     * @return The number of output channels.
+     */
+    uint32_t OutputChannelCount() const override;
+
+    /** @brief Clears the internal state of the processor.
+     * This function resets the internal state of the filter to zero.
+     */
+    void Clear() override;
+
+    /** @brief Creates a copy of the filter.
+     * @return A unique pointer to the cloned filter.
+     */
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+  private:
+    std::vector<float> coeffs_;
+    Delay delay_line_;
+
+    std::vector<uint32_t> sparse_index_;
+    uint32_t filter_order_;
+};
+
 } // namespace sfFDN

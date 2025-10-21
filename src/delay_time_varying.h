@@ -1,8 +1,8 @@
 #pragma once
 
-#include <span>
-
 #include "sffdn/delaya.h"
+
+#include <span>
 
 namespace sfFDN
 {

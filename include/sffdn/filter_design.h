@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "filterbank.h"
+
 #include <cstdint>
 #include <span>
 #include <vector>
-
-#include "filterbank.h"
 
 namespace sfFDN
 {

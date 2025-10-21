@@ -52,6 +52,20 @@ bool AudioProcessorChain::AddProcessor(std::unique_ptr<AudioProcessor>&& process
     return true;
 }
 
+uint32_t AudioProcessorChain::GetProcessorCount() const
+{
+    return static_cast<uint32_t>(processors_.size());
+}
+
+AudioProcessor* AudioProcessorChain::GetProcessor(uint32_t index) const
+{
+    if (index >= processors_.size())
+    {
+        return nullptr;
+    }
+    return processors_[index].get();
+}
+
 void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     if (processors_.empty())
@@ -62,7 +76,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     assert(input.ChannelCount() == processors_.front()->InputChannelCount());
     assert(output.ChannelCount() == processors_.back()->OutputChannelCount());
     assert(input.SampleCount() == output.SampleCount());
-    assert(input.SampleCount() == block_size_);
+    assert(input.SampleCount() <= block_size_);
 
     if (processors_.size() == 1)
     {
@@ -71,7 +85,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 
     // Process the first audio processor
-    AudioBuffer buffer_a(block_size_, processors_[0]->OutputChannelCount(), work_buffer_a_);
+    AudioBuffer buffer_a(input.SampleCount(), processors_[0]->OutputChannelCount(), work_buffer_a_);
     processors_[0]->Process(input, buffer_a);
 
     std::span<float> ptr_a = work_buffer_a_;
@@ -80,16 +94,18 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     // Process the rest of the audio processors in the chain
     for (auto i = 1; i < processors_.size() - 1; ++i)
     {
-        const AudioBuffer buffer_in(block_size_, processors_[i]->InputChannelCount(), ptr_a);
-        AudioBuffer buffer_out(block_size_, processors_[i]->OutputChannelCount(), ptr_b);
+        const AudioBuffer buffer_in(input.SampleCount(), processors_[i]->InputChannelCount(), ptr_a);
+        AudioBuffer buffer_out(input.SampleCount(), processors_[i]->OutputChannelCount(), ptr_b);
+
         assert(processors_[i]->InputChannelCount() == buffer_in.ChannelCount());
         assert(processors_[i]->OutputChannelCount() == buffer_out.ChannelCount());
+
         processors_[i]->Process(buffer_in, buffer_out);
         std::swap(ptr_a, ptr_b);
     }
 
     // Process the last audio processor
-    const AudioBuffer buffer_in(block_size_, processors_.back()->InputChannelCount(), ptr_a);
+    const AudioBuffer buffer_in(input.SampleCount(), processors_.back()->InputChannelCount(), ptr_a);
     processors_.back()->Process(buffer_in, output);
 }
 

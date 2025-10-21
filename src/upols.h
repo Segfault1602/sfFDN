@@ -1,10 +1,10 @@
 #pragma once
 
+#include "fft.h"
+
 #include <cstddef>
 #include <span>
 #include <vector>
-
-#include "fft.h"
 
 namespace sfFDN
 {

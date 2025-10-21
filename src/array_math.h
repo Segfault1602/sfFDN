@@ -19,10 +19,6 @@ void Add(std::span<const float> a, std::span<const float> b, std::span<float> ou
 // out[i] = a[i] * b
 void Scale(std::span<const float> a, const float b, std::span<float> out);
 
-// Scales an array by a constant and adds another array
-// out[i] = a[i] * b + c[i]
-void ScaleAdd(std::span<const float> a, const float b, std::span<const float> c, std::span<float> out);
-
 // out[i] += a[i] * b
 void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out);
 

@@ -49,7 +49,8 @@ TEST_CASE("PartitionedConvolver")
 
     sfFDN::PartitionedConvolver partitioned_convolver(kBlockSize, fir);
 
-    InnerProdFIR inner_prod_fir(fir);
+    sfFDN::Fir fir_filter;
+    fir_filter.SetCoefficients(fir);
 
     std::vector<float> input(fir_length + kBlockSize, 0.f);
     input[0] = 1.f;
@@ -67,7 +68,7 @@ TEST_CASE("PartitionedConvolver")
     std::vector<float> output_fir(fir_length + kBlockSize, 0.f);
     output_fir[0] = 1.f;
     auto fir_buffer = sfFDN::AudioBuffer(fir_length + kBlockSize, 1, output_fir);
-    inner_prod_fir.Process(fir_buffer);
+    fir_filter.Process(fir_buffer, fir_buffer);
 
     float fir_energy = 0.f;
     float signal_error = 0.f;
@@ -91,7 +92,8 @@ TEST_CASE("PartitionedConvolver_Noise")
     auto ref_filter = CreateTestFilter();
     auto fir = GetImpulseResponse(ref_filter.get());
 
-    InnerProdFIR inner_prod_fir(fir);
+    sfFDN::Fir fir_filter;
+    fir_filter.SetCoefficients(fir);
 
     std::vector<float> input_chirp = ReadWavFile("./tests/data/chirp.wav");
     const uint32_t input_size = input_chirp.size();
@@ -100,8 +102,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     sfFDN::AudioBuffer input_buffer(input_size, 1, input_chirp);
     sfFDN::AudioBuffer ref_output_buffer(input_size, 1, filter_output);
 
-    std::ranges::copy(input_chirp, filter_output.begin());
-    inner_prod_fir.Process(ref_output_buffer);
+    fir_filter.Process(input_buffer, ref_output_buffer);
 
     sfFDN::PartitionedConvolver partitioned_convolver(kBlockSize, fir);
 

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_processor.h"
+#include "oscillator.h"
+
 #include <cstdint>
 #include <span>
 #include <vector>
-
-#include "audio_processor.h"
-#include "oscillator.h"
 
 namespace sfFDN
 {
@@ -159,7 +159,7 @@ class TimeVaryingParallelGains : public AudioProcessor
     void GetCenterGains(std::span<float> gains) const;
 
     /** @brief Sets the LFO frequency for each channel.
-     * @param frequencies A span of LFO frequencies to apply to each channel.
+     * @param frequencies A span of LFO frequencies to apply to each channel. Frequencies are in cycles per sample.
      * The size of the span must be equal to InputChannelCount() for ParallelGainsMode::Merge.
      * The size of the span must be equal to OutputChannelCount() for ParallelGainsMode::Split.
      * The size of the span must be equal to InputChannelCount() and OutputChannelCount() for
@@ -177,6 +177,15 @@ class TimeVaryingParallelGains : public AudioProcessor
      * The amplitude is the peak deviation from the center gain.
      */
     void SetLfoAmplitude(std::span<const float> amplitudes);
+
+    /** @brief Sets the LFO phase offset for each channel.
+     * @param phase_offsets A span of LFO phase offsets to apply to each channel. Phase offsets are normalized [0, 1].
+     * The size of the span must be equal to InputChannelCount() for ParallelGainsMode::Merge.
+     * The size of the span must be equal to OutputChannelCount() for ParallelGainsMode::Split.
+     * The size of the span must be equal to InputChannelCount() and OutputChannelCount() for
+     * ParallelGainsMode::Parallel.
+     */
+    void SetLfoPhaseOffset(std::span<const float> phase_offsets);
 
     /** @brief Processes the audio buffer.
      * @param input The input audio buffer.

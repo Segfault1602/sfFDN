@@ -1,7 +1,6 @@
-#include <algorithm>
-
 #include "sffdn/delay_utils.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -9,7 +8,6 @@
 #include <numeric>
 #include <random>
 #include <vector>
-
 
 namespace
 {

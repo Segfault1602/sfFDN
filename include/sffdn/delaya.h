@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_buffer.h"
+#include "delay.h"
+#include "filter.h"
+
 #include <cstdint>
 #include <vector>
-
-#include "sffdn/audio_buffer.h"
-#include "sffdn/delay.h"
-#include "sffdn/filter.h"
 
 namespace sfFDN
 {

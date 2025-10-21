@@ -9,6 +9,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/sffdn.h"
 
+#include "rng.h"
+
 namespace
 {
 constexpr std::array<std::array<float, 6>, 11> kTestSOS = {
@@ -56,6 +58,90 @@ TEST_CASE("OnePoleFilter")
     for (auto i = 0u; i < kSize; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(kExpectedOutput[i], 0.0001));
+    }
+}
+
+TEST_CASE("FirFilter")
+{
+    constexpr uint32_t kFirSize = 64;
+    sfFDN::Fir filter;
+    std::vector<float> ir(kFirSize, 0.f);
+
+    sfFDN::RNG rng;
+    for (auto& coeff : ir)
+    {
+        coeff = rng();
+    }
+    filter.SetCoefficients(ir);
+
+    constexpr uint32_t kSize = 128;
+    std::array<float, kSize> input = {0.f};
+    input[0] = 1.f;
+    std::array<float, kSize> output{};
+
+    sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+
+    filter.Process(input_buffer, output_buffer);
+
+    for (auto i = 0u; i < kFirSize; ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(ir[i], 1e-5));
+    }
+
+    for (auto i = kFirSize; i < kSize; ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
+    }
+}
+
+TEST_CASE("SparseFirFilter")
+{
+    constexpr uint32_t kFirSize = 64;
+    std::vector<float> ir(kFirSize, 0.f);
+    std::vector<float> sparse_ir;
+    std::vector<uint32_t> indices;
+
+    sfFDN::RNG rng;
+    for (auto i = 0u; i < kFirSize; i++)
+    {
+        if (i % 4 == 0)
+        {
+            auto s = rng();
+            ir[i] = s;
+            sparse_ir.push_back(s);
+            indices.push_back(i);
+        }
+    }
+    sfFDN::Fir filter;
+    filter.SetCoefficients(ir);
+
+    sfFDN::SparseFir sparse_filter;
+    sparse_filter.SetCoefficients(sparse_ir, indices);
+
+    constexpr uint32_t kSize = 128;
+    std::array<float, kSize> input = {0.f};
+    input[0] = 1.f;
+    std::array<float, kSize> output{};
+    std::array<float, kSize> sparse_output{};
+
+    sfFDN::AudioBuffer input_buffer(kSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+    sfFDN::AudioBuffer sparse_output_buffer(kSize, 1, sparse_output);
+
+    filter.Process(input_buffer, output_buffer);
+    sparse_filter.Process(input_buffer, sparse_output_buffer);
+
+    for (auto i = 0u; i < kFirSize; ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(ir[i], 1e-5));
+        REQUIRE_THAT(sparse_output[i], Catch::Matchers::WithinAbs(ir[i], 1e-5));
+    }
+
+    for (auto i = kFirSize; i < kSize; ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
+        REQUIRE_THAT(sparse_output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
     }
 }
 
@@ -329,6 +415,5 @@ TEST_CASE("IIRFilterBank")
             REQUIRE_THAT(output_buffer.GetChannelSpan(n)[i],
                          Catch::Matchers::WithinAbs(kTestSOSExpectedOutput[i], 0.0001));
         }
-        std::cout << "\n";
     }
 }

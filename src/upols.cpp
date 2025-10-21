@@ -1,5 +1,7 @@
 #include "upols.h"
 
+#include "math_utils.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -8,8 +10,6 @@
 #include <span>
 #include <utility>
 #include <vector>
-
-#include "math_utils.h"
 
 namespace sfFDN
 {

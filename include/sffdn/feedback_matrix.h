@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_processor.h"
+#include "matrix_gallery.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
-
-#include "audio_processor.h"
-#include "matrix_gallery.h"
 
 namespace sfFDN
 {

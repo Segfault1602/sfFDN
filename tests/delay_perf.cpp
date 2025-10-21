@@ -1,8 +1,8 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -156,4 +156,66 @@ TEST_CASE("DelayBank_BlockSize")
             }
         });
     }
+}
+
+TEST_CASE("Delay_MultiTap")
+{
+    constexpr uint32_t kTapCount = 16;
+    constexpr uint32_t kMinTap = 0;
+    constexpr uint32_t kMaxTap = 8192;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint32_t> dis(kMinTap, kMaxTap);
+    std::vector<uint32_t> taps;
+    taps.reserve(kTapCount);
+    for (auto i = 0u; i < kTapCount; ++i)
+    {
+        taps.push_back(dis(gen));
+    }
+
+    constexpr uint32_t kBlockSize = 128;
+
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize, 0.f);
+    std::vector<float> output_fir(kBlockSize, 0.f);
+    // Fill with white noise
+    sfFDN::RNG generator;
+    for (auto& i : input)
+    {
+        i = generator();
+    }
+
+    nanobench::Bench bench;
+    bench.title("Delay MultiTap Perf");
+    bench.relative(true);
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(10000);
+
+    std::vector<float> coeffs(taps.size(), 1.f);
+
+    sfFDN::Delay delay_bank(0, kMaxTap + kBlockSize);
+    delay_bank.AddNextInputs(input);
+    delay_bank.GetNextOutputsAt(taps, output, coeffs);
+
+    sfFDN::SparseFir fir;
+    fir.SetCoefficients(coeffs, taps);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output_fir);
+    fir.Process(input_buffer, output_buffer);
+
+    // Sanity check
+    for (auto i = 0u; i < output.size(); ++i)
+    {
+        auto out_delay = output[i];
+        auto out_fir = output_fir[i];
+        REQUIRE_THAT(out_delay, Catch::Matchers::WithinAbs(out_fir, 1e-5));
+    }
+
+    bench.run("Delay MultiTap", [&] {
+        delay_bank.AddNextInputs(input);
+        delay_bank.GetNextOutputsAt(taps, output, coeffs);
+    });
+
+    bench.run("FIR MultiTap", [&] { fir.Process(input_buffer, output_buffer); });
 }

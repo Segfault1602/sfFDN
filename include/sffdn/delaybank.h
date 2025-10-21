@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "audio_buffer.h"
+#include "audio_processor.h"
+#include "delay.h"
+
 #include <cstdint>
 #include <span>
 #include <vector>
 
-#include "delay.h"
-
-#include "audio_buffer.h"
-#include "audio_processor.h"
-
 namespace sfFDN
 {
+
 /**
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
  * of audio with different delays.

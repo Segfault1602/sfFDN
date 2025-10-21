@@ -91,9 +91,9 @@ TEST_CASE("UPOLS_Noise")
     sfFDN::AudioBuffer input_buffer(input_size, 1, input_chirp);
     sfFDN::AudioBuffer ref_output_buffer(input_size, 1, filter_output);
 
-    std::ranges::copy(input_chirp, filter_output.begin());
-    InnerProdFIR inner_prod_fir(fir);
-    inner_prod_fir.Process(ref_output_buffer);
+    sfFDN::Fir fir_filter;
+    fir_filter.SetCoefficients(fir);
+    fir_filter.Process(input_buffer, ref_output_buffer);
 
     sfFDN::UPOLS upols(kBlockSize, fir);
 

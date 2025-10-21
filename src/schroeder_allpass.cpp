@@ -48,6 +48,16 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
     }
 }
 
+void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in, std::span<float> out)
+{
+    assert(in.size() == out.size());
+
+    for (uint32_t i = 0; i < in.size(); ++i)
+    {
+        out[i] += Tick(in[i]);
+    }
+}
+
 void SchroederAllpass::Clear()
 {
     delay_.Clear();
@@ -79,6 +89,11 @@ SchroederAllpassSection& SchroederAllpassSection::operator=(SchroederAllpassSect
 void SchroederAllpassSection::SetFilterCount(uint32_t filter_count)
 {
     allpasses_.resize(filter_count);
+}
+
+void SchroederAllpassSection::SetParallel(bool parallel)
+{
+    parallel_ = parallel;
 }
 
 void SchroederAllpassSection::SetDelays(std::span<const uint32_t> delays)
@@ -137,11 +152,23 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 
     assert(!allpasses_.empty());
 
-    allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
-
-    for (auto i = 1u; i < allpasses_.size(); ++i)
+    if (parallel_)
     {
-        allpasses_[i].ProcessBlock(output.GetChannelSpan(0), output.GetChannelSpan(0));
+        allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
+
+        for (auto i = 1u; i < allpasses_.size(); ++i)
+        {
+            allpasses_[i].ProcessBlockAccumulate(input.GetChannelSpan(0), output.GetChannelSpan(0));
+        }
+    }
+    else
+    {
+        allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
+
+        for (auto i = 1u; i < allpasses_.size(); ++i)
+        {
+            allpasses_[i].ProcessBlock(output.GetChannelSpan(0), output.GetChannelSpan(0));
+        }
     }
 }
 

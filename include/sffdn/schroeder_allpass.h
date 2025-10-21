@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <span>
-
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delay.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
 
 namespace sfFDN
 {
@@ -72,6 +72,13 @@ class SchroederAllpass
      */
     void ProcessBlock(std::span<const float> in, std::span<float> out);
 
+    /** @brief Processes a block of samples through the filter and accumulates the output.
+     * @param in The input samples.
+     * @param out The output samples.
+     * The input and output spans must have the same size.
+     */
+    void ProcessBlockAccumulate(std::span<const float> in, std::span<float> out);
+
     /** @brief Clears the filter state.
      * This sets the internal delay buffer to zero.
      */
@@ -106,6 +113,8 @@ class SchroederAllpassSection : public AudioProcessor
      * @param filter_count The number of allpass filters.
      */
     void SetFilterCount(uint32_t filter_count);
+
+    void SetParallel(bool parallel);
 
     /** @brief Sets the delays for each allpass filter in the section.
      * @param delays A span of delay values in samples.
@@ -159,6 +168,7 @@ class SchroederAllpassSection : public AudioProcessor
 
   private:
     std::vector<SchroederAllpass> allpasses_;
+    bool parallel_ = false;
 };
 
 /** \brief Implements parallel Schroeder allpass sections. */

@@ -1,3 +1,6 @@
+find_package(IPP)
+
+
 add_library(sfFDN.sfFDN)
 add_library(sfFDN::sfFDN ALIAS sfFDN.sfFDN)
 
@@ -19,6 +22,7 @@ target_sources(
             delay_utils.cpp
             feedback_matrix.cpp
             fdn.cpp
+            fir.cpp
             fft.cpp
             filter.cpp
             filterbank.cpp
@@ -33,6 +37,7 @@ target_sources(
             parallel_gains.cpp
             rng.cpp
             schroeder_allpass.cpp
+            sparse_fir.cpp
             time_varying_parallel_gains.cpp
             upols.cpp
 )
@@ -74,4 +79,10 @@ target_compile_definitions(sfFDN.sfFDN PRIVATE ${SFFDN_COMPILE_DEFINITION})
 
 if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")
+endif()
+
+if (IPP_FOUND)
+    message(STATUS "Using IPP optimizations")
+    target_compile_definitions(sfFDN.sfFDN PRIVATE SFFDN_USE_IPP)
+    target_link_libraries(sfFDN.sfFDN PRIVATE IPP::ippcore IPP::ipps)
 endif()

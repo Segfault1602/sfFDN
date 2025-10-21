@@ -88,6 +88,19 @@ void TimeVaryingParallelGains::SetLfoAmplitude(std::span<const float> amplitudes
     }
 }
 
+void TimeVaryingParallelGains::SetLfoPhaseOffset(std::span<const float> phase_offsets)
+{
+    assert(!phase_offsets.empty());
+    assert(phase_offsets.size() == lfos_.size());
+
+    lfos_.resize(phase_offsets.size());
+
+    for (auto i = 0u; i < phase_offsets.size(); ++i)
+    {
+        lfos_[i].SetPhaseOffset(phase_offsets[i]);
+    }
+}
+
 uint32_t TimeVaryingParallelGains::InputChannelCount() const
 {
     switch (mode_)

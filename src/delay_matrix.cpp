@@ -5,6 +5,8 @@
 #include "sffdn/delay.h"
 #include "sffdn/feedback_matrix.h"
 
+#include <Eigen/Core>
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -15,8 +17,6 @@
 #include <span>
 #include <utility>
 #include <vector>
-
-#include <Eigen/Core>
 
 namespace sfFDN
 {
