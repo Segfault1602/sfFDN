@@ -87,6 +87,8 @@ class SchroederAllpass
   private:
     Delay delay_;
     float g_{};
+
+    void Tick8(std::span<const float, 8> in, std::span<float, 8> out);
 };
 
 /** @brief A section of Schroeder allpass filters in series */

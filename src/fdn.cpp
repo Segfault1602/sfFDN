@@ -7,7 +7,6 @@
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 
-
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -323,10 +322,14 @@ void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output)
     AudioBuffer temp_buffer(block_size, order_, temp_buffer_);
     AudioBuffer feedback_buffer(block_size, order_, feedback_);
 
-    delay_bank_.GetNextOutputs(feedback_buffer);
     if (filter_bank_)
     {
-        filter_bank_->Process(feedback_buffer, feedback_buffer);
+        delay_bank_.GetNextOutputs(temp_buffer);
+        filter_bank_->Process(temp_buffer, feedback_buffer);
+    }
+    else
+    {
+        delay_bank_.GetNextOutputs(feedback_buffer);
     }
 
     output_gains_->Process(feedback_buffer, output);
@@ -363,7 +366,12 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
 
     if (filter_bank_)
     {
-        filter_bank_->Process(temp_buffer, temp_buffer);
+        filter_bank_->Process(temp_buffer, feedback_buffer);
+        delay_bank_.AddNextInputs(feedback_buffer);
+    }
+    else
+    {
+        delay_bank_.AddNextInputs(temp_buffer);
     }
 
     delay_bank_.AddNextInputs(temp_buffer);

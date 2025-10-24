@@ -45,6 +45,8 @@ void SparseFir::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
     assert(input.ChannelCount() == 1);
 
     delay_line_.AddNextInputs(input.GetChannelSpan(0));
+
+    std::fill(output.GetChannelSpan(0).begin(), output.GetChannelSpan(0).end(), 0.f);
     delay_line_.GetNextOutputsAt(sparse_index_, output.GetChannelSpan(0), coeffs_);
 }
 

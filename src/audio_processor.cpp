@@ -84,6 +84,9 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
         return;
     }
 
+    std::fill(work_buffer_a_.begin(), work_buffer_a_.end(), 0.f);
+    std::fill(work_buffer_b_.begin(), work_buffer_b_.end(), 0.f);
+
     // Process the first audio processor
     AudioBuffer buffer_a(input.SampleCount(), processors_[0]->OutputChannelCount(), work_buffer_a_);
     processors_[0]->Process(input, buffer_a);

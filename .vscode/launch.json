@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/tests/sfFDN.tests",
             "args": [
-                "DelayMultiTap"
+                "SchroederAllpassSection"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

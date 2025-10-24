@@ -3,6 +3,7 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -13,7 +14,7 @@
 namespace sfFDN
 {
 SchroederAllpass::SchroederAllpass(uint32_t delay, float g)
-    : delay_((delay < 1) ? 1 : delay, delay + 1)
+    : delay_((delay < 1) ? 1 : delay, delay + 16)
     , g_(g)
 {
 }
@@ -21,7 +22,7 @@ SchroederAllpass::SchroederAllpass(uint32_t delay, float g)
 void SchroederAllpass::SetDelay(uint32_t delay)
 {
     delay = (delay < 1) ? 1 : delay;
-    delay_.SetMaximumDelay(delay + 1);
+    delay_.SetMaximumDelay(delay + 16);
     delay_.SetDelay(delay);
 }
 
@@ -38,6 +39,34 @@ float SchroederAllpass::Tick(float input)
     return out - (g_ * v_n);
 }
 
+void SchroederAllpass::Tick8(std::span<const float, 8> in, std::span<float, 8> out)
+{
+    std::array<float, 8> v_n = {
+        in[0], in[1], in[2], in[3], in[4], in[5], in[6], in[7],
+    };
+    delay_.GetNextOutputs(out);
+
+    v_n[0] = v_n[0] + (g_ * out[0]);
+    v_n[1] = v_n[1] + (g_ * out[1]);
+    v_n[2] = v_n[2] + (g_ * out[2]);
+    v_n[3] = v_n[3] + (g_ * out[3]);
+    v_n[4] = v_n[4] + (g_ * out[4]);
+    v_n[5] = v_n[5] + (g_ * out[5]);
+    v_n[6] = v_n[6] + (g_ * out[6]);
+    v_n[7] = v_n[7] + (g_ * out[7]);
+
+    delay_.AddNextInputs(v_n);
+
+    out[0] = out[0] - (g_ * v_n[0]);
+    out[1] = out[1] - (g_ * v_n[1]);
+    out[2] = out[2] - (g_ * v_n[2]);
+    out[3] = out[3] - (g_ * v_n[3]);
+    out[4] = out[4] - (g_ * v_n[4]);
+    out[5] = out[5] - (g_ * v_n[5]);
+    out[6] = out[6] - (g_ * v_n[6]);
+    out[7] = out[7] - (g_ * v_n[7]);
+}
+
 void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> out)
 {
     assert(in.size() == out.size());
@@ -46,6 +75,46 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
     {
         out[i] = Tick(in[i]);
     }
+    // uint32_t i = 0;
+    // if (delay_.GetDelay() > 8)
+    // {
+    //     const uint32_t vec_size = in.size() - (in.size() % 8);
+    //     for (; i < vec_size; i += 8)
+    //     {
+    //         std::span<const float, 8> in_vec = in.subspan(i).first<8>();
+    //         std::span<float, 8> out_vec = out.subspan(i).first<8>();
+
+    //         std::array<float, 8> v_n = {
+    //             in_vec[0], in_vec[1], in_vec[2], in_vec[3], in_vec[4], in_vec[5], in_vec[6], in_vec[7],
+    //         };
+    //         delay_.GetNextOutputs(out_vec);
+
+    //         v_n[0] = v_n[0] + (g_ * out_vec[0]);
+    //         v_n[1] = v_n[1] + (g_ * out_vec[1]);
+    //         v_n[2] = v_n[2] + (g_ * out_vec[2]);
+    //         v_n[3] = v_n[3] + (g_ * out_vec[3]);
+    //         v_n[4] = v_n[4] + (g_ * out_vec[4]);
+    //         v_n[5] = v_n[5] + (g_ * out_vec[5]);
+    //         v_n[6] = v_n[6] + (g_ * out_vec[6]);
+    //         v_n[7] = v_n[7] + (g_ * out_vec[7]);
+
+    //         delay_.AddNextInputs(v_n);
+
+    //         out_vec[0] = out_vec[0] - (g_ * v_n[0]);
+    //         out_vec[1] = out_vec[1] - (g_ * v_n[1]);
+    //         out_vec[2] = out_vec[2] - (g_ * v_n[2]);
+    //         out_vec[3] = out_vec[3] - (g_ * v_n[3]);
+    //         out_vec[4] = out_vec[4] - (g_ * v_n[4]);
+    //         out_vec[5] = out_vec[5] - (g_ * v_n[5]);
+    //         out_vec[6] = out_vec[6] - (g_ * v_n[6]);
+    //         out_vec[7] = out_vec[7] - (g_ * v_n[7]);
+    //     }
+    // }
+
+    // for (; i < in.size(); ++i)
+    // {
+    //     out[i] = Tick(in[i]);
+    // }
 }
 
 void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in, std::span<float> out)
@@ -154,6 +223,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 
     if (parallel_)
     {
+        assert(input.Data() != output.Data());
         allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
 
         for (auto i = 1u; i < allpasses_.size(); ++i)

@@ -280,6 +280,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     nanobench::Bench bench;
     bench.title("ParallelSchroederAllpassSection perf");
     bench.minEpochIterations(5000);
+    bench.timeUnit(1us, "us");
 
     bench.run("ParallelSchroederAllpassSection", [&] { filter.Process(input_buffer, output_buffer); });
 }
