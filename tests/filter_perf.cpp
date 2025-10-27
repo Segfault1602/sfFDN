@@ -179,7 +179,7 @@ TEST_CASE("FirFilter")
 {
     nanobench::Bench bench;
     bench.title("Fir perf");
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(50000);
     bench.relative(true);
     bench.timeUnit(1us, "us");
 
@@ -212,7 +212,7 @@ TEST_CASE("FirFilterSparse")
 {
     nanobench::Bench bench;
     bench.title("Fir sparse perf");
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(50000);
     bench.relative(true);
     bench.timeUnit(1us, "us");
 
@@ -329,7 +329,7 @@ TEST_CASE("VDSP_FilterBank")
         std::vector<float> input(block_size * N, 0);
         for (float& i : input)
         {
-            i = rng.NextFloat();
+            i = rng();
         }
         std::vector<float> output(block_size * N, 0);
 

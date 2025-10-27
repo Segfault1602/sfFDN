@@ -367,11 +367,7 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
     if (filter_bank_)
     {
         filter_bank_->Process(temp_buffer, feedback_buffer);
-        delay_bank_.AddNextInputs(feedback_buffer);
-    }
-    else
-    {
-        delay_bank_.AddNextInputs(temp_buffer);
+        std::swap(feedback_buffer, temp_buffer);
     }
 
     delay_bank_.AddNextInputs(temp_buffer);

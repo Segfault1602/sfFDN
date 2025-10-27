@@ -4,6 +4,7 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay.h"
 
+#include <algorithm>
 #include <cassert>
 #include <numeric>
 

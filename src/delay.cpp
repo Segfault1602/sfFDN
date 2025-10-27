@@ -194,12 +194,9 @@ bool Delay::AddNextInputs(std::span<const float> input)
     return true;
 }
 
-void Delay::GetNextOutputs(std::span<float> output)
+void Delay::GetNextOutputBuffers(std::span<float>& buffer_1, std::span<float>& buffer_2, uint32_t output_size)
 {
     const std::span<float> buffer_span = buffer_;
-
-    std::span<float> buffer_1{};
-    std::span<float> buffer_2{};
 
     // Two scenarios:
     // 1. The out pointer is after the in pointer
@@ -210,13 +207,35 @@ void Delay::GetNextOutputs(std::span<float> output)
     if (out_point_ > in_point_)
     {
         buffer_1 = buffer_span.subspan(out_point_);
-        buffer_2 = buffer_span.subspan(0, in_point_);
+        buffer_2 = buffer_span.subspan(0, in_point_).first(output_size - buffer_1.size());
     }
     else
     {
         buffer_1 = buffer_span.subspan(out_point_, in_point_ - out_point_);
         buffer_2 = {};
     }
+
+    if (buffer_1.size() >= output_size)
+    {
+        buffer_1 = buffer_1.first(output_size);
+        buffer_2 = std::span<float>{};
+    }
+    else
+    {
+        buffer_2 = buffer_2.first(output_size - buffer_1.size());
+    }
+
+    assert((buffer_1.size() + buffer_2.size()) == output_size);
+}
+
+void Delay::GetNextOutputs(std::span<float> output)
+{
+    const std::span<float> buffer_span = buffer_;
+
+    std::span<float> buffer_1{};
+    std::span<float> buffer_2{};
+
+    GetNextOutputBuffers(buffer_1, buffer_2, output.size());
 
     // Check that we have enough data to read from
     const uint32_t available_space = buffer_1.size() + buffer_2.size();
@@ -234,7 +253,7 @@ void Delay::GetNextOutputs(std::span<float> output)
     else
     {
         std::ranges::copy(buffer_1, output.begin());
-        std::ranges::copy(buffer_2.first(output.size() - buffer_1.size()), output.subspan(buffer_1.size()).begin());
+        std::ranges::copy(buffer_2, output.subspan(buffer_1.size()).begin());
     }
 
     out_point_ = (out_point_ + output.size()) % buffer_.size();
@@ -291,6 +310,12 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, 
         }
     }
     out_point_ = (out_point_ + output.size()) % buffer_.size();
+}
+
+void Delay::Advance(uint32_t sample_count)
+{
+    in_point_ = FastMod(in_point_ + sample_count, buffer_.size());
+    out_point_ = FastMod(out_point_ + sample_count, buffer_.size());
 }
 
 } // namespace sfFDN

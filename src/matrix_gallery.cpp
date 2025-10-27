@@ -9,6 +9,7 @@
 #include <kiss_fft.h>
 
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <complex>

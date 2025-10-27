@@ -9,9 +9,16 @@ using namespace std::chrono_literals;
 TEST_CASE("Accumulate", "[ArrayMath]")
 {
     constexpr uint32_t kSize = 128;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> b(kSize, 2.f);
-    std::vector<float> out(kSize, 0.f);
+    alignas(32) std::array<float, kSize> a{};
+    alignas(32) std::array<float, kSize> b{};
+    alignas(32) std::array<float, kSize> out{};
+
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i);
+        b[i] = static_cast<float>(kSize - i);
+        out[i] = 0.f;
+    }
 
     nanobench::Bench bench;
     bench.title("Accumulate");

@@ -71,50 +71,50 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
 {
     assert(in.size() == out.size());
 
-    for (uint32_t i = 0; i < in.size(); ++i)
-    {
-        out[i] = Tick(in[i]);
-    }
-    // uint32_t i = 0;
-    // if (delay_.GetDelay() > 8)
-    // {
-    //     const uint32_t vec_size = in.size() - (in.size() % 8);
-    //     for (; i < vec_size; i += 8)
-    //     {
-    //         std::span<const float, 8> in_vec = in.subspan(i).first<8>();
-    //         std::span<float, 8> out_vec = out.subspan(i).first<8>();
-
-    //         std::array<float, 8> v_n = {
-    //             in_vec[0], in_vec[1], in_vec[2], in_vec[3], in_vec[4], in_vec[5], in_vec[6], in_vec[7],
-    //         };
-    //         delay_.GetNextOutputs(out_vec);
-
-    //         v_n[0] = v_n[0] + (g_ * out_vec[0]);
-    //         v_n[1] = v_n[1] + (g_ * out_vec[1]);
-    //         v_n[2] = v_n[2] + (g_ * out_vec[2]);
-    //         v_n[3] = v_n[3] + (g_ * out_vec[3]);
-    //         v_n[4] = v_n[4] + (g_ * out_vec[4]);
-    //         v_n[5] = v_n[5] + (g_ * out_vec[5]);
-    //         v_n[6] = v_n[6] + (g_ * out_vec[6]);
-    //         v_n[7] = v_n[7] + (g_ * out_vec[7]);
-
-    //         delay_.AddNextInputs(v_n);
-
-    //         out_vec[0] = out_vec[0] - (g_ * v_n[0]);
-    //         out_vec[1] = out_vec[1] - (g_ * v_n[1]);
-    //         out_vec[2] = out_vec[2] - (g_ * v_n[2]);
-    //         out_vec[3] = out_vec[3] - (g_ * v_n[3]);
-    //         out_vec[4] = out_vec[4] - (g_ * v_n[4]);
-    //         out_vec[5] = out_vec[5] - (g_ * v_n[5]);
-    //         out_vec[6] = out_vec[6] - (g_ * v_n[6]);
-    //         out_vec[7] = out_vec[7] - (g_ * v_n[7]);
-    //     }
-    // }
-
-    // for (; i < in.size(); ++i)
+    // for (uint32_t i = 0; i < in.size(); ++i)
     // {
     //     out[i] = Tick(in[i]);
     // }
+    uint32_t i = 0;
+    if (delay_.GetDelay() > 8)
+    {
+        const uint32_t vec_size = in.size() - (in.size() % 8);
+        for (; i < vec_size; i += 8)
+        {
+            std::span<const float, 8> in_vec = in.subspan(i).first<8>();
+            std::span<float, 8> out_vec = out.subspan(i).first<8>();
+
+            std::array<float, 8> v_n = {
+                in_vec[0], in_vec[1], in_vec[2], in_vec[3], in_vec[4], in_vec[5], in_vec[6], in_vec[7],
+            };
+            delay_.GetNextOutputs(out_vec);
+
+            v_n[0] = v_n[0] + (g_ * out_vec[0]);
+            v_n[1] = v_n[1] + (g_ * out_vec[1]);
+            v_n[2] = v_n[2] + (g_ * out_vec[2]);
+            v_n[3] = v_n[3] + (g_ * out_vec[3]);
+            v_n[4] = v_n[4] + (g_ * out_vec[4]);
+            v_n[5] = v_n[5] + (g_ * out_vec[5]);
+            v_n[6] = v_n[6] + (g_ * out_vec[6]);
+            v_n[7] = v_n[7] + (g_ * out_vec[7]);
+
+            delay_.AddNextInputs(v_n);
+
+            out_vec[0] = out_vec[0] - (g_ * v_n[0]);
+            out_vec[1] = out_vec[1] - (g_ * v_n[1]);
+            out_vec[2] = out_vec[2] - (g_ * v_n[2]);
+            out_vec[3] = out_vec[3] - (g_ * v_n[3]);
+            out_vec[4] = out_vec[4] - (g_ * v_n[4]);
+            out_vec[5] = out_vec[5] - (g_ * v_n[5]);
+            out_vec[6] = out_vec[6] - (g_ * v_n[6]);
+            out_vec[7] = out_vec[7] - (g_ * v_n[7]);
+        }
+    }
+
+    for (; i < in.size(); ++i)
+    {
+        out[i] = Tick(in[i]);
+    }
 }
 
 void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in, std::span<float> out)

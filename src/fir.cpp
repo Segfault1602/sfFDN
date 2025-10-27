@@ -8,6 +8,10 @@
 #include <cassert>
 #include <numeric>
 
+#ifdef SFFDN_USE_VDSP
+#include <Accelerate/Accelerate.h>
+#endif
+
 namespace sfFDN
 {
 void Fir::SetCoefficients(std::span<const float> coeffs)
@@ -24,10 +28,16 @@ float Fir::Tick(float in)
 
     auto delay_span = std::span(delay_line_).subspan(delay_index_, coeffs_.size());
 
+#ifdef SFFDN_USE_VDSP
+    float y = 0.f;
+    vDSP_dotpr(coeffs_.data(), 1, delay_span.data(), 1, &y, static_cast<vDSP_Length>(coeffs_.size()));
+#else
+
     Eigen::Map<const Eigen::VectorXf> coeffs_map(coeffs_.data(), static_cast<Eigen::Index>(coeffs_.size()));
     Eigen::Map<const Eigen::VectorXf> delay_map(delay_span.data(), static_cast<Eigen::Index>(delay_span.size()));
 
     float y = coeffs_map.dot(delay_map);
+#endif
 
     delay_index_ = (delay_index_ == 0) ? coeffs_.size() - 1 : delay_index_ - 1;
     return y;

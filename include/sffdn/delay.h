@@ -96,6 +96,11 @@ class Delay
 
     void GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, std::span<float> coeffs);
 
+    void GetNextOutputBuffers(std::span<float>& buffer_1, std::span<float>& buffer_2, uint32_t output_size);
+    void GetNextInputBuffers(std::span<float>& buffer_1, std::span<float>& buffer_2, uint32_t input_size);
+
+    void Advance(uint32_t sample_count);
+
   protected:
     uint32_t in_point_;
     uint32_t out_point_;
