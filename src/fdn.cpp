@@ -362,10 +362,12 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
 
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
+    std::fill(temp_buffer_.begin(), temp_buffer_.end(), 0.f);
     mixing_matrix_->Process(feedback_buffer, temp_buffer);
 
     if (filter_bank_)
     {
+        std::fill(feedback_.begin(), feedback_.end(), 0.f);
         filter_bank_->Process(temp_buffer, feedback_buffer);
         std::swap(feedback_buffer, temp_buffer);
     }

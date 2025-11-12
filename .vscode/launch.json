@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/tests/sfFDN.tests",
             "args": [
-                "SchroederAllpassSection"
+                "DelayTimeVarying"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

@@ -2,25 +2,33 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_buffer.h"
-#include "delay.h"
-#include "filter.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/delay.h"
+#include "sffdn/filter.h"
 
 #include <cstdint>
 #include <vector>
 
 namespace sfFDN
 {
-/** @brief Delay line with allpass interpolation. */
-class DelayAllpass
+
+enum class DelayInterpolationType : uint8_t
+{
+    Linear,
+    Allpass,
+};
+
+/** @brief Delay line with interpolation. */
+class DelayInterp
 {
   public:
     /**
-     * @brief Constructs a delay line with allpass interpolation.
-     * @param delay The initial delay in samples. This value must be >= 0.5.
+     * @brief Constructs a delay line with interpolation.
+     * @param delay The initial delay in samples.
      * @param max_delay The maximum delay in samples.
      */
-    DelayAllpass(float delay = 0.5, uint32_t max_delay = 4095);
+    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095,
+                DelayInterpolationType type = DelayInterpolationType::Linear);
 
     /** @brief Clears all internal states of the delay line. */
     void Clear(void);
@@ -28,7 +36,7 @@ class DelayAllpass
     /** @brief Gets the maximum delay-line length. */
     uint32_t GetMaximumDelay() const
     {
-        return delay_.GetMaximumDelay();
+        return delayline_.GetMaximumDelay();
     }
 
     /**
@@ -39,14 +47,14 @@ class DelayAllpass
 
     /**
      * @brief Sets the delay for the delay line.
-     * @param delay The delay in samples. This value must be >= 0.5 and < GetMaximumDelay().
+     * @param delay The delay in samples.
      */
-    void SetDelay(float delay, bool adjust_phase = true);
+    void SetDelay(float delay);
 
     /** @brief Returns the current delay in samples. */
     float GetDelay() const
     {
-        return delay_.GetDelay();
+        return delay_;
     }
 
     /**
@@ -63,9 +71,18 @@ class DelayAllpass
      */
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
-  protected:
-    Delay delay_;
+  private:
+    Delay delayline_;
+    DelayInterpolationType type_;
+
+    float delay_;
+    uint32_t int_delay_;
+    float frac_delay_;
+
     AllpassFilter allpass_;
+
+    void ProcessLinear(const AudioBuffer& input, AudioBuffer& output);
+    void ProcessAllpass(const AudioBuffer& input, AudioBuffer& output);
 };
 
 } // namespace sfFDN

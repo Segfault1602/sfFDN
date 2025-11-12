@@ -1,10 +1,10 @@
 {
-  "dependencies": [
-    "catch2",
-    "eigen3",
-    "kissfft",
-    "libsndfile",
-    "nanobench",
-    "pffft"
-  ]
+    "dependencies": [
+        "catch2",
+        "eigen3",
+        "kissfft",
+        "libsndfile",
+        "nanobench",
+        "pffft"
+    ]
 }

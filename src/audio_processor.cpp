@@ -76,6 +76,31 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     assert(input.ChannelCount() == processors_.front()->InputChannelCount());
     assert(output.ChannelCount() == processors_.back()->OutputChannelCount());
     assert(input.SampleCount() == output.SampleCount());
+
+    const uint32_t block_count = input.SampleCount() / block_size_;
+
+    for (auto i = 0u; i < block_count; ++i)
+    {
+        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
+
+        ProcessInternal(input_block, output_block);
+    }
+
+    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    assert(block_size_ * block_count + remaining_samples == input.SampleCount());
+
+    if (remaining_samples > 0)
+    {
+        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
+
+        ProcessInternal(input_block, output_block);
+    }
+}
+
+void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept
+{
     assert(input.SampleCount() <= block_size_);
 
     if (processors_.size() == 1)

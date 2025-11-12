@@ -112,6 +112,42 @@ AllpassFilter::AllpassFilter()
 {
 }
 
+AllpassFilter::AllpassFilter(const AllpassFilter& other)
+    : coeff_(other.coeff_)
+    , last_in_(other.last_in_)
+    , last_out_(other.last_out_)
+{
+}
+
+AllpassFilter& AllpassFilter::operator=(const AllpassFilter& other)
+{
+    if (this != &other)
+    {
+        coeff_ = other.coeff_;
+        last_in_ = other.last_in_;
+        last_out_ = other.last_out_;
+    }
+    return *this;
+}
+
+AllpassFilter::AllpassFilter(AllpassFilter&& other) noexcept
+    : coeff_(other.coeff_)
+    , last_in_(other.last_in_)
+    , last_out_(other.last_out_)
+{
+}
+
+AllpassFilter& AllpassFilter::operator=(AllpassFilter&& other) noexcept
+{
+    if (this != &other)
+    {
+        coeff_ = other.coeff_;
+        last_in_ = other.last_in_;
+        last_out_ = other.last_out_;
+    }
+    return *this;
+}
+
 void AllpassFilter::SetCoefficients(float coeff)
 {
     coeff_ = coeff;

@@ -25,6 +25,9 @@ void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> o
 // out[i] = a[i] * b[i]
 void Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out);
 
+// out[i] = a[i]*b + c[i]
+void MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out);
+
 } // namespace ArrayMath
 
 } // namespace sfFDN

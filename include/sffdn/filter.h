@@ -107,6 +107,12 @@ class AllpassFilter : public AudioProcessor
     /** @brief Constructs an allpass filter. */
     AllpassFilter();
 
+    AllpassFilter(const AllpassFilter&);
+    AllpassFilter& operator=(const AllpassFilter&);
+
+    AllpassFilter(AllpassFilter&&) noexcept;
+    AllpassFilter& operator=(AllpassFilter&&) noexcept;
+
     /** @brief Sets the allpass coefficient.
      * @param coeff The allpass coefficient.
      */

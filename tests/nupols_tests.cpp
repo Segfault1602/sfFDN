@@ -105,6 +105,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     fir_filter.Process(input_buffer, ref_output_buffer);
 
     sfFDN::PartitionedConvolver partitioned_convolver(kBlockSize, fir);
+    partitioned_convolver.DumpInfo();
 
     std::vector<float> output(input_size, 0.f);
 

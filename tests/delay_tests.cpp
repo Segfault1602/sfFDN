@@ -1,6 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include "sffdn/audio_buffer.h"
+#include "sffdn/delay_interp.h"
+#include "sffdn/delay_utils.h"
+#include "sffdn/sffdn.h"
+
+#include "test_utils.h"
+
 #include <array>
 #include <iostream>
 #include <limits>
@@ -8,10 +15,6 @@
 #include <ranges>
 #include <sndfile.h>
 #include <vector>
-
-#include "sffdn/audio_buffer.h"
-#include "sffdn/delay_utils.h"
-#include "sffdn/sffdn.h"
 
 namespace
 {
@@ -134,7 +137,7 @@ TEST_CASE("ZeroDelay")
 
 TEST_CASE("DelayA")
 {
-    sfFDN::DelayAllpass delay(1.5, 10);
+    sfFDN::DelayInterp delay(1.5, 10, sfFDN::DelayInterpolationType::Allpass);
 
     std::vector<float> output;
     constexpr uint32_t kIteration = 10;
@@ -151,7 +154,7 @@ TEST_CASE("DelayA")
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
     }
 
-    sfFDN::DelayAllpass delay_block(1.5, 32);
+    sfFDN::DelayInterp delay_block(1.5, 32, sfFDN::DelayInterpolationType::Allpass);
 
     std::vector<float> input_block(kIteration, 0.f);
     for (auto i = 0u; i < input_block.size(); ++i)
@@ -174,7 +177,7 @@ TEST_CASE("DelayA")
 
 TEST_CASE("DelayA_MinDelay")
 {
-    sfFDN::DelayAllpass delay(0.5, 10);
+    sfFDN::DelayInterp delay(0.5, 10, sfFDN::DelayInterpolationType::Allpass);
 
     std::vector<float> output;
     constexpr uint32_t kIteration = 10;
@@ -199,7 +202,7 @@ TEST_CASE("DelayBlock")
 
 TEST_CASE("DelayABlock")
 {
-    TestDelayBlock<sfFDN::DelayAllpass>(1.5f, 8, 10);
+    TestDelayBlock<sfFDN::DelayInterp>(1.5f, 8, 10);
 }
 
 TEST_CASE("DelayBank")
@@ -255,12 +258,12 @@ TEST_CASE("DelayBank")
     }
 }
 
-TEST_CASE("DelayBankBlock")
+TEST_CASE("DelayBankTimeVarying")
 {
     constexpr uint32_t kNumDelay = 4;
     constexpr uint32_t kBlockSize = 8;
-    constexpr std::array<uint32_t, kNumDelay> kDelays = {2, 3, 4, 5};
-    sfFDN::DelayBank delay_bank(kDelays, 10);
+    constexpr std::array<float, kNumDelay> kDelays = {2, 3, 4, 5};
+    sfFDN::DelayBankTimeVarying delay_bank(kDelays, 10, sfFDN::DelayInterpolationType::Linear);
 
     std::vector<float> input(kNumDelay * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -350,4 +353,116 @@ TEST_CASE("DelayLengths")
         std::cout << d << " ";
     }
     std::cout << "\n";
+}
+
+TEST_CASE("DelayInterp")
+{
+    sfFDN::DelayInterp delay(1.1f, 10);
+
+    std::vector<float> output;
+    constexpr uint32_t kIteration = 10;
+    output.reserve(kIteration);
+    for (uint32_t i = 0; i < kIteration; ++i)
+    {
+        output.push_back(delay.Tick(i));
+    }
+
+    constexpr std::array<float, 10> kExpectedOutput = {0, 0, 0.9, 1.9, 2.9, 3.9, 4.9, 5.9, 6.9, 7.9};
+
+    for (auto [out, expected] : std::views::zip(output, kExpectedOutput))
+    {
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
+    }
+
+    sfFDN::DelayInterp delay_block(1.1f, 32);
+
+    std::vector<float> input_block(kIteration, 0.f);
+    for (auto i = 0u; i < input_block.size(); ++i)
+    {
+        input_block[i] = i;
+    }
+
+    std::vector<float> output_block(kIteration, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(kIteration, 1, input_block);
+    sfFDN::AudioBuffer output_buffer(kIteration, 1, output_block);
+
+    delay_block.Process(input_buffer, output_buffer);
+
+    for (auto [out, expected] : std::views::zip(output_block, kExpectedOutput))
+    {
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
+    }
+}
+
+TEST_CASE("DelayTimeVarying")
+{
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 512;
+    constexpr uint32_t kInputSize = kBlockSize * 200;
+    constexpr uint32_t kBaseDelay = 1024;
+
+    sfFDN::DelayTimeVarying delay(kBaseDelay, 4096);
+
+    std::vector<float> input(kInputSize, 0.f);
+    sfFDN::SineWave sine(200.f / kSampleRate, 0.f);
+    sine.SetAmplitude(0.5f);
+    sine.Generate(input);
+    std::vector<float> output(kInputSize, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
+
+    for (auto i = 0u; i < kInputSize; i += kBlockSize)
+    {
+        sfFDN::AudioBuffer in_block = input_buffer.Offset(i, kBlockSize);
+        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
+        delay.Process(in_block, out_block);
+    }
+
+    WriteWavFile("delay_time_varying_input.wav", output);
+
+    output.clear();
+    output.resize(kInputSize, 0.f);
+
+    delay.SetMod(1.f / kSampleRate, 256.f);
+    delay.Clear();
+
+    for (auto i = 0u; i < kInputSize; i += kBlockSize)
+    {
+        sfFDN::AudioBuffer in_block = input_buffer.Offset(i, kBlockSize);
+        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
+        delay.Process(in_block, out_block);
+    }
+
+    WriteWavFile("delay_time_varying_output.wav", output);
+}
+
+TEST_CASE("DelayFeedback")
+{
+
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 32;
+    constexpr uint32_t kInputSize = kBlockSize * 2000;
+    constexpr float kBaseDelay = 607.5f;
+
+    sfFDN::DelayTimeVarying delay(kBaseDelay, 4096);
+    delay.SetMod(1.f / kSampleRate, 32.f);
+
+    std::vector<float> input(kBlockSize, 0.f);
+    input[0] = 1.f; // Impulse
+
+    std::vector<float> output(kInputSize, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
+
+    for (auto i = 0u; i < kInputSize; i += kBlockSize)
+    {
+        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
+        delay.Process(input_buffer, out_block);
+        input_buffer = out_block;
+    }
+
+    WriteWavFile("delay_feedback_output.wav", output);
 }

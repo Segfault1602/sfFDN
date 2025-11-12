@@ -1,12 +1,14 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
+
 using namespace ankerl;
 using namespace std::chrono_literals;
 
 #include <array_math.h>
 
-TEST_CASE("Accumulate", "[ArrayMath]")
+TEST_CASE("ArrayMath")
 {
     constexpr uint32_t kSize = 128;
     alignas(32) std::array<float, kSize> a{};
@@ -21,7 +23,7 @@ TEST_CASE("Accumulate", "[ArrayMath]")
     }
 
     nanobench::Bench bench;
-    bench.title("Accumulate");
+    bench.title("ArrayMath perf");
     bench.minEpochIterations(5000000);
 
     bench.run("Accumulate", [&] {
@@ -47,5 +49,12 @@ TEST_CASE("Accumulate", "[ArrayMath]")
         sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, b);
         nanobench::doNotOptimizeAway(a);
         nanobench::doNotOptimizeAway(b);
+    });
+
+    bench.run("MultiplyAdd", [&] {
+        sfFDN::ArrayMath::MultiplyAdd(a, 2.f, b, out);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
+        nanobench::doNotOptimizeAway(out);
     });
 }

@@ -25,6 +25,7 @@ class UPOLS
     void Clear();
 
     void PrintPartition() const;
+    std::string GetShortInfo() const;
 
   private:
     uint32_t block_size_;

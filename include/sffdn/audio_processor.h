@@ -107,5 +107,7 @@ class AudioProcessorChain : public AudioProcessor
     std::vector<float> work_buffer_a_;
     std::vector<float> work_buffer_b_;
     uint32_t max_work_buffer_size_ = 0;
+
+    void ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept;
 };
 } // namespace sfFDN

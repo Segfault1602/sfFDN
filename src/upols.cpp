@@ -158,7 +158,7 @@ void UPOLS::Clear()
 
 void UPOLS::PrintPartition() const
 {
-    std::cout << "[(" << fft_size_ << ") ";
+    std::cout << "[";
     for (auto i = 0u; i < filters_z_.size(); ++i)
     {
         std::cout << block_size_;
@@ -167,6 +167,12 @@ void UPOLS::PrintPartition() const
             std::cout << "|";
         }
     }
-    std::cout << "]\n";
+    std::cout << "](fft=" << fft_size_ << ")\n";
+}
+
+std::string UPOLS::GetShortInfo() const
+{
+    std::string info = std::format("({}x{})", filters_z_.size(), block_size_);
+    return info;
 }
 } // namespace sfFDN

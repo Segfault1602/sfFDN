@@ -16,7 +16,9 @@ target_sources(
             circular_buffer.cpp
             delay.cpp
             delaybank.cpp
+            delaybank_time_varying.cpp
             delaya.cpp
+            delay_interp.cpp
             delay_matrix.cpp
             delay_time_varying.cpp
             delay_utils.cpp
@@ -55,7 +57,10 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_utils.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaya.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/delay_interp.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/delay_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_design.h

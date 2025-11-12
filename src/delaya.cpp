@@ -34,9 +34,9 @@ void DelayAllpass::SetMaximumDelay(uint32_t delay)
     delay_.SetMaximumDelay(delay);
 }
 
-void DelayAllpass::SetDelay(float delay)
+void DelayAllpass::SetDelay(float delay, bool adjust_phase)
 {
-    if (delay < 0.5)
+    if (delay < 0.5 && adjust_phase)
     {
         std::println(std::cerr, "DelayAllpass::setDelay: argument ({}) less than 0.5 not possible!", delay);
         assert(false);
@@ -46,16 +46,23 @@ void DelayAllpass::SetDelay(float delay)
     int int_delay = static_cast<int>(delay);
     float alpha = delay - int_delay;
 
-    if (alpha < 0.5f)
+    if (alpha < 0.5f && adjust_phase)
     {
         int_delay -= 1;
         alpha += 1.0f;
     }
 
     assert(int_delay >= 0);
+
+    bool update_allpass = delay_.GetDelay() != int_delay;
+
     delay_.SetDelay(int_delay);
 
     allpass_.SetCoefficients((1.0f - alpha) / (1.0f + alpha));
+    if (update_allpass)
+    {
+        allpass_.Tick(delay_.LastOut());
+    }
 }
 
 float DelayAllpass::Tick(float input)

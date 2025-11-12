@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 
 namespace sfFDN
 {
@@ -25,7 +26,7 @@ class PartitionedConvolver : public AudioProcessor
      * The PartitionedConvolver only works if the block size stays constant during use.
      * Process() expects the input and output buffers to have a sample count equal to the block size.
      */
-    PartitionedConvolver(uint32_t block_size, std::span<const float> fir);
+    PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 8);
     ~PartitionedConvolver();
 
     PartitionedConvolver(const PartitionedConvolver&) = delete;
@@ -44,6 +45,8 @@ class PartitionedConvolver : public AudioProcessor
     /** @brief Dumps internal information to the standard output for debugging purposes.
      */
     void DumpInfo() const;
+
+    std::string GetShortInfo() const;
 
     /** @brief Gets the number of input channels supported.
      * This is always 1, as PartitionedConvolver processes one channel at a time.

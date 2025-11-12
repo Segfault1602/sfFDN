@@ -42,7 +42,7 @@ TEST_CASE("PartitionedConvolver")
 {
     constexpr uint32_t kBlockSize = 64;
 
-    constexpr uint32_t kFirLength = 4096;
+    constexpr uint32_t kFirLength = 48000;
     auto ref_filter = CreateTestFilter();
     std::vector<float> fir(kFirLength, 0.f);
     for (auto i = 0u; i < kFirLength; ++i)
@@ -51,8 +51,6 @@ TEST_CASE("PartitionedConvolver")
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
     }
 
-    sfFDN::PartitionedConvolver nupols(kBlockSize, fir);
-
     std::vector<float> input(kBlockSize, 0.f);
     input[0] = 1.f;
     std::vector<float> output(kBlockSize, 0.f);
@@ -60,12 +58,18 @@ TEST_CASE("PartitionedConvolver")
     nanobench::Bench bench;
     bench.title("PartitionedConvolver perf");
     bench.minEpochIterations(20000);
+    bench.timeUnit(1us, "us");
+    bench.relative(true);
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
-    bench.run("PartitionedConvolver", [&] {
-        // Process the block
-        nupols.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
+    for (uint32_t rep_count = 2; rep_count <= 32; rep_count *= 2)
+    {
+        sfFDN::PartitionedConvolver nupols(kBlockSize, fir, rep_count);
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+        bench.run(nupols.GetShortInfo(), [&] {
+            // Process the block
+            nupols.Process(input_buffer, output_buffer);
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
 }

@@ -11,6 +11,7 @@
 #include <memory>
 #include <print>
 #include <span>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,7 @@ class PartitionedConvolverSegment
     void Process(std::span<const float> input, CircularBuffer& output_buffer);
 
     void PrintPartition() const;
+    std::string GetShortInfo() const;
     void Clear();
 
   private:
@@ -69,6 +71,11 @@ void PartitionedConvolverSegment::PrintPartition() const
     upols_.PrintPartition();
 }
 
+std::string PartitionedConvolverSegment::GetShortInfo() const
+{
+    return upols_.GetShortInfo();
+}
+
 void PartitionedConvolverSegment::Clear()
 {
     upols_.Clear();
@@ -78,8 +85,9 @@ void PartitionedConvolverSegment::Clear()
 class PartitionedConvolver::PartitionedConvolverImpl
 {
   public:
-    PartitionedConvolverImpl(uint32_t block_size, std::span<const float> fir)
+    PartitionedConvolverImpl(uint32_t block_size, std::span<const float> fir, uint32_t rep_count)
         : block_size_(block_size)
+        , rep_count_(rep_count)
         , fir_(fir.begin(), fir.end())
     {
         uint32_t circ_buffer_size = fir.size();
@@ -94,8 +102,9 @@ class PartitionedConvolver::PartitionedConvolverImpl
         while (fir_offset < fir.size())
         {
             // max out at 8192 for no particular reason
-            if (segment_block_size == 8192)
+            if (segment_block_size >= 8192)
             {
+                segment_block_size = 8192;
                 uint32_t segment_size = fir.size() - fir_offset;
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
@@ -104,15 +113,13 @@ class PartitionedConvolver::PartitionedConvolverImpl
             }
             else
             {
-                // The original Gardner paper uses a factor of 2, but I found that using a factor of 4
-                // gives better performance for my implementation.
-                constexpr uint32_t kRepCount = 8;
+                const uint32_t kRepCount = rep_count;
                 uint32_t segment_size =
                     std::min(segment_block_size * kRepCount, static_cast<uint32_t>(fir.size()) - fir_offset);
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
                 fir_offset += segment_size;
-                segment_block_size *= kRepCount;
+                segment_block_size *= rep_count;
             }
         }
     }
@@ -155,6 +162,22 @@ class PartitionedConvolver::PartitionedConvolverImpl
         std::println("");
     }
 
+    std::string GetShortInfo() const
+    {
+        std::stringstream ss;
+        ss << "[";
+        for (auto i = 0u; i < segments_.size(); ++i)
+        {
+            if (i > 0)
+            {
+                ss << ", ";
+            }
+            ss << segments_[i]->GetShortInfo();
+        }
+        ss << "]";
+        return ss.str();
+    }
+
     void Clear()
     {
         output_buffer_.Clear();
@@ -166,21 +189,22 @@ class PartitionedConvolver::PartitionedConvolverImpl
 
     std::unique_ptr<PartitionedConvolverImpl> Clone() const
     {
-        return std::make_unique<PartitionedConvolverImpl>(block_size_, fir_);
+        return std::make_unique<PartitionedConvolverImpl>(block_size_, fir_, rep_count_);
     }
 
   private:
     uint32_t block_size_;
     CircularBuffer output_buffer_;
+    uint32_t rep_count_;
 
     std::vector<std::unique_ptr<PartitionedConvolverSegment>> segments_;
 
     std::vector<float> fir_; // Store the FIR coefficients for cloning and, eventually, serializing
 };
 
-PartitionedConvolver::PartitionedConvolver(uint32_t block_size, std::span<const float> fir)
+PartitionedConvolver::PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count)
 {
-    impl_ = std::make_unique<PartitionedConvolverImpl>(block_size, fir);
+    impl_ = std::make_unique<PartitionedConvolverImpl>(block_size, fir, rep_count);
 }
 
 PartitionedConvolver::~PartitionedConvolver() = default;
@@ -204,6 +228,11 @@ void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output
 void PartitionedConvolver::DumpInfo() const
 {
     impl_->DumpInfo();
+}
+
+std::string PartitionedConvolver::GetShortInfo() const
+{
+    return impl_->GetShortInfo();
 }
 
 void PartitionedConvolver::Clear()

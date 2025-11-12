@@ -1,6 +1,7 @@
 #include "array_math.h"
 
 #include <cassert>
+#include <cmath>
 #include <ranges>
 #include <span>
 
@@ -51,6 +52,16 @@ void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std
 
     ippsMul_32f(a.data(), b.data(), out.data(), static_cast<int>(a.size()));
 }
+
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
+{
+    assert(a.size() == c.size());
+    assert(a.size() == out.size());
+
+    ippsMulC_32f(a.data(), b, out.data(), static_cast<int>(a.size()));
+    ippsAdd_32f_I(c.data(), out.data(), static_cast<int>(a.size()));
+}
+
 #elifdef SFFDN_USE_VDSP
 void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
 {
@@ -121,6 +132,17 @@ void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std
     for (auto [a_val, b_val, out_val] : std::views::zip(a, b, out))
     {
         out_val = a_val * b_val;
+    }
+}
+
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
+{
+    assert(a.size() == c.size());
+    assert(a.size() == out.size());
+
+    for (auto [a_val, c_val, out_val] : std::views::zip(a, c, out))
+    {
+        out_val = a_val * b + c_val;
     }
 }
 #endif // SFFDN_USE_IPP
