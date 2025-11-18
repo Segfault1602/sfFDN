@@ -1,6 +1,5 @@
 find_package(IPP)
 
-
 add_library(sfFDN.sfFDN)
 add_library(sfFDN::sfFDN ALIAS sfFDN.sfFDN)
 
@@ -24,6 +23,7 @@ target_sources(
             delay_utils.cpp
             feedback_matrix.cpp
             fdn.cpp
+            fdn_config.cpp
             fir.cpp
             fft.cpp
             filter.cpp
@@ -62,6 +62,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_design.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_feedback_matrix.h
@@ -76,7 +77,13 @@ target_sources(
 
 target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
 
-target_link_libraries(sfFDN.sfFDN PRIVATE Eigen3::Eigen pffft::pffft kissfft::kissfft-float)
+target_link_libraries(
+    sfFDN.sfFDN
+    PRIVATE Eigen3::Eigen
+            pffft::pffft
+            kissfft::kissfft-float
+            nlohmann_json::nlohmann_json
+)
 target_compile_options(sfFDN.sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
 target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
 target_link_options(sfFDN.sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})
@@ -86,7 +93,7 @@ if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")
 endif()
 
-if (IPP_FOUND)
+if(IPP_FOUND)
     message(STATUS "Using IPP optimizations")
     target_compile_definitions(sfFDN.sfFDN PRIVATE SFFDN_USE_IPP)
     target_link_libraries(sfFDN.sfFDN PRIVATE IPP::ippcore IPP::ipps)
