@@ -25,7 +25,7 @@ if(APPLE)
 endif()
 
 if(SFFDN_USE_SANITIZER)
-set(SFFDN_SANITIZER -fsanitize=address)
+    set(SFFDN_SANITIZER -fsanitize=address)
 endif()
 
 set(SFFDN_CXX_COMPILE_OPTIONS

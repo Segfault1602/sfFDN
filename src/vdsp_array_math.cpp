@@ -24,4 +24,9 @@ void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::sp
     vDSP_vsma(a.data(), 1, &b, out.data(), 1, out.data(), 1, a.size());
 }
 
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
+{
+    vDSP_vsma(a.data(), 1, &b, c.data(), 1, out.data(), 1, a.size());
+}
+
 } // namespace sfFDN
