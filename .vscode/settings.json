@@ -107,7 +107,8 @@
         "xutility": "cpp",
         "codecvt": "cpp",
         "strstream": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "any": "cpp"
     },
     "C_Cpp.codeAnalysis.clangTidy.enabled": false,
     "python.analysis.extraPaths": [

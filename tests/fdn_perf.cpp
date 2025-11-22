@@ -18,7 +18,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("FDNPerf")
+TEST_CASE("FDNPerf", "FDN")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
@@ -79,7 +79,7 @@ TEST_CASE("FDNPerf")
         auto fir = ReadWavFile("./tests/data/att_fir_1153.wav");
         fir_filter_bank->AddFilter(std::make_unique<sfFDN::PartitionedConvolver>(kBlockSize, fir));
     }
-    bench.minEpochIterations(100);
+    bench.minEpochIterations(1000);
     bench.run("FIR Filter Bank", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
@@ -95,6 +95,7 @@ TEST_CASE("FDNPerf")
     });
 
     auto output_gains = GetDefaultOutputGains(kFDNOrder);
+    bench.minEpochIterations(1000);
     bench.run("Output Gains", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
@@ -108,6 +109,7 @@ TEST_CASE("FDNPerf")
         tc_filter->Process(input_buffer, output_buffer);
     });
 
+    bench.minEpochIterations(1000);
     bench.run("Direct Gain", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
@@ -115,7 +117,7 @@ TEST_CASE("FDNPerf")
     });
 }
 
-TEST_CASE("FDNPerf_FIR")
+TEST_CASE("FDNPerf_FIR", "FDN")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
@@ -188,6 +190,7 @@ TEST_CASE("FDNPerf_FFM")
     nanobench::Bench bench;
     bench.title("FDN Perf");
     bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
     bench.run("FDN_FFM", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
@@ -281,7 +284,7 @@ TEST_CASE("FDNPerf_OrderFFM")
 
     nanobench::Bench bench;
     bench.title("FDN Perf - FFM");
-    // bench.minEpochIterations(100);
+    bench.minEpochIterations(100);
     bench.batch(kBlockSize);
 
     for (auto stage_count : kStageCount)

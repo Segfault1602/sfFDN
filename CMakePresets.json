@@ -7,68 +7,21 @@
     },
     "configurePresets": [
         {
-            "name": "common",
+            "name": "common-ninja",
             "hidden": true,
-            "displayName": "Common",
-            "generator": "Ninja",
+            "displayName": "Common-Ninja",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/ninja",
             "cacheVariables": {
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             }
         },
         {
-            "name": "Debug",
-            "hidden": true,
-            "inherits": "common",
-            "description": "Default build using Ninja generator",
-            "binaryDir": "${sourceDir}/build/debug",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "Release",
-            "hidden": true,
-            "inherits": "common",
-            "binaryDir": "${sourceDir}/build/Release",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "RelWithDebInfo",
-            "hidden": true,
-            "inherits": "common",
-            "binaryDir": "${sourceDir}/build/RelWithDebInfo",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-            }
-        },
-        {
-            "name": "llvm-dbg",
-            "displayName": "LLVM - Debug",
+            "name": "llvm-ninja",
+            "displayName": "LLVM - Ninja",
             "description": "Build for LLVM",
-            "inherits": "Debug",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
-            }
-        },
-        {
-            "name": "llvm-rel",
-            "displayName": "LLVM - Release",
-            "description": "Build for LLVM",
-            "inherits": "Release",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
-            }
-        },
-        {
-            "name": "llvm-relwithdebinfo",
-            "displayName": "LLVM - RelWithDebInfo",
-            "description": "Build for LLVM",
-            "inherits": "RelWithDebInfo",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/llvm-toolchain.cmake"
-            }
+            "inherits": "common-ninja",
+            "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake"
         },
         {
             "name": "windows",
@@ -85,15 +38,18 @@
     "buildPresets": [
         {
             "name": "llvm-debug",
-            "configurePreset": "llvm-dbg"
+            "configurePreset": "llvm-ninja",
+            "configuration": "Debug"
         },
         {
             "name": "llvm-release",
-            "configurePreset": "llvm-rel"
+            "configurePreset": "llvm-ninja",
+            "configuration": "Release"
         },
         {
             "name": "llvm-relwithdebinfo",
-            "configurePreset": "llvm-relwithdebinfo"
+            "configurePreset": "llvm-ninja",
+            "configuration": "RelWithDebInfo"
         },
         {
             "name": "windows",
