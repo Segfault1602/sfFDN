@@ -8,9 +8,9 @@
             "name": "(Windows) sfFDN.tests",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/tests/sfFDN.tests",
+            "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.tests",
             "args": [
-                "DelayTimeVarying"
+                "TwoFilter"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

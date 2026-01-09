@@ -223,7 +223,7 @@ void SchroederAllpassSection::Clear()
 
 std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
 {
-    auto clone = std::make_unique<SchroederAllpassSection>(allpasses_.size());
+    auto clone = std::make_unique<SchroederAllpassSection>(static_cast<uint32_t>(allpasses_.size()));
     assert(clone->allpasses_.size() == allpasses_.size());
     for (auto i = 0u; i < allpasses_.size(); ++i)
     {
@@ -297,7 +297,8 @@ void ParallelSchroederAllpassSection::Clear()
 
 std::unique_ptr<AudioProcessor> ParallelSchroederAllpassSection::Clone() const
 {
-    auto clone = std::make_unique<ParallelSchroederAllpassSection>(allpasses_.size(), stage_count_);
+    auto clone =
+        std::make_unique<ParallelSchroederAllpassSection>(static_cast<uint32_t>(allpasses_.size()), stage_count_);
     assert(clone->allpasses_.size() == allpasses_.size());
     for (auto i = 0u; i < allpasses_.size(); ++i)
     {

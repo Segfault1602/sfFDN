@@ -464,6 +464,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
     fdn->SetInputGains(CreateInputGainsFromConfig(config));
     fdn->SetOutputGains(CreateOutputGainsFromConfig(config));
     fdn->SetDelays(config.delays);
+    fdn->SetDirectGain(config.direct_gain);
 
     std::visit(MatrixVisitor(fdn.get()), config.matrix_info);
 

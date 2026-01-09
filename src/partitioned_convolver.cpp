@@ -141,6 +141,11 @@ class PartitionedConvolver::PartitionedConvolverImpl
         output_buffer_.Read(output.GetChannelSpan(0), true);
     }
 
+    uint32_t GetBlockSize() const
+    {
+        return block_size_;
+    }
+
     void DumpInfo() const
     {
         std::println("PartitionedConvolver Info:");
@@ -223,6 +228,11 @@ PartitionedConvolver& PartitionedConvolver::operator=(PartitionedConvolver&& oth
 void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     impl_->Process(input, output);
+}
+
+uint32_t PartitionedConvolver::GetBlockSize() const
+{
+    return impl_->GetBlockSize();
 }
 
 void PartitionedConvolver::DumpInfo() const

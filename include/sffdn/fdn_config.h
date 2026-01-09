@@ -56,6 +56,7 @@ struct FDNConfig
 {
     uint32_t N; // Number of channels
     bool transposed;
+    float direct_gain;
     std::vector<float> input_gains;      // Input gains for each channel
     std::vector<float> output_gains;     // Output gains for each channel
     std::vector<uint32_t> delays;        // Delay lengths in samples for each channel

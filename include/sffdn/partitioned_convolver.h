@@ -42,6 +42,8 @@ class PartitionedConvolver : public AudioProcessor
      */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
+    uint32_t GetBlockSize() const;
+
     /** @brief Dumps internal information to the standard output for debugging purposes.
      */
     void DumpInfo() const;

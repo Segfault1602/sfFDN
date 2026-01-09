@@ -341,7 +341,12 @@ std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float 
 
     std::vector<double> sos = GetTwoFilterImpl(gains, freqs, static_cast<double>(sr), shelf_cutoff);
 
-    std::vector<float> sos_f(sos.begin(), sos.end());
+    std::vector<float> sos_f;
+    sos_f.reserve(sos.size());
+    for (auto s : sos)
+    {
+        sos_f.push_back(static_cast<float>(s));
+    }
 
     return sos_f;
 }
@@ -358,7 +363,12 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
 
     std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
 
-    std::vector<float> sos_f(sos.begin(), sos.end());
+    std::vector<float> sos_f;
+    sos_f.reserve(sos.size());
+    for (auto s : sos)
+    {
+        sos_f.push_back(static_cast<float>(s));
+    }
     return sos_f;
 }
 
