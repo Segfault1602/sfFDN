@@ -20,7 +20,26 @@
 namespace
 {
 constexpr uint32_t kDefaultBlockSize = 64;
-}
+
+class ScopedNoDenormals
+{
+  public:
+    ScopedNoDenormals()
+    {
+        constexpr intptr_t mask = 0x8040;
+        old_mxcsr_ = _mm_getcsr();
+        _mm_setcsr(old_mxcsr_ | mask); // Set DAZ and FTZ bits
+    }
+
+    ~ScopedNoDenormals()
+    {
+        _mm_setcsr(old_mxcsr_); // Restore old MXCSR
+    }
+
+  private:
+    unsigned int old_mxcsr_;
+};
+} // namespace
 
 namespace sfFDN
 {
@@ -290,6 +309,8 @@ void FDN::Process(const AudioBuffer& input, AudioBuffer& output) noexcept [[clan
     assert(input.ChannelCount() == 1);
     assert(input_gains_ != nullptr);
     assert(output_gains_ != nullptr);
+
+    ScopedNoDenormals no_denormals;
 
     AudioBuffer mono_output = output.GetChannelBuffer(0);
 
