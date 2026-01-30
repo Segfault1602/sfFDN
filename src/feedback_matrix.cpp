@@ -61,8 +61,8 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         const uint32_t col = order_;
         const uint32_t row = input.SampleCount();
 
-#ifdef SFFDN_USE_VDSP
-        // #if 0
+        // Not using vDSP for now as it seems to be slower than Eigen
+#if 0 // defined(SFFDN_USE_VDSP)
         const float* A = matrix_data_.data();
         const float* B = input.Data();
         float* C = output.Data();

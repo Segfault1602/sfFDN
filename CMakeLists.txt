@@ -21,12 +21,10 @@ option(SFFDN_BUILD_PYTHON_BINDINGS "Build Python bindings" ${PROJECT_IS_TOP_LEVE
 
 option(SFFDN_USE_VDSP "Use vDSP for dsp operations" OFF)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    message(STATUS "Building for macOS")
-    option(SFFDN_USE_VDSP "Use vDSP for matrix multiplication" OFF)
-endif()
-
 include(./fetch_deps.cmake)
+
+include(cmake/project-warnings.cmake)
+include(cmake/project-options.cmake)
 
 add_subdirectory(src)
 

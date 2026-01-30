@@ -20,7 +20,6 @@ using namespace std::chrono_literals;
 
 TEST_CASE("FDNPerf", "FDN")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
 
@@ -119,7 +118,6 @@ TEST_CASE("FDNPerf", "FDN")
 
 TEST_CASE("FDNPerf_FIR", "FDN")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
 
@@ -161,7 +159,6 @@ TEST_CASE("FDNPerf_FIR", "FDN")
 
 TEST_CASE("FDNPerf_FFM")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
 
@@ -175,9 +172,6 @@ TEST_CASE("FDNPerf_FFM")
     }
 
     constexpr uint32_t kStageCount = 4;
-    std::array<uint32_t, kFDNOrder*(kStageCount - 1)> ffm_delays = {
-        2, 3, 8, 10, 14, 16, 0, 18, 36, 54, 72, 90, 0, 108, 216, 324, 432, 540,
-    };
 
     sfFDN::CascadedFeedbackMatrixInfo ffm_info =
         sfFDN::ConstructCascadedFeedbackMatrix(kFDNOrder, kStageCount, 1, sfFDN::ScalarMatrixType::Hadamard);
@@ -200,7 +194,6 @@ TEST_CASE("FDNPerf_FFM")
 
 TEST_CASE("FDNPerf_Order")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
 
     constexpr std::array<uint32_t, 5> kFDNOrder = {4, 8, 16, 32, 64};
@@ -235,7 +228,6 @@ TEST_CASE("FDNPerf_Order")
 
 TEST_CASE("FDNPerf_BlockSize")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     constexpr uint32_t kInputSize = 2048;
     constexpr uint32_t kOrder = 16;
@@ -277,7 +269,6 @@ TEST_CASE("FDNPerf_BlockSize")
 
 TEST_CASE("FDNPerf_OrderFFM")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 512;
 
     constexpr std::array<uint32_t, 5> kStageCount = {2, 3, 4, 5, 6};

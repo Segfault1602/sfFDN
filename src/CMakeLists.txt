@@ -79,15 +79,16 @@ target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pff
 
 target_link_libraries(
     sfFDN.sfFDN
-    PRIVATE Eigen3::Eigen
+    PRIVATE Eigen
             pffft::pffft
             kissfft::kissfft-float
-            nlohmann_json::nlohmann_json
+            sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
 )
-target_compile_options(sfFDN.sfFDN PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
+
+target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
+
 target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
-target_link_options(sfFDN.sfFDN PUBLIC ${SFFDN_LINK_OPTIONS})
-target_compile_definitions(sfFDN.sfFDN PRIVATE ${SFFDN_COMPILE_DEFINITION})
 
 if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")

@@ -81,7 +81,7 @@ TEST_CASE("IIRFilterBankPerf")
 
     nanobench::Bench bench;
     bench.title("FilterBank vs IIRFilterBank perf");
-    bench.minEpochIterations(200);
+    bench.minEpochIterations(5000);
     bench.relative(true);
     bench.timeUnit(1us, "us");
 
@@ -150,7 +150,6 @@ TEST_CASE("CascadedBiquadsPerf")
 
     filter_bank.SetCoefficients(kSOS.size(), coeffs);
 
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     std::vector<float> input(kBlockSize, 0);
 

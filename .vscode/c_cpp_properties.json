@@ -8,7 +8,8 @@
             "defines": [],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",
-            "cppStandard": "c++23"
+            "cppStandard": "c++23",
+            "compileCommands": "${workspaceFolder}/build/ninja/compile_commands.json"
         }
     ],
     "version": 4

@@ -125,7 +125,6 @@ TEST_CASE("DelayBank")
                                                              3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
 
     constexpr uint32_t kBlockSize = 128;
-    constexpr uint32_t kDelayCount = kDelays.size();
 
     sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
 
@@ -158,7 +157,6 @@ TEST_CASE("DelayBank_BlockSize")
                                                              3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    constexpr uint32_t kDelayCount = kDelays.size();
     constexpr uint32_t kInputSize = 1 << 12;
 
     std::vector<float> input(kInputSize * kChannelCount, 0.f);

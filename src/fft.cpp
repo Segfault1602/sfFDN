@@ -1,6 +1,6 @@
 #include "fft.h"
 
-#include <pffft/pffft.h>
+#include <pffft.h>
 
 #include <algorithm>
 #include <cassert>

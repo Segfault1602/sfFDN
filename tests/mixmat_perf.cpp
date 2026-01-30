@@ -17,7 +17,6 @@ using namespace std::chrono_literals;
 
 TEST_CASE("MixMatPerf")
 {
-    constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kMatSize = 16;
 
@@ -41,6 +40,10 @@ TEST_CASE("MixMatPerf")
     bench.timeUnit(1us, "us");
 
     bench.run("Householder", [&] { mix_mat.Process(input_buffer, input_buffer); });
+
+    sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Random);
+
+    bench.run("Random", [&] { random_mat.Process(input_buffer, input_buffer); });
 }
 
 TEST_CASE("Matrix_Order")
@@ -85,8 +88,7 @@ TEST_CASE("FFMPerf_Order")
 
     nanobench::Bench bench;
     bench.title("Filter Feedback Matrix");
-    bench.minEpochIterations(10);
-    bench.timeUnit(1ms, "ms");
+    bench.timeUnit(1us, "us");
     // bench.relative(true);
 
     // fill input with random values
@@ -103,6 +105,7 @@ TEST_CASE("FFMPerf_Order")
 
     for (auto i = 1; i < kMaxStageCount; ++i)
     {
+        bench.minEpochIterations(10000 / i);
         auto ffm = CreateFFM(kMatSize, i, 1);
         bench.complexityN(i).run("FFM - Stage " + std::to_string(i),
                                  [&] { ffm->Process(input_buffer, output_buffer); });

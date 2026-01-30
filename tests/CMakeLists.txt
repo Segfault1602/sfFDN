@@ -1,7 +1,46 @@
 # ======== Find Dependencies ========
-find_package(Catch2 3 REQUIRED)
-find_package(SndFile CONFIG REQUIRED)
-find_package(nanobench CONFIG REQUIRED)
+cpmaddpackage(
+    NAME
+    libsndfile
+    GIT_TAG
+    master
+    GIT_REPOSITORY
+    "https://github.com/libsndfile/libsndfile"
+    OPTIONS
+    "BUILD_PROGRAMS OFF"
+    "BUILD_EXAMPLES OFF"
+    "BUILD_REGTEST OFF"
+    "ENABLE_EXTERNAL_LIBS OFF"
+    "BUILD_TESTING OFF"
+    "ENABLE_MPEG OFF"
+    "ENABLE_CPACK OFF"
+    "ENABLE_PACKAGE_CONFIG OFF"
+    "INSTALL_PKGCONFIG_MODULE OFF"
+)
+
+cpmaddpackage(
+    NAME
+    Catch2
+    GITHUB_REPOSITORY
+    catchorg/Catch2
+    VERSION
+    3.12.0
+)
+
+cpmaddpackage(
+    NAME
+    nanobench
+    GITHUB_REPOSITORY
+    martinus/nanobench
+    VERSION
+    4.3.11
+)
+
+get_target_property(_catch2_inc Catch2 INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(Catch2 SYSTEM INTERFACE ${_catch2_inc})
+
+get_target_property(_nanobench_inc nanobench INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(nanobench SYSTEM INTERFACE ${_nanobench_inc})
 
 # ====================
 
@@ -29,19 +68,17 @@ target_link_libraries(
     PRIVATE sfFDN.sfFDN
             Catch2::Catch2WithMain
             SndFile::sndfile
-            Eigen3::Eigen
+            Eigen
+            sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
 )
 
 set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
-target_compile_options(sfFDN.tests PRIVATE ${SFFDN_CXX_COMPILE_OPTIONS})
-target_link_options(sfFDN.tests PRIVATE ${SFFDN_LINK_OPTIONS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
-target_compile_definitions(sfFDN.tests PRIVATE ${SFFDN_COMPILE_DEFINITION})
 
-include(Catch)
-catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(NAME sfFDN.tests COMMAND sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(sfFDN.perf)
 target_sources(
@@ -65,7 +102,9 @@ target_link_libraries(
             nanobench::nanobench
             Catch2::Catch2WithMain
             SndFile::sndfile
-            Eigen3::Eigen
+            Eigen
+            sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
 )
 
 if(APPLE)
@@ -74,5 +113,3 @@ endif()
 
 target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)
-target_compile_options(sfFDN.perf PRIVATE ${SFFDN_COMPILE_OPTIONS})
-target_compile_definitions(sfFDN.perf PRIVATE ${SFFDN_COMPILE_DEFINITION})

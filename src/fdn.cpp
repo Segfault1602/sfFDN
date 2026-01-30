@@ -26,18 +26,24 @@ class ScopedNoDenormals
   public:
     ScopedNoDenormals()
     {
+#ifdef _MSC_VER
         constexpr intptr_t mask = 0x8040;
         old_mxcsr_ = _mm_getcsr();
         _mm_setcsr(old_mxcsr_ | mask); // Set DAZ and FTZ bits
+#endif
     }
 
     ~ScopedNoDenormals()
     {
+#ifdef _MSC_VER
         _mm_setcsr(old_mxcsr_); // Restore old MXCSR
+#endif
     }
 
   private:
+#ifdef _MSC_VER
     unsigned int old_mxcsr_;
+#endif
 };
 } // namespace
 
