@@ -68,7 +68,7 @@ target_link_libraries(
     PRIVATE sfFDN.sfFDN
             Catch2::Catch2WithMain
             SndFile::sndfile
-            Eigen
+            Eigen3::Eigen
             sfFDN::sfFDN_warnings
             sfFDN::sfFDN_options
 )
@@ -102,7 +102,7 @@ target_link_libraries(
             nanobench::nanobench
             Catch2::Catch2WithMain
             SndFile::sndfile
-            Eigen
+            Eigen3::Eigen
             sfFDN::sfFDN_warnings
             sfFDN::sfFDN_options
 )

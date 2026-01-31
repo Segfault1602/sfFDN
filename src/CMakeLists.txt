@@ -79,7 +79,7 @@ target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pff
 
 target_link_libraries(
     sfFDN.sfFDN
-    PRIVATE Eigen
+    PRIVATE Eigen3::Eigen
             pffft::pffft
             kissfft::kissfft-float
             sfFDN::sfFDN_warnings

@@ -8,19 +8,11 @@ include(${cpm_SOURCE_DIR}/cmake/CPM.cmake)
 cpmaddpackage(
     NAME
     Eigen
-    VERSION
+    GIT_TAG
     5.0.1
-    URL
-    https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz
-    # Eigen's CMakelists are not intended for library use
-    DOWNLOAD_ONLY
-    YES
+    GIT_REPOSITORY
+    https://gitlab.com/libeigen/eigen
 )
-
-if(Eigen_ADDED)
-    add_library(Eigen INTERFACE IMPORTED)
-    target_include_directories(Eigen INTERFACE ${Eigen_SOURCE_DIR})
-endif()
 
 cpmaddpackage(
     NAME
@@ -31,11 +23,14 @@ cpmaddpackage(
     https://bitbucket.org/jpommier/pffft/src/master/
 )
 
-if(pffft_ADDED)
-    add_library(pffft STATIC ${pffft_SOURCE_DIR}/pffft.c)
-    add_library(pffft::pffft ALIAS pffft)
-    target_compile_definitions(pffft PRIVATE -D_USE_MATH_DEFINES)
-    target_include_directories(pffft PUBLIC ${pffft_SOURCE_DIR})
+if(NOT TARGET pffft)
+
+    if(pffft_ADDED)
+        add_library(pffft STATIC ${pffft_SOURCE_DIR}/pffft.c)
+        add_library(pffft::pffft ALIAS pffft)
+        target_compile_definitions(pffft PRIVATE -D_USE_MATH_DEFINES)
+        target_include_directories(pffft PUBLIC ${pffft_SOURCE_DIR})
+    endif()
 endif()
 
 # PFFFT does not support small FFT sizes (< 32) so KISSFFT is used for those cases. So far, this is only used for
