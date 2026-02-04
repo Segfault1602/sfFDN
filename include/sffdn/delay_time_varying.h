@@ -21,7 +21,7 @@ class DelayTimeVarying
     void SetDelay(float delay);
     float GetDelay() const;
 
-    void SetMod(float freq, float depth, float phase_offset = 0.0f);
+    void SetMod(float freq, float amplitude, float phase_offset = 0.0f);
 
     float Tick(float input);
 

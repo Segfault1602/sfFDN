@@ -19,21 +19,21 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 {
     constexpr uint32_t kBlockSize = 256;
     constexpr uint32_t kFDNOrder = 6;
-    constexpr std::array<float, kFDNOrder> kInputGains = {0.072116069, 0.24890353,   0.97228086,
-                                                          -0.38236806, -0.057921566, -0.39115807};
-    constexpr std::array<float, kFDNOrder> kOutputGains = {-0.46316639, -0.36613876, 0.30902779,
-                                                           0.30143532,  -0.49200505, 0.58704174};
+    constexpr std::array<float, kFDNOrder> kInputGains = {0.072116069f, 0.24890353f,   0.97228086f,
+                                                          -0.38236806f, -0.057921566f, -0.39115807f};
+    constexpr std::array<float, kFDNOrder> kOutputGains = {-0.46316639f, -0.36613876f, 0.30902779f,
+                                                           0.30143532f,  -0.49200505f, 0.58704174f};
     constexpr std::array<uint32_t, kFDNOrder> kDelays = {593, 743, 929, 1153, 1399, 1699};
 
     constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {
-        0.590748429298401,  0.457586556673050,  0.0557801127433777, -0.148047655820847,  -0.478258520364761,
-        -0.433439940214157, -0.158531382679939, 0.433001756668091,  -0.0591235160827637, 0.626041889190674,
-        0.430089294910431,  -0.454946815967560, -0.665803074836731, 0.195845842361450,   0.568070054054260,
-        -0.251500934362412, -0.263658404350281, -0.250756144523621, 0.239477828145027,   -0.236257210373878,
-        0.618841290473938,  0.622415661811829,  -0.255638062953949, 0.226088821887970,   0.266185045242310,
-        -0.500568747520447, 0.346136510372162,  -0.255272954702377, 0.454669415950775,   -0.535609304904938,
-        0.233208581805229,  0.508312821388245,  0.409773439168930,  -0.265208065509796,  0.494672924280167,
-        0.451974451541901};
+        0.590748429298401f,  0.457586556673050f,  0.0557801127433777f, -0.148047655820847f,  -0.478258520364761f,
+        -0.433439940214157f, -0.158531382679939f, 0.433001756668091f,  -0.0591235160827637f, 0.626041889190674f,
+        0.430089294910431f,  -0.454946815967560f, -0.665803074836731f, 0.195845842361450f,   0.568070054054260f,
+        -0.251500934362412f, -0.263658404350281f, -0.250756144523621f, 0.239477828145027f,   -0.236257210373878f,
+        0.618841290473938f,  0.622415661811829f,  -0.255638062953949f, 0.226088821887970f,   0.266185045242310f,
+        -0.500568747520447f, 0.346136510372162f,  -0.255272954702377f, 0.454669415950775f,   -0.535609304904938f,
+        0.233208581805229f,  0.508312821388245f,  0.409773439168930f,  -0.265208065509796f,  0.494672924280167f,
+        0.451974451541901f};
 
     auto fdn = std::make_unique<sfFDN::FDN>(kFDNOrder, kBlockSize, transpose);
     fdn->SetInputGains(kInputGains);
@@ -262,7 +262,7 @@ TEST_CASE("FDN_FIR")
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t test_boundary = std::min(output.size(), expected_output.size());
+        size_t test_boundary = std::min(output.size(), expected_output.size());
 
         for (auto i = 0u; i < test_boundary; ++i)
         {
@@ -284,7 +284,6 @@ TEST_CASE("FDN_Chirp")
     std::vector<float> input = ReadWavFile("./tests/data/chirp_ramp.wav");
 
     std::vector<float> output(input.size(), 0.f);
-
     sfFDN::AudioBuffer input_buffer(input.size(), 1, input);
     sfFDN::AudioBuffer output_buffer(output.size(), 1, output);
     fdn->Process(input_buffer, output_buffer);

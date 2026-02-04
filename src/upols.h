@@ -8,6 +8,10 @@
 
 namespace sfFDN
 {
+/**
+ * @brief Uniform Partitioned Overlap-Save Convolver
+ *
+ */
 class UPOLS
 {
   public:

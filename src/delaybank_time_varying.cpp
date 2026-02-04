@@ -2,6 +2,7 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
+#include "sffdn/delay_interp.h"
 
 #include <cassert>
 #include <cstdint>

@@ -4,7 +4,6 @@
 #include "sffdn/filter_feedback_matrix.h"
 
 #include <Eigen/Core>
-#include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 #include <kiss_fft.h>
 
@@ -33,7 +32,7 @@ namespace
 // c is the first column, r is the first row
 Eigen::MatrixXf CreateToeplitzMatrix(const Eigen::VectorXf& c, const Eigen::VectorXf& r)
 {
-    uint32_t mat_size = c.size();
+    const uint32_t mat_size = c.size();
     Eigen::MatrixXf matrix(mat_size, mat_size);
 
     for (auto i = 0u; i < mat_size; ++i)
@@ -165,7 +164,7 @@ Eigen::MatrixXf VariableDiffusionMatrix(uint32_t mat_size, float diffusion)
     }
 
     diffusion = std::clamp(diffusion, 0.0f, 1.f);
-    float theta = diffusion * std::numbers::pi_v<float> * 0.25f;
+    const float theta = diffusion * std::numbers::pi_v<float> * 0.25f;
 
     Eigen::MatrixXf r(2, 2);
     r << std::cos(theta), std::sin(theta), -std::sin(theta), std::cos(theta);
@@ -236,7 +235,7 @@ Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, sfFDN::ScalarMatrixTyp
     }
     case sfFDN::ScalarMatrixType::VariableDiffusion:
     {
-        float diffusion = arg.has_value() ? arg.value() : 1.f;
+        const float diffusion = arg.has_value() ? arg.value() : 1.f;
         matrix = VariableDiffusionMatrix(mat_size, diffusion);
         break;
     }
@@ -279,7 +278,7 @@ Eigen::MatrixXf RandomOrthogonal(uint32_t mat_size, uint32_t seed)
     Eigen::MatrixXf random_matrix = RandN(mat_size, seed);
 
     // Perform QR decomposition
-    Eigen::HouseholderQR<Eigen::MatrixXf> qr_decomp(random_matrix);
+    const Eigen::HouseholderQR<Eigen::MatrixXf> qr_decomp(random_matrix);
     Eigen::MatrixXf q = qr_decomp.householderQ();
     Eigen::MatrixXf r = qr_decomp.matrixQR().triangularView<Eigen::Upper>();
 
@@ -298,8 +297,8 @@ Eigen::MatrixXf RandomOrthogonal(uint32_t mat_size, uint32_t seed)
 
 Eigen::MatrixXf HouseholderMatrix(Eigen::VectorXf v)
 {
-    uint32_t mat_size = v.size();
-    Eigen::MatrixXf identity = Eigen::MatrixXf::Identity(mat_size, mat_size);
+    const uint32_t mat_size = v.size();
+    const Eigen::MatrixXf identity = Eigen::MatrixXf::Identity(mat_size, mat_size);
     Eigen::MatrixXf matrix = identity - 2.f * (v * v.transpose());
     return matrix;
 }
@@ -333,7 +332,7 @@ Eigen::MatrixXf HadamardMatrix(uint32_t mat_size)
 
     while (matrix.rows() < mat_size)
     {
-        uint32_t n = matrix.rows();
+        const uint32_t n = matrix.rows();
         Eigen::MatrixXf temp(2 * n, 2 * n);
         temp.topLeftCorner(n, n) = matrix;
         temp.topRightCorner(n, n) = matrix;
@@ -386,7 +385,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
     }
 
     std::mt19937 dir_gen(seed == 0 ? rd() : seed + 1);
-    int dir = (dir_gen() % 2 == 0) ? 1 : -1;
+    const int dir = (dir_gen() % 2 == 0) ? 1 : -1;
     Eigen::MatrixXf matrix(mat_size, mat_size);
     switch (dir)
     {
@@ -412,9 +411,9 @@ Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
             v2[i] = v[i - 1];
         }
 
-        Eigen::VectorXf v_flipped = v.reverse();
+        const Eigen::VectorXf v_flipped = v.reverse();
         matrix = CreateToeplitzMatrix(v2, v_flipped);
-        Eigen::MatrixXf matrix_flipped =
+        const Eigen::MatrixXf matrix_flipped =
             matrix.rowwise().reverse(); // have to use extra matrix to avoid aliasing issues
         matrix = matrix_flipped;
         break;
@@ -443,10 +442,10 @@ Eigen::MatrixXf AllpassMatrix(uint32_t mat_size, uint32_t seed)
         g[i] = dist(gen) * 0.2f + 0.6f;
     }
 
-    Eigen::MatrixXf random_matrix = RandomOrthogonal(mat_size / 2, seed);
+    const Eigen::MatrixXf random_matrix = RandomOrthogonal(mat_size / 2, seed);
 
-    Eigen::MatrixXf diag_matrix = g.asDiagonal();
-    Eigen::MatrixXf identity_matrix = Eigen::MatrixXf::Identity(g.size(), g.size());
+    const Eigen::MatrixXf diag_matrix = g.asDiagonal();
+    const Eigen::MatrixXf identity_matrix = Eigen::MatrixXf::Identity(g.size(), g.size());
 
     Eigen::MatrixXf matrix = Eigen::MatrixXf::Zero(mat_size, mat_size);
     matrix.topLeftCorner(mat_size / 2, mat_size / 2) = -random_matrix * diag_matrix;

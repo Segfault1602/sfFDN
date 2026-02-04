@@ -274,7 +274,7 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, 
 
     assert(taps.size() == coeffs.size());
 
-    for (auto [delay, coeff] : std::views::zip(taps, coeffs))
+    for (const auto& [delay, coeff] : std::views::zip(taps, coeffs))
     {
         // read chases write
         int tap_point = (in_point_ + buffer_.size() - delay) % buffer_.size();

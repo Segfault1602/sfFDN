@@ -2,6 +2,7 @@
 
 #include "sffdn/audio_buffer.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -81,18 +82,18 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
 
     for (auto i = 0u; i < block_count; ++i)
     {
-        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        const AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
         AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
 
         ProcessInternal(input_block, output_block);
     }
 
-    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    const uint32_t remaining_samples = input.SampleCount() % block_size_;
     assert(block_size_ * block_count + remaining_samples == input.SampleCount());
 
     if (remaining_samples > 0)
     {
-        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        const AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
         AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
 
         ProcessInternal(input_block, output_block);
@@ -109,8 +110,8 @@ void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer&
         return;
     }
 
-    std::fill(work_buffer_a_.begin(), work_buffer_a_.end(), 0.f);
-    std::fill(work_buffer_b_.begin(), work_buffer_b_.end(), 0.f);
+    std::ranges::fill(work_buffer_a_, 0.f);
+    std::ranges::fill(work_buffer_b_, 0.f);
 
     // Process the first audio processor
     AudioBuffer buffer_a(input.SampleCount(), processors_[0]->OutputChannelCount(), work_buffer_a_);

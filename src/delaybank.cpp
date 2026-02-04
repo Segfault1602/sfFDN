@@ -15,7 +15,7 @@ namespace sfFDN
 
 DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
 {
-    for (unsigned int delay : delays)
+    for (auto delay : delays)
     {
         uint32_t max_delay = delay + block_size;
         if (max_delay % 64 != 0)

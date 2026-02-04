@@ -1,9 +1,11 @@
 #include "sffdn/delay_time_varying.h"
 
+#include "sffdn/audio_buffer.h"
+#include "sffdn/delay_interp.h"
+
+#include <array>
 #include <cassert>
-#include <cmath>
 #include <cstdint>
-#include <numbers>
 #include <stdexcept>
 
 namespace sfFDN
@@ -38,27 +40,26 @@ float DelayTimeVarying::GetDelay() const
     return delay_.GetDelay();
 }
 
-void DelayTimeVarying::SetMod(float freq, float amp, float phase_offset)
+void DelayTimeVarying::SetMod(float freq, float amplitude, float phase_offset)
 {
-    if (delay_.GetDelay() < amp)
+    if (delay_.GetDelay() < amplitude)
     {
-        throw std::invalid_argument("SetMod: depth must be less than the current delay");
+        throw std::invalid_argument("SetMod: amplitude must be less than the current delay");
     }
 
-    if (delay_.GetDelay() + amp > delay_.GetMaximumDelay())
+    if (delay_.GetDelay() + amplitude > delay_.GetMaximumDelay())
     {
-        throw std::invalid_argument("SetMod: depth + base delay must be less than the maximum delay");
+        throw std::invalid_argument("SetMod: amplitude + base delay must be less than the maximum delay");
     }
 
     lfo_.SetFrequency(freq);
-    lfo_.SetAmplitude(amp);
+    lfo_.SetAmplitude(amplitude);
     lfo_.SetPhaseOffset(phase_offset);
 }
 
 void DelayTimeVarying::UpdateDelay()
 {
-    float mod = lfo_.Tick();
-    delay_.SetDelay(base_delay_ + mod);
+    delay_.SetDelay(base_delay_ + lfo_.Tick());
 }
 
 float DelayTimeVarying::Tick(float input)

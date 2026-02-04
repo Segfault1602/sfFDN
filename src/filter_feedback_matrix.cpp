@@ -7,10 +7,10 @@
 
 #include <cassert>
 #include <cstdint>
-#include <iostream>
 #include <memory>
 #include <print>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace
@@ -29,15 +29,13 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& inf
     assert(info.delays.size() == info.stage_count);
     assert(info.matrices.size() == info.stage_count + 1);
 
-    for (uint32_t i = 0; i < info.delays.size(); ++i)
+    for (const auto& stage_delays : info.delays)
     {
-        auto stage_delays = info.delays[i];
         delaybanks_.emplace_back(stage_delays, kDefaultBlockSize);
     }
 
-    for (uint32_t i = 0; i < info.matrices.size(); ++i)
+    for (const auto& matrix : info.matrices)
     {
-        const std::vector<float>& matrix = info.matrices[i];
         matrix_.emplace_back(channel_count_, matrix);
     }
 }

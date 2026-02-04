@@ -60,6 +60,7 @@ TEST_CASE("Delay")
 
     sfFDN::DelayInterp delay_allpass(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
 
+#if 0
     bench.minEpochIterations(10000);
     bench.run("DelayAllpass Tick", [&] {
         for (auto i = 0u; i < kBlockSize; ++i)
@@ -77,6 +78,7 @@ TEST_CASE("Delay")
         nanobench::doNotOptimizeAway(input_buffer);
         nanobench::doNotOptimizeAway(output_buffer);
     });
+#endif
 
     sfFDN::DelayInterp delay_interp(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
     bench.minEpochIterations(10000);

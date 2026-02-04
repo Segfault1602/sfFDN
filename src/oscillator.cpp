@@ -82,7 +82,7 @@ float SineWave::NextOut() const
 
 float SineWave::Tick()
 {
-    float out = (Sine(phase_ + phase_offset_) * amplitude_) + offset_;
+    const float out = (Sine(phase_ + phase_offset_) * amplitude_) + offset_;
     phase_ += phase_increment_;
     phase_ -= std::floor(phase_);
     return out;

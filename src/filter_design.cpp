@@ -22,6 +22,7 @@
 #include <ranges>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -90,8 +91,8 @@ Eigen::MatrixXd InteractionMatrix(std::span<const double> gains, double gain_fac
     std::array<double, kNBands> gains_db{};
     ToDb<double>(gains, gains_db);
 
-    double gdb_abs_sum = std::accumulate(gains_db.begin(), gains_db.end(), 0.0,
-                                         [](double sum, double val) { return sum + std::abs(val); });
+    const double gdb_abs_sum = std::accumulate(gains_db.begin(), gains_db.end(), 0.0,
+                                               [](double sum, double val) { return sum + std::abs(val); });
     if (gdb_abs_sum <= 1e-10)
     {
         for (int i = 0; i < kNBands; ++i)
@@ -185,7 +186,7 @@ std::vector<double> Aceq(std::span<const double> diff_mag, std::span<const doubl
 
     auto leak = InteractionMatrix<kNBands, kNFreqs>(gains_db, kGW, wg, wc, bw);
 
-    Eigen::Map<const Eigen::ArrayXd> diff_mag_map(diff_mag.data(), diff_mag.size());
+    const Eigen::Map<const Eigen::ArrayXd> diff_mag_map(diff_mag.data(), diff_mag.size());
 
     Eigen::VectorXd gains_db_2 = Eigen::VectorXd::Zero(kNFreqs);
     gains_db_2(Eigen::seq(0, kNFreqs - 1, 2)) = diff_mag_map;
@@ -234,8 +235,8 @@ std::vector<double> GetTwoFilterImpl(std::span<const double> gains, std::span<co
     }
 
     // Build first-order low shelf filter
-    double gain_low = linear_gains[0];
-    double gain_high = linear_gains[linear_gains.size() - 1];
+    const double gain_low = linear_gains[0];
+    const double gain_high = linear_gains[linear_gains.size() - 1];
 
     std::array<double, 4> shelf_sos = sfFDN::LowShelf(shelf_cutoff, sr, gain_low, gain_high);
     const std::span shelf_sos_span{shelf_sos};
@@ -339,7 +340,7 @@ std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float 
         freqs[i] = kUpperLimit / std::pow(2.0, static_cast<double>(t60s.size() - 1 - i));
     }
 
-    std::vector<double> sos = GetTwoFilterImpl(gains, freqs, static_cast<double>(sr), shelf_cutoff);
+    const std::vector<double> sos = GetTwoFilterImpl(gains, freqs, static_cast<double>(sr), shelf_cutoff);
 
     std::vector<float> sos_f;
     sos_f.reserve(sos.size());
@@ -361,7 +362,7 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
     std::vector<double> gains(mag.begin(), mag.end());
     std::vector<double> freqs_d(freqs.begin(), freqs.end());
 
-    std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
+    const std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
 
     std::vector<float> sos_f;
     sos_f.reserve(sos.size());
@@ -382,7 +383,7 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(std::span<const floa
         std::vector<float> proportional_fb_gains(delays.size(), 0.f);
         for (size_t i = 0; i < delays.size(); ++i)
         {
-            proportional_fb_gains[i] = std::pow(feedback_gain, delays[i]);
+            proportional_fb_gains[i] = std::powf(feedback_gain, static_cast<float>(delays[i]));
         }
 
         return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, proportional_fb_gains);
@@ -406,7 +407,7 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(std::span<const floa
         auto filter_bank = std::make_unique<sfFDN::FilterBank>();
         for (auto delay : delays)
         {
-            std::vector<float> sos = GetTwoFilter(t60s, delay, sample_rate);
+            std::vector<float> sos = GetTwoFilter(t60s, static_cast<float>(delay), sample_rate);
             const size_t num_stages = sos.size() / 6;
             auto filter = std::make_unique<sfFDN::CascadedBiquads>();
             filter->SetCoefficients(num_stages, sos);

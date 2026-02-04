@@ -70,9 +70,9 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
 #else
 
-        Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);
+        const Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);
 
-        Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
+        const Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
         Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
 
         // The input and output buffers must not overlap

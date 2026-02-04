@@ -1,13 +1,35 @@
 #include "sffdn/fdn_config.h"
 
-#include "sffdn/sffdn.h"
-
 #include "sffdn/audio_processor.h"
+#include "sffdn/delay_matrix.h"
+#include "sffdn/delaybank.h"
+#include "sffdn/delaybank_time_varying.h"
+#include "sffdn/fdn.h"
+#include "sffdn/feedback_matrix.h"
+#include "sffdn/filter.h"
 #include "sffdn/filter_design.h"
+#include "sffdn/filter_feedback_matrix.h"
+#include "sffdn/filterbank.h"
+#include "sffdn/matrix_gallery.h"
+#include "sffdn/parallel_gains.h"
+#include "sffdn/schroeder_allpass.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <random>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -121,7 +143,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
 
     // Everything else should be multichannel
 
-    if (config.use_extra_delays && config.input_stage_delays.size() > 0)
+    if (config.use_extra_delays && !config.input_stage_delays.empty())
     {
         assert(config.input_stage_delays.size() == config.N);
 
@@ -296,14 +318,14 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
         },
         p.matrix_info);
 
-    if (p.tc_gains.size() > 0 && p.tc_frequencies.size() > 0)
+    if (!p.tc_gains.empty() && !p.tc_frequencies.empty())
     {
         assert(p.tc_gains.size() == p.tc_frequencies.size());
         j["tc_gains"] = p.tc_gains;
         j["tc_frequencies"] = p.tc_frequencies;
     }
 
-    if (p.input_stage_delays.size() > 0)
+    if (!p.input_stage_delays.empty())
     {
         j["input_stage_delays"] = p.input_stage_delays;
     }
@@ -479,7 +501,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
                 uint32_t extra_delay = 0;
                 for (auto stage_delay : arg.delays)
                 {
-                    uint32_t max_stage_delay = *std::max_element(stage_delay.begin(), stage_delay.end());
+                    const uint32_t max_stage_delay = *std::ranges::max_element(stage_delay);
                     extra_delay += max_stage_delay;
                 }
                 extra_delay /= 2;
@@ -512,8 +534,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
 
     if (config.time_varying_delays.has_value())
     {
-        float max_amplitude = *std::ranges::max_element(config.time_varying_delays->lfo_amplitudes);
-        float base_delay = std::ceilf(max_amplitude); // Ensure we don't go negative
+        const float max_amplitude = *std::ranges::max_element(config.time_varying_delays->lfo_amplitudes);
+        const float base_delay = std::ceilf(max_amplitude); // Ensure we don't go negative
         uint32_t max_delay = 32;
         while (max_delay < base_delay + max_amplitude)
         {
@@ -545,7 +567,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
         fdn->SetFilterBank(std::move(filter_bank));
     }
 
-    if (config.tc_gains.size() > 0)
+    if (!config.tc_gains.empty())
     {
         assert(config.tc_gains.size() == 10);
         std::vector<float> tc_sos = sfFDN::DesignGraphicEQ(config.tc_gains, config.tc_frequencies, samplerate);

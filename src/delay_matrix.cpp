@@ -111,8 +111,8 @@ class DelayMatrix::DelayMatrixImpl
     {
         std::println("DelayMatrix Info:");
         std::println("Delays:");
-        Eigen::Map<const Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic>> delay_matrix(delay_values_.data(),
-                                                                                               order_, order_);
+        const Eigen::Map<const Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic>> delay_matrix(
+            delay_values_.data(), order_, order_);
         std::cout << delay_matrix << '\n';
 
         std::println("Mixing Matrix:");

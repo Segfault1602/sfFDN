@@ -4,7 +4,6 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
-#include <array>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -34,8 +33,8 @@ void SchroederAllpass::SetG(float g)
 
 float SchroederAllpass::Tick(float input)
 {
-    float out = delay_.NextOut();
-    float v_n = input + (g_ * out);
+    const float out = delay_.NextOut();
+    const float v_n = input + (g_ * out);
     delay_.Tick(v_n);
     return out - (g_ * v_n);
 }

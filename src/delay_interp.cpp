@@ -2,10 +2,9 @@
 
 #include "sffdn/audio_buffer.h"
 
+#include <array>
 #include <cassert>
 #include <cstdint>
-#include <iostream>
-#include <print>
 
 namespace sfFDN
 {
@@ -13,6 +12,9 @@ namespace sfFDN
 DelayInterp::DelayInterp(float delay, uint32_t max_delay, DelayInterpolationType type)
     : delayline_(static_cast<uint32_t>(delay + 1), max_delay)
     , type_(type)
+    , delay_(0)
+    , int_delay_(0)
+    , frac_delay_(0.0f)
 {
     this->SetDelay(delay);
 }
@@ -48,7 +50,7 @@ void DelayInterp::SetDelay(float delay)
 
         assert(int_delay_ >= 0);
 
-        bool update_allpass = delayline_.GetDelay() != int_delay_;
+        const bool update_allpass = delayline_.GetDelay() != int_delay_;
 
         delayline_.SetDelay(int_delay_);
 
@@ -62,17 +64,20 @@ void DelayInterp::SetDelay(float delay)
 
 float DelayInterp::Tick(float input)
 {
-    if (type_ == DelayInterpolationType::Linear)
+    switch (type_)
+    {
+    case DelayInterpolationType::Linear:
     {
         delayline_.Tick(input);
-        float a = delayline_.TapOut(int_delay_);
-        float b = delayline_.TapOut(int_delay_ + 1);
+        const float a = delayline_.TapOut(int_delay_);
+        const float b = delayline_.TapOut(int_delay_ + 1);
         return a + (b - a) * frac_delay_;
     }
-    else if (type_ == DelayInterpolationType::Allpass)
+    case DelayInterpolationType::Allpass:
     {
-        float out = delayline_.Tick(input);
+        const float out = delayline_.Tick(input);
         return allpass_.Tick(out);
+    }
     }
 
     assert(false);

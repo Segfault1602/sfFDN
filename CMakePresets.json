@@ -24,10 +24,21 @@
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake"
         },
         {
+            "name": "llvm-tidy",
+            "displayName": "LLVM - Ninja with Static Analysis",
+            "description": "Build for LLVM with clang-tidy static analysis",
+            "inherits": "common-ninja",
+            "binaryDir": "${sourceDir}/build/llvm-tidy",
+            "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
+            "cacheVariables": {
+                "SFFDN_ENABLE_STATIC_ANALYSIS": "ON"
+            }
+        },
+        {
             "name": "windows",
             "displayName": "Windows",
             "description": "Build for Windows",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 18 2026",
             "binaryDir": "${sourceDir}/build/windows",
             "toolchainFile": "${sourceDir}/cmake/msvc-toolchain.cmake",
             "cacheVariables": {
@@ -50,6 +61,10 @@
             "name": "llvm-relwithdebinfo",
             "configurePreset": "llvm-ninja",
             "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "llvm-tidy",
+            "configurePreset": "llvm-tidy"
         },
         {
             "name": "windows",

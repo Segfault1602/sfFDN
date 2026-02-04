@@ -14,6 +14,11 @@ cpmaddpackage(
     https://gitlab.com/libeigen/eigen
 )
 
+if(Eigen_ADDED)
+    get_target_property(_eigen_inc eigen INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(eigen SYSTEM INTERFACE ${_eigen_inc})
+endif()
+
 cpmaddpackage(
     NAME
     pffft

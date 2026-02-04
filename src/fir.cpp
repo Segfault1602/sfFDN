@@ -5,8 +5,11 @@
 
 #include <Eigen/Core>
 
+#include <algorithm>
 #include <cassert>
-#include <numeric>
+#include <cstdint>
+#include <memory>
+#include <span>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
@@ -33,10 +36,10 @@ float Fir::Tick(float in)
     vDSP_dotpr(coeffs_.data(), 1, delay_span.data(), 1, &y, static_cast<vDSP_Length>(coeffs_.size()));
 #else
 
-    Eigen::Map<const Eigen::VectorXf> coeffs_map(coeffs_.data(), static_cast<Eigen::Index>(coeffs_.size()));
-    Eigen::Map<const Eigen::VectorXf> delay_map(delay_span.data(), static_cast<Eigen::Index>(delay_span.size()));
+    const Eigen::Map<const Eigen::VectorXf> coeffs_map(coeffs_.data(), static_cast<Eigen::Index>(coeffs_.size()));
+    const Eigen::Map<const Eigen::VectorXf> delay_map(delay_span.data(), static_cast<Eigen::Index>(delay_span.size()));
 
-    float y = coeffs_map.dot(delay_map);
+    const float y = coeffs_map.dot(delay_map);
 #endif
 
     delay_index_ = (delay_index_ == 0) ? coeffs_.size() - 1 : delay_index_ - 1;
@@ -67,7 +70,7 @@ uint32_t Fir::OutputChannelCount() const
 
 void Fir::Clear()
 {
-    std::fill(delay_line_.begin(), delay_line_.end(), 0.f);
+    std::ranges::fill(delay_line_, 0.f);
     delay_index_ = 0;
 }
 

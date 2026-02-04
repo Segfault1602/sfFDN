@@ -8,7 +8,6 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <print>
 #include <ranges>
 #include <span>
 #include <utility>
@@ -39,7 +38,7 @@ CascadedBiquads::CascadedBiquads(const CascadedBiquads& other)
     , states_(other.states_)
     , coeffs_(other.coeffs_)
 {
-    Clear();
+    CascadedBiquads::Clear();
 }
 
 CascadedBiquads& CascadedBiquads::operator=(const CascadedBiquads& other)

@@ -5,8 +5,8 @@
 #include "sffdn/filter.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -17,7 +17,7 @@
 #include <Accelerate/Accelerate.h>
 #endif
 
-#define IIRFILTERBANK_USE_EIGEN 0
+// #define IIRFILTERBANK_USE_EIGEN 1
 #if IIRFILTERBANK_USE_EIGEN
 #include <Eigen/Core>
 #endif
@@ -359,7 +359,7 @@ void IIRFilterBank::Clear()
     impl_->Clear();
 }
 
-void IIRFilterBank::SetFilter(std::span<float> coeffs, uint32_t channel_count, uint32_t stage_count)
+void IIRFilterBank::SetFilter(std::span<float> coeffs, uint32_t channel_count, size_t stage_count)
 {
     impl_->SetFilter(coeffs, channel_count, stage_count);
 }

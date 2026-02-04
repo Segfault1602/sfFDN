@@ -21,7 +21,7 @@ option(SFFDN_BUILD_PYTHON_BINDINGS "Build Python bindings" ${PROJECT_IS_TOP_LEVE
 
 option(SFFDN_USE_SANITIZER "Use AddressSanitizer" OFF)
 option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
-
+option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
 option(SFFDN_USE_VDSP "Use vDSP for dsp operations" OFF)
 
 include(./fetch_deps.cmake)

@@ -1,5 +1,15 @@
 find_package(IPP)
 
+if(SFFDN_ENABLE_STATIC_ANALYSIS)
+    message(STATUS "Enabling static analysis with clang-tidy")
+    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+    else()
+        message(FATAL_ERROR "clang-tidy not found but SFFDN_ENABLE_STATIC_ANALYSIS is ON")
+    endif()
+endif()
+
 add_library(sfFDN.sfFDN)
 add_library(sfFDN::sfFDN ALIAS sfFDN.sfFDN)
 
@@ -16,7 +26,7 @@ target_sources(
             delay.cpp
             delaybank.cpp
             delaybank_time_varying.cpp
-            delaya.cpp
+            # delaya.cpp
             delay_interp.cpp
             delay_matrix.cpp
             delay_time_varying.cpp
@@ -56,7 +66,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_utils.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay.h
-           ${SFFDN_INCLUDE_DIRS}/sffdn/delaya.h
+           # ${SFFDN_INCLUDE_DIRS}/sffdn/delaya.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_interp.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h

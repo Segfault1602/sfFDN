@@ -25,11 +25,13 @@ class ScopedNoDenormals
 {
   public:
     ScopedNoDenormals()
+#ifdef _MSC_VER
+        : old_mxcsr_(_mm_getcsr())
+#endif
     {
 #ifdef _MSC_VER
-        constexpr intptr_t mask = 0x8040;
-        old_mxcsr_ = _mm_getcsr();
-        _mm_setcsr(old_mxcsr_ | mask); // Set DAZ and FTZ bits
+        constexpr intptr_t kMask = 0x8040;
+        _mm_setcsr(old_mxcsr_ | kMask); // Set DAZ and FTZ bits
 #endif
     }
 
@@ -40,9 +42,14 @@ class ScopedNoDenormals
 #endif
     }
 
+    ScopedNoDenormals(const ScopedNoDenormals&) = delete;
+    ScopedNoDenormals& operator=(const ScopedNoDenormals&) = delete;
+    ScopedNoDenormals(ScopedNoDenormals&&) = delete;
+    ScopedNoDenormals& operator=(ScopedNoDenormals&&) = delete;
+
   private:
 #ifdef _MSC_VER
-    unsigned int old_mxcsr_;
+    unsigned int old_mxcsr_{};
 #endif
 };
 } // namespace
@@ -316,7 +323,7 @@ void FDN::Process(const AudioBuffer& input, AudioBuffer& output) noexcept [[clan
     assert(input_gains_ != nullptr);
     assert(output_gains_ != nullptr);
 
-    ScopedNoDenormals no_denormals;
+    const ScopedNoDenormals no_denormals;
 
     AudioBuffer mono_output = output.GetChannelBuffer(0);
 
@@ -389,12 +396,12 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
 
     ArrayMath::Add(feedback_, temp_buffer_, feedback_);
 
-    std::fill(temp_buffer_.begin(), temp_buffer_.end(), 0.f);
+    std::ranges::fill(temp_buffer_, 0.f);
     mixing_matrix_->Process(feedback_buffer, temp_buffer);
 
     if (filter_bank_)
     {
-        std::fill(feedback_.begin(), feedback_.end(), 0.f);
+        std::ranges::fill(feedback_, 0.f);
         filter_bank_->Process(temp_buffer, feedback_buffer);
         std::swap(feedback_buffer, temp_buffer);
     }
@@ -416,18 +423,18 @@ void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
 
     for (auto i = 0u; i < block_count; ++i)
     {
-        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        const AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
         AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
 
         TickInternal(input_block, output_block);
     }
 
-    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    const uint32_t remaining_samples = input.SampleCount() % block_size_;
     assert(block_size_ * block_count + remaining_samples == input.SampleCount());
 
     if (remaining_samples > 0)
     {
-        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        const AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
         AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
 
         TickInternal(input_block, output_block);
@@ -440,18 +447,18 @@ void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
 
     for (auto i = 0u; i < block_count; ++i)
     {
-        AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
+        const AudioBuffer input_block = input.Offset(i * block_size_, block_size_);
         AudioBuffer output_block = output.Offset(i * block_size_, block_size_);
 
         TickTransposeInternal(input_block, output_block);
     }
 
-    uint32_t remaining_samples = input.SampleCount() % block_size_;
+    const uint32_t remaining_samples = input.SampleCount() % block_size_;
     assert(block_size_ * block_count + remaining_samples == input.SampleCount());
 
     if (remaining_samples > 0)
     {
-        AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
+        const AudioBuffer input_block = input.Offset(block_count * block_size_, remaining_samples);
         AudioBuffer output_block = output.Offset(block_count * block_size_, remaining_samples);
 
         TickTransposeInternal(input_block, output_block);

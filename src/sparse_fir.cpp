@@ -6,7 +6,10 @@
 
 #include <algorithm>
 #include <cassert>
-#include <numeric>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
 
 namespace
 {
@@ -21,7 +24,7 @@ void SparseFir::SetCoefficients(std::span<const float> coeffs, std::span<const u
     assert(coeffs.size() == indices.size());
     coeffs_.assign(coeffs.begin(), coeffs.end());
     sparse_index_.assign(indices.begin(), indices.end());
-    filter_order_ = *std::max_element(indices.begin(), indices.end()) + 1;
+    filter_order_ = *std::ranges::max_element(indices) + 1;
 
     delay_line_.SetMaximumDelay(filter_order_ + kDefaultBlockSize);
 }
@@ -33,7 +36,7 @@ float SparseFir::Tick(float in)
     float y = 0.f;
     for (size_t i = 0; i < coeffs_.size(); ++i)
     {
-        uint32_t tap = sparse_index_[i];
+        const uint32_t tap = sparse_index_[i];
         y += coeffs_[i] * delay_line_.TapOut(tap);
     }
 

@@ -2,7 +2,11 @@ add_library(sfFDN_options INTERFACE)
 add_library(sfFDN::sfFDN_options ALIAS sfFDN_options)
 target_compile_features(sfFDN_options INTERFACE cxx_std_23)
 
-target_compile_options(sfFDN_options INTERFACE -march=native)
+if(MSVC)
+
+elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+    target_compile_options(sfFDN_options INTERFACE -march=native)
+endif()
 
 if(SFFDN_USE_SANITIZER)
     if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")

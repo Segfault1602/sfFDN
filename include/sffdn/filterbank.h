@@ -89,7 +89,7 @@ class IIRFilterBank : public AudioProcessor
      * @param channel_count The number of channels (filters) in the filter bank.
      * @param stage_count The number of biquad stages per filter.
      */
-    void SetFilter(std::span<float> coeffs, uint32_t channel_count, uint32_t stage_count);
+    void SetFilter(std::span<float> coeffs, uint32_t channel_count, size_t stage_count);
 
     /** @brief Processes a block of input samples through the filter bank.
      * @param input The input audio buffer.

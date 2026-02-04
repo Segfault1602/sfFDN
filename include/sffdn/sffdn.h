@@ -9,7 +9,6 @@
 #include "delay_matrix.h"
 #include "delay_time_varying.h"
 #include "delay_utils.h"
-#include "delaya.h"
 #include "delaybank.h"
 #include "delaybank_time_varying.h"
 #include "fdn.h"

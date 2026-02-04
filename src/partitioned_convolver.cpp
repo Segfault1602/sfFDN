@@ -12,6 +12,7 @@
 #include <print>
 #include <span>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -45,7 +46,7 @@ PartitionedConvolverSegment::PartitionedConvolverSegment(uint32_t parent_block_s
 {
     output_buffer_.resize(block_size, 0.f);
 
-    uint32_t a = block_size / parent_block_size;
+    const uint32_t a = block_size / parent_block_size;
     assert(delay >= parent_block_size * (a - 1));
     deadline_offset_ = delay - parent_block_size * (a - 1);
 }
@@ -105,7 +106,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
             if (segment_block_size >= 8192)
             {
                 segment_block_size = 8192;
-                uint32_t segment_size = fir.size() - fir_offset;
+                const uint32_t segment_size = fir.size() - fir_offset;
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
                 fir_offset += segment_size;
@@ -113,9 +114,8 @@ class PartitionedConvolver::PartitionedConvolverImpl
             }
             else
             {
-                const uint32_t kRepCount = rep_count;
-                uint32_t segment_size =
-                    std::min(segment_block_size * kRepCount, static_cast<uint32_t>(fir.size()) - fir_offset);
+                const uint32_t segment_size =
+                    std::min(segment_block_size * rep_count, static_cast<uint32_t>(fir.size()) - fir_offset);
                 segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
                     block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
                 fir_offset += segment_size;
