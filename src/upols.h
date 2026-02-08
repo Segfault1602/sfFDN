@@ -15,7 +15,9 @@ namespace sfFDN
 class UPOLS
 {
   public:
-    UPOLS(uint32_t block_size, std::span<const float> fir);
+    UPOLS();
+
+    bool Initialize(uint32_t block_size, std::span<const float> fir);
 
     void Process(std::span<const float> input, std::span<float> output);
 
@@ -32,18 +34,19 @@ class UPOLS
     std::string GetShortInfo() const;
 
   private:
-    uint32_t block_size_;
-    uint32_t fft_size_;
-    FFT fft_;
+    bool initialized_{false};
+    uint32_t block_size_{0};
+    uint32_t fft_size_{0};
+    FFT fft_{};
 
     std::vector<FFTComplexBuffer> filters_z_;
     std::vector<FFTComplexBuffer> inputs_z_; // Frequency domain delay line
-    uint32_t inputs_z_index_;
+    uint32_t inputs_z_index_{0};
 
-    FFTRealBuffer work_buffer_;
-    FFTComplexBuffer spectrum_buffer_;
-    FFTRealBuffer result_buffer_;
+    FFTRealBuffer work_buffer_{};
+    FFTComplexBuffer spectrum_buffer_{};
+    FFTRealBuffer result_buffer_{};
 
-    uint32_t samples_needed_;
+    uint32_t samples_needed_{0};
 };
 } // namespace sfFDN

@@ -21,13 +21,16 @@ using FFTComplexBuffer = FFTBuffer<complex_t>;
 class FFT
 {
   public:
-    FFT(uint32_t fft_size);
+    FFT();
     ~FFT();
 
     FFT(const FFT&) = delete;
     FFT& operator=(const FFT&) = delete;
-    FFT(FFT&&) = delete;
-    FFT& operator=(FFT&&) = delete;
+
+    FFT(FFT&& other) noexcept;
+    FFT& operator=(FFT&& other) noexcept;
+
+    bool Initialize(uint32_t fft_size);
 
     void Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum);
     void Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output);
@@ -38,10 +41,12 @@ class FFT
     [[nodiscard]] FFTComplexBuffer AllocateComplexBuffer() const;
 
   private:
-    PFFFT_Setup* setup_;
-    uint32_t fft_size_;
-    uint32_t complex_sample_count_;
-    float* work_buffer_;
+    PFFFT_Setup* setup_{nullptr};
+    uint32_t fft_size_{0};
+    uint32_t complex_sample_count_{0};
+    float* work_buffer_{nullptr};
+
+    void Cleanup();
 };
 
 template <typename T>

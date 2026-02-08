@@ -16,13 +16,24 @@
 namespace sfFDN
 {
 
-UPOLS::UPOLS(uint32_t block_size, std::span<const float> fir)
-    : block_size_(block_size)
-    , fft_size_(Math::NextPowerOfTwo(block_size * 2))
-    , fft_(fft_size_)
-    , inputs_z_index_(0)
-    , samples_needed_(block_size_)
+UPOLS::UPOLS() = default;
+
+bool UPOLS::Initialize(uint32_t block_size, std::span<const float> fir)
 {
+    if (initialized_)
+    {
+        throw std::runtime_error("UPOLS: Already initialized");
+    }
+
+    block_size_ = block_size;
+    fft_size_ = Math::NextPowerOfTwo(block_size * 2);
+    inputs_z_index_ = 0;
+    samples_needed_ = block_size_;
+    if (!fft_.Initialize(fft_size_))
+    {
+        throw std::runtime_error("UPOLS: Failed to initialize FFT");
+    }
+
     work_buffer_ = fft_.AllocateRealBuffer();
     result_buffer_ = fft_.AllocateRealBuffer();
     spectrum_buffer_ = fft_.AllocateComplexBuffer();
@@ -51,6 +62,7 @@ UPOLS::UPOLS(uint32_t block_size, std::span<const float> fir)
     }
 
     std::ranges::fill(work_buffer_, 0.f);
+    return true;
 }
 
 void UPOLS::Process(std::span<const float> input, std::span<float> output)

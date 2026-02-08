@@ -53,7 +53,8 @@ TEST_CASE("UPOLS")
         fir[i] = ref_filter->Tick(i == 0 ? 1.f : 0.f); // Use the filter to generate coefficients
     }
 
-    sfFDN::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols;
+    REQUIRE(upols.Initialize(kBlockSize, fir));
 
     std::vector<float> input(kBlockSize, 0.f);
     input[0] = 1.f;

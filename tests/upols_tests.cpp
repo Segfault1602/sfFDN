@@ -47,7 +47,8 @@ TEST_CASE("UPOLS")
     auto fir = GetImpulseResponse(ref_filter.get());
     const uint32_t fir_length = fir.size();
 
-    sfFDN::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols;
+    REQUIRE(upols.Initialize(kBlockSize, fir));
 
     std::vector<float> input(fir_length + kBlockSize, 0.f);
     input[0] = 1.f;
@@ -95,7 +96,8 @@ TEST_CASE("UPOLS_Noise")
     fir_filter.SetCoefficients(fir);
     fir_filter.Process(input_buffer, ref_output_buffer);
 
-    sfFDN::UPOLS upols(kBlockSize, fir);
+    sfFDN::UPOLS upols;
+    REQUIRE(upols.Initialize(kBlockSize, fir));
 
     // upols.PrintPartition();
 

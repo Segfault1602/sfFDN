@@ -31,9 +31,9 @@ cpmaddpackage(
     NAME
     nanobench
     GITHUB_REPOSITORY
-    martinus/nanobench
-    VERSION
-    4.3.11
+    Segfault1602/nanobench
+    GIT_TAG
+    master
 )
 
 get_target_property(_catch2_inc Catch2 INTERFACE_INCLUDE_DIRECTORIES)

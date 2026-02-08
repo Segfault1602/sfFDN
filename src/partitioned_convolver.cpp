@@ -41,9 +41,12 @@ class PartitionedConvolverSegment
 
 PartitionedConvolverSegment::PartitionedConvolverSegment(uint32_t parent_block_size, uint32_t block_size,
                                                          uint32_t delay, std::span<const float> fir)
-    : upols_(block_size, fir)
-    , delay_(delay)
+    : delay_(delay)
 {
+    if (!upols_.Initialize(block_size, fir))
+    {
+        throw std::runtime_error("PartitionedConvolverSegment: Failed to initialize UPOLS");
+    }
     output_buffer_.resize(block_size, 0.f);
 
     const uint32_t a = block_size / parent_block_size;
@@ -107,8 +110,8 @@ class PartitionedConvolver::PartitionedConvolverImpl
             {
                 segment_block_size = 8192;
                 const uint32_t segment_size = fir.size() - fir_offset;
-                segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
-                    block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
+                segments_.emplace_back(block_size, segment_block_size, fir_offset,
+                                       fir.subspan(fir_offset, segment_size));
                 fir_offset += segment_size;
                 assert(fir_offset == fir.size());
             }
@@ -116,8 +119,8 @@ class PartitionedConvolver::PartitionedConvolverImpl
             {
                 const uint32_t segment_size =
                     std::min(segment_block_size * rep_count, static_cast<uint32_t>(fir.size()) - fir_offset);
-                segments_.emplace_back(std::make_unique<PartitionedConvolverSegment>(
-                    block_size, segment_block_size, fir_offset, fir.subspan(fir_offset, segment_size)));
+                segments_.emplace_back(block_size, segment_block_size, fir_offset,
+                                       fir.subspan(fir_offset, segment_size));
                 fir_offset += segment_size;
                 segment_block_size *= rep_count;
             }
@@ -134,7 +137,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         // Process each segment
         for (auto& segment : segments_)
         {
-            segment->Process(input.GetChannelSpan(0), output_buffer_);
+            segment.Process(input.GetChannelSpan(0), output_buffer_);
         }
 
         output_buffer_.Advance(output.SampleCount());
@@ -156,13 +159,13 @@ class PartitionedConvolver::PartitionedConvolverImpl
         {
             const auto& segment = segments_[i];
             {
-                std::println("    Segment #{} delay: {}", i, segment->GetDelay());
+                std::println("    Segment #{} delay: {}", i, segment.GetDelay());
             }
         }
 
         for (const auto& segment : segments_)
         {
-            segment->PrintPartition();
+            segment.PrintPartition();
         }
         std::println("");
     }
@@ -177,7 +180,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
             {
                 ss << ", ";
             }
-            ss << segments_[i]->GetShortInfo();
+            ss << segments_[i].GetShortInfo();
         }
         ss << "]";
         return ss.str();
@@ -188,7 +191,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         output_buffer_.Clear();
         for (auto& segment : segments_)
         {
-            segment->Clear();
+            segment.Clear();
         }
     }
 
@@ -202,7 +205,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
     CircularBuffer output_buffer_;
     uint32_t rep_count_;
 
-    std::vector<std::unique_ptr<PartitionedConvolverSegment>> segments_;
+    std::vector<PartitionedConvolverSegment> segments_;
 
     std::vector<float> fir_; // Store the FIR coefficients for cloning and, eventually, serializing
 };

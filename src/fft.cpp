@@ -82,28 +82,45 @@ std::span<const T> FFTBuffer<T>::Data() const
     return buffer_;
 }
 
-FFT::FFT(uint32_t fft_size)
-    : fft_size_(fft_size)
-    , complex_sample_count_(fft_size / 2)
-{
-
-    setup_ = pffft_new_setup(fft_size_, PFFFT_REAL);
-    if (setup_ == nullptr)
-    {
-        throw std::runtime_error(std::format("FFT size ({}) is unsuitable for PFFFT", fft_size_));
-    }
-
-    if (fft_size_ > 4096)
-    {
-        work_buffer_ = static_cast<float*>(pffft_aligned_malloc(fft_size * sizeof(float)));
-    }
-    else
-    {
-        work_buffer_ = nullptr;
-    }
-}
+FFT::FFT() = default;
 
 FFT::~FFT()
+{
+    Cleanup();
+}
+
+FFT::FFT(FFT&& other) noexcept
+    : setup_(other.setup_)
+    , fft_size_(other.fft_size_)
+    , complex_sample_count_(other.complex_sample_count_)
+    , work_buffer_(other.work_buffer_)
+{
+    other.setup_ = nullptr;
+    other.fft_size_ = 0;
+    other.complex_sample_count_ = 0;
+    other.work_buffer_ = nullptr;
+}
+
+FFT& FFT::operator=(FFT&& other) noexcept
+{
+    if (this != &other)
+    {
+        Cleanup();
+
+        setup_ = other.setup_;
+        fft_size_ = other.fft_size_;
+        complex_sample_count_ = other.complex_sample_count_;
+        work_buffer_ = other.work_buffer_;
+
+        other.setup_ = nullptr;
+        other.fft_size_ = 0;
+        other.complex_sample_count_ = 0;
+        other.work_buffer_ = nullptr;
+    }
+    return *this;
+}
+
+void FFT::Cleanup()
 {
     if (setup_ != nullptr)
     {
@@ -116,6 +133,31 @@ FFT::~FFT()
         pffft_aligned_free(work_buffer_);
         work_buffer_ = nullptr;
     }
+}
+
+bool FFT::Initialize(uint32_t fft_size)
+{
+    Cleanup();
+
+    fft_size_ = fft_size;
+    complex_sample_count_ = (fft_size_ / 2) + 1;
+
+    setup_ = pffft_new_setup(fft_size_, PFFFT_REAL);
+    if (setup_ == nullptr)
+    {
+        return false;
+    }
+
+    if (fft_size_ > 4096)
+    {
+        work_buffer_ = static_cast<float*>(pffft_aligned_malloc(fft_size * sizeof(float)));
+    }
+    else
+    {
+        work_buffer_ = nullptr;
+    }
+
+    return true;
 }
 
 void FFT::Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum)

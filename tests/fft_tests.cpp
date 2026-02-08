@@ -17,7 +17,8 @@ TEST_CASE("FFT")
         auto subcase_name = std::format("FFT size: {}", fft_size);
         SECTION(subcase_name.c_str())
         {
-            sfFDN::FFT fft(fft_size);
+            sfFDN::FFT fft;
+            REQUIRE(fft.Initialize(fft_size));
 
             auto input_buffer = fft.AllocateRealBuffer();
             auto output_buffer = fft.AllocateComplexBuffer();

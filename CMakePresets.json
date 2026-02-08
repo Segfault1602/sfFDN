@@ -12,9 +12,7 @@
             "displayName": "Common-Ninja",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/ninja",
-            "cacheVariables": {
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-            }
+            "cacheVariables": {}
         },
         {
             "name": "llvm-ninja",
@@ -41,9 +39,7 @@
             "generator": "Visual Studio 18 2026",
             "binaryDir": "${sourceDir}/build/windows",
             "toolchainFile": "${sourceDir}/cmake/msvc-toolchain.cmake",
-            "cacheVariables": {
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-            }
+            "cacheVariables": {}
         }
     ],
     "buildPresets": [
