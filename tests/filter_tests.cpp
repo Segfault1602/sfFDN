@@ -83,15 +83,19 @@ TEST_CASE("FirFilter")
     }
     filter.SetCoefficients(ir);
 
-    constexpr uint32_t kSize = 128;
+    constexpr uint32_t kBlockSize = 16;
+    constexpr uint32_t kSize = kBlockSize * 8;
     std::array<float, kSize> input = {0.f};
     input[0] = 1.f;
     std::array<float, kSize> output{};
 
-    sfFDN::AudioBuffer input_buffer(kSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kSize, 1, output);
+    for (auto i = 0u; i < kSize; i += kBlockSize)
+    {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, std::span(input).subspan(i, kBlockSize));
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, std::span(output).subspan(i, kBlockSize));
 
-    filter.Process(input_buffer, output_buffer);
+        filter.Process(input_buffer, output_buffer);
+    }
 
     for (auto i = 0u; i < kFirSize; ++i)
     {

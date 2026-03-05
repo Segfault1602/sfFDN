@@ -315,8 +315,9 @@ TEST_CASE("FirFilterSparse")
         for (auto i = 0u; i < kFirTapCount; i++)
         {
             ir.push_back(rng());
-            auto idx = distribution(gen);
-            indices.insert(std::upper_bound(indices.begin(), indices.end(), idx), idx);
+            // auto idx = distribution(gen);
+            // indices.insert(std::upper_bound(indices.begin(), indices.end(), idx), idx);
+            indices.push_back(i * (fir_size / kFirTapCount));
         }
 
         sfFDN::SparseFir filter;

@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.tests",
             "args": [
-                "TwoFilter"
+                "SparseFirFilter"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -21,9 +21,9 @@
             "name": "(Windows) sfFDN.perf",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/relwithdebinfo/tests/sfFDN.perf",
+            "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.perf",
             "args": [
-                "IIRFilterBankPerf"
+                "FirFilterSparse"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

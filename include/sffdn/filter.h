@@ -243,7 +243,8 @@ class Fir : public AudioProcessor
 {
   public:
     /** @brief Constructs a FIR filter. */
-    Fir() = default;
+    Fir();
+    ~Fir();
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.
@@ -287,16 +288,16 @@ class Fir : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    std::vector<float> coeffs_;
-    std::vector<float> delay_line_;
-    uint32_t delay_index_;
+    class FirImpl;
+    std::unique_ptr<FirImpl> impl_;
 };
 
 class SparseFir : public AudioProcessor
 {
   public:
     /** @brief Constructs a sparse FIR filter. */
-    SparseFir() = default;
+    SparseFir();
+    ~SparseFir();
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.
@@ -340,11 +341,8 @@ class SparseFir : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    std::vector<float> coeffs_;
-    Delay delay_line_;
-
-    std::vector<uint32_t> sparse_index_;
-    uint32_t filter_order_;
+    class SparseFirImpl;
+    std::unique_ptr<SparseFirImpl> impl_;
 };
 
 } // namespace sfFDN

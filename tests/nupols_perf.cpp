@@ -56,10 +56,16 @@ TEST_CASE("PartitionedConvolver")
     std::vector<float> output(kBlockSize, 0.f);
 
     nanobench::Bench bench;
-    bench.title("PartitionedConvolver perf");
-    bench.minEpochIterations(20000);
+    bench.title("PartitionedConvolver perf (FIR Size " + std::to_string(kFirLength) + ", Block Size " +
+                std::to_string(kBlockSize) + ")");
+    bench.minEpochIterations(200);
     bench.timeUnit(1us, "us");
     bench.relative(true);
+
+    // The convolver does not do the same amount of work for each Process() call, as it processes the FIR in partitions.
+    // To get a more accurate measurement, we run multiple iterations and average the time.
+    constexpr uint32_t kLoopCount = 100;
+    bench.batch(kLoopCount);
 
     for (uint32_t rep_count = 2; rep_count <= 32; rep_count *= 2)
     {
@@ -68,7 +74,10 @@ TEST_CASE("PartitionedConvolver")
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         bench.run(nupols.GetShortInfo(), [&] {
             // Process the block
-            nupols.Process(input_buffer, output_buffer);
+            for (uint32_t i = 0; i < kLoopCount; ++i)
+            {
+                nupols.Process(input_buffer, output_buffer);
+            }
             nanobench::doNotOptimizeAway(output);
         });
     }
