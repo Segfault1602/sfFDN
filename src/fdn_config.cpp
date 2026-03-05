@@ -548,13 +548,26 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
             base_delays[ch] = std::ceil(config.time_varying_delays->lfo_amplitudes[ch]) + 1.f;
         }
 
-        auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying>(base_delays, max_delay,
-                                                                      config.time_varying_delays->interp_type);
+        if (config.time_varying_delays->interp_type == DelayInterpolationType::Linear)
+        {
+            auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Linear>>(
+                base_delays, max_delay);
 
-        tv_delay->SetMods(config.time_varying_delays->lfo_frequencies, config.time_varying_delays->lfo_amplitudes,
-                          config.time_varying_delays->lfo_initial_phases);
+            tv_delay->SetMods(config.time_varying_delays->lfo_frequencies, config.time_varying_delays->lfo_amplitudes,
+                              config.time_varying_delays->lfo_initial_phases);
 
-        chain_processor->AddProcessor(std::move(tv_delay));
+            chain_processor->AddProcessor(std::move(tv_delay));
+        }
+        else if (config.time_varying_delays->interp_type == DelayInterpolationType::Allpass)
+        {
+            auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Allpass>>(
+                base_delays, max_delay);
+
+            tv_delay->SetMods(config.time_varying_delays->lfo_frequencies, config.time_varying_delays->lfo_amplitudes,
+                              config.time_varying_delays->lfo_initial_phases);
+
+            chain_processor->AddProcessor(std::move(tv_delay));
+        }
     }
 
     if (chain_processor->GetProcessorCount() > 0)

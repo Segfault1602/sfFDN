@@ -20,6 +20,7 @@ namespace sfFDN
  *
  * @ingroup AudioProcessors
  */
+template <DelayInterpolationType type = DelayInterpolationType::Linear>
 class DelayBankTimeVarying : public AudioProcessor
 {
   public:
@@ -28,15 +29,16 @@ class DelayBankTimeVarying : public AudioProcessor
      * @param delays A span of delay values for each channel.
      * @param max_delay The maximum delay in samples.
      */
-    DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay, DelayInterpolationType type);
+    DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay);
 
     ~DelayBankTimeVarying() = default;
 
-    DelayBankTimeVarying(const DelayBankTimeVarying&);
-    DelayBankTimeVarying& operator=(const DelayBankTimeVarying&);
+    DelayBankTimeVarying(const DelayBankTimeVarying& other);
+    DelayBankTimeVarying& operator=(const DelayBankTimeVarying& other);
 
-    DelayBankTimeVarying(DelayBankTimeVarying&&) noexcept;
-    DelayBankTimeVarying& operator=(DelayBankTimeVarying&&) noexcept;
+    DelayBankTimeVarying(DelayBankTimeVarying&& other) noexcept;
+
+    DelayBankTimeVarying& operator=(DelayBankTimeVarying&& other) noexcept;
 
     /**
      * @brief Sets the maximum delay for all delay lines in the bank.
@@ -92,6 +94,10 @@ class DelayBankTimeVarying : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    std::vector<DelayTimeVarying> delays_;
+    std::vector<DelayTimeVarying<type>> delays_;
 };
+
+extern template class DelayBankTimeVarying<DelayInterpolationType::Linear>;
+extern template class DelayBankTimeVarying<DelayInterpolationType::Allpass>;
+
 } // namespace sfFDN

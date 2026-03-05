@@ -44,9 +44,9 @@
             "name": "Tests",
             "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/tests/sfFDN.tests",
+            "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "IIRFilterBank"
+                "MatrixMultiply_Hadamard"
             ],
             // "MIMode": "lldb",
             "stopOnEntry": false,

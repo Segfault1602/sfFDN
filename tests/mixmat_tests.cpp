@@ -15,7 +15,7 @@
 
 TEST_CASE("VelvetFFM")
 {
-    constexpr uint32_t kStageCount = 0;
+    constexpr uint32_t kStageCount = 4;
     constexpr float kSparsity = 3.f;
     constexpr uint32_t kMatSize = 4;
     constexpr float kCascadeGain = 1.f;

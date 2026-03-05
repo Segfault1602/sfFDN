@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <numeric>
 
 #include <matrix_multiplication.h>
+#include <sffdn/matrix_gallery.h>
 
 #include <Eigen/Core>
 
@@ -57,7 +59,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
     bench.title("Matrix Multiplication Performance");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(500000);
+    bench.minEpochIterations(1000000);
 
     {
         Eigen::Map<const Eigen::Matrix<float, kMatSize, kMatSize>> mat(kMatrix16x16.data());
@@ -122,51 +124,42 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     bench.title("Matrix Multiplication Performance - Block");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(5000);
+    bench.minEpochIterations(50000);
+    // bench.batch(2*kInputSize * kMatSize * kMatSize);
+    bench.performanceCounters(true);
+
+    std::array<float, kInputSize> output{};
     bench.run("Eigen", [&]() {
         Eigen::Map<const Eigen::MatrixXf> mat(kMatrix16x16.data(), kMatSize, kMatSize);
         Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, kMatSize);
 
-        std::array<float, kInputSize> eigen_output_data{};
-        Eigen::Map<Eigen::MatrixXf> output(eigen_output_data.data(), kBlockSize, kMatSize);
+        Eigen::Map<Eigen::MatrixXf> output_eigen(output.data(), kBlockSize, kMatSize);
 
-        output = eigen_input * mat;
-        nanobench::doNotOptimizeAway(output);
+        output_eigen.noalias() = eigen_input * mat;
+        nanobench::doNotOptimizeAway(output_eigen);
     });
 
     #ifdef __APPLE__
-    std::array<float, kInputSize> output{};
+    bench.minEpochIterations(200000);
     bench.run("vDSP", [&]() {
         const float* A = input.data();
         const float* B = kMatrix16x16.data();
         float* C = output.data();
         vDSP_mmul(B, 1, A, 1, C, 1, 16, kBlockSize, 16);
-        nanobench::doNotOptimizeAway(output);
+        nanobench::doNotOptimizeAway(C);
+        nanobench::doNotOptimizeAway(A);
+        nanobench::doNotOptimizeAway(B);
     });
     #endif
 }
 
 TEST_CASE("Hadamard")
 {
-    constexpr uint32_t kMatSize = 16;
+    constexpr uint32_t kMatSize = 8;
+    std::array<float, kMatSize> input{};
+    std::iota(input.begin(), input.end(), 1.f);
 
-    std::array<float, kMatSize * kMatSize> hadamard = {
-        1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  -1, 1,  -1, 1,  -1, 1,  -1, 1,  -1,
-        1,  -1, 1,  -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, -1, 1,  1,  -1, -1, 1,  1,  -1, -1, 1,  -1, -1, 1,
-        1,  -1, -1, 1,  1,  -1, -1, 1,  1,  -1, -1, 1,  1,  1,  1,  1,  -1, -1, -1, -1, 1,  1,  1,  1,  -1, -1,
-        -1, -1, 1,  -1, 1,  -1, -1, 1,  -1, 1,  1,  -1, 1,  -1, -1, 1,  -1, 1,  1,  1,  -1, -1, -1, -1, 1,  1,
-        1,  1,  -1, -1, -1, -1, 1,  1,  1,  -1, -1, 1,  -1, 1,  1,  -1, 1,  -1, -1, 1,  -1, 1,  1,  -1, 1,  1,
-        1,  1,  1,  1,  1,  1,  -1, -1, -1, -1, -1, -1, -1, -1, 1,  -1, 1,  -1, 1,  -1, 1,  -1, -1, 1,  -1, 1,
-        -1, 1,  -1, 1,  1,  1,  -1, -1, 1,  1,  -1, -1, -1, -1, 1,  1,  -1, -1, 1,  1,  1,  -1, -1, 1,  1,  -1,
-        -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  1,  1,  1,  -1, -1, -1, -1, -1, -1, -1, -1, 1,  1,  1,  1,
-        1,  -1, 1,  -1, -1, 1,  -1, 1,  -1, 1,  -1, 1,  1,  -1, 1,  -1, 1,  1,  -1, -1, -1, -1, 1,  1,  -1, -1,
-        1,  1,  1,  1,  -1, -1, 1,  -1, -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  -1, -1, 1,
-    };
-
-    for (auto i = 0u; i < kMatSize * kMatSize; ++i)
-    {
-        hadamard[i] *= 0.25f; // Scale down to avoid overflow in multiplication
-    }
+    auto hadamard = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
 
     constexpr uint32_t kIterations = 1000;
     nanobench::Bench bench;
@@ -178,44 +171,54 @@ TEST_CASE("Hadamard")
 
     bench.run("Eigen", [&]() {
         Eigen::Map<const Eigen::MatrixXf> eigen_mat(hadamard.data(), kMatSize, kMatSize);
-        Eigen::Map<const Eigen::RowVectorXf> eigen_input(kInput.data(), kMatSize);
+        Eigen::Map<const Eigen::RowVectorXf> eigen_input(input.data(), kMatSize);
 
         std::array<float, kMatSize> eigen_output_data{};
         Eigen::Map<Eigen::RowVectorXf> eigen_output(eigen_output_data.data(), kMatSize);
 
         for (auto i = 0u; i < kIterations; ++i)
         {
-            eigen_output = eigen_input * eigen_mat;
+            eigen_output.noalias() = eigen_input * eigen_mat;
             nanobench::doNotOptimizeAway(eigen_output);
         }
     });
 
-    bench.minEpochIterations(5000);
+    std::array<float, kMatSize> output{};
+
+    bench.minEpochIterations(1000);
     bench.run("MatrixMultiply", [&]() {
-        std::array<float, kMatSize> output{};
         for (auto i = 0u; i < kIterations; ++i)
         {
-            sfFDN::MatrixMultiply_C(kInput, output, hadamard, kMatSize);
+            sfFDN::MatrixMultiply_C(input, output, hadamard, kMatSize);
             nanobench::doNotOptimizeAway(output);
         }
     });
 
     bench.minEpochIterations(1000);
     bench.run("HadamardMultiply", [&]() {
-        std::array<float, kMatSize> output{};
         for (auto i = 0u; i < kIterations; ++i)
         {
-            sfFDN::HadamardMultiply(kInput, output);
+            sfFDN::HadamardMultiply(input, output);
             nanobench::doNotOptimizeAway(output);
         }
     });
 
     bench.run("WalshHadamardTransform", [&]() {
         std::array<float, kMatSize> inout{};
-        std::ranges::copy(kInput, inout.begin());
+        std::ranges::copy(input, inout.begin());
         for (auto i = 0u; i < kIterations; ++i)
         {
             sfFDN::WalshHadamardTransform(inout);
+            nanobench::doNotOptimizeAway(inout);
+        }
+    });
+
+    bench.run("FWHT", [&]() {
+        std::array<float, kMatSize> inout{};
+        std::ranges::copy(input, inout.begin());
+        for (auto i = 0u; i < kIterations; ++i)
+        {
+            sfFDN::FWHT<kMatSize>(inout);
             nanobench::doNotOptimizeAway(inout);
         }
     });

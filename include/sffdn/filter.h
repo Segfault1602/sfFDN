@@ -93,7 +93,6 @@ class OnePoleFilter : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    float gain_;
     float b0_, a1_;
     std::array<float, 2> state_;
 };
@@ -116,7 +115,10 @@ class AllpassFilter : public AudioProcessor
     /** @brief Sets the allpass coefficient.
      * @param coeff The allpass coefficient.
      */
-    void SetCoefficients(float coeff);
+    void SetCoefficients(float coeff)
+    {
+        coeff_ = coeff;
+    }
 
     /**
      * @brief Input a sample in the filter and return the next output

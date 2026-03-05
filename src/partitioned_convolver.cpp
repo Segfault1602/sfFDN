@@ -105,10 +105,10 @@ class PartitionedConvolver::PartitionedConvolverImpl
         uint32_t fir_offset = 0;
         while (fir_offset < fir.size())
         {
-            // max out at 8192 for no particular reason
-            if (segment_block_size >= 8192)
+            // max out at 16384 for no particular reason
+            if (segment_block_size >= 16384)
             {
-                segment_block_size = 8192;
+                segment_block_size = 16384;
                 const uint32_t segment_size = fir.size() - fir_offset;
                 segments_.emplace_back(block_size, segment_block_size, fir_offset,
                                        fir.subspan(fir_offset, segment_size));

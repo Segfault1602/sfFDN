@@ -40,9 +40,9 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 
 TEST_CASE("PartitionedConvolver")
 {
-    constexpr uint32_t kBlockSize = 64;
+    constexpr uint32_t kBlockSize = 128;
 
-    constexpr uint32_t kFirLength = 48000;
+    constexpr uint32_t kFirLength = 24000;
     auto ref_filter = CreateTestFilter();
     std::vector<float> fir(kFirLength, 0.f);
     for (auto i = 0u; i < kFirLength; ++i)
@@ -71,5 +71,29 @@ TEST_CASE("PartitionedConvolver")
             nupols.Process(input_buffer, output_buffer);
             nanobench::doNotOptimizeAway(output);
         });
+    }
+
+    // Check for max time
+    constexpr auto kRepCount = 8u;
+    sfFDN::PartitionedConvolver nupols(kBlockSize, fir, kRepCount);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    std::vector<float> durations;
+    durations.reserve(1000);
+    for (auto i = 0u; i < 1000; ++i)
+    {
+        auto start = std::chrono::steady_clock::now();
+        nupols.Process(input_buffer, output_buffer);
+        auto end = std::chrono::steady_clock::now();
+        double duration_us = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end - start).count();
+        durations.push_back(duration_us);
+    }
+
+    constexpr double kMaxAllowedDurationUs = 1.0e6 / (48000.0 / kBlockSize);
+    for (const auto& duration : durations)
+    {
+        REQUIRE(duration < kMaxAllowedDurationUs);
+        // std::cout << duration << "\n";
     }
 }

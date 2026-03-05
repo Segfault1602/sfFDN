@@ -9,16 +9,18 @@
 
 namespace sfFDN
 {
+template <DelayInterpolationType type>
 class DelayTimeVarying
 {
   public:
-    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095,
-                     DelayInterpolationType type = DelayInterpolationType::Linear);
+    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095);
 
     void Clear();
 
     void SetMaximumDelay(uint32_t delay);
+
     void SetDelay(float delay);
+
     float GetDelay() const;
 
     void SetMod(float freq, float amplitude, float phase_offset = 0.0f);
@@ -30,9 +32,13 @@ class DelayTimeVarying
   private:
     void UpdateDelay();
 
-    DelayInterp delay_;
+    DelayInterp<type> delay_;
     float base_delay_;
 
     SineWave lfo_;
 };
+
+extern template class DelayTimeVarying<DelayInterpolationType::Linear>;
+extern template class DelayTimeVarying<DelayInterpolationType::Allpass>;
+
 } // namespace sfFDN

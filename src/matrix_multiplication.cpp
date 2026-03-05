@@ -28,14 +28,61 @@ void HadamardMultiply8(std::span<const float> in, std::span<float> out)
 {
     assert(in.size() == 8 && out.size() == 8);
 
-    out[0] = in[0] + in[1] + in[2] + in[3] + in[4] + in[5] + in[6] + in[7];
-    out[1] = in[0] - in[1] + in[2] - in[3] + in[4] - in[5] + in[6] - in[7];
-    out[2] = in[0] + in[1] - in[2] - in[3] + in[4] + in[5] - in[6] - in[7];
-    out[3] = in[0] - in[1] - in[2] + in[3] + in[4] - in[5] - in[6] + in[7];
-    out[4] = in[0] + in[1] + in[2] + in[3] - in[4] - in[5] - in[6] - in[7];
-    out[5] = in[0] - in[1] + in[2] - in[3] - in[4] + in[5] - in[6] + in[7];
-    out[6] = in[0] + in[1] - in[2] - in[3] - in[4] - in[5] + in[6] + in[7];
-    out[7] = in[0] - in[1] - in[2] + in[3] - in[4] + in[5] + in[6] - in[7];
+    // out[0] = in[0] + in[1] + in[2] + in[3] + in[4] + in[5] + in[6] + in[7];
+    // out[1] = in[0] - in[1] + in[2] - in[3] + in[4] - in[5] + in[6] - in[7];
+    // out[2] = in[0] + in[1] - in[2] - in[3] + in[4] + in[5] - in[6] - in[7];
+    // out[3] = in[0] - in[1] - in[2] + in[3] + in[4] - in[5] - in[6] + in[7];
+    // out[4] = in[0] + in[1] + in[2] + in[3] - in[4] - in[5] - in[6] - in[7];
+    // out[5] = in[0] - in[1] + in[2] - in[3] - in[4] + in[5] - in[6] + in[7];
+    // out[6] = in[0] + in[1] - in[2] - in[3] - in[4] - in[5] + in[6] + in[7];
+    // out[7] = in[0] - in[1] - in[2] + in[3] - in[4] + in[5] + in[6] - in[7];
+
+    out[0] = in[0] + in[4];
+    out[1] = in[1] + in[5];
+    out[2] = in[2] + in[6];
+    out[3] = in[3] + in[7];
+    out[4] = in[0] - in[4];
+    out[5] = in[1] - in[5];
+    out[6] = in[2] - in[6];
+    out[7] = in[3] - in[7];
+
+    auto a = out[0] + out[2];
+    auto b = out[1] + out[3];
+    auto c = out[0] - out[2];
+    auto d = out[1] - out[3];
+    out[0] = a;
+    out[1] = b;
+    out[2] = c;
+    out[3] = d;
+
+    a = out[4] + out[6];
+    b = out[5] + out[7];
+    c = out[4] - out[6];
+    d = out[5] - out[7];
+    out[4] = a;
+    out[5] = b;
+    out[6] = c;
+    out[7] = d;
+
+    a = out[0] + out[1];
+    b = out[0] - out[1];
+    out[0] = a;
+    out[1] = b;
+
+    a = out[2] + out[3];
+    b = out[2] - out[3];
+    out[2] = a;
+    out[3] = b;
+
+    a = out[4] + out[5];
+    b = out[4] - out[5];
+    out[4] = a;
+    out[5] = b;
+
+    a = out[6] + out[7];
+    b = out[6] - out[7];
+    out[6] = a;
+    out[7] = b;
 
     constexpr float kNormalizationFactor = 0.353553390593274f; // 1.f / std::sqrt(8.f);
     for (auto i = 0u; i < 8; ++i)

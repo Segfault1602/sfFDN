@@ -19,11 +19,12 @@ TEST_CASE("MixMatPerf")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kMatSize = 16;
+    constexpr uint32_t kInputSize = kMatSize * kBlockSize;
 
     sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Householder);
 
-    std::vector<float> input(kMatSize * kBlockSize, 0.f);
-    std::vector<float> output(kMatSize * kBlockSize, 0.f);
+    std::array<float, kInputSize> input{};
+    std::array<float, kInputSize> output{};
     // Fill with white noise
     sfFDN::RNG generator;
     for (auto& i : input)
@@ -32,6 +33,7 @@ TEST_CASE("MixMatPerf")
     }
 
     sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output);
 
     nanobench::Bench bench;
     bench.title("Householder matrix");
@@ -39,11 +41,11 @@ TEST_CASE("MixMatPerf")
     bench.minEpochIterations(10000);
     bench.timeUnit(1us, "us");
 
-    bench.run("Householder", [&] { mix_mat.Process(input_buffer, input_buffer); });
+    bench.run("Householder", [&] { mix_mat.Process(input_buffer, output_buffer); });
 
     sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Random);
 
-    bench.run("Random", [&] { random_mat.Process(input_buffer, input_buffer); });
+    bench.run("Random", [&] { random_mat.Process(input_buffer, output_buffer); });
 }
 
 TEST_CASE("Matrix_Order")

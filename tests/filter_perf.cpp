@@ -119,6 +119,72 @@ TEST_CASE("IIRFilterBankPerf")
     });
 }
 
+TEST_CASE("OnePoleFilter")
+{
+    sfFDN::OnePoleFilter filter;
+    filter.SetCoefficients(0.5f, 0.2f);
+
+    constexpr uint32_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize, 0);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("OnePoleFilter perf");
+    bench.minEpochIterations(50000);
+    bench.timeUnit(1us, "us");
+
+    bench.run("OnePoleFilter (tick)", [&] {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            output[i] = filter.Tick(input[i]);
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    bench.run("OnePoleFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
+}
+
+TEST_CASE("AllpassFilter")
+{
+    sfFDN::AllpassFilter filter;
+    filter.SetCoefficients(0.5f);
+
+    constexpr uint32_t kBlockSize = 128;
+    std::vector<float> input(kBlockSize, 0);
+    sfFDN::RNG rng;
+    for (float& i : input)
+    {
+        i = rng();
+    }
+    std::vector<float> output(kBlockSize, 0);
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("AllpassFilter perf");
+    bench.minEpochIterations(50000);
+    bench.timeUnit(1us, "us");
+
+    bench.run("AllpassFilter (tick)", [&] {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            output[i] = filter.Tick(input[i]);
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    bench.run("AllpassFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
+}
+
 TEST_CASE("CascadedBiquadsPerf")
 {
     // clang-format off
@@ -134,6 +200,10 @@ TEST_CASE("CascadedBiquadsPerf")
         {1.20682751196864f, -1.65249906638422f, 0.701314049656436f, 1.23174882339560f, -1.65249906638422f, 0.676392738229472f},
         {1.43968619970461f, -0.92491012494636f, 0.410134050188126f, 1.52666454179014f, -0.924910124946368f, 0.323155708102591f},
         {2.42350220912989f, -0.09096516658686f, 0.416410844594722f, 2.70192581010466f, -0.428582226711284f, 0.475604303744375f}
+    }};
+
+    constexpr std::array<std::array<float, 6>,1> kSOS_OneBand = {{
+        {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f, 1.02249041084395f},
     }};
     // clang-format on
 
@@ -172,6 +242,20 @@ TEST_CASE("CascadedBiquadsPerf")
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
+
+    sfFDN::CascadedBiquads one_band_filter;
+    std::vector<float> one_band_coeffs;
+    for (const auto& biquad : kSOS_OneBand)
+    {
+        one_band_coeffs.push_back(biquad[0] / biquad[3]);
+        one_band_coeffs.push_back(biquad[1] / biquad[3]);
+        one_band_coeffs.push_back(biquad[2] / biquad[3]);
+        one_band_coeffs.push_back(biquad[4] / biquad[3]);
+        one_band_coeffs.push_back(biquad[5] / biquad[3]);
+    }
+    one_band_filter.SetCoefficients(1, one_band_coeffs);
+
+    bench.run("CascadedBiquads - One Band", [&] { one_band_filter.Process(input_buffer, output_buffer); });
 }
 
 TEST_CASE("FirFilter")
@@ -254,11 +338,12 @@ TEST_CASE("ParallelSchroederAllpassSection")
 {
     constexpr uint32_t kChannelCount = 16;
     constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kFilterOrder = 2;
 
-    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, 1);
+    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, kFilterOrder);
     std::vector<uint32_t> delays =
-        sfFDN::GetDelayLengths(kChannelCount, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
-    std::array<float, kChannelCount> gains{};
+        sfFDN::GetDelayLengths(kChannelCount * kFilterOrder, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
+    std::array<float, kChannelCount * kFilterOrder> gains{};
     gains.fill(0.7f);
 
     filter.SetDelays(delays);

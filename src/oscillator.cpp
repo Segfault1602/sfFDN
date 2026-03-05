@@ -1,5 +1,6 @@
 #include "sffdn/oscillator.h"
 
+#include "array_math.h"
 #include "sine_table.h"
 
 #include <cassert>
@@ -7,6 +8,11 @@
 #include <cstdint>
 #include <ranges>
 #include <span>
+#include <vector>
+
+#ifdef SFFDN_USE_VDSP
+#include <Accelerate/Accelerate.h>
+#endif
 
 namespace
 {
@@ -90,6 +96,18 @@ float SineWave::Tick()
 
 void SineWave::Generate(std::span<float> output)
 {
+    // For small block sizes, the overhead of calling vDSP is too much. Disabled for now.
+#ifdef SFFDN_USE_VDSP_DISABLED
+    int32_t size = output.size();
+    vDSP_vramp(&phase_, &phase_increment_, output.data(), 1, size);
+    ArrayMath::Scale(output, 2.f, output);
+    phase_ += phase_increment_ * size;
+    phase_ -= std::floor(phase_);
+
+    vvsinpif(output.data(), output.data(), &size);
+
+    vDSP_vsmsa(output.data(), 1, &amplitude_, &offset_, output.data(), 1, size);
+#else
     float phase = phase_;
     for (float& i : output)
     {
@@ -99,6 +117,7 @@ void SineWave::Generate(std::span<float> output)
 
     phase_ = phase;
     phase_ -= std::floor(phase_);
+#endif
 }
 
 void SineWave::Multiply(std::span<const float> input, std::span<float> output)

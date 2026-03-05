@@ -19,6 +19,7 @@ enum class DelayInterpolationType : uint8_t
 };
 
 /** @brief Delay line with interpolation. */
+template <DelayInterpolationType type>
 class DelayInterp
 {
   public:
@@ -27,17 +28,13 @@ class DelayInterp
      * @param delay The initial delay in samples.
      * @param max_delay The maximum delay in samples.
      */
-    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095,
-                DelayInterpolationType type = DelayInterpolationType::Linear);
+    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095);
 
     /** @brief Clears all internal states of the delay line. */
-    void Clear(void);
+    void Clear();
 
     /** @brief Gets the maximum delay-line length. */
-    uint32_t GetMaximumDelay() const
-    {
-        return delayline_.GetMaximumDelay();
-    }
+    uint32_t GetMaximumDelay() const;
 
     /**
      * @brief Sets the maximum delay for the delay line.
@@ -52,10 +49,7 @@ class DelayInterp
     void SetDelay(float delay);
 
     /** @brief Returns the current delay in samples. */
-    float GetDelay() const
-    {
-        return delay_;
-    }
+    float GetDelay() const;
 
     /**
      * @brief Processes a single sample through the delay line.
@@ -73,16 +67,14 @@ class DelayInterp
 
   private:
     Delay delayline_;
-    DelayInterpolationType type_;
 
     float delay_;
     uint32_t int_delay_;
     float frac_delay_;
 
     AllpassFilter allpass_;
-
-    void ProcessLinear(const AudioBuffer& input, AudioBuffer& output);
-    void ProcessAllpass(const AudioBuffer& input, AudioBuffer& output);
 };
 
+extern template class DelayInterp<DelayInterpolationType::Linear>;
+extern template class DelayInterp<DelayInterpolationType::Allpass>;
 } // namespace sfFDN

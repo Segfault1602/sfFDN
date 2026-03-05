@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <span>
 
@@ -24,5 +25,29 @@ void MatrixMultiply_16(const std::span<const float, 16> input, std::span<float, 
 /// @param mat_size size of the transformation matrix (mat_size x mat_size)
 void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix,
                       uint32_t mat_size);
+
+template <uint32_t N>
+void FWHT(std::span<float, N> data)
+{
+    for (auto h = 1u; h < N; h *= 2)
+    {
+        for (auto i = 0u; i < N; i += 2 * h)
+        {
+            for (auto j = 0u; j < h; ++j)
+            {
+                const float a = data[i + j];
+                const float b = data[i + j + h];
+                data[i + j] = a + b;
+                data[i + j + h] = a - b;
+            }
+        }
+    }
+
+    const float normalization_factor = 1.f / std::sqrt(static_cast<float>(N));
+    for (float& i : data)
+    {
+        i *= normalization_factor;
+    }
+}
 
 } // namespace sfFDN

@@ -131,9 +131,8 @@ TEST_CASE("MatrixMultiply_6")
     }
 }
 
-TEST_CASE("Hadamard")
+TEST_CASE("MatrixMultiply_Hadamard")
 {
-    SECTION("Hadamard_4")
     {
         constexpr uint32_t kMatSize = 4;
 
@@ -142,19 +141,18 @@ TEST_CASE("Hadamard")
         constexpr std::array<float, kMatSize> kExpected = {5, -1, -2, 0};
 
         sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
         }
     }
 
-    SECTION("Hadamard_8")
     {
         constexpr uint32_t kMatSize = 8;
 
@@ -165,19 +163,18 @@ TEST_CASE("Hadamard")
             12.727922061357855f, -1.414213562373095f, -2.828427124746190f, 0.f, -5.656854249492380f, 0.f, 0.f, 0.f};
 
         sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], 1e-6));
         }
     }
 
-    SECTION("Hadamard_16")
     {
         constexpr uint32_t kMatSize = 16;
 
@@ -187,13 +184,13 @@ TEST_CASE("Hadamard")
         constexpr std::array<float, kMatSize> kExpected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
 
         sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
 
         sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
         }

@@ -10,37 +10,42 @@
 
 namespace sfFDN
 {
-
-DelayTimeVarying::DelayTimeVarying(float delay, uint32_t max_delay, DelayInterpolationType type)
-    : delay_(delay, max_delay, type)
+template <DelayInterpolationType type>
+DelayTimeVarying<type>::DelayTimeVarying(float delay, uint32_t max_delay)
+    : delay_(delay, max_delay)
     , base_delay_(delay)
     , lfo_(0.0f, 0.0f)
 {
 }
 
-void DelayTimeVarying::Clear()
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::Clear()
 {
     delay_.Clear();
     lfo_.ResetPhase();
 }
 
-void DelayTimeVarying::SetMaximumDelay(uint32_t delay)
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::SetMaximumDelay(uint32_t delay)
 {
     delay_.SetMaximumDelay(delay);
 }
 
-void DelayTimeVarying::SetDelay(float delay)
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::SetDelay(float delay)
 {
     delay_.SetDelay(delay);
     base_delay_ = delay;
 }
 
-float DelayTimeVarying::GetDelay() const
+template <DelayInterpolationType type>
+float DelayTimeVarying<type>::GetDelay() const
 {
     return delay_.GetDelay();
 }
 
-void DelayTimeVarying::SetMod(float freq, float amplitude, float phase_offset)
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::SetMod(float freq, float amplitude, float phase_offset)
 {
     if (delay_.GetDelay() < amplitude)
     {
@@ -57,19 +62,22 @@ void DelayTimeVarying::SetMod(float freq, float amplitude, float phase_offset)
     lfo_.SetPhaseOffset(phase_offset);
 }
 
-void DelayTimeVarying::UpdateDelay()
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::UpdateDelay()
 {
     delay_.SetDelay(base_delay_ + lfo_.Tick());
 }
 
-float DelayTimeVarying::Tick(float input)
+template <DelayInterpolationType type>
+float DelayTimeVarying<type>::Tick(float input)
 {
     UpdateDelay();
 
     return delay_.Tick(input);
 }
 
-void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output)
+template <DelayInterpolationType type>
+void DelayTimeVarying<type>::Process(const AudioBuffer& input, AudioBuffer& output)
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == 1);
@@ -104,5 +112,8 @@ void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output)
         out_span[sample] = delay_.Tick(in_span[sample]);
     }
 }
+
+template class DelayTimeVarying<DelayInterpolationType::Linear>;
+template class DelayTimeVarying<DelayInterpolationType::Allpass>;
 
 } // namespace sfFDN

@@ -10,14 +10,14 @@
 #include <cstdint>
 #include <memory>
 #include <numbers>
+#include <ranges>
 #include <span>
 
 namespace sfFDN
 {
 
 OnePoleFilter::OnePoleFilter()
-    : gain_(1.0f)
-    , b0_(1.0f)
+    : b0_(1.0f)
     , a1_(0.0f)
     , state_{0.0f, 0.0f}
 {
@@ -64,7 +64,7 @@ void OnePoleFilter::SetLowpass(float cutoff)
 
 float OnePoleFilter::Tick(float in)
 {
-    state_[0] = gain_ * in * b0_ - state_[1] * a1_;
+    state_[0] = in * b0_ - state_[1] * a1_;
     state_[1] = state_[0];
     return state_[0];
 }
@@ -75,11 +75,33 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
 
-    auto input_span = input.GetChannelSpan(0);
-    auto output_span = output.GetChannelSpan(0);
-    for (auto i = 0u; i < input_span.size(); ++i)
+    auto in = input.GetChannelSpan(0);
+    auto out = output.GetChannelSpan(0);
+
+    constexpr uint32_t kUnrollFactor = 8;
+    const uint32_t size = in.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        output_span[i] = Tick(input_span[i]);
+        auto in_span = in.subspan(sample, kUnrollFactor);
+        auto out_span = out.subspan(sample, kUnrollFactor);
+
+        // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
+        std::array<float, kUnrollFactor> batch{};
+        std::ranges::copy(in_span, batch.begin());
+
+        for (auto& b : batch)
+        {
+            b = Tick(b);
+        }
+        std::ranges::copy(batch.begin(), batch.end(), out_span.begin());
+    }
+
+    for (; sample < size; ++sample)
+    {
+        out[sample] = Tick(in[sample]);
     }
 }
 uint32_t OnePoleFilter::InputChannelCount() const
@@ -101,7 +123,6 @@ std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
 {
     auto clone = std::make_unique<OnePoleFilter>();
     clone->SetCoefficients(b0_, a1_);
-    clone->gain_ = gain_;
     return clone;
 }
 
@@ -148,14 +169,9 @@ AllpassFilter& AllpassFilter::operator=(AllpassFilter&& other) noexcept
     return *this;
 }
 
-void AllpassFilter::SetCoefficients(float coeff)
-{
-    coeff_ = coeff;
-}
-
 float AllpassFilter::Tick(float in)
 {
-    last_out_ = -coeff_ * last_out_ + last_in_ + (coeff_ * in);
+    last_out_ = coeff_ * (in - last_out_) + last_in_;
     last_in_ = in;
     return last_out_;
 }
@@ -164,17 +180,38 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
-    assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
+    assert(input.ChannelCount() == 1);
 
-    auto input_span = input.GetChannelSpan(0);
-    auto output_span = output.GetChannelSpan(0);
-    for (auto i = 0u; i < input_span.size(); ++i)
+    auto in = input.GetChannelSpan(0);
+    auto out = output.GetChannelSpan(0);
+
+    constexpr uint32_t kUnrollFactor = 8;
+    const uint32_t size = in.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        last_out_ = coeff_ * (input_span[i] - last_out_) + last_in_;
-        last_in_ = input_span[i];
-        output_span[i] = last_out_;
+        auto in_span = in.subspan(sample, kUnrollFactor);
+        auto out_span = out.subspan(sample, kUnrollFactor);
+
+        // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
+        std::array<float, kUnrollFactor> batch{};
+        std::ranges::copy(in_span, batch.begin());
+
+        for (auto& b : batch)
+        {
+            b = Tick(b);
+        }
+        std::ranges::copy(batch.begin(), batch.end(), out_span.begin());
+    }
+
+    for (; sample < size; ++sample)
+    {
+        out[sample] = Tick(in[sample]);
     }
 }
+
 uint32_t AllpassFilter::InputChannelCount() const
 {
     return 1; // OnePoleFilter only supports single channel input

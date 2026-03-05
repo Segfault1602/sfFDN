@@ -15,21 +15,23 @@
 namespace sfFDN
 {
 
-DelayBankTimeVarying::DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay,
-                                           DelayInterpolationType type)
+template <DelayInterpolationType type>
+DelayBankTimeVarying<type>::DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay)
 {
     for (auto delay : delays)
     {
-        delays_.emplace_back(delay, max_delay, type);
+        delays_.emplace_back(delay, max_delay);
     }
 }
 
-DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVarying& other)
+template <DelayInterpolationType type>
+DelayBankTimeVarying<type>::DelayBankTimeVarying(const DelayBankTimeVarying& other)
     : delays_(other.delays_)
 {
 }
 
-DelayBankTimeVarying& DelayBankTimeVarying::operator=(const DelayBankTimeVarying& other)
+template <DelayInterpolationType type>
+DelayBankTimeVarying<type>& DelayBankTimeVarying<type>::operator=(const DelayBankTimeVarying& other)
 {
     if (this != &other)
     {
@@ -38,36 +40,21 @@ DelayBankTimeVarying& DelayBankTimeVarying::operator=(const DelayBankTimeVarying
     return *this;
 }
 
-DelayBankTimeVarying::DelayBankTimeVarying(DelayBankTimeVarying&& other) noexcept
+template <DelayInterpolationType type>
+DelayBankTimeVarying<type>::DelayBankTimeVarying(DelayBankTimeVarying<type>&& other) noexcept
     : delays_(std::move(other.delays_))
 {
 }
 
-DelayBankTimeVarying& DelayBankTimeVarying::operator=(DelayBankTimeVarying&& other) noexcept
+template <DelayInterpolationType type>
+DelayBankTimeVarying<type>& DelayBankTimeVarying<type>::operator=(DelayBankTimeVarying<type>&& other) noexcept
 {
     delays_ = std::move(other.delays_);
     return *this;
 }
 
-void DelayBankTimeVarying::Clear()
-{
-    for (auto& delay : delays_)
-    {
-        delay.Clear();
-    }
-}
-
-uint32_t DelayBankTimeVarying::InputChannelCount() const
-{
-    return delays_.size();
-}
-
-uint32_t DelayBankTimeVarying::OutputChannelCount() const
-{
-    return delays_.size();
-}
-
-void DelayBankTimeVarying::SetDelays(const std::span<const uint32_t> delays, uint32_t block_size)
+template <DelayInterpolationType type>
+void DelayBankTimeVarying<type>::SetDelays(const std::span<const uint32_t> delays, uint32_t block_size)
 {
     delays_.resize(delays.size());
     for (uint32_t i = 0; i < delays.size(); i++)
@@ -77,8 +64,9 @@ void DelayBankTimeVarying::SetDelays(const std::span<const uint32_t> delays, uin
     }
 }
 
-void DelayBankTimeVarying::SetMods(const std::span<const float> freqs, const std::span<const float> depths,
-                                   const std::span<const float> phase_offsets)
+template <DelayInterpolationType type>
+void DelayBankTimeVarying<type>::SetMods(const std::span<const float> freqs, const std::span<const float> depths,
+                                         const std::span<const float> phase_offsets)
 {
     if (freqs.size() != delays_.size() || depths.size() != delays_.size() ||
         (!phase_offsets.empty() && phase_offsets.size() != delays_.size()))
@@ -92,7 +80,8 @@ void DelayBankTimeVarying::SetMods(const std::span<const float> freqs, const std
     }
 }
 
-std::vector<uint32_t> DelayBankTimeVarying::GetDelays() const
+template <DelayInterpolationType type>
+std::vector<uint32_t> DelayBankTimeVarying<type>::GetDelays() const
 {
     std::vector<uint32_t> delays;
     delays.reserve(delays_.size());
@@ -103,7 +92,29 @@ std::vector<uint32_t> DelayBankTimeVarying::GetDelays() const
     return delays;
 }
 
-void DelayBankTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+template <DelayInterpolationType type>
+uint32_t DelayBankTimeVarying<type>::InputChannelCount() const
+{
+    return delays_.size();
+}
+
+template <DelayInterpolationType type>
+uint32_t DelayBankTimeVarying<type>::OutputChannelCount() const
+{
+    return delays_.size();
+}
+
+template <DelayInterpolationType type>
+void DelayBankTimeVarying<type>::Clear()
+{
+    for (auto& delay : delays_)
+    {
+        delay.Clear();
+    }
+}
+
+template <DelayInterpolationType type>
+void DelayBankTimeVarying<type>::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -116,10 +127,14 @@ void DelayBankTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output
     }
 }
 
-std::unique_ptr<AudioProcessor> DelayBankTimeVarying::Clone() const
+template <DelayInterpolationType type>
+std::unique_ptr<AudioProcessor> DelayBankTimeVarying<type>::Clone() const
 {
-    auto clone = std::make_unique<DelayBankTimeVarying>(*this);
+    auto clone = std::make_unique<DelayBankTimeVarying<type>>(*this);
     return clone;
 }
+
+template class DelayBankTimeVarying<DelayInterpolationType::Linear>;
+template class DelayBankTimeVarying<DelayInterpolationType::Allpass>;
 
 } // namespace sfFDN

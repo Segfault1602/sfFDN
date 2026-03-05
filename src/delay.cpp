@@ -76,15 +76,8 @@ void Delay::SetDelay(uint32_t delay)
         return;
     }
 
-    // read chases write
-    if (in_point_ >= delay)
-    {
-        out_point_ = in_point_ - delay;
-    }
-    else
-    {
-        out_point_ = buffer_.size() + in_point_ - delay;
-    }
+    out_point_ = buffer_.size() + in_point_ - delay;
+    out_point_ = FastMod(out_point_, buffer_.size());
     delay_ = delay;
 }
 
