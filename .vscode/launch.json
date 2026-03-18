@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.tests",
             "args": [
-                "SparseFirFilter"
+                "IIRFilterBank"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -23,7 +23,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.perf",
             "args": [
-                "FirFilterSparse"
+                "Delay_Matrix"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

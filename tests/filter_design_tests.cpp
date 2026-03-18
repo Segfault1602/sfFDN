@@ -57,6 +57,26 @@ TEST_CASE("TwoFilter")
     }
 }
 
+TEST_CASE("TwoFilter2")
+{
+    constexpr float kSR = 48000;
+    constexpr std::array<double, 10> kT60s = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1.0};
+    // constexpr std::array<double, 10> kT60s = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
+    constexpr float kDelay = 1619;
+    constexpr float kShelfCutoff = 8000.0f;
+
+    std::vector<double> coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
+
+    for (auto i = 0u; i < coeffs.size(); ++i)
+    {
+        std::cout << std::setprecision(4) << coeffs[i] << ", ";
+        if ((i + 1) % 6 == 0)
+        {
+            std::cout << "\n";
+        }
+    }
+}
+
 TEST_CASE("Polyval")
 {
     constexpr size_t kN = 10;

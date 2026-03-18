@@ -12,6 +12,42 @@
 - Time-varying delay lines
 - Time-varying input and output gains
 
+## Architecture
+The FDN topology implemented in sfFDN is based on the canonical structure found in the literature and is shown here:
+![sfFDN Architecture](sfFDN.svg)
+
+This topology can be separated into seven building blocks: the input gains (green), the delay lines (yellow), the loop filters (red), the feedback matrix (orange), the output gains (blue), the tone correction filter (purple), and the direct gain (gray). At the heart of the library is the \verb|AudioProcessor| interface. In the context of sfFDN, an audio processor is defined as a class that can take $N_{in}$ channels of audio, apply a transformation (e.g., filtering, delay, mixing matrix), and finally output $N_{out}$ channels of audio. The `AudioProcessorChain` class can be used to chain multiple audio processors in series and the `FilterBank` class can similarly be used to group multiple single-channel audio processors into a bank of parallel processor.
+
+<details>
+
+<summary> Input/Output gains </summary>
+
+The input gains block supports any processor that takes a single channel of audio as input and outputs $N$ channels of audio. Conversely, the output gains block consists of any processor that takes $N$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain ($b_i$, $c_i$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into $N$ output channels (input gains) or sum $N$ input channels into a single output channel (output gains). FIR filters are a commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining an 'FIR' processor with the `ParallelGains` processor. For longer FIR filters, the `PartitionedConvolver` processor can be used to greatly reduce the computational cost of the convolution. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented easily in sfFDN by using the `SparseFIR` class which provides an efficient implementation of sparse FIR filters, especially suited for velvet-noise sequences. The `FilterBank` processor can also be used to create a bank of parallel filters, allowing for each channel to have its own unique FIR or velvet-noise filter.
+
+</details>
+
+<details>
+
+<summary> Delay Lines </summary>
+
+For efficiency reasons, sfFDN restrict the main delay lengths to integer values, but fractional and
+time-varying delay lines can easily be integrated by including a `DelayInterp` or `DelayTimeVarying`
+processor inside the loop filter block. The `GetDelayLengths()` function provide a conve-
+nient way to generate delay lengths based on several heuristics:
+
+- **Random** Randomly generate delay lengths pulled from a uniform distribution
+- **Gaussian**: Randomly generate delay lengths pulled from a Gaussian distribution.
+- **Prime**: Randomly generate delay lengths pulled from a uniform distribution. Delays are guaranteed to be prime numbers.
+- **Uniform**: Delays are uniformly spaced between a minimum and maximum value.
+- **Prime Power**: Delays are integer powers of prime numbers. Based on the implementation found
+in the Faust library
+- **Steam Audio**: Re-implementation of the delay length generation method used in the reverberator of the Steam Audio Library. This heuristic is based on the Prime Power method but with some amount of randomization added.
+- **Mean Delay**: Delays are generated based on Eq.(40) from (Schlecht & Habets, 2017a)[^5]. The re-
+sulting delays are logarithmically spaced to obtain a desired mean delay length and standard
+deviation.
+
+</details>
+
 ## Example Usage
 
 Here is an example of how to create a 'classic' FDN of 8 delay lines with a Hadamard feedback matrix:
@@ -74,4 +110,9 @@ cmake --build --preset llvm-debug
 [2] S. J. Schlecht and E. A. P. Habets, “Scattering in Feedback Delay Networks,” IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, June 2020.
 
 [3] V. Välimäki, K. Prawda, and S. J. Schlecht, “Two-Stage Attenuation Filter for Artificial Reverberation,” IEEE Signal Processing Letters, vol. 31, pp. 391–395, Jan. 2024, doi: 10.1109/LSP.2024.3352510.
+
+[^4] J. Fagerström, B. Alary, S. J. Schlecht, and V. Välimäki, “Velvet-Noise Feedback Delay Network,” in Proc. Int. Conf. Digital Audio Effects (DAFx), 2020.
+
+[^5] S. J. Schlecht and E. A. P. Habets, “Feedback Delay Networks: Echo Density and Mixing Time,” IEEE/ACM Trans. Audio, Speech, Lang. Process., vol. 25, no. 2, pp. 374–383, Feb. 2017, doi: 10.1109/TASLP.2016.2635027.
+
 

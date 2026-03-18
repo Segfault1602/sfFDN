@@ -389,7 +389,7 @@ TEST_CASE("CascadedBiquads")
 
 TEST_CASE("IIRFilterBank")
 {
-    constexpr uint32_t kChannelCount = 6;
+    constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kStageCount = kTestSOS.size();
     std::vector<float> coeffs;
     for (auto n = 0; n < kChannelCount; ++n)

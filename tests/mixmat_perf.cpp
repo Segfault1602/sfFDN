@@ -56,6 +56,7 @@ TEST_CASE("Matrix_Order")
 
     nanobench::Bench bench;
     bench.title("Householder matrix - Complexity");
+    bench.timeUnit(1us, "us");
 
     sfFDN::RNG rng;
     for (auto mat_size : kMatrixSizes)
@@ -74,11 +75,11 @@ TEST_CASE("Matrix_Order")
 
         sfFDN::ScalarFeedbackMatrix mix_mat =
             sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::Householder);
-        bench.complexityN(mat_size).run("Householder - Order " + std::to_string(mat_size),
-                                        [&] { mix_mat.Process(input_buffer, output_buffer); });
+        bench.run("Householder - Order " + std::to_string(mat_size),
+                  [&] { mix_mat.Process(input_buffer, output_buffer); });
     }
 
-    std::cout << bench.complexityBigO() << "\n";
+    // std::cout << bench.complexityBigO() << "\n";
 }
 
 TEST_CASE("FFMPerf_Order")
@@ -114,4 +115,45 @@ TEST_CASE("FFMPerf_Order")
     }
 
     std::cout << bench.complexityBigO() << "\n";
+}
+
+TEST_CASE("Delay_Matrix")
+{
+    constexpr std::array kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32};
+
+    constexpr uint32_t kBlockSize = 128;
+
+    nanobench::Bench bench;
+    bench.title("Filter Feedback Matrix");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+    // bench.relative(true);
+
+    for (auto mat_size : kMatrixSizes)
+    {
+        // fill input with random values
+        sfFDN::RNG rng;
+        std::vector<float> input(mat_size * kBlockSize, 0.f);
+        for (auto& i : input)
+        {
+            i = rng();
+        }
+        std::vector<float> output(mat_size * kBlockSize, 0.f);
+
+        sfFDN::AudioBuffer input_buffer(kBlockSize, mat_size, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, mat_size, output);
+
+        std::vector<uint32_t> delays(mat_size * mat_size, 0);
+        for (auto& d : delays)
+        {
+            d = std::abs(rng()) * 20; // random delay between 0 and 1000 samples
+        }
+
+        sfFDN::ScalarFeedbackMatrix mixing_matrix =
+            sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::Hadamard);
+        sfFDN::DelayMatrix delay_matrix(mat_size, delays, mixing_matrix);
+
+        bench.run("Delay Matrix - Order " + std::to_string(mat_size),
+                  [&] { delay_matrix.Process(input_buffer, output_buffer); });
+    }
 }
