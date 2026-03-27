@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.tests",
             "args": [
-                "IIRFilterBank"
+                "ThreeBandFilter"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

@@ -154,3 +154,30 @@ TEST_CASE("GraphicEQ")
         }
     }
 }
+
+TEST_CASE("ThreeBandFilter")
+{
+    // constexpr float t60_dc = 2.f;
+    // constexpr float t60_mid = 1.f;
+    // constexpr float t60_ny = 0.5f;
+    constexpr float kDelay = 1000.f;
+    // constexpr float sr = 48000.f;
+    sfFDN::ThreeBandAbsorptionParams params{.t60_dc = 2.f,
+                                            .t60_mid = 1.f,
+                                            .t60_ny = 0.5f,
+                                            .low_shelf_cutoff = 300.f,
+                                            .high_shelf_cutoff = 8000.f,
+                                            .q = 1.f / std::sqrt(2.f),
+                                            .sample_rate = 48000.f};
+
+    auto sos = sfFDN::DesignThreeBandAbsorption(params, kDelay);
+
+    for (auto i = 0u; i < sos.size(); ++i)
+    {
+        std::cout << std::setprecision(15) << sos[i] << ", ";
+        if ((i + 1) % 6 == 0)
+        {
+            std::cout << "\n";
+        }
+    }
+}

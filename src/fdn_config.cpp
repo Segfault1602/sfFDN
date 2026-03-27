@@ -295,9 +295,30 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
         {"input_gains", p.input_gains},
         {"output_gains", p.output_gains},
         {"delays", p.delays},
-        //    {"matrix_info", p.matrix_info},
-        {"attenuation_t60s", p.attenuation_t60s},
     };
+
+    std::visit(
+        [&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, sfFDN::ProportionalAttenuationConfig>)
+            {
+                j["attenuation_t60s"] = {arg.t60};
+            }
+            else if constexpr (std::is_same_v<T, sfFDN::TwoBandFilterConfig>)
+            {
+                j["attenuation_t60s"] = arg.t60s;
+            }
+            else if constexpr (std::is_same_v<T, sfFDN::ThreeBandFilterConfig>)
+            {
+                j["attenuation_t60s"] = arg.t60s;
+                j["attenuation_freqs"] = arg.freqs;
+            }
+            else if constexpr (std::is_same_v<T, sfFDN::TenBandFilterConfig>)
+            {
+                j["attenuation_t60s"] = arg.t60s;
+            }
+        },
+        p.attenuation_filter_config);
 
     std::visit(
         [&](auto&& arg) {
@@ -388,10 +409,11 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
         p.delays = std::move(delays);
     }
 
-    if (j.contains("attenuation_t60s"))
-    {
-        j.at("attenuation_t60s").get_to(p.attenuation_t60s);
-    }
+    // TODO: fix attenuation filter config parsing
+    // if (j.contains("attenuation_t60s"))
+    // {
+    //     j.at("attenuation_t60s").get_to(p.attenuation_t60s);
+    // }
 
     if (j.contains("scalar_matrix"))
     {
@@ -515,7 +537,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
         },
         config.matrix_info);
 
-    auto filter_bank = sfFDN::CreateAttenuationFilterBank(config.attenuation_t60s, adjusted_delays, samplerate);
+    auto filter_bank =
+        sfFDN::CreateAttenuationFilterBank(config.attenuation_filter_config, adjusted_delays, samplerate);
 
     auto chain_processor = std::make_unique<sfFDN::AudioProcessorChain>(kDefaultBlockSize);
 

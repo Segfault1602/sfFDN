@@ -2,11 +2,11 @@
 
 #include "sffdn/delay_interp.h"
 #include "sffdn/fdn.h"
+#include "sffdn/filter_design.h"
 #include "sffdn/filter_feedback_matrix.h"
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -20,7 +20,8 @@ enum class DelayFilterType : uint8_t
 {
     Proportional = 0,
     OnePole = 1,
-    TwoFilter = 2,
+    ThreeBand = 2,
+    TwoFilter = 3,
 };
 
 using matrix_variant_t = std::variant<sfFDN::CascadedFeedbackMatrixInfo, std::vector<float>>;
@@ -57,13 +58,13 @@ struct FDNConfig
     uint32_t N; // Number of channels
     bool transposed;
     float direct_gain;
-    std::vector<float> input_gains;      // Input gains for each channel
-    std::vector<float> output_gains;     // Output gains for each channel
-    std::vector<uint32_t> delays;        // Delay lengths in samples for each channel
-    matrix_variant_t matrix_info;        // Info for feedback matrix
-    std::vector<float> attenuation_t60s; // T60 values for attenuation filters
-    std::vector<float> tc_gains;         // Tone correction gains for each band
-    std::vector<float> tc_frequencies;   // Center frequencies for tone correction bands
+    std::vector<float> input_gains;                         // Input gains for each channel
+    std::vector<float> output_gains;                        // Output gains for each channel
+    std::vector<uint32_t> delays;                           // Delay lengths in samples for each channel
+    matrix_variant_t matrix_info;                           // Info for feedback matrix
+    attenuation_filter_variant_t attenuation_filter_config; // Configuration for attenuation filters
+    std::vector<float> tc_gains;                            // Tone correction gains for each band
+    std::vector<float> tc_frequencies;                      // Center frequencies for tone correction bands
 
     // Extras!
     // Input Stage
