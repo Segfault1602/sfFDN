@@ -46,12 +46,10 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "TwoFilter"
+                "DelayLagrange"
             ],
-            // "MIMode": "lldb",
-            "stopOnEntry": false,
+            "MIMode": "lldb",
             "cwd": "${workspaceFolder}",
-            "env": [],
         },
         {
             "name": "Perf",
@@ -62,6 +60,6 @@
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],
-        }
+        },
     ]
 }

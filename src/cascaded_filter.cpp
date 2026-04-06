@@ -14,7 +14,7 @@
 
 namespace
 {
-float ComputeSample(float x, const sfFDN::CascadedBiquads::IIRCoeffs& coeffs, sfFDN::CascadedBiquads::IIRState& state)
+float ComputeSample(float x, const sfFDN::FilterCoefficients& coeffs, sfFDN::CascadedBiquads::IIRState& state)
 {
     const float y = (coeffs.b0 * x) + state.s0;
     state.s0 = (coeffs.b1 * x) + state.s1;
@@ -71,46 +71,6 @@ CascadedBiquads& CascadedBiquads::operator=(CascadedBiquads&& other) noexcept
     return *this;
 }
 
-void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float> coeffs)
-{
-    coeffs_.clear();
-    coeffs_.resize(num_stage);
-
-    constexpr auto kNormalizedCoeffCount = 5;
-
-    if (coeffs.size() == (num_stage * kNormalizedCoeffCount))
-    {
-        for (uint32_t i = 0; i < num_stage; ++i)
-        {
-            auto offset = i * kNormalizedCoeffCount;
-            coeffs_[i].b0 = coeffs[offset + 0];
-            coeffs_[i].b1 = coeffs[offset + 1];
-            coeffs_[i].b2 = coeffs[offset + 2];
-            coeffs_[i].a1 = coeffs[offset + 3];
-            coeffs_[i].a2 = coeffs[offset + 4];
-        }
-    }
-    else
-    {
-        constexpr auto kCoeffCount = 6;
-        assert(coeffs.size() == num_stage * kCoeffCount);
-        for (uint32_t i = 0; i < num_stage; ++i)
-        {
-            const auto offset = i * kCoeffCount;
-            const float a0 = coeffs[offset + 3];
-
-            coeffs_[i].b0 = coeffs[offset + 0] / a0;
-            coeffs_[i].b1 = coeffs[offset + 1] / a0;
-            coeffs_[i].b2 = coeffs[offset + 2] / a0;
-            coeffs_[i].a1 = coeffs[offset + 4] / a0;
-            coeffs_[i].a2 = coeffs[offset + 5] / a0;
-        }
-    }
-
-    states_.resize(num_stage, {.s0 = 0.0f, .s1 = 0.0f});
-    stage_ = num_stage;
-}
-
 void CascadedBiquads::SetCoefficients(std::span<const FilterCoefficients> coeffs)
 {
     coeffs_.clear();
@@ -118,11 +78,7 @@ void CascadedBiquads::SetCoefficients(std::span<const FilterCoefficients> coeffs
 
     for (size_t i = 0; i < coeffs.size(); ++i)
     {
-        coeffs_[i].b0 = coeffs[i].b0;
-        coeffs_[i].b1 = coeffs[i].b1;
-        coeffs_[i].b2 = coeffs[i].b2;
-        coeffs_[i].a1 = coeffs[i].a1;
-        coeffs_[i].a2 = coeffs[i].a2;
+        coeffs_[i] = coeffs[i].Normalize();
     }
 
     states_.resize(coeffs.size(), {.s0 = 0.0f, .s1 = 0.0f});
@@ -140,7 +96,7 @@ float CascadedBiquads::Tick(float in)
     float out = in;
     for (uint32_t i = 0; i < stage_; ++i)
     {
-        const IIRCoeffs& coeffs = coeffs_[i];
+        const auto& coeffs = coeffs_[i];
         IIRState& state = states_[i];
 
         out = coeffs.b0 * out + state.s0;
@@ -175,7 +131,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
 
         for (auto stage = 0u; stage < stage_; ++stage)
         {
-            const IIRCoeffs coeffs = coeffs_[stage];
+            const FilterCoefficients& coeffs = coeffs_[stage];
             IIRState& state = states_[stage];
 
             for (auto& b : batch)
@@ -195,7 +151,7 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
         float s = in[sample];
         for (auto stage = 0u; stage < stage_; ++stage)
         {
-            const IIRCoeffs coeffs = coeffs_[stage];
+            const FilterCoefficients& coeffs = coeffs_[stage];
             IIRState& state = states_[stage];
             s = ComputeSample(s, coeffs, state);
         }

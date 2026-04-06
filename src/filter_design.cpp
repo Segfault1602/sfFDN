@@ -323,8 +323,8 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandAbsor
     low_shelf[2] *= g_mid_linear;
 
     std::array<FilterCoefficients, 2> sos = {
-        {{low_shelf[0], low_shelf[1], low_shelf[2], low_shelf[4], low_shelf[5]},
-         {high_shelf[0], high_shelf[1], high_shelf[2], high_shelf[4], high_shelf[5]}}};
+        {{low_shelf[0], low_shelf[1], low_shelf[2], low_shelf[3], low_shelf[4], low_shelf[5]},
+         {high_shelf[0], high_shelf[1], high_shelf[2], high_shelf[3], high_shelf[4], high_shelf[5]}}};
     return sos;
 }
 
@@ -376,6 +376,7 @@ std::array<FilterCoefficients, 11> GetTwoFilter(std::span<const float> t60s, flo
         sos_f[i].b0 = static_cast<float>(sos[6 * i]);
         sos_f[i].b1 = static_cast<float>(sos[6 * i + 1]);
         sos_f[i].b2 = static_cast<float>(sos[6 * i + 2]);
+        sos_f[i].a0 = static_cast<float>(sos[6 * i + 3]);
         sos_f[i].a1 = static_cast<float>(sos[6 * i + 4]);
         sos_f[i].a2 = static_cast<float>(sos[6 * i + 5]);
     }
@@ -383,7 +384,7 @@ std::array<FilterCoefficients, 11> GetTwoFilter(std::span<const float> t60s, flo
     return sos_f;
 }
 
-std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr)
+std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr)
 {
     if (mag.size() != 10 || freqs.size() != 10)
     {
@@ -395,11 +396,17 @@ std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const f
 
     const std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
 
-    std::vector<float> sos_f;
-    sos_f.reserve(sos.size());
-    for (auto s : sos)
+    std::array<FilterCoefficients, 11> sos_f;
+    assert(sos.size() == sos_f.size() * 6);
+    sos_f.fill({});
+    for (auto i = 0u; i < sos_f.size(); ++i)
     {
-        sos_f.push_back(static_cast<float>(s));
+        sos_f[i].b0 = static_cast<float>(sos[6 * i]);
+        sos_f[i].b1 = static_cast<float>(sos[6 * i + 1]);
+        sos_f[i].b2 = static_cast<float>(sos[6 * i + 2]);
+        sos_f[i].a0 = static_cast<float>(sos[6 * i + 3]);
+        sos_f[i].a1 = static_cast<float>(sos[6 * i + 4]);
+        sos_f[i].a2 = static_cast<float>(sos[6 * i + 5]);
     }
     return sos_f;
 }

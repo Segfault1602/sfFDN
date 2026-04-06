@@ -14,8 +14,10 @@ namespace sfFDN
 
 enum class DelayInterpolationType : uint8_t
 {
+    None,
     Linear,
     Allpass,
+    Lagrange,
 };
 
 /** @brief Delay line with interpolation. */
@@ -73,8 +75,13 @@ class DelayInterp
     float frac_delay_;
 
     AllpassFilter allpass_;
+
+    std::vector<float> lagrange_coeffs_;
+    Fir lagrange_filter_;
 };
 
+extern template class DelayInterp<DelayInterpolationType::None>;
 extern template class DelayInterp<DelayInterpolationType::Linear>;
 extern template class DelayInterp<DelayInterpolationType::Allpass>;
+extern template class DelayInterp<DelayInterpolationType::Lagrange>;
 } // namespace sfFDN

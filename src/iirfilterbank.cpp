@@ -115,24 +115,14 @@ class IIRFilterBank::IIRFilterBankImpl
         }
     }
 
-    void SetFilter(std::span<float> coeffs, uint32_t channel_count, uint32_t stage_count)
+    void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
     {
-        uint32_t coeff_per_stage = 0;
-        if (coeffs.size() == channel_count * stage_count * 5)
-        {
-            coeff_per_stage = 5;
-        }
-        else if (coeffs.size() == channel_count * stage_count * 6)
-        {
-            coeff_per_stage = 6;
-        }
-        else
+        if (coeffs.size() % channel_count != 0)
         {
             throw std::runtime_error("Invalid coefficient size");
         }
 
-        const uint32_t coeffs_per_channel = coeff_per_stage * stage_count;
-
+        const uint32_t stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
 #if IIRFILTERBANK_USE_EIGEN
         filters_.clear();
         channel_count_ = channel_count;
@@ -142,23 +132,14 @@ class IIRFilterBank::IIRFilterBankImpl
             std::vector<float> biquads_coeffs(5 * channel_count);
             for (auto ch = 0u; ch < channel_count; ++ch)
             {
-                auto coeffs_span = coeffs.subspan((ch * coeffs_per_channel) + (j * coeff_per_stage), coeff_per_stage);
-                if (coeff_per_stage == 6)
-                {
-                    biquads_coeffs[ch * 5 + 0] = coeffs_span[0] / coeffs_span[3];
-                    biquads_coeffs[ch * 5 + 1] = coeffs_span[1] / coeffs_span[3];
-                    biquads_coeffs[ch * 5 + 2] = coeffs_span[2] / coeffs_span[3];
-                    biquads_coeffs[ch * 5 + 3] = coeffs_span[3] / coeffs_span[3];
-                    biquads_coeffs[ch * 5 + 4] = coeffs_span[4] / coeffs_span[3];
-                }
-                else
-                {
-                    biquads_coeffs[ch * 5 + 0] = coeffs_span[0];
-                    biquads_coeffs[ch * 5 + 1] = coeffs_span[1];
-                    biquads_coeffs[ch * 5 + 2] = coeffs_span[2];
-                    biquads_coeffs[ch * 5 + 3] = coeffs_span[3];
-                    biquads_coeffs[ch * 5 + 4] = coeffs_span[4];
-                }
+                // auto coeffs_span = coeffs.subspan((ch * coeffs_per_channel) + (j * coeff_per_stage),
+                // coeff_per_stage);
+                auto norm_coeffs = coeffs[(ch * stage_count) + j].Normalize();
+                biquads_coeffs[ch * 5 + 0] = norm_coeffs.b0;
+                biquads_coeffs[ch * 5 + 1] = norm_coeffs.b1;
+                biquads_coeffs[ch * 5 + 2] = norm_coeffs.b2;
+                biquads_coeffs[ch * 5 + 3] = norm_coeffs.a1;
+                biquads_coeffs[ch * 5 + 4] = norm_coeffs.a2;
             }
             filters_.emplace_back();
             filters_.back().SetCoefficients(channel_count, biquads_coeffs);
@@ -167,8 +148,8 @@ class IIRFilterBank::IIRFilterBankImpl
         filters_.resize(channel_count);
         for (auto i = 0u; i < channel_count; ++i)
         {
-            auto coeffs_span = coeffs.subspan(i * coeffs_per_channel, coeffs_per_channel);
-            filters_[i].SetCoefficients(stage_count, coeffs_span);
+            auto coeffs_span = coeffs.subspan(i * stage_count, stage_count);
+            filters_[i].SetCoefficients(coeffs_span);
         }
 #endif
     }
@@ -429,9 +410,9 @@ void IIRFilterBank::Clear()
     impl_->Clear();
 }
 
-void IIRFilterBank::SetFilter(std::span<float> coeffs, uint32_t channel_count, size_t stage_count)
+void IIRFilterBank::SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
 {
-    impl_->SetFilter(coeffs, channel_count, stage_count);
+    impl_->SetFilter(coeffs, channel_count);
 }
 
 void IIRFilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept

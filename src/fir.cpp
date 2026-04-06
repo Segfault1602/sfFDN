@@ -223,6 +223,34 @@ Fir::Fir()
 
 Fir::~Fir() = default;
 
+Fir::Fir(const Fir& other)
+    : impl_(other.impl_->Clone())
+{
+}
+
+Fir& Fir::operator=(const Fir& other)
+{
+    if (this != &other)
+    {
+        impl_ = other.impl_->Clone();
+    }
+    return *this;
+}
+
+Fir::Fir(Fir&& other) noexcept
+    : impl_(std::move(other.impl_))
+{
+}
+
+Fir& Fir::operator=(Fir&& other) noexcept
+{
+    if (this != &other)
+    {
+        impl_ = std::move(other.impl_);
+    }
+    return *this;
+}
+
 void Fir::SetCoefficients(std::span<const float> coeffs)
 {
     impl_->SetCoefficients(coeffs);

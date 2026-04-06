@@ -11,7 +11,6 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
-#include <mdspan>
 #include <memory>
 #include <print>
 #include <span>
@@ -69,8 +68,6 @@ class DelayMatrix::DelayMatrixImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == delay_lines_.size());
 
-        auto delay_mdspan = std::mdspan(delay_values_.data(), order_, order_);
-
         for (auto i = 0u; i < input.SampleCount(); ++i)
         {
             // Add input samples to the delay lines
@@ -84,7 +81,7 @@ class DelayMatrix::DelayMatrixImpl
             {
                 for (auto k = 0u; k < order_; ++k)
                 {
-                    signal_matrix_(j, k) = delay_lines_[j].TapOut(delay_mdspan[j, k]);
+                    signal_matrix_(j, k) = delay_lines_[j].TapOut(delay_values_[(j * order_) + k]);
                 }
             }
 

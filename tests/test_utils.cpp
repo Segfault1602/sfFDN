@@ -28,20 +28,7 @@ std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t channel_count, uin
         auto sos = k_h001_AbsorbtionSOS[0];
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
-        std::vector<float> coeffs;
-        for (uint32_t j = 0; j < order; j++)
-        {
-            auto stage = std::span<const float>(sos[j % sos.size()]);
-            auto b = stage.first(3);
-            auto a = stage.last(3);
-            coeffs.push_back(b[0] / a[0]);
-            coeffs.push_back(b[1] / a[0]);
-            coeffs.push_back(b[2] / a[0]);
-            coeffs.push_back(a[1] / a[0]);
-            coeffs.push_back(a[2] / a[0]);
-        }
-
-        filter->SetCoefficients(order, coeffs);
+        filter->SetCoefficients(std::span(sos).subspan(0, order));
         filter_bank->AddFilter(std::move(filter));
     }
 
@@ -50,19 +37,8 @@ std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t channel_count, uin
 
 std::unique_ptr<sfFDN::AudioProcessor> GetDefaultTCFilter()
 {
-    std::vector<float> coeffs;
-    uint32_t filter_order = k_h001_EqualizationSOS.size();
-    for (auto i = 0u; i < filter_order; i++)
-    {
-        coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][2] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][4] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
-    }
-
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
-    filter->SetCoefficients(filter_order, coeffs);
+    filter->SetCoefficients(k_h001_EqualizationSOS);
     return filter;
 }
 
@@ -114,19 +90,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
     auto filter_bank = GetFilterBank(fdn_order, 11);
     fdn->SetFilterBank(std::move(filter_bank));
 
-    std::vector<float> coeffs;
-    uint32_t filter_order = k_h001_EqualizationSOS.size();
-    for (auto i = 0u; i < filter_order; i++)
-    {
-        coeffs.push_back(k_h001_EqualizationSOS[i][0] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][1] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][2] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][4] / k_h001_EqualizationSOS[i][3]);
-        coeffs.push_back(k_h001_EqualizationSOS[i][5] / k_h001_EqualizationSOS[i][3]);
-    }
-
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
-    filter->SetCoefficients(filter_order, coeffs);
+    filter->SetCoefficients(std::span(k_h001_EqualizationSOS));
     fdn->SetTCFilter(std::move(filter));
 
     return fdn;

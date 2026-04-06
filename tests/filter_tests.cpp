@@ -13,7 +13,7 @@
 
 namespace
 {
-constexpr std::array<std::array<float, 6>, 11> kTestSOS = {
+constexpr std::array<sfFDN::FilterCoefficients, 11> kTestSOS = {
     {{0.81751023887136f, 0.f, 0.f, 1.f, 0.f, 0.f},
      {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f,
       1.02249041084395f},
@@ -358,17 +358,7 @@ TEST_CASE("CascadedBiquads")
 {
     sfFDN::CascadedBiquads filter;
 
-    std::vector<float> coeffs;
-    for (const auto& sos : kTestSOS)
-    {
-        coeffs.push_back(sos[0] / sos[3]);
-        coeffs.push_back(sos[1] / sos[3]);
-        coeffs.push_back(sos[2] / sos[3]);
-        coeffs.push_back(sos[4] / sos[3]);
-        coeffs.push_back(sos[5] / sos[3]);
-    }
-
-    filter.SetCoefficients(kTestSOS.size(), coeffs);
+    filter.SetCoefficients(kTestSOS);
 
     constexpr uint32_t kSize = 32;
     std::array<float, kSize> input = {0};
@@ -391,21 +381,17 @@ TEST_CASE("IIRFilterBank")
 {
     constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kStageCount = kTestSOS.size();
-    std::vector<float> coeffs;
+    std::vector<sfFDN::FilterCoefficients> coeffs;
     for (auto n = 0; n < kChannelCount; ++n)
     {
         for (auto i = 0u; i < kStageCount; i++)
         {
-            coeffs.push_back(kTestSOS[i][0] / kTestSOS[i][3]);
-            coeffs.push_back(kTestSOS[i][1] / kTestSOS[i][3]);
-            coeffs.push_back(kTestSOS[i][2] / kTestSOS[i][3]);
-            coeffs.push_back(kTestSOS[i][4] / kTestSOS[i][3]);
-            coeffs.push_back(kTestSOS[i][5] / kTestSOS[i][3]);
+            coeffs.push_back(kTestSOS[i]);
         }
     }
 
     sfFDN::IIRFilterBank filter_bank;
-    filter_bank.SetFilter(coeffs, kChannelCount, kStageCount);
+    filter_bank.SetFilter(coeffs, kChannelCount);
 
     constexpr uint32_t kBlockSize = 16;
     std::vector<float> input(kBlockSize * kChannelCount, 0.f);

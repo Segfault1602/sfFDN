@@ -1,5 +1,6 @@
 #include "sffdn/feedback_matrix.h"
 
+#include "matrix_multiplication.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/matrix_gallery.h"

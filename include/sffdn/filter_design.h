@@ -107,7 +107,7 @@ std::array<FilterCoefficients, 11> GetTwoFilter(std::span<const float> t60s, flo
  * 2, pp. 176–180, Feb. 2017, doi: 10.1109/LSP.2016.2645280.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/aceq.m
  */
-std::vector<float> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr);
+std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr);
 
 /** @brief Creates an attenuation filter bank using the two-stage attenuation filter design.
  *

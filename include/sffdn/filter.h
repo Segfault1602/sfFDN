@@ -17,11 +17,17 @@ namespace sfFDN
 {
 struct FilterCoefficients
 {
-    float b0, b1, b2, a1, a2;
+    float b0, b1, b2, a0, a1, a2;
 
     void print() const
     {
-        std::cout << "b0: " << b0 << ", b1: " << b1 << ", b2: " << b2 << ", a1: " << a1 << ", a2: " << a2 << std::endl;
+        std::cout << "b0: " << b0 << ", b1: " << b1 << ", b2: " << b2 << ", a0: " << a0 << ", a1: " << a1
+                  << ", a2: " << a2 << std::endl;
+    }
+
+    FilterCoefficients Normalize() const
+    {
+        return {b0 / a0, b1 / a0, b2 / a0, 1.0f, a1 / a0, a2 / a0};
     }
 };
 
@@ -188,16 +194,9 @@ class CascadedBiquads : public AudioProcessor
     CascadedBiquads(CascadedBiquads&&) noexcept;
     CascadedBiquads& operator=(CascadedBiquads&&) noexcept;
 
-    /** @brief Sets the number of biquad stages in the cascade.
-     * @param num_stage The number of biquad stages.
-     * @param coeffs The biquad coefficients in the format.
-     * If coeffs.size() == num_stage * 5, the coefficients are assumed to be in the format
-     * {b0, b1, b2, a1, a2} for each stage.
-     * If coeffs.size() == num_stage * 6, the coefficients are assumed to be in the format
-     * {b0, b1, b2, a0, a1, a2} for each stage.
+    /** @brief Sets the biquad coefficients for each stage.
+     * @param coeffs A span of FilterCoefficients, one for each biquad stage.
      */
-    void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs);
-
     void SetCoefficients(std::span<const FilterCoefficients> coeffs);
 
     /** @brief Processes a single input sample through the filter.
@@ -235,11 +234,6 @@ class CascadedBiquads : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    struct IIRCoeffs
-    {
-        float b0, b1, b2, a1, a2;
-    };
-
     struct IIRState
     {
         float s0, s1;
@@ -248,7 +242,7 @@ class CascadedBiquads : public AudioProcessor
   private:
     uint32_t stage_;
     std::vector<IIRState> states_;
-    std::vector<IIRCoeffs> coeffs_;
+    std::vector<FilterCoefficients> coeffs_;
 };
 
 class Fir : public AudioProcessor
@@ -257,6 +251,12 @@ class Fir : public AudioProcessor
     /** @brief Constructs a FIR filter. */
     Fir();
     ~Fir();
+
+    Fir(const Fir&);
+    Fir& operator=(const Fir&);
+
+    Fir(Fir&&) noexcept;
+    Fir& operator=(Fir&&) noexcept;
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.

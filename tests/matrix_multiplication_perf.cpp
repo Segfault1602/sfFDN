@@ -331,6 +331,7 @@ TEST_CASE("Hadamard_Block")
             }
         }
         nanobench::doNotOptimizeAway(output);
+        nanobench::doNotOptimizeAway(inout);
     });
 
     for (auto i = 0u; i < kBlockSize * kMatSize; ++i)

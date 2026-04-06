@@ -38,14 +38,26 @@ TEST_CASE("MixMatPerf")
     nanobench::Bench bench;
     bench.title("Householder matrix");
     // bench.batch(kBlockSize);
-    bench.minEpochIterations(10000);
+    bench.minEpochIterations(100000);
     bench.timeUnit(1us, "us");
 
-    bench.run("Householder", [&] { mix_mat.Process(input_buffer, output_buffer); });
+    bench.run("Householder", [&] {
+        mix_mat.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
 
     sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Random);
 
-    bench.run("Random", [&] { random_mat.Process(input_buffer, output_buffer); });
+    bench.run("Random", [&] {
+        random_mat.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    auto hadamard = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+    bench.run("Hadamard", [&] {
+        hadamard.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
 }
 
 TEST_CASE("Matrix_Order")

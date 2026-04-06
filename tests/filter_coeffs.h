@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include <sffdn/filter.h>
+
 // clang-format off
 
 /**
@@ -92,7 +94,7 @@ constexpr std::array<std::array<std::array<float,6>, 11>, 6> kAbsorbtionSOS = {{
     }},
 }};
 
-constexpr std::array<std::array<std::array<float,6>, 11>, 6> k_h001_AbsorbtionSOS = {{
+constexpr std::array<std::array<sfFDN::FilterCoefficients,11>, 6> k_h001_AbsorbtionSOS = {{
     {{
         {0.569933532260311f,-0.112566960162598f,0.f,1.f,-0.335636695131639f,0.f},
         {1.00000166861879f,-1.99597609985848f,0.995991130824519f,1.f,-1.99597609985848f,0.995992799443311f},
@@ -173,7 +175,7 @@ constexpr std::array<std::array<std::array<float,6>, 11>, 6> k_h001_AbsorbtionSO
     }},
 }};
 
-constexpr std::array<std::array<float,6>, 10> k_h001_EqualizationSOS = {{
+constexpr std::array<sfFDN::FilterCoefficients, 10> k_h001_EqualizationSOS = {{
     {1.00420009401254f,	-1.99869078144693f,	0.994507409731944f, 1.f,	-1.99869078144693f,	0.998707503744487f},
     {1.00553519402021f,	-1.99610196280417f,	0.990633572732792f, 1.f,	-1.99610196280417f,	0.996168766753004f},
     {1.01589745428632f,	-1.99425665563019f,	0.978626192448647f, 1.f,	-1.99425665563019f,	0.994523646734970f},
@@ -186,7 +188,7 @@ constexpr std::array<std::array<float,6>, 10> k_h001_EqualizationSOS = {{
     {0.667558186008569f,	0.481249428814138f,	0.294940671619708f, 1.f,	0.481249428814138f,	-0.0375011423717234f},
 }};
 
-constexpr std::array<std::array<std::array<float,6>, 32>, 6> k_h001_AbsorbtionSOSThirdOctave = {{
+constexpr std::array<std::array<sfFDN::FilterCoefficients, 32>, 6> k_h001_AbsorbtionSOSThirdOctave = {{
     {{
         {0.686919f, -0.183508f, 0.000000f, 1.000000f, -0.268752f, 0.000000f},
         {1.000000f, -1.999013f, 0.999020f, 1.000000f, -1.999013f, 0.999019f},

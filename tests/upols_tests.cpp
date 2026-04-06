@@ -19,21 +19,8 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 {
     // Create a simple filter for testing purposes
     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-    std::vector<float> coeffs;
-    auto sos = k_h001_AbsorbtionSOS[0];
-    for (auto j = 0u; j < sos.size(); j++)
-    {
-        auto stage = std::span<const float>(sos.at(j % sos.size()));
-        auto b = stage.first(3);
-        auto a = stage.last(3);
-        coeffs.push_back(b[0] / a[0]);
-        coeffs.push_back(b[1] / a[0]);
-        coeffs.push_back(b[2] / a[0]);
-        coeffs.push_back(a[1] / a[0]);
-        coeffs.push_back(a[2] / a[0]);
-    }
-
-    filter->SetCoefficients(sos.size(), coeffs);
+    std::array<sfFDN::FilterCoefficients, k_h001_AbsorbtionSOS[0].size()> coeffs = k_h001_AbsorbtionSOS[0];
+    filter->SetCoefficients(coeffs);
 
     return filter;
 }

@@ -147,11 +147,12 @@ TEST_CASE("GraphicEQ")
 
     for (auto i = 0u; i < graphic_eq_coeffs.size(); ++i)
     {
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i] << ", ";
-        if ((i + 1) % 6 == 0)
-        {
-            std::cout << "\n";
-        }
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b0 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b1 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b2 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a0 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a1 << ", ";
+        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a2 << "\n";
     }
 }
 

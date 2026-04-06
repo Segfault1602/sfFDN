@@ -195,14 +195,37 @@ TEST_CASE("DelayA_MinDelay")
     }
 }
 
+TEST_CASE("DelayLagrange")
+{
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kInputSize = 128;
+    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Lagrange> delay(1.5f, kInputSize * 2);
+
+    std::vector<float> input(kInputSize, 0.f);
+    sfFDN::SineWave sine(200.f / kSampleRate, 0.f);
+    sine.SetAmplitude(0.5f);
+    sine.Generate(input);
+    std::vector<float> output(kInputSize, 0.f);
+
+    // for (uint32_t i = 0; i < input.size(); ++i)
+    // {
+    //     output[i] = delay.Tick(input[i]);
+    // }
+
+    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
+    delay.Process(input_buffer, output_buffer);
+
+    WriteWavFile("delay_lagrange_input.wav", input);
+    WriteWavFile("delay_lagrange_output.wav", output);
+}
+
 TEST_CASE("DelayBlock")
 {
     TestDelayBlock<sfFDN::Delay>(1, 8, 10);
-}
-
-TEST_CASE("DelayABlock")
-{
+    TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Linear>>(1.5f, 8, 10);
     TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Allpass>>(1.5f, 8, 10);
+    TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Lagrange>>(1.5f, 8, 128);
 }
 
 TEST_CASE("DelayBank")
@@ -355,7 +378,7 @@ TEST_CASE("DelayLengths")
     std::cout << "\n";
 }
 
-TEST_CASE("DelayInterp")
+TEST_CASE("DelayInterp_Linear")
 {
     sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Linear> delay(1.1f, 10);
 

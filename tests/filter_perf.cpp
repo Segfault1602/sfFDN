@@ -187,7 +187,7 @@ TEST_CASE("AllpassFilter")
 TEST_CASE("CascadedBiquadsPerf")
 {
     // clang-format off
-    constexpr std::array<std::array<float, 6>,11> kSOS = {{
+    constexpr std::array<sfFDN::FilterCoefficients,11> kSOS = {{
         {0.81751023887136f, 0.f,             0.f,             1.f,              0.f,             0.f},
         {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f, 1.02249041084395f},
         {1.01622872208192f, -2.02365307479989f, 1.007493166706850f, 1.01612692482198f, -2.02365307479989f, 1.00759496396680f},
@@ -201,23 +201,13 @@ TEST_CASE("CascadedBiquadsPerf")
         {2.42350220912989f, -0.09096516658686f, 0.416410844594722f, 2.70192581010466f, -0.428582226711284f, 0.475604303744375f}
     }};
 
-    constexpr std::array<std::array<float, 6>,1> kSOS_OneBand = {{
+    constexpr std::array<sfFDN::FilterCoefficients,1> kSOS_OneBand = {{
         {1.03123539966583f, -2.05357246743096f, 1.022375294192310f, 1.03111929845434f, -2.05357345199080f, 1.02249041084395f},
     }};
     // clang-format on
 
     sfFDN::CascadedBiquads filter_bank;
-    std::vector<float> coeffs;
-    for (const auto& biquad : kSOS)
-    {
-        coeffs.push_back(biquad[0] / biquad[3]);
-        coeffs.push_back(biquad[1] / biquad[3]);
-        coeffs.push_back(biquad[2] / biquad[3]);
-        coeffs.push_back(biquad[4] / biquad[3]);
-        coeffs.push_back(biquad[5] / biquad[3]);
-    }
-
-    filter_bank.SetCoefficients(kSOS.size(), coeffs);
+    filter_bank.SetCoefficients(kSOS);
 
     constexpr uint32_t kBlockSize = 128;
     std::vector<float> input(kBlockSize, 0);
@@ -243,16 +233,7 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.run("CascadedBiquads", [&] { filter_bank.Process(input_buffer, output_buffer); });
 
     sfFDN::CascadedBiquads one_band_filter;
-    std::vector<float> one_band_coeffs;
-    for (const auto& biquad : kSOS_OneBand)
-    {
-        one_band_coeffs.push_back(biquad[0] / biquad[3]);
-        one_band_coeffs.push_back(biquad[1] / biquad[3]);
-        one_band_coeffs.push_back(biquad[2] / biquad[3]);
-        one_band_coeffs.push_back(biquad[4] / biquad[3]);
-        one_band_coeffs.push_back(biquad[5] / biquad[3]);
-    }
-    one_band_filter.SetCoefficients(1, one_band_coeffs);
+    one_band_filter.SetCoefficients(kSOS_OneBand);
 
     bench.run("CascadedBiquads - One Band", [&] { one_band_filter.Process(input_buffer, output_buffer); });
 }

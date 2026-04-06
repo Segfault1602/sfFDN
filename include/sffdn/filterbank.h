@@ -3,6 +3,7 @@
 #pragma once
 
 #include "audio_processor.h"
+#include "filter.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -80,16 +81,12 @@ class IIRFilterBank : public AudioProcessor
     /** @brief Clears the internal state of the processor. */
     void Clear() override;
 
-    /** @brief Sets the filter coefficients for the filter bank.
-     * @param coeffs The filter coefficients in the format.
-     * If coeffs.size() == channel_count * stage_count * 5, the coefficients are assumed to be in the format
-     * {b0, b1, b2, a1, a2} for each stage.
-     * If coeffs.size() == channel_count * stage_count * 6, the coefficients are assumed to be in the format
-     * {b0, b1, b2, a0, a1, a2} for each stage.
+    /** @brief Sets the biquad coefficients for each stage.
+     * @param coeffs A span of FilterCoefficients, one for each biquad stage.
      * @param channel_count The number of channels (filters) in the filter bank.
-     * @param stage_count The number of biquad stages per filter.
+     * Will throw an exception if coeffs.size() is not a multiple of channel_count.
      */
-    void SetFilter(std::span<float> coeffs, uint32_t channel_count, size_t stage_count);
+    void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count);
 
     /** @brief Processes a block of input samples through the filter bank.
      * @param input The input audio buffer.

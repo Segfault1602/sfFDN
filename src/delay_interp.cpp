@@ -5,6 +5,32 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <ranges>
+
+namespace
+{
+template <size_t N>
+std::array<float, N + 1> GetLagrangeCoefficients(float delay)
+{
+    std::array<float, N + 1> coeffs;
+    std::ranges::fill(coeffs, 1.0f);
+    for (size_t k = 0; k <= N; ++k)
+    {
+        for (size_t j = 0; j <= N; ++j)
+        {
+            if (j != k)
+            {
+                coeffs[j] =
+                    coeffs[j] * (delay - static_cast<float>(k)) / (static_cast<float>(j) - static_cast<float>(k));
+            }
+        }
+    }
+
+    // std::reverse(coeffs.begin(), coeffs.end());
+
+    return coeffs;
+}
+} // namespace
 
 namespace sfFDN
 {
@@ -45,7 +71,11 @@ void DelayInterp<type>::SetDelay(float delay)
     int_delay_ = static_cast<uint32_t>(delay);
     frac_delay_ = delay - static_cast<float>(int_delay_);
 
-    if constexpr (type == DelayInterpolationType::Linear)
+    if constexpr (type == DelayInterpolationType::None)
+    {
+        delayline_.SetDelay(int_delay_);
+    }
+    else if constexpr (type == DelayInterpolationType::Linear)
     {
         delayline_.SetDelay(int_delay_);
     }
@@ -70,6 +100,19 @@ void DelayInterp<type>::SetDelay(float delay)
             allpass_.Tick(delayline_.LastOut());
         }
     }
+    else if constexpr (type == DelayInterpolationType::Lagrange)
+    {
+        if (frac_delay_ < 1.f)
+        {
+            int_delay_ -= 1;
+            frac_delay_ += 1.0f;
+        }
+        delayline_.SetDelay(int_delay_);
+        std::array<float, 4> coeffs = GetLagrangeCoefficients<3>(frac_delay_);
+        lagrange_coeffs_.resize(coeffs.size());
+        std::ranges::copy(coeffs, lagrange_coeffs_.begin());
+        lagrange_filter_.SetCoefficients(coeffs);
+    }
 }
 
 template <DelayInterpolationType type>
@@ -81,7 +124,11 @@ float DelayInterp<type>::GetDelay() const
 template <DelayInterpolationType type>
 float DelayInterp<type>::Tick(float input)
 {
-    if constexpr (type == DelayInterpolationType::Linear)
+    if constexpr (type == DelayInterpolationType::None)
+    {
+        return delayline_.Tick(input);
+    }
+    else if constexpr (type == DelayInterpolationType::Linear)
     {
         delayline_.Tick(input);
         const float a = delayline_.TapOut(int_delay_);
@@ -92,6 +139,11 @@ float DelayInterp<type>::Tick(float input)
     {
         const float out = delayline_.Tick(input);
         return allpass_.Tick(out);
+    }
+    else if constexpr (type == DelayInterpolationType::Lagrange)
+    {
+        const float out = delayline_.Tick(input);
+        return lagrange_filter_.Tick(out);
     }
 
     assert(false);
@@ -108,7 +160,11 @@ void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
     auto in_span = input.GetChannelSpan(0);
     auto out_span = output.GetChannelSpan(0);
 
-    if constexpr (type == DelayInterpolationType::Linear)
+    if constexpr (type == DelayInterpolationType::None)
+    {
+        delayline_.Process(input, output);
+    }
+    else if constexpr (type == DelayInterpolationType::Linear)
     {
         if (delayline_.AddNextInputs(in_span))
         {
@@ -129,9 +185,16 @@ void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
         delayline_.Process(input, output);
         allpass_.Process(output, output);
     }
+    else if constexpr (type == DelayInterpolationType::Lagrange)
+    {
+        delayline_.Process(input, output);
+        lagrange_filter_.Process(output, output);
+    }
 }
 
+template class DelayInterp<DelayInterpolationType::None>;
 template class DelayInterp<DelayInterpolationType::Linear>;
 template class DelayInterp<DelayInterpolationType::Allpass>;
+template class DelayInterp<DelayInterpolationType::Lagrange>;
 
 } // namespace sfFDN

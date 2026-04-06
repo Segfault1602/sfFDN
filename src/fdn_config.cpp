@@ -606,10 +606,9 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
     if (!config.tc_gains.empty())
     {
         assert(config.tc_gains.size() == 10);
-        std::vector<float> tc_sos = sfFDN::DesignGraphicEQ(config.tc_gains, config.tc_frequencies, samplerate);
+        auto tc_sos = sfFDN::DesignGraphicEQ(config.tc_gains, config.tc_frequencies, samplerate);
         std::unique_ptr<sfFDN::CascadedBiquads> tc_filter = std::make_unique<sfFDN::CascadedBiquads>();
-        const size_t num_stages = tc_sos.size() / 6;
-        tc_filter->SetCoefficients(num_stages, tc_sos);
+        tc_filter->SetCoefficients(tc_sos);
         fdn->SetTCFilter(std::move(tc_filter));
     }
 

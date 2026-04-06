@@ -47,45 +47,23 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
-    std::vector<float> iir_coeffs;
+    std::vector<sfFDN::FilterCoefficients> iir_coeffs;
     for (auto i = 0u; i < kFDNOrder; i++)
     {
         auto sos = k_h001_AbsorbtionSOS.at(i);
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
-        // std::vector<float> coeffs;
         for (auto& stage : sos)
         {
-            auto b = std::span<const float>(stage).first(3);
-            auto a = std::span<const float>(stage).last(3);
-            iir_coeffs.push_back(b[0] / a[0]);
-            iir_coeffs.push_back(b[1] / a[0]);
-            iir_coeffs.push_back(b[2] / a[0]);
-            iir_coeffs.push_back(a[1] / a[0]);
-            iir_coeffs.push_back(a[2] / a[0]);
+            iir_coeffs.push_back(stage);
         }
-
-        // filter->SetCoefficients(sos.size(), coeffs);
-
-        // filter_bank->AddFilter(std::move(filter));
     }
 
-    filter_bank->SetFilter(iir_coeffs, kFDNOrder, k_h001_AbsorbtionSOS[0].size());
+    filter_bank->SetFilter(iir_coeffs, kFDNOrder);
 
     fdn->SetFilterBank(std::move(filter_bank));
 
-    std::vector<float> coeffs;
-    for (const auto& stage : k_h001_EqualizationSOS)
-    {
-        coeffs.push_back(stage[0] / stage[3]);
-        coeffs.push_back(stage[1] / stage[3]);
-        coeffs.push_back(stage[2] / stage[3]);
-        coeffs.push_back(stage[4] / stage[3]);
-        coeffs.push_back(stage[5] / stage[3]);
-    }
-
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
-    filter->SetCoefficients(k_h001_EqualizationSOS.size(), coeffs);
+    filter->SetCoefficients(k_h001_EqualizationSOS);
     fdn->SetTCFilter(std::move(filter));
     return fdn;
 }
