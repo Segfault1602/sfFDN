@@ -9,6 +9,7 @@
 #include "rng.h"
 #include "sffdn/sffdn.h"
 
+#include "matrix_gallery_internal.h"
 #include "matrix_multiplication.h"
 
 #include <Eigen/Core>
@@ -131,68 +132,39 @@ TEST_CASE("MatrixMultiply_6")
     }
 }
 
+template <size_t N>
+void TestMatrixMultiplyHadamard()
+{
+    auto eigen_mat = sfFDN::HadamardMatrix(N);
+    Eigen::RowVectorXf eigen_input;
+    eigen_input.resize(N);
+    std::array<float, N> input;
+    for (auto i = 0u; i < N; ++i)
+    {
+        eigen_input(i) = static_cast<float>(i + 1);
+        input[i] = static_cast<float>(i + 1);
+    }
+
+    std::array<float, N> output{};
+
+    auto eigen_output = eigen_input * eigen_mat;
+
+    sfFDN::HadamardMultiply(input, output);
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(eigen_output(i), 1e-5));
+    }
+
+    sfFDN::WalshHadamardTransform(input);
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(input[i], Catch::Matchers::WithinAbs(eigen_output(i), 1e-5));
+    }
+}
+
 TEST_CASE("MatrixMultiply_Hadamard")
 {
-    {
-        constexpr uint32_t kMatSize = 4;
-
-        std::array<float, kMatSize> input = {1, 2, 3, 4};
-        std::array<float, kMatSize> output{};
-        constexpr std::array<float, kMatSize> kExpected = {5, -1, -2, 0};
-
-        sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
-        }
-
-        sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
-        }
-    }
-
-    {
-        constexpr uint32_t kMatSize = 8;
-
-        std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
-        std::array<float, kMatSize> output{};
-
-        constexpr std::array<float, kMatSize> kExpected = {
-            12.727922061357855f, -1.414213562373095f, -2.828427124746190f, 0.f, -5.656854249492380f, 0.f, 0.f, 0.f};
-
-        sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
-        }
-
-        sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], 1e-6));
-        }
-    }
-
-    {
-        constexpr uint32_t kMatSize = 16;
-
-        std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-        std::array<float, kMatSize> output{};
-
-        constexpr std::array<float, kMatSize> kExpected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
-
-        sfFDN::HadamardMultiply(input, output);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
-        }
-
-        sfFDN::WalshHadamardTransform(input);
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(input[i], std::numeric_limits<float>::epsilon()));
-        }
-    }
+    TestMatrixMultiplyHadamard<4>();
+    TestMatrixMultiplyHadamard<8>();
+    TestMatrixMultiplyHadamard<16>();
 }

@@ -80,9 +80,9 @@ class Fir::FirImpl
         delay_index_ = 0;
     }
 
-    std::unique_ptr<AudioProcessor> Clone() const
+    std::unique_ptr<FirImpl> Clone() const
     {
-        auto clone = std::make_unique<Fir>();
+        auto clone = std::make_unique<FirImpl>();
         clone->SetCoefficients(coeffs_);
         return clone;
     }

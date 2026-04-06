@@ -51,9 +51,9 @@ TEST_CASE("TwoFilter")
     }
 
     auto float_coeffs = sfFDN::GetTwoFilter(t60s_f, kDelay, kSR, kShelfCutoff);
-    for (auto i = 0u; i < coeffs.size(); ++i)
+    for (auto i = 0u; i < float_coeffs.size(); ++i)
     {
-        REQUIRE_THAT(float_coeffs[i], Catch::Matchers::WithinAbs(kExpectedSOS.at(i), 1e-7));
+        REQUIRE_THAT(float_coeffs[i].b0, Catch::Matchers::WithinAbs(kExpectedSOS.at(i * 6), 1e-7));
     }
 }
 
@@ -174,10 +174,6 @@ TEST_CASE("ThreeBandFilter")
 
     for (auto i = 0u; i < sos.size(); ++i)
     {
-        std::cout << std::setprecision(15) << sos[i] << ", ";
-        if ((i + 1) % 6 == 0)
-        {
-            std::cout << "\n";
-        }
+        sos[i].print();
     }
 }

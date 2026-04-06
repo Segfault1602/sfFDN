@@ -1,11 +1,13 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
 #include <array>
 #include <iostream>
 #include <numeric>
 
+#include "rng.h"
 #include <matrix_multiplication.h>
 #include <sffdn/matrix_gallery.h>
 
@@ -222,4 +224,117 @@ TEST_CASE("Hadamard")
             nanobench::doNotOptimizeAway(inout);
         }
     });
+}
+
+TEST_CASE("Hadamard_Block")
+{
+    constexpr uint32_t kMatSize = 16;
+    constexpr uint32_t kBlockSize = 128;
+    std::array<float, kMatSize * kBlockSize> input{};
+    sfFDN::RNG rng;
+    for (auto& i : input)
+    {
+        i = rng();
+    }
+
+    auto hadamard = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+
+    nanobench::Bench bench;
+    bench.title("Hadamard Multiplication Performance");
+    // bench.timeUnit(1us, "us");
+    // bench.batch(kMatSize * kIterations);
+    bench.relative(true);
+    bench.minEpochIterations(10000);
+
+
+    Eigen::Map<const Eigen::MatrixXf> eigen_mat(hadamard.data(), kMatSize, kMatSize);
+    Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, kMatSize);
+
+    std::array<float, kMatSize * kBlockSize> eigen_output_data{};
+    Eigen::Map<Eigen::MatrixXf> eigen_output(eigen_output_data.data(), kBlockSize, kMatSize);
+    bench.run("Eigen", [&]() {
+            eigen_output.noalias() = eigen_input * eigen_mat;
+            nanobench::doNotOptimizeAway(eigen_output);
+    });
+
+    std::array<float, kMatSize * kBlockSize> output{};
+
+    bench.run("MatrixMultiply", [&]() {
+        sfFDN::MatrixMultiply_C(input, output, hadamard, kMatSize);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+    }
+
+    bench.run("HadamardMultiply", [&]() {
+        std::array<float, kMatSize> input_block{};
+        std::array<float, kMatSize> output_block{};
+        for (auto i = 0u; i < kBlockSize; ++i)
+        {
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                input_block[j] = input[i + j * kBlockSize];
+            }
+            sfFDN::HadamardMultiply(input_block, output_block);
+
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                output[i + j * kBlockSize] = output_block[j];
+            }
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    // Check results
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-4));
+    }
+
+    bench.run("WalshHadamardTransform", [&]() {
+        std::array<float, kMatSize> inout{};
+        for (auto i = 0u; i < kBlockSize; ++i)
+        {
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                inout[j] = input[i + j * kBlockSize];
+            }
+            sfFDN::WalshHadamardTransform(inout);
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                output[i + j * kBlockSize] = inout[j];
+            }
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+    }
+
+    bench.run("FWHT", [&]() {
+        std::array<float, kMatSize> inout{};
+        for (auto i = 0u; i < kBlockSize; ++i)
+        {
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                inout[j] = input[i + j * kBlockSize];
+            }
+            sfFDN::FWHT<kMatSize>(inout);
+            for (auto j = 0u; j < kMatSize; ++j)
+            {
+                output[i + j * kBlockSize] = inout[j];
+            }
+        }
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+    }
 }

@@ -9,11 +9,21 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <span>
 #include <vector>
 
 namespace sfFDN
 {
+struct FilterCoefficients
+{
+    float b0, b1, b2, a1, a2;
+
+    void print() const
+    {
+        std::cout << "b0: " << b0 << ", b1: " << b1 << ", b2: " << b2 << ", a1: " << a1 << ", a2: " << a2 << std::endl;
+    }
+};
 
 /** @brief Implements a simple one pole filter with differential equation \f$y(n) = b_0x(n) - a_1y(n-1)\f$
  * @ingroup AudioProcessors
@@ -187,6 +197,8 @@ class CascadedBiquads : public AudioProcessor
      * {b0, b1, b2, a0, a1, a2} for each stage.
      */
     void SetCoefficients(uint32_t num_stage, std::span<const float> coeffs);
+
+    void SetCoefficients(std::span<const FilterCoefficients> coeffs);
 
     /** @brief Processes a single input sample through the filter.
      * @param in The input sample.

@@ -46,7 +46,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "MatrixMultiply_Hadamard"
+                "TwoFilter"
             ],
             // "MIMode": "lldb",
             "stopOnEntry": false,

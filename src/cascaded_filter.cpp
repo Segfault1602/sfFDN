@@ -111,6 +111,24 @@ void CascadedBiquads::SetCoefficients(uint32_t num_stage, std::span<const float>
     stage_ = num_stage;
 }
 
+void CascadedBiquads::SetCoefficients(std::span<const FilterCoefficients> coeffs)
+{
+    coeffs_.clear();
+    coeffs_.resize(coeffs.size());
+
+    for (size_t i = 0; i < coeffs.size(); ++i)
+    {
+        coeffs_[i].b0 = coeffs[i].b0;
+        coeffs_[i].b1 = coeffs[i].b1;
+        coeffs_[i].b2 = coeffs[i].b2;
+        coeffs_[i].a1 = coeffs[i].a1;
+        coeffs_[i].a2 = coeffs[i].a2;
+    }
+
+    states_.resize(coeffs.size(), {.s0 = 0.0f, .s1 = 0.0f});
+    stage_ = static_cast<uint32_t>(coeffs.size());
+}
+
 void CascadedBiquads::Clear()
 {
     states_.clear();

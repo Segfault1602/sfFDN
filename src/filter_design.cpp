@@ -303,7 +303,7 @@ void GetOnePoleAbsorption(float t60_dc, float t60_ny, float sr, float delay, flo
     b = (1 - a) * h_ny;
 }
 
-std::vector<float> DesignThreeBandAbsorption(const ThreeBandAbsorptionParams& params, float delay)
+std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandAbsorptionParams& params, float delay)
 {
     const float g_mid_db = delay * RT602Slope(params.t60_mid, params.sample_rate);
     const float g_dc_db = delay * RT602Slope(params.t60_dc, params.sample_rate);
@@ -322,8 +322,9 @@ std::vector<float> DesignThreeBandAbsorption(const ThreeBandAbsorptionParams& pa
     low_shelf[1] *= g_mid_linear;
     low_shelf[2] *= g_mid_linear;
 
-    std::vector<float> sos = {low_shelf[0],  low_shelf[1],  low_shelf[2],  low_shelf[3],  low_shelf[4],  low_shelf[5],
-                              high_shelf[0], high_shelf[1], high_shelf[2], high_shelf[3], high_shelf[4], high_shelf[5]};
+    std::array<FilterCoefficients, 2> sos = {
+        {{low_shelf[0], low_shelf[1], low_shelf[2], low_shelf[4], low_shelf[5]},
+         {high_shelf[0], high_shelf[1], high_shelf[2], high_shelf[4], high_shelf[5]}}};
     return sos;
 }
 
@@ -347,7 +348,7 @@ std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, d
     return GetTwoFilterImpl(gains, freqs, sr, shelf_cutoff);
 }
 
-std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff)
+std::array<FilterCoefficients, 11> GetTwoFilter(std::span<const float> t60s, float delay, float sr, float shelf_cutoff)
 {
     // The coefficients are computed in double precision, otherwise there is a significant loss of precision and the
     // filter is not as accurate as it could be.
@@ -367,11 +368,16 @@ std::vector<float> GetTwoFilter(std::span<const float> t60s, float delay, float 
 
     const std::vector<double> sos = GetTwoFilterImpl(gains, freqs, static_cast<double>(sr), shelf_cutoff);
 
-    std::vector<float> sos_f;
-    sos_f.reserve(sos.size());
-    for (auto s : sos)
+    std::array<FilterCoefficients, 11> sos_f;
+    assert(sos.size() == sos_f.size() * 6);
+    sos_f.fill({});
+    for (auto i = 0u; i < sos_f.size(); ++i)
     {
-        sos_f.push_back(static_cast<float>(s));
+        sos_f[i].b0 = static_cast<float>(sos[6 * i]);
+        sos_f[i].b1 = static_cast<float>(sos[6 * i + 1]);
+        sos_f[i].b2 = static_cast<float>(sos[6 * i + 2]);
+        sos_f[i].a1 = static_cast<float>(sos[6 * i + 4]);
+        sos_f[i].a2 = static_cast<float>(sos[6 * i + 5]);
     }
 
     return sos_f;
@@ -449,7 +455,7 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_v
                                                          .sample_rate = sample_rate};
                         auto sos = DesignThreeBandAbsorption(params, delays[i]);
                         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                        filter->SetCoefficients(sos.size() / 6, sos);
+                        filter->SetCoefficients(sos);
                         filter_bank->AddFilter(std::move(filter));
                     }
                 }
@@ -467,7 +473,7 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_v
                     {
                         auto sos = DesignThreeBandAbsorption(params, delay);
                         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                        filter->SetCoefficients(sos.size() / 6, sos);
+                        filter->SetCoefficients(sos);
                         filter_bank->AddFilter(std::move(filter));
                     }
                 }
@@ -479,10 +485,9 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_v
                 auto filter_bank = std::make_unique<sfFDN::FilterBank>();
                 for (auto delay : delays)
                 {
-                    std::vector<float> sos = GetTwoFilter(config.t60s, static_cast<float>(delay), sample_rate);
-                    const size_t num_stages = sos.size() / 6;
+                    auto sos = GetTwoFilter(config.t60s, static_cast<float>(delay), sample_rate);
                     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                    filter->SetCoefficients(num_stages, sos);
+                    filter->SetCoefficients(sos);
                     filter_bank->AddFilter(std::move(filter));
                 }
 

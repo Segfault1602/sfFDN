@@ -7,6 +7,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
         -Wpedantic
         -Wno-sign-compare
         -Wno-language-extension-token
+        -Wno-c2y-extensions
         -Wunsafe-buffer-usage
     )
 endif()
