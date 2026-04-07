@@ -17,6 +17,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef HAVE_XMMINTRIN_H
+#include <xmmintrin.h>
+#endif
+
 namespace
 {
 constexpr uint32_t kDefaultBlockSize = 64;
@@ -25,11 +29,11 @@ class ScopedNoDenormals
 {
   public:
     ScopedNoDenormals()
-#ifdef _MSC_VER
+#ifdef HAVE_XMMINTRIN_H
         : old_mxcsr_(_mm_getcsr())
 #endif
     {
-#ifdef _MSC_VER
+#ifdef HAVE_XMMINTRIN_H
         constexpr intptr_t kMask = 0x8040;
         _mm_setcsr(old_mxcsr_ | kMask); // Set DAZ and FTZ bits
 #endif
@@ -37,7 +41,7 @@ class ScopedNoDenormals
 
     ~ScopedNoDenormals()
     {
-#ifdef _MSC_VER
+#ifdef HAVE_XMMINTRIN_H
         _mm_setcsr(old_mxcsr_); // Restore old MXCSR
 #endif
     }
@@ -48,7 +52,7 @@ class ScopedNoDenormals
     ScopedNoDenormals& operator=(ScopedNoDenormals&&) = delete;
 
   private:
-#ifdef _MSC_VER
+#ifdef HAVE_XMMINTRIN_H
     unsigned int old_mxcsr_{};
 #endif
 };

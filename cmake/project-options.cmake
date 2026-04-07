@@ -46,6 +46,12 @@ if(MSVC_STL)
     endif()
 endif()
 
+include(CheckIncludeFile)
+check_include_file(xmmintrin.h HAVE_XMMINTRIN_H)
+if(HAVE_XMMINTRIN_H)
+    target_compile_definitions(sfFDN_options INTERFACE -DHAVE_XMMINTRIN_H)
+endif()
+
 if(APPLE)
     set(SFFDN_USE_VDSP ON)
     target_compile_definitions(sfFDN_options INTERFACE -DSFFDN_USE_VDSP)

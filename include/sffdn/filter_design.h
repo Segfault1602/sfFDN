@@ -17,25 +17,25 @@ namespace sfFDN
 {
 struct ProportionalAttenuationConfig
 {
-    float t60;
+    float t60 = 1.f;
 };
 
 struct TwoBandFilterConfig
 {
-    std::array<float, 2> t60s;
+    std::array<float, 2> t60s{1.f, 0.5f};
 };
 
 struct ThreeBandFilterConfig
 {
-    std::array<float, 3> t60s;
-    std::array<float, 2> freqs;
+    std::array<float, 3> t60s{1.f, 0.5f, 0.25f};
+    std::array<float, 2> freqs{800.f, 8000.f};
 
     std::optional<std::vector<float>> t60s_per_channel = std::nullopt;
 };
 
 struct TenBandFilterConfig
 {
-    std::array<float, 10> t60s;
+    std::array<float, 10> t60s = {1.f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f, 0.3f, 0.2f, 0.1f};
 };
 
 using attenuation_filter_variant_t =
