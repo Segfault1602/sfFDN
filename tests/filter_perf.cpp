@@ -367,11 +367,12 @@ TEST_CASE("VDSP_FilterBank")
 
         for (auto j = 0u; j < M; ++j)
         {
-            coeffs.push_back(sos[j][0] / sos[j][3]);
-            coeffs.push_back(sos[j][1] / sos[j][3]);
-            coeffs.push_back(sos[j][2] / sos[j][3]);
-            coeffs.push_back(sos[j][4] / sos[j][3]);
-            coeffs.push_back(sos[j][5] / sos[j][3]);
+            auto norm_sos = sos[j].Normalize();
+            coeffs.push_back(norm_sos.b0);
+            coeffs.push_back(norm_sos.b1);
+            coeffs.push_back(norm_sos.b2);
+            coeffs.push_back(norm_sos.a1);
+            coeffs.push_back(norm_sos.a2);
         }
     }
 

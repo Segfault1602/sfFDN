@@ -13,7 +13,7 @@ template <size_t N>
 std::array<float, N + 1> GetLagrangeCoefficients(float delay)
 {
     std::array<float, N + 1> coeffs;
-    std::ranges::fill(coeffs, 1.0f);
+    std::fill(coeffs.begin(), coeffs.end(), 1.0f);
     for (size_t k = 0; k <= N; ++k)
     {
         for (size_t j = 0; j <= N; ++j)

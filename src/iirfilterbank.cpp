@@ -286,46 +286,28 @@ class IIRFilterBank::IIRFilterBankImpl
         vDSP_biquadm_ResetState(biquad_setup_);
     }
 
-    void SetFilter(std::span<float> coeffs, uint32_t channel_count, uint32_t stage_count)
+    void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
     {
-        uint32_t coeff_per_stage = 0;
-        if (coeffs.size() == channel_count * stage_count * 5)
-        {
-            coeff_per_stage = 5;
-        }
-        else if (coeffs.size() == channel_count * stage_count * 6)
-        {
-            coeff_per_stage = 6;
-        }
-        else
+        if (coeffs.size() % channel_count != 0)
         {
             throw std::runtime_error("Invalid coefficient size");
         }
 
-        const uint32_t coeffs_per_channel = coeff_per_stage * stage_count;
+        const uint32_t stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
 
         coeffs_d_.reserve(coeffs.size());
         for (auto j = 0u; j < stage_count; ++j)
         {
             for (auto i = 0u; i < channel_count; ++i)
             {
-                auto coeffs_span = coeffs.subspan((i * coeffs_per_channel) + (j * coeff_per_stage), coeff_per_stage);
-                if (coeff_per_stage == 6)
-                {
-                    // vDSP_biquadm expects 5 coefficient per stage
-                    coeffs_d_.push_back(static_cast<double>(coeffs_span[0]) / static_cast<double>(coeffs_span[3]));
-                    coeffs_d_.push_back(static_cast<double>(coeffs_span[1]) / static_cast<double>(coeffs_span[3]));
-                    coeffs_d_.push_back(static_cast<double>(coeffs_span[2]) / static_cast<double>(coeffs_span[3]));
-                    coeffs_d_.push_back(static_cast<double>(coeffs_span[4]) / static_cast<double>(coeffs_span[3]));
-                    coeffs_d_.push_back(static_cast<double>(coeffs_span[5]) / static_cast<double>(coeffs_span[3]));
-                }
-                else
-                {
-                    for (float j : coeffs_span)
-                    {
-                        coeffs_d_.push_back(static_cast<double>(j));
-                    }
-                }
+                auto norm_coeffs = coeffs[(j + i * stage_count)].Normalize();
+                // auto coeffs_span = coeffs.subspan((i * coeffs_per_channel) + (j * coeff_per_stage), coeff_per_stage);
+
+                coeffs_d_.push_back(static_cast<double>(norm_coeffs.b0));
+                coeffs_d_.push_back(static_cast<double>(norm_coeffs.b1));
+                coeffs_d_.push_back(static_cast<double>(norm_coeffs.b2));
+                coeffs_d_.push_back(static_cast<double>(norm_coeffs.a1));
+                coeffs_d_.push_back(static_cast<double>(norm_coeffs.a2));
             }
         }
 
