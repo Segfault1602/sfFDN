@@ -146,4 +146,13 @@ std::unique_ptr<AudioProcessor> ParallelGains::Clone() const
     return std::make_unique<ParallelGains>(mode_, gains_);
 }
 
+nlohmann::json ParallelGains::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "ParallelGains";
+    j["mode"] = static_cast<uint8_t>(mode_);
+    j["gains"] = gains_;
+    return j;
+}
+
 } // namespace sfFDN

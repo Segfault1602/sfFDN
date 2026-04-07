@@ -112,6 +112,15 @@ class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
         return order_;
     }
 
+    nlohmann::json ToJson() const
+    {
+        nlohmann::json j;
+        j["type"] = "ScalarFeedbackMatrix";
+        j["order"] = order_;
+        j["matrix"] = matrix_data_;
+        return j;
+    }
+
   private:
     uint32_t order_;
     std::vector<float> matrix_data_;
@@ -209,6 +218,11 @@ std::unique_ptr<AudioProcessor> ScalarFeedbackMatrix::Clone() const
 {
     auto clone = std::make_unique<ScalarFeedbackMatrix>(*this);
     return clone;
+}
+
+nlohmann::json ScalarFeedbackMatrix::ToJson() const
+{
+    return impl_->ToJson();
 }
 
 } // namespace sfFDN

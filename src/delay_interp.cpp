@@ -192,6 +192,34 @@ void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
+template <DelayInterpolationType type>
+nlohmann::json DelayInterp<type>::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "DelayInterp";
+    j["delay"] = delay_;
+    j["max_delay"] = delayline_.GetMaximumDelay();
+
+    if constexpr (type == DelayInterpolationType::None)
+    {
+        j["interpolation"] = "None";
+    }
+    else if constexpr (type == DelayInterpolationType::Linear)
+    {
+        j["interpolation"] = "Linear";
+    }
+    else if constexpr (type == DelayInterpolationType::Allpass)
+    {
+        j["interpolation"] = "Allpass";
+    }
+    else if constexpr (type == DelayInterpolationType::Lagrange)
+    {
+        j["interpolation"] = "Lagrange";
+    }
+
+    return j;
+}
+
 template class DelayInterp<DelayInterpolationType::None>;
 template class DelayInterp<DelayInterpolationType::Linear>;
 template class DelayInterp<DelayInterpolationType::Allpass>;

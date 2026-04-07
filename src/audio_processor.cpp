@@ -174,4 +174,17 @@ std::unique_ptr<AudioProcessor> AudioProcessorChain::Clone() const
     return clone;
 }
 
+nlohmann::json AudioProcessorChain::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "AudioProcessorChain";
+    j["block_size"] = block_size_;
+    j["processors"] = nlohmann::json::array();
+    for (const auto& processor : processors_)
+    {
+        j["processors"].push_back(processor->ToJson());
+    }
+    return j;
+}
+
 } // namespace sfFDN

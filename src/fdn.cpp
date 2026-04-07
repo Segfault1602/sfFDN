@@ -528,4 +528,21 @@ std::unique_ptr<FDN> FDN::CloneFDN() const
     return clone;
 }
 
+nlohmann::json FDN::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "FDN";
+    j["order"] = order_;
+    j["block_size"] = block_size_;
+    j["transpose"] = transpose_;
+    j["direct_gain"] = direct_gain_;
+    j["delays"] = delay_bank_.ToJson();
+    j["input_gains"] = input_gains_ ? input_gains_->ToJson() : nullptr;
+    j["output_gains"] = output_gains_ ? output_gains_->ToJson() : nullptr;
+    j["filter_bank"] = filter_bank_ ? filter_bank_->ToJson() : nullptr;
+    j["feedback_matrix"] = mixing_matrix_ ? mixing_matrix_->ToJson() : nullptr;
+    j["tc_filter"] = tc_filter_ ? tc_filter_->ToJson() : nullptr;
+    return j;
+}
+
 } // namespace sfFDN

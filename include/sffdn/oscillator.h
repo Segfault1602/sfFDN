@@ -4,6 +4,8 @@
 
 #include "audio_buffer.h"
 
+#include <nlohmann/json.hpp>
+
 namespace sfFDN
 {
 /** @brief Base class for oscillators and signal generators. */
@@ -88,6 +90,8 @@ class SineWave : public Generator
      * @param output The output signal to store the result.
      */
     void MultiplyAccumulate(std::span<const float> input, std::span<float> output);
+
+    nlohmann::json ToJson() const;
 
   private:
     float phase_;

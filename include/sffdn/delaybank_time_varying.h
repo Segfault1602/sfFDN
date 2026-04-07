@@ -93,6 +93,8 @@ class DelayBankTimeVarying : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     std::vector<DelayTimeVarying<type>> delays_;
 };

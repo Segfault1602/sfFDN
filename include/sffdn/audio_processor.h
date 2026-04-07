@@ -4,6 +4,8 @@
 
 #include "audio_buffer.h"
 
+#include <nlohmann/json.hpp>
+
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -51,6 +53,13 @@ class AudioProcessor
      * @return A unique pointer to the cloned audio processor.
      */
     virtual std::unique_ptr<AudioProcessor> Clone() const = 0;
+
+    virtual nlohmann::json ToJson() const
+    {
+        nlohmann::json j;
+        j["type"] = "AudioProcessor";
+        return j;
+    }
 };
 
 /** @brief A chain of audio processors that processes audio sequentially.
@@ -99,6 +108,11 @@ class AudioProcessorChain : public AudioProcessor
      * @return A unique pointer to the cloned audio processor chain.
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
+
+    /** @brief Converts the audio processor chain to JSON.
+     * @return The JSON object representing the audio processor chain.
+     */
+    nlohmann::json ToJson() const override;
 
   private:
     uint32_t block_size_ = 0;

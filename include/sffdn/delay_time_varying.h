@@ -29,6 +29,8 @@ class DelayTimeVarying
 
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
+    nlohmann::json ToJson() const;
+
   private:
     void UpdateDelay();
 

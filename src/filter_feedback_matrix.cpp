@@ -141,4 +141,22 @@ std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
     return clone;
 }
 
+nlohmann::json FilterFeedbackMatrix::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "FilterFeedbackMatrix";
+    j["channel_count"] = channel_count_;
+    j["delaybanks"] = nlohmann::json::array();
+    for (const auto& delaybank : delaybanks_)
+    {
+        j["delaybanks"].push_back(delaybank.ToJson());
+    }
+    j["matrices"] = nlohmann::json::array();
+    for (const auto& matrix : matrix_)
+    {
+        j["matrices"].push_back(matrix.ToJson());
+    }
+    return j;
+}
+
 } // namespace sfFDN

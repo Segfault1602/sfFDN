@@ -93,6 +93,8 @@ class FilterFeedbackMatrix : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     uint32_t channel_count_;
     std::vector<DelayBank> delaybanks_;

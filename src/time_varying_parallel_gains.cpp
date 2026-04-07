@@ -204,4 +204,19 @@ std::unique_ptr<AudioProcessor> TimeVaryingParallelGains::Clone() const
     return clone;
 }
 
+nlohmann::json TimeVaryingParallelGains::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "TimeVaryingParallelGains";
+    j["mode"] = static_cast<uint8_t>(mode_);
+
+    j["lfos"] = nlohmann::json::array();
+    for (const auto& lfo : lfos_)
+    {
+        j["lfos"].push_back(lfo.ToJson());
+    }
+
+    return j;
+}
+
 } // namespace sfFDN

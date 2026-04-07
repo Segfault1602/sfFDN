@@ -149,4 +149,12 @@ std::unique_ptr<AudioProcessor> DelayBank::Clone() const
     return clone;
 }
 
+nlohmann::json DelayBank::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "DelayBank";
+    j["delays"] = GetDelays();
+    return j;
+}
+
 } // namespace sfFDN

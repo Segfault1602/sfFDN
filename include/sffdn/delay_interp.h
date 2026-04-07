@@ -67,6 +67,8 @@ class DelayInterp
      */
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
+    nlohmann::json ToJson() const;
+
   private:
     Delay delayline_;
 

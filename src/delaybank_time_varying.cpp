@@ -134,6 +134,19 @@ std::unique_ptr<AudioProcessor> DelayBankTimeVarying<type>::Clone() const
     return clone;
 }
 
+template <DelayInterpolationType type>
+nlohmann::json DelayBankTimeVarying<type>::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "DelayBankTimeVarying";
+    j["delays"] = nlohmann::json::array();
+    for (const auto& delay : delays_)
+    {
+        j["delays"].push_back(delay.ToJson());
+    }
+    return j;
+}
+
 template class DelayBankTimeVarying<DelayInterpolationType::Linear>;
 template class DelayBankTimeVarying<DelayInterpolationType::Allpass>;
 

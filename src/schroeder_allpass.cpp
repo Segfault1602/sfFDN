@@ -92,6 +92,15 @@ void SchroederAllpass::Clear()
     delay_.Clear();
 }
 
+nlohmann::json SchroederAllpass::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "SchroederAllpass";
+    j["delay"] = delay_.GetDelay();
+    j["gain"] = g_;
+    return j;
+}
+
 SchroederAllpassSection::SchroederAllpassSection(uint32_t filter_count)
 {
     allpasses_.reserve(filter_count);
@@ -232,6 +241,19 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
     return clone;
 }
 
+nlohmann::json SchroederAllpassSection::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "SchroederAllpassSection";
+    j["parallel"] = parallel_;
+    j["allpasses"] = nlohmann::json::array();
+    for (const auto& allpass : allpasses_)
+    {
+        j["allpasses"].push_back(allpass.ToJson());
+    }
+    return j;
+}
+
 ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
     : stage_count_(stage_count)
 {
@@ -305,6 +327,19 @@ std::unique_ptr<AudioProcessor> ParallelSchroederAllpassSection::Clone() const
         clone->allpasses_[i].SetGains(allpasses_[i].GetGains());
     }
     return clone;
+}
+
+nlohmann::json ParallelSchroederAllpassSection::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "ParallelSchroederAllpassSection";
+    j["stage_count"] = stage_count_;
+    j["allpasses"] = nlohmann::json::array();
+    for (const auto& allpass : allpasses_)
+    {
+        j["allpasses"].push_back(allpass.ToJson());
+    }
+    return j;
 }
 
 } // namespace sfFDN

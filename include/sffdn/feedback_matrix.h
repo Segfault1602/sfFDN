@@ -95,6 +95,8 @@ class ScalarFeedbackMatrix : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     class ScalarFeedbackMatrixImpl;
     std::unique_ptr<ScalarFeedbackMatrixImpl> impl_;

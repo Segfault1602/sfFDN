@@ -103,6 +103,8 @@ class DelayBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     std::vector<Delay> delays_;
 };

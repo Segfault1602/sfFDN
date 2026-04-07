@@ -113,6 +113,17 @@ void DelayTimeVarying<type>::Process(const AudioBuffer& input, AudioBuffer& outp
     }
 }
 
+template <DelayInterpolationType type>
+nlohmann::json DelayTimeVarying<type>::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "DelayTimeVarying";
+    j["delay"] = delay_.ToJson();
+    j["base_delay"] = base_delay_;
+    j["lfo"] = lfo_.ToJson();
+    return j;
+}
+
 template class DelayTimeVarying<DelayInterpolationType::Linear>;
 template class DelayTimeVarying<DelayInterpolationType::Allpass>;
 

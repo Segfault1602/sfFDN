@@ -148,4 +148,16 @@ void SineWave::MultiplyAccumulate(std::span<const float> input, std::span<float>
     phase_ -= std::floor(phase_);
 }
 
+nlohmann::json SineWave::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "SineWave";
+    j["frequency"] = phase_increment_;
+    j["initial_phase"] = phase_;
+    j["amplitude"] = amplitude_;
+    j["offset"] = offset_;
+    j["phase_offset"] = phase_offset_;
+    return j;
+}
+
 } // namespace sfFDN

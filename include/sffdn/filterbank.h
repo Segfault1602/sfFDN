@@ -55,6 +55,8 @@ class FilterBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     std::vector<std::unique_ptr<AudioProcessor>> filters_;
 };

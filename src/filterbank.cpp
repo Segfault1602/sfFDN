@@ -60,4 +60,16 @@ std::unique_ptr<AudioProcessor> FilterBank::Clone() const
     return clone;
 }
 
+nlohmann::json FilterBank::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "FilterBank";
+    j["filters"] = nlohmann::json::array();
+    for (const auto& filter : filters_)
+    {
+        j["filters"].push_back(filter->ToJson());
+    }
+    return j;
+}
+
 } // namespace sfFDN
