@@ -1,5 +1,6 @@
 #include "sffdn/filterbank.h"
 
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -70,6 +71,20 @@ nlohmann::json FilterBank::ToJson() const
         j["filters"].push_back(filter->ToJson());
     }
     return j;
+}
+
+std::unique_ptr<FilterBank> FilterBank::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "FilterBank");
+    ThrowIfDoesNotContainKey(j, "filters");
+
+    auto filter_bank = std::make_unique<FilterBank>();
+    for (const auto& filter_json : j["filters"])
+    {
+        auto filter = from_json(filter_json);
+        filter_bank->AddFilter(std::move(filter));
+    }
+    return filter_bank;
 }
 
 } // namespace sfFDN

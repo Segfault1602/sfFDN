@@ -1,5 +1,6 @@
 #include "json_helper.h"
 
+#include <cstdint>
 #include <map>
 
 namespace sfFDN
@@ -10,6 +11,13 @@ using AudioProcessorFactoryFunction = std::function<std::unique_ptr<AudioProcess
 static const std::map<std::string, AudioProcessorFactoryFunction> processor_factory = {
     {"AudioProcessorChain", AudioProcessorChain::FromJson},
     {"DelayBank", DelayBank::FromJson},
+    {"ParallelGains", ParallelGains::FromJson},
+    {"FilterBank", FilterBank::FromJson},
+    {"IIRFilterBank", IIRFilterBank::FromJson},
+    {"CascadedBiquads", CascadedBiquads::FromJson},
+    {"ScalarFeedbackMatrix", ScalarFeedbackMatrix::FromJson},
+    {"FilterFeedbackMatrix", FilterFeedbackMatrix::FromJson},
+    {"TimeVaryingParallelGains", TimeVaryingParallelGains::FromJson},
     {"SchroederAllpassSection", SchroederAllpassSection::FromJson},
     {"ParallelSchroederAllpassSection", ParallelSchroederAllpassSection::FromJson}};
 

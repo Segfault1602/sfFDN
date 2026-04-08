@@ -21,7 +21,6 @@ enum class DelayInterpolationType : uint8_t
 };
 
 /** @brief Delay line with interpolation. */
-template <DelayInterpolationType type>
 class DelayInterp
 {
   public:
@@ -30,7 +29,8 @@ class DelayInterp
      * @param delay The initial delay in samples.
      * @param max_delay The maximum delay in samples.
      */
-    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095);
+    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095,
+                DelayInterpolationType type = DelayInterpolationType::None);
 
     /** @brief Clears all internal states of the delay line. */
     void Clear();
@@ -67,6 +67,22 @@ class DelayInterp
      */
     void Process(const AudioBuffer& input, AudioBuffer& output);
 
+    /**
+     * @brief Adds the next input samples to the delay line.
+     * @param input The input samples to add.
+     * @return True if the samples were added successfully, false otherwise.
+     * @note A return value of false indicates that there was not enough space in the internal buffer to write the
+     * input samples. In this case, the internal state remains unchanged. When processing audio in blocks, the delay
+     * line maximum delay should be set to a value that is larger than the block size.
+     */
+    bool AddNextInputs(std::span<const float> input);
+
+    /**
+     * @brief Gets the next output samples from the delay line.
+     * @param output The output samples to fill.
+     */
+    void GetNextOutputs(std::span<float> output);
+
     nlohmann::json ToJson() const;
 
     static DelayInterp FromJson(const nlohmann::json& j);
@@ -77,6 +93,7 @@ class DelayInterp
     float delay_;
     uint32_t int_delay_;
     float frac_delay_;
+    DelayInterpolationType type_;
 
     AllpassFilter allpass_;
 
@@ -84,8 +101,4 @@ class DelayInterp
     Fir lagrange_filter_;
 };
 
-extern template class DelayInterp<DelayInterpolationType::None>;
-extern template class DelayInterp<DelayInterpolationType::Linear>;
-extern template class DelayInterp<DelayInterpolationType::Allpass>;
-extern template class DelayInterp<DelayInterpolationType::Lagrange>;
 } // namespace sfFDN

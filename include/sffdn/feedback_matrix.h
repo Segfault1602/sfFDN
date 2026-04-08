@@ -97,9 +97,11 @@ class ScalarFeedbackMatrix : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static std::unique_ptr<ScalarFeedbackMatrix> FromJson(const nlohmann::json& j);
+
   private:
-    class ScalarFeedbackMatrixImpl;
-    std::unique_ptr<ScalarFeedbackMatrixImpl> impl_;
+    uint32_t order_;
+    std::vector<float> matrix_data_;
 };
 
 } // namespace sfFDN

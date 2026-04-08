@@ -127,20 +127,20 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
 {
     assert(output.ChannelCount() == delays_.size());
 
-    if (output.SampleCount() > 1)
+    // if (output.SampleCount() > 1)
+    // {
+    for (uint32_t i = 0; i < delays_.size(); i++)
     {
-        for (uint32_t i = 0; i < delays_.size(); i++)
-        {
-            delays_[i].GetNextOutputs(output.GetChannelSpan(i));
-        }
+        delays_[i].GetNextOutputs(output.GetChannelSpan(i));
     }
-    else
-    {
-        for (uint32_t i = 0; i < delays_.size(); i++)
-        {
-            output.GetChannelSpan(i)[0] = delays_[i].NextOut();
-        }
-    }
+    // }
+    // else
+    // {
+    //     for (uint32_t i = 0; i < delays_.size(); i++)
+    //     {
+    //         output.GetChannelSpan(i)[0] = delays_[i].NextOut();
+    //     }
+    // }
 }
 
 std::unique_ptr<AudioProcessor> DelayBank::Clone() const

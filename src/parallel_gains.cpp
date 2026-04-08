@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "array_math.h"
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/parallel_gains.h"
@@ -146,13 +147,29 @@ std::unique_ptr<AudioProcessor> ParallelGains::Clone() const
     return std::make_unique<ParallelGains>(mode_, gains_);
 }
 
+NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {
+                                                    {ParallelGainsMode::Split, "Split"},
+                                                    {ParallelGainsMode::Merge, "Merge"},
+                                                    {ParallelGainsMode::Parallel, "Parallel"},
+                                                })
+
 nlohmann::json ParallelGains::ToJson() const
 {
     nlohmann::json j;
     j["type"] = "ParallelGains";
-    j["mode"] = static_cast<uint8_t>(mode_);
+    j["mode"] = mode_;
     j["gains"] = gains_;
     return j;
+}
+
+std::unique_ptr<ParallelGains> ParallelGains::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "ParallelGains");
+
+    const auto mode = j.at("mode").get<ParallelGainsMode>();
+    const auto gains = j.at("gains").get<std::vector<float>>();
+
+    return std::make_unique<ParallelGains>(mode, gains);
 }
 
 } // namespace sfFDN

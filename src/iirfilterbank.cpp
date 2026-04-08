@@ -1,5 +1,6 @@
 #include "sffdn/filterbank.h"
 
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter.h"
@@ -435,4 +436,42 @@ nlohmann::json IIRFilterBank::ToJson() const
     }
     return j;
 }
+
+std::unique_ptr<IIRFilterBank> IIRFilterBank::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "IIRFilterBank");
+
+    auto channel_count = j["channel_count_"].get<uint32_t>();
+
+    const auto& coeffs_json = j["coeffs_"];
+    if (!coeffs_json.is_array())
+    {
+        throw std::invalid_argument("JSON 'coeffs_' field must be an array.");
+    }
+
+    std::vector<FilterCoefficients> coeffs;
+    for (const auto& coeffs_entry : coeffs_json)
+    {
+        if (!coeffs_entry.is_array() || coeffs_entry.size() != 6)
+        {
+            throw std::invalid_argument("Each entry in 'coeffs_' must be an array of 6 floats.");
+        }
+
+        FilterCoefficients filter_coeffs;
+        filter_coeffs.b0 = coeffs_entry[0].get<float>();
+        filter_coeffs.b1 = coeffs_entry[1].get<float>();
+        filter_coeffs.b2 = coeffs_entry[2].get<float>();
+        filter_coeffs.a0 = coeffs_entry[3].get<float>();
+        filter_coeffs.a1 = coeffs_entry[4].get<float>();
+        filter_coeffs.a2 = coeffs_entry[5].get<float>();
+
+        coeffs.push_back(filter_coeffs);
+    }
+
+    auto filter_bank = std::make_unique<IIRFilterBank>();
+    filter_bank->SetFilter(coeffs, channel_count);
+
+    return filter_bank;
+}
+
 } // namespace sfFDN

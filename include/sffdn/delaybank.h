@@ -5,6 +5,7 @@
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delay.h"
+#include "delay_interp.h"
 
 #include <cstdint>
 #include <span>
@@ -108,6 +109,6 @@ class DelayBank : public AudioProcessor
     static std::unique_ptr<DelayBank> FromJson(const nlohmann::json& j);
 
   private:
-    std::vector<Delay> delays_;
+    std::vector<DelayInterp> delays_;
 };
 } // namespace sfFDN

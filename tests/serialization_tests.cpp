@@ -3,21 +3,29 @@
 
 #include "rng.h"
 #include "sffdn/sffdn.h"
+#include "test_utils.h"
 
-template <typename T>
-void TestAudioProcessor(T& original, T& deserialized)
+namespace
 {
-    REQUIRE(deserialized.InputChannelCount() == original.InputChannelCount());
-    REQUIRE(deserialized.OutputChannelCount() == original.OutputChannelCount());
+constexpr uint32_t kBlockSize = 128;
+}
+
+template <typename T1, typename T2>
+void TestAudioProcessor(T1* original, T2* deserialized)
+{
+    REQUIRE(deserialized->InputChannelCount() == original->InputChannelCount());
+    REQUIRE(deserialized->OutputChannelCount() == original->OutputChannelCount());
 
     // Test that the JSON representations are the same
-    nlohmann::json original_json = original.ToJson();
-    nlohmann::json deserialized_json = deserialized.ToJson();
+    nlohmann::json original_json = original->ToJson();
+    nlohmann::json deserialized_json = deserialized->ToJson();
     REQUIRE(original_json == deserialized_json);
 
-    constexpr uint32_t sample_count = 32;
-    const uint32_t input_buffer_size = sample_count * original.InputChannelCount();
-    const uint32_t output_buffer_size = sample_count * original.OutputChannelCount();
+    constexpr uint32_t kBlockCount = 100;
+    constexpr uint32_t sample_count = kBlockSize * kBlockCount;
+
+    const uint32_t input_buffer_size = sample_count * original->InputChannelCount();
+    const uint32_t output_buffer_size = sample_count * original->OutputChannelCount();
 
     std::vector<float> input_buffer(input_buffer_size, 0.f);
     std::vector<float> output_buffer(output_buffer_size, 0.f);
@@ -29,12 +37,20 @@ void TestAudioProcessor(T& original, T& deserialized)
         sample = rng();
     }
 
-    sfFDN::AudioBuffer original_input(sample_count, original.InputChannelCount(), input_buffer);
-    sfFDN::AudioBuffer original_output(sample_count, original.OutputChannelCount(), output_buffer);
-    sfFDN::AudioBuffer deserialized_output(sample_count, deserialized.OutputChannelCount(), deserialized_output_buffer);
+    sfFDN::AudioBuffer original_input(sample_count, original->InputChannelCount(), input_buffer);
+    sfFDN::AudioBuffer original_output(sample_count, original->OutputChannelCount(), output_buffer);
+    sfFDN::AudioBuffer deserialized_output(sample_count, deserialized->OutputChannelCount(),
+                                           deserialized_output_buffer);
 
-    original.Process(original_input, original_output);
-    deserialized.Process(original_input, deserialized_output);
+    for (auto i = 0u; i < kBlockCount; ++i)
+    {
+        const sfFDN::AudioBuffer input_block = original_input.Offset(i * kBlockSize, kBlockSize);
+        sfFDN::AudioBuffer original_output_block = original_output.Offset(i * kBlockSize, kBlockSize);
+        sfFDN::AudioBuffer deserialized_output_block = deserialized_output.Offset(i * kBlockSize, kBlockSize);
+
+        original->Process(input_block, original_output_block);
+        deserialized->Process(input_block, deserialized_output_block);
+    }
 
     for (auto i = 0u; i < output_buffer_size; ++i)
     {
@@ -42,13 +58,44 @@ void TestAudioProcessor(T& original, T& deserialized)
     }
 }
 
+TEST_CASE("Json_FDN", "[serialization]")
+{
+    constexpr uint32_t kFDNOrder = 8;
+    auto fdn = CreateFDN(kBlockSize, kFDNOrder);
+
+    nlohmann::json j = fdn->ToJson();
+    auto deserialized_fdn = sfFDN::FDN::FromJson(j);
+    TestAudioProcessor(fdn.get(), &deserialized_fdn);
+}
+
 TEST_CASE("Json_DelayBank", "[serialization]")
 {
     std::vector<uint32_t> delays = {4, 7, 13, 23, 37, 61, 97, 151};
-    sfFDN::DelayBank delay_bank(delays, 64);
+    sfFDN::DelayBank delay_bank(delays, kBlockSize);
 
     nlohmann::json j = delay_bank.ToJson();
     auto deserialized_delay_bank = sfFDN::DelayBank::FromJson(j);
 
-    TestAudioProcessor(delay_bank, *deserialized_delay_bank.get());
+    TestAudioProcessor(&delay_bank, deserialized_delay_bank.get());
+}
+
+TEST_CASE("Json_FilterBank", "[serialization]")
+{
+    constexpr uint32_t kChannelCount = 4;
+    constexpr uint32_t kFilterOrder = 11;
+    auto filter_bank = GetFilterBank(kChannelCount, kFilterOrder);
+
+    nlohmann::json j = filter_bank->ToJson();
+    auto deserialized_filter_bank = sfFDN::FilterBank::FromJson(j);
+    TestAudioProcessor(filter_bank.get(), deserialized_filter_bank.get());
+}
+
+TEST_CASE("Json_FilterFeedbackMatrix", "[serialization]")
+{
+    constexpr uint32_t kChannelCount = 4;
+    auto filter_feedback_matrix = CreateFFM(kChannelCount, 2, 1);
+
+    nlohmann::json j = filter_feedback_matrix->ToJson();
+    auto deserialized_filter_feedback_matrix = sfFDN::FilterFeedbackMatrix::FromJson(j);
+    TestAudioProcessor(filter_feedback_matrix.get(), deserialized_filter_feedback_matrix.get());
 }

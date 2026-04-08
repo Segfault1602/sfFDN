@@ -105,6 +105,8 @@ class ParallelGains : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static std::unique_ptr<ParallelGains> FromJson(const nlohmann::json& j);
+
   private:
     void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);
     void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output);
@@ -218,6 +220,8 @@ class TimeVaryingParallelGains : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
     nlohmann::json ToJson() const override;
+
+    static std::unique_ptr<TimeVaryingParallelGains> FromJson(const nlohmann::json& j);
 
   private:
     void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);

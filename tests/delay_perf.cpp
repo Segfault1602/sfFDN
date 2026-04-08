@@ -34,7 +34,7 @@ TEST_CASE("Delay", "[Delay]")
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
 
-    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::None> delay(kDelay, kMaxDelay);
+    sfFDN::DelayInterp delay(kDelay, kMaxDelay, sfFDN::DelayInterpolationType::None);
 
     nanobench::Bench bench;
     bench.title("Delay Perf");
@@ -58,7 +58,7 @@ TEST_CASE("Delay", "[Delay]")
         nanobench::doNotOptimizeAway(output_buffer);
     });
 
-    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Allpass> delay_allpass(kDelay + 0.5f, kMaxDelay);
+    sfFDN::DelayInterp delay_allpass(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
 }
 
 TEST_CASE("DelayInterp", "[Delay]")
@@ -84,7 +84,7 @@ TEST_CASE("DelayInterp", "[Delay]")
     bench.relative(true);
     bench.timeUnit(1us, "us");
     bench.minEpochIterations(10000);
-    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Linear> delay_interp(kDelay + 0.5f, kMaxDelay);
+    sfFDN::DelayInterp delay_interp(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
     bench.run("DelayInterp Tick (Linear)", [&] {
         for (auto i = 0u; i < kBlockSize; ++i)
         {
@@ -102,7 +102,7 @@ TEST_CASE("DelayInterp", "[Delay]")
         nanobench::doNotOptimizeAway(output_buffer);
     });
 
-    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Allpass> delay_interp_ap(kDelay + 0.5f, kMaxDelay);
+    sfFDN::DelayInterp delay_interp_ap(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
     // bench.minEpochIterations(300000);
     bench.run("DelayInterp Tick (Allpass)", [&] {
         for (auto i = 0u; i < kBlockSize; ++i)
@@ -121,7 +121,7 @@ TEST_CASE("DelayInterp", "[Delay]")
         nanobench::doNotOptimizeAway(output_buffer);
     });
 
-    sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Lagrange> delay_interp_lagrange(kDelay + 0.5f, kMaxDelay);
+    sfFDN::DelayInterp delay_interp_lagrange(kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
     // bench.minEpochIterations(30000);
     bench.run("DelayInterp Tick (Lagrange)", [&] {
         for (auto i = 0u; i < kBlockSize; ++i)

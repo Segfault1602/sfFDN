@@ -93,6 +93,8 @@ class SineWave : public Generator
 
     nlohmann::json ToJson() const;
 
+    static SineWave FromJson(const nlohmann::json& j);
+
   private:
     float phase_;
     float phase_increment_;

@@ -1,6 +1,7 @@
 #include "sffdn/oscillator.h"
 
 #include "array_math.h"
+#include "json_helper.h"
 #include "sine_table.h"
 
 #include <cassert>
@@ -160,4 +161,20 @@ nlohmann::json SineWave::ToJson() const
     return j;
 }
 
+SineWave SineWave::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "SineWave");
+
+    const float frequency = j.at("frequency").get<float>();
+    const float initial_phase = j.at("initial_phase").get<float>();
+    const float amplitude = j.at("amplitude").get<float>();
+    const float offset = j.at("offset").get<float>();
+    const float phase_offset = j.at("phase_offset").get<float>();
+
+    SineWave sine(frequency, initial_phase);
+    sine.SetAmplitude(amplitude);
+    sine.SetOffset(offset);
+    sine.SetPhaseOffset(phase_offset);
+    return sine;
+}
 } // namespace sfFDN

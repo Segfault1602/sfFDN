@@ -1,5 +1,6 @@
 #include "sffdn/filter_feedback_matrix.h"
 
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/feedback_matrix.h"
@@ -157,6 +158,36 @@ nlohmann::json FilterFeedbackMatrix::ToJson() const
         j["matrices"].push_back(matrix.ToJson());
     }
     return j;
+}
+
+std::unique_ptr<FilterFeedbackMatrix> FilterFeedbackMatrix::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "FilterFeedbackMatrix");
+    auto channel_count = j.at("channel_count").get<uint32_t>();
+    auto delaybanks_json = j.at("delaybanks");
+    auto matrices_json = j.at("matrices");
+
+    std::vector<DelayBank> delaybanks;
+    for (const auto& delaybank_json : delaybanks_json)
+    {
+        delaybanks.emplace_back(*DelayBank::FromJson(delaybank_json));
+    }
+
+    std::vector<ScalarFeedbackMatrix> matrices;
+    for (const auto& matrix_json : matrices_json)
+    {
+        matrices.emplace_back(*ScalarFeedbackMatrix::FromJson(matrix_json));
+    }
+
+    // Create a dummy CascadedFeedbackMatrixInfo to construct the FilterFeedbackMatrix, then replace the delaybanks and
+    // matrices with the deserialized ones.
+    CascadedFeedbackMatrixInfo info =
+        ConstructCascadedFeedbackMatrix(channel_count, delaybanks.size(), 1.f, ScalarMatrixType::Identity);
+
+    auto filter_feedback_matrix = std::make_unique<FilterFeedbackMatrix>(info);
+    filter_feedback_matrix->delaybanks_ = std::move(delaybanks);
+    filter_feedback_matrix->matrix_ = std::move(matrices);
+    return filter_feedback_matrix;
 }
 
 } // namespace sfFDN

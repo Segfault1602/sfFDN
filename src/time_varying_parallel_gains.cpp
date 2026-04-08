@@ -1,5 +1,6 @@
 #include "sffdn/parallel_gains.h"
 
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -208,7 +209,7 @@ nlohmann::json TimeVaryingParallelGains::ToJson() const
 {
     nlohmann::json j;
     j["type"] = "TimeVaryingParallelGains";
-    j["mode"] = static_cast<uint8_t>(mode_);
+    j["mode"] = mode_;
 
     j["lfos"] = nlohmann::json::array();
     for (const auto& lfo : lfos_)
@@ -217,6 +218,24 @@ nlohmann::json TimeVaryingParallelGains::ToJson() const
     }
 
     return j;
+}
+
+std::unique_ptr<TimeVaryingParallelGains> TimeVaryingParallelGains::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "TimeVaryingParallelGains");
+
+    const auto mode = j.at("mode").get<ParallelGainsMode>();
+
+    std::vector<SineWave> lfos;
+    for (const auto& lfo_json : j.at("lfos"))
+    {
+        lfos.push_back(SineWave::FromJson(lfo_json));
+    }
+
+    auto processor = std::make_unique<TimeVaryingParallelGains>(mode);
+    processor->lfos_ = std::move(lfos);
+
+    return processor;
 }
 
 } // namespace sfFDN

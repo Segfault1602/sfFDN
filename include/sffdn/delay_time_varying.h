@@ -34,7 +34,7 @@ class DelayTimeVarying
   private:
     void UpdateDelay();
 
-    DelayInterp<type> delay_;
+    DelayInterp delay_;
     float base_delay_;
 
     SineWave lfo_;

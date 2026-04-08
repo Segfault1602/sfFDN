@@ -95,6 +95,8 @@ class FilterFeedbackMatrix : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static std::unique_ptr<FilterFeedbackMatrix> FromJson(const nlohmann::json& j);
+
   private:
     uint32_t channel_count_;
     std::vector<DelayBank> delaybanks_;

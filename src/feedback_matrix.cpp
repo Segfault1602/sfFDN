@@ -1,5 +1,6 @@
 #include "sffdn/feedback_matrix.h"
 
+#include "json_helper.h"
 #include "matrix_multiplication.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
@@ -27,132 +28,38 @@
 namespace sfFDN
 {
 
-class ScalarFeedbackMatrix::ScalarFeedbackMatrixImpl
-{
-  public:
-    explicit ScalarFeedbackMatrixImpl(uint32_t order, ScalarMatrixType type)
-        : order_(order)
-    {
-        matrix_data_ = GenerateMatrix(order, type);
-    }
-
-    void SetMatrix(std::span<const float> matrix)
-    {
-        assert(matrix.size() == order_ * order_);
-        matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
-    }
-
-    bool GetMatrix(std::span<float> matrix) const
-    {
-        if (matrix.size() != order_ * order_)
-        {
-            return false;
-        }
-
-        std::ranges::copy(matrix_data_, matrix.begin());
-        return true;
-    }
-
-    void Process(const AudioBuffer& input, AudioBuffer& output)
-    {
-        assert(input.SampleCount() == output.SampleCount());
-        assert(input.ChannelCount() == output.ChannelCount());
-        assert(input.ChannelCount() == order_);
-
-        const uint32_t col = order_;
-        const uint32_t row = input.SampleCount();
-
-        // Not using vDSP for now as it seems to be slower than Eigen
-#if 0 // defined(SFFDN_USE_VDSP)
-        const float* A = matrix_data_.data();
-        const float* B = input.Data();
-        float* C = output.Data();
-
-        vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
-#else
-
-        const Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);
-
-        const Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
-        Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
-
-        // The input and output buffers must not overlap
-        // This is a requirement to avoid memory allocation in Eigen by using noalias()
-        if (input.Data() != output.Data())
-        {
-            output_map.noalias() = input_map * matrix;
-        }
-        else
-        {
-            // __rtsan::ScopedDisabler d;
-            // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary
-            // buffer
-            output_map = input_map * matrix;
-        }
-#endif
-    }
-
-    uint32_t GetSize() const
-    {
-        return order_;
-    }
-
-    float GetCoefficient(uint32_t row, uint32_t col) const
-    {
-        return matrix_data_[(row * order_) + col];
-    }
-
-    uint32_t InputChannelCount() const
-    {
-        return order_;
-    }
-
-    uint32_t OutputChannelCount() const
-    {
-        return order_;
-    }
-
-    nlohmann::json ToJson() const
-    {
-        nlohmann::json j;
-        j["type"] = "ScalarFeedbackMatrix";
-        j["order"] = order_;
-        j["matrix"] = matrix_data_;
-        return j;
-    }
-
-  private:
-    uint32_t order_;
-    std::vector<float> matrix_data_;
-};
-
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, ScalarMatrixType type)
+    : order_(order)
 {
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(order, type);
+    matrix_data_ = GenerateMatrix(order, type);
 }
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix)
+    : order_(order)
 {
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(order, ScalarMatrixType::Identity);
-    impl_->SetMatrix(matrix);
+    assert(matrix.size() == order * order);
+    matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
 }
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other)
 {
-    impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(*other.impl_);
+    order_ = other.order_;
+    matrix_data_ = other.matrix_data_;
 }
 
 ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(const ScalarFeedbackMatrix& other)
 {
     if (this != &other)
     {
-        impl_ = std::make_unique<ScalarFeedbackMatrixImpl>(*other.impl_);
+        order_ = other.order_;
+        matrix_data_ = other.matrix_data_;
     }
     return *this;
 }
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept
-    : impl_(std::move(other.impl_))
+    : order_(std::move(other.order_))
+    , matrix_data_(std::move(other.matrix_data_))
 {
 }
 
@@ -160,7 +67,8 @@ ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(ScalarFeedbackMatrix&& oth
 {
     if (this != &other)
     {
-        impl_ = std::move(other.impl_);
+        order_ = std::move(other.order_);
+        matrix_data_ = std::move(other.matrix_data_);
     }
     return *this;
 }
@@ -175,38 +83,77 @@ bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
         std::print(std::cerr, "Only square matrices are supported!\n");
         return false;
     }
-    impl_->SetMatrix(matrix);
+    matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
     return true;
 }
 
 bool ScalarFeedbackMatrix::GetMatrix(std::span<float> matrix) const
 {
-    return impl_->GetMatrix(matrix);
+    if (matrix.size() != order_ * order_)
+    {
+        return false;
+    }
+    std::copy(matrix_data_.begin(), matrix_data_.end(), matrix.begin());
+    return true;
 }
 
 void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
-    impl_->Process(input, output);
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.ChannelCount() == order_);
+
+    const uint32_t col = order_;
+    const uint32_t row = input.SampleCount();
+
+    // Not using vDSP for now as it seems to be slower than Eigen
+#if 0 // defined(SFFDN_USE_VDSP)
+        const float* A = matrix_data_.data();
+        const float* B = input.Data();
+        float* C = output.Data();
+
+        vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
+#else
+
+    const Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);
+
+    const Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
+    Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
+
+    // The input and output buffers must not overlap
+    // This is a requirement to avoid memory allocation in Eigen by using noalias()
+    if (input.Data() != output.Data())
+    {
+        output_map.noalias() = input_map * matrix;
+    }
+    else
+    {
+        // __rtsan::ScopedDisabler d;
+        // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary
+        // buffer
+        output_map = input_map * matrix;
+    }
+#endif
 }
 
 uint32_t ScalarFeedbackMatrix::GetSize() const
 {
-    return impl_->GetSize();
+    return order_;
 }
 
 float ScalarFeedbackMatrix::GetCoefficient(uint32_t row, uint32_t col) const
 {
-    return impl_->GetCoefficient(row, col);
+    return matrix_data_[(row * order_) + col];
 }
 
 uint32_t ScalarFeedbackMatrix::InputChannelCount() const
 {
-    return impl_->InputChannelCount();
+    return order_;
 }
 
 uint32_t ScalarFeedbackMatrix::OutputChannelCount() const
 {
-    return impl_->OutputChannelCount();
+    return order_;
 }
 
 void ScalarFeedbackMatrix::Clear()
@@ -222,7 +169,25 @@ std::unique_ptr<AudioProcessor> ScalarFeedbackMatrix::Clone() const
 
 nlohmann::json ScalarFeedbackMatrix::ToJson() const
 {
-    return impl_->ToJson();
+    nlohmann::json j;
+    j["type"] = "ScalarFeedbackMatrix";
+    j["order"] = order_;
+    j["matrix"] = matrix_data_;
+    return j;
+}
+
+std::unique_ptr<ScalarFeedbackMatrix> ScalarFeedbackMatrix::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "ScalarFeedbackMatrix");
+    auto order = j["order"].get<uint32_t>();
+    auto matrix_data = j["matrix"].get<std::vector<float>>();
+
+    if (matrix_data.size() != order * order)
+    {
+        throw std::invalid_argument("Matrix data size does not match the specified order.");
+    }
+
+    return std::make_unique<ScalarFeedbackMatrix>(order, matrix_data);
 }
 
 } // namespace sfFDN

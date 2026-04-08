@@ -35,51 +35,47 @@ std::array<float, N + 1> GetLagrangeCoefficients(float delay)
 namespace sfFDN
 {
 
-template <DelayInterpolationType type>
-DelayInterp<type>::DelayInterp(float delay, uint32_t max_delay)
+DelayInterp::DelayInterp(float delay, uint32_t max_delay, DelayInterpolationType type)
     : delayline_(static_cast<uint32_t>(delay + 1), max_delay)
     , delay_(0)
     , int_delay_(0)
     , frac_delay_(0.0f)
+    , type_(type)
 {
     this->SetDelay(delay);
 }
 
-template <DelayInterpolationType type>
-void DelayInterp<type>::Clear()
+void DelayInterp::Clear()
 {
     delayline_.Clear();
     allpass_.Clear();
 }
 
-template <DelayInterpolationType type>
-void DelayInterp<type>::SetMaximumDelay(uint32_t delay)
+void DelayInterp::SetMaximumDelay(uint32_t delay)
 {
     delayline_.SetMaximumDelay(delay);
 }
 
-template <DelayInterpolationType type>
-uint32_t DelayInterp<type>::GetMaximumDelay() const
+uint32_t DelayInterp::GetMaximumDelay() const
 {
     return delayline_.GetMaximumDelay();
 }
 
-template <DelayInterpolationType type>
-void DelayInterp<type>::SetDelay(float delay)
+void DelayInterp::SetDelay(float delay)
 {
     delay_ = delay;
     int_delay_ = static_cast<uint32_t>(delay);
     frac_delay_ = delay - static_cast<float>(int_delay_);
 
-    if constexpr (type == DelayInterpolationType::None)
+    if (type_ == DelayInterpolationType::None)
     {
         delayline_.SetDelay(int_delay_);
     }
-    else if constexpr (type == DelayInterpolationType::Linear)
+    else if (type_ == DelayInterpolationType::Linear)
     {
         delayline_.SetDelay(int_delay_);
     }
-    else if constexpr (type == DelayInterpolationType::Allpass)
+    else if (type_ == DelayInterpolationType::Allpass)
     {
         if (frac_delay_ < 0.5f)
         {
@@ -100,7 +96,7 @@ void DelayInterp<type>::SetDelay(float delay)
             allpass_.Tick(delayline_.LastOut());
         }
     }
-    else if constexpr (type == DelayInterpolationType::Lagrange)
+    else if (type_ == DelayInterpolationType::Lagrange)
     {
         if (frac_delay_ < 1.f)
         {
@@ -115,32 +111,30 @@ void DelayInterp<type>::SetDelay(float delay)
     }
 }
 
-template <DelayInterpolationType type>
-float DelayInterp<type>::GetDelay() const
+float DelayInterp::GetDelay() const
 {
     return delay_;
 }
 
-template <DelayInterpolationType type>
-float DelayInterp<type>::Tick(float input)
+float DelayInterp::Tick(float input)
 {
-    if constexpr (type == DelayInterpolationType::None)
+    if (type_ == DelayInterpolationType::None)
     {
         return delayline_.Tick(input);
     }
-    else if constexpr (type == DelayInterpolationType::Linear)
+    else if (type_ == DelayInterpolationType::Linear)
     {
         delayline_.Tick(input);
         const float a = delayline_.TapOut(int_delay_);
         const float b = delayline_.TapOut(int_delay_ + 1);
         return a + (b - a) * frac_delay_;
     }
-    else if constexpr (type == DelayInterpolationType::Allpass)
+    else if (type_ == DelayInterpolationType::Allpass)
     {
         const float out = delayline_.Tick(input);
         return allpass_.Tick(out);
     }
-    else if constexpr (type == DelayInterpolationType::Lagrange)
+    else if (type_ == DelayInterpolationType::Lagrange)
     {
         const float out = delayline_.Tick(input);
         return lagrange_filter_.Tick(out);
@@ -150,8 +144,7 @@ float DelayInterp<type>::Tick(float input)
     return 0.0f;
 }
 
-template <DelayInterpolationType type>
-void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
+void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output)
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -160,11 +153,11 @@ void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
     auto in_span = input.GetChannelSpan(0);
     auto out_span = output.GetChannelSpan(0);
 
-    if constexpr (type == DelayInterpolationType::None)
+    if (type_ == DelayInterpolationType::None)
     {
         delayline_.Process(input, output);
     }
-    else if constexpr (type == DelayInterpolationType::Linear)
+    else if (type_ == DelayInterpolationType::Linear)
     {
         if (delayline_.AddNextInputs(in_span))
         {
@@ -180,64 +173,78 @@ void DelayInterp<type>::Process(const AudioBuffer& input, AudioBuffer& output)
             }
         }
     }
-    else if constexpr (type == DelayInterpolationType::Allpass)
+    else if (type_ == DelayInterpolationType::Allpass)
     {
         delayline_.Process(input, output);
         allpass_.Process(output, output);
     }
-    else if constexpr (type == DelayInterpolationType::Lagrange)
+    else if (type_ == DelayInterpolationType::Lagrange)
     {
         delayline_.Process(input, output);
         lagrange_filter_.Process(output, output);
     }
 }
 
-template <DelayInterpolationType type>
-nlohmann::json DelayInterp<type>::ToJson() const
+bool DelayInterp::AddNextInputs(std::span<const float> input)
+{
+    return delayline_.AddNextInputs(input);
+}
+
+void DelayInterp::GetNextOutputs(std::span<float> output)
+{
+    if (type_ == DelayInterpolationType::None)
+    {
+        delayline_.GetNextOutputs(output);
+    }
+    else if (type_ == DelayInterpolationType::Linear)
+    {
+        std::array<uint32_t, 2> taps = {int_delay_, int_delay_ + 1};
+        std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
+        delayline_.GetNextOutputsAt(taps, output, coeffs);
+    }
+    else if (type_ == DelayInterpolationType::Allpass)
+    {
+        delayline_.GetNextOutputs(output);
+        AudioBuffer output_buffer(output);
+        allpass_.Process(output_buffer, output_buffer);
+    }
+    else if (type_ == DelayInterpolationType::Lagrange)
+    {
+        delayline_.GetNextOutputs(output);
+        AudioBuffer output_buffer(output);
+        lagrange_filter_.Process(output_buffer, output_buffer);
+    }
+}
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DelayInterpolationType, {
+                                                         {DelayInterpolationType::None, "None"},
+                                                         {DelayInterpolationType::Linear, "Linear"},
+                                                         {DelayInterpolationType::Allpass, "Allpass"},
+                                                         {DelayInterpolationType::Lagrange, "Lagrange"},
+                                                     })
+
+nlohmann::json DelayInterp::ToJson() const
 {
     nlohmann::json j;
     j["type"] = "DelayInterp";
     j["delay"] = delay_;
     j["max_delay"] = delayline_.GetMaximumDelay();
 
-    if constexpr (type == DelayInterpolationType::None)
-    {
-        j["interpolation"] = "None";
-    }
-    else if constexpr (type == DelayInterpolationType::Linear)
-    {
-        j["interpolation"] = "Linear";
-    }
-    else if constexpr (type == DelayInterpolationType::Allpass)
-    {
-        j["interpolation"] = "Allpass";
-    }
-    else if constexpr (type == DelayInterpolationType::Lagrange)
-    {
-        j["interpolation"] = "Lagrange";
-    }
+    j["interpolation"] = type_;
 
     return j;
 }
 
-template <DelayInterpolationType type>
-DelayInterp<type> DelayInterp<type>::FromJson(const nlohmann::json& j)
+DelayInterp DelayInterp::FromJson(const nlohmann::json& j)
 {
     ThrowIfNotType(j, "DelayInterp");
     float delay = j.at("delay").get<float>();
     uint32_t max_delay = j.at("max_delay").get<uint32_t>();
-    std::string interpolation = j.at("interpolation").get<std::string>();
-    assert((interpolation == "None" && type == DelayInterpolationType::None) ||
-           (interpolation == "Linear" && type == DelayInterpolationType::Linear) ||
-           (interpolation == "Allpass" && type == DelayInterpolationType::Allpass) ||
-           (interpolation == "Lagrange" && type == DelayInterpolationType::Lagrange));
+    DelayInterpolationType type = j.at("interpolation").get<DelayInterpolationType>();
 
-    return DelayInterp(delay, max_delay);
+    DelayInterp delay_interp(delay, max_delay, type);
+
+    return delay_interp;
 }
-
-template class DelayInterp<DelayInterpolationType::None>;
-template class DelayInterp<DelayInterpolationType::Linear>;
-template class DelayInterp<DelayInterpolationType::Allpass>;
-template class DelayInterp<DelayInterpolationType::Lagrange>;
 
 } // namespace sfFDN

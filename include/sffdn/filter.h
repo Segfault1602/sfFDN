@@ -240,6 +240,8 @@ class CascadedBiquads : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static std::unique_ptr<CascadedBiquads> FromJson(const nlohmann::json& j);
+
     struct IIRState
     {
         float s0, s1;
