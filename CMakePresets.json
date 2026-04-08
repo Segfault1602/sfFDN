@@ -7,25 +7,24 @@
     },
     "configurePresets": [
         {
-            "name": "common-ninja",
-            "hidden": true,
-            "displayName": "Common-Ninja",
+            "name": "gcc-ninja",
+            "displayName": "GCC-Ninja",
             "generator": "Ninja Multi-Config",
-            "binaryDir": "${sourceDir}/build/ninja",
+            "binaryDir": "${sourceDir}/build/gcc",
             "cacheVariables": {}
         },
         {
             "name": "llvm-ninja",
             "displayName": "LLVM - Ninja",
             "description": "Build for LLVM",
-            "inherits": "common-ninja",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/ninja",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake"
         },
         {
             "name": "llvm-tidy",
             "displayName": "LLVM - Ninja with Static Analysis",
             "description": "Build for LLVM with clang-tidy static analysis",
-            "inherits": "common-ninja",
             "binaryDir": "${sourceDir}/build/llvm-tidy",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
             "cacheVariables": {
@@ -44,19 +43,12 @@
     ],
     "buildPresets": [
         {
-            "name": "llvm-debug",
-            "configurePreset": "llvm-ninja",
-            "configuration": "Debug"
+            "name": "llvm",
+            "configurePreset": "llvm-ninja"
         },
         {
-            "name": "llvm-release",
-            "configurePreset": "llvm-ninja",
-            "configuration": "Release"
-        },
-        {
-            "name": "llvm-relwithdebinfo",
-            "configurePreset": "llvm-ninja",
-            "configuration": "RelWithDebInfo"
+            "name": "gcc",
+            "configurePreset": "gcc-ninja"
         },
         {
             "name": "llvm-tidy",

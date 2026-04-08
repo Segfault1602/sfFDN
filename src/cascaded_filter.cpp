@@ -176,4 +176,17 @@ std::unique_ptr<AudioProcessor> CascadedBiquads::Clone() const
     return clone;
 }
 
+nlohmann::json CascadedBiquads::ToJson() const
+{
+    nlohmann::json j;
+    j["type"] = "CascadedBiquads";
+    j["coefficients"] = nlohmann::json::array();
+    for (const auto& coeffs : coeffs_)
+    {
+        std::array<float, 6> coeff_array = {coeffs.b0, coeffs.b1, coeffs.b2, coeffs.a0, coeffs.a1, coeffs.a2};
+        j["coefficients"].push_back(coeff_array);
+    }
+    return j;
+}
+
 } // namespace sfFDN

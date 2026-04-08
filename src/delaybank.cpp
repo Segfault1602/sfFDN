@@ -157,4 +157,20 @@ nlohmann::json DelayBank::ToJson() const
     return j;
 }
 
+DelayBank DelayBank::FromJson(const nlohmann::json& j)
+{
+    if (!j.contains("type") || j["type"] != "DelayBank")
+    {
+        throw std::invalid_argument("JSON does not represent a DelayBank");
+    }
+
+    if (!j.contains("delays") || !j["delays"].is_array())
+    {
+        throw std::invalid_argument("DelayBank JSON must contain an array of delays");
+    }
+
+    std::vector<uint32_t> delays = j["delays"].get<std::vector<uint32_t>>();
+    return {delays, 512};
+}
+
 } // namespace sfFDN

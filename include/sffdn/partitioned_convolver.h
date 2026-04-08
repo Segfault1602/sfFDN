@@ -78,6 +78,8 @@ class PartitionedConvolver : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     class PartitionedConvolverImpl;
     std::unique_ptr<PartitionedConvolverImpl> impl_;

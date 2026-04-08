@@ -60,6 +60,7 @@ target_sources(
             oscillator_tests.cpp
             upols_tests.cpp
             nupols_tests.cpp
+            serialization_tests.cpp
             parallel_gains_tests.cpp
             test_utils.cpp
 )

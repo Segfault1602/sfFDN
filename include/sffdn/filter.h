@@ -108,6 +108,8 @@ class OnePoleFilter : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     float b0_, a1_;
     std::array<float, 2> state_;
@@ -172,6 +174,8 @@ class AllpassFilter : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     float coeff_;
     float last_in_;
@@ -233,6 +237,8 @@ class CascadedBiquads : public AudioProcessor
      * @return A unique pointer to the cloned filter.
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
+
+    nlohmann::json ToJson() const override;
 
     struct IIRState
     {
@@ -299,6 +305,8 @@ class Fir : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     class FirImpl;
     std::unique_ptr<FirImpl> impl_;
@@ -351,6 +359,8 @@ class SparseFir : public AudioProcessor
      * @return A unique pointer to the cloned filter.
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
+
+    nlohmann::json ToJson() const override;
 
   private:
     class SparseFirImpl;

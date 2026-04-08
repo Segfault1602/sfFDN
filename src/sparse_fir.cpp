@@ -94,6 +94,15 @@ class SparseFir::SparseFirImpl
         return clone;
     }
 
+    nlohmann::json ToJson() const
+    {
+        nlohmann::json j;
+        j["type"] = "SparseFir";
+        j["coefficients"] = coeffs_;
+        j["indices"] = sparse_index_;
+        return j;
+    }
+
   private:
     std::vector<float> coeffs_;
     Delay delay_line_;
@@ -238,6 +247,11 @@ std::unique_ptr<AudioProcessor> SparseFir::Clone() const
     auto clone = std::make_unique<SparseFir>();
     clone->impl_ = impl_->Clone();
     return clone;
+}
+
+nlohmann::json SparseFir::ToJson() const
+{
+    return impl_->ToJson();
 }
 
 } // namespace sfFDN

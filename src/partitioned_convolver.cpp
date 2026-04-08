@@ -200,6 +200,17 @@ class PartitionedConvolver::PartitionedConvolverImpl
         return std::make_unique<PartitionedConvolverImpl>(block_size_, fir_, rep_count_);
     }
 
+    nlohmann::json ToJson() const
+    {
+        nlohmann::json j;
+        j["type"] = "PartitionedConvolver";
+        j["block_size"] = block_size_;
+        j["rep_count"] = rep_count_;
+        j["fir_size"] = fir_.size();
+        // The filter is potentially large, so it's not included in the JSON.
+        return j;
+    }
+
   private:
     uint32_t block_size_;
     CircularBuffer output_buffer_;
@@ -258,6 +269,11 @@ std::unique_ptr<AudioProcessor> PartitionedConvolver::Clone() const
     auto clone = std::unique_ptr<PartitionedConvolver>(new PartitionedConvolver());
     clone->impl_ = impl_->Clone();
     return clone;
+}
+
+nlohmann::json PartitionedConvolver::ToJson() const
+{
+    return impl_->ToJson();
 }
 
 } // namespace sfFDN

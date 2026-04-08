@@ -86,6 +86,8 @@ class SchroederAllpass
 
     nlohmann::json ToJson() const;
 
+    static SchroederAllpass FromJson(const nlohmann::json& j);
+
   private:
     Delay delay_;
     float g_{};
@@ -172,6 +174,8 @@ class SchroederAllpassSection : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static SchroederAllpassSection FromJson(const nlohmann::json& j);
+
   private:
     std::vector<SchroederAllpass> allpasses_;
     bool parallel_ = false;
@@ -186,6 +190,12 @@ class ParallelSchroederAllpassSection : public AudioProcessor
      * @param stage_count The number of allpass filters in each channel.
      */
     ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count);
+
+    ParallelSchroederAllpassSection(const ParallelSchroederAllpassSection&) = delete;
+    ParallelSchroederAllpassSection& operator=(const ParallelSchroederAllpassSection&) = delete;
+
+    ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&&) noexcept;
+    ParallelSchroederAllpassSection& operator=(ParallelSchroederAllpassSection&&) noexcept;
 
     /** @brief Sets the delays for each allpass filter in the section.
      * @param delays A span of delay values in samples.
@@ -223,6 +233,8 @@ class ParallelSchroederAllpassSection : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
     nlohmann::json ToJson() const override;
+
+    static ParallelSchroederAllpassSection FromJson(const nlohmann::json& j);
 
   private:
     std::vector<SchroederAllpassSection> allpasses_;

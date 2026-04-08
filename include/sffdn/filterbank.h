@@ -115,6 +115,8 @@ class IIRFilterBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    nlohmann::json ToJson() const override;
+
   private:
     class IIRFilterBankImpl;
     std::unique_ptr<IIRFilterBankImpl> impl_;

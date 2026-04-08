@@ -101,6 +101,17 @@ nlohmann::json SchroederAllpass::ToJson() const
     return j;
 }
 
+SchroederAllpass SchroederAllpass::FromJson(const nlohmann::json& j)
+{
+    assert(j.contains("type") && j["type"] == "SchroederAllpass");
+    assert(j.contains("delay"));
+    assert(j.contains("gain"));
+
+    uint32_t delay = j["delay"];
+    float gain = j["gain"];
+    return SchroederAllpass(delay, gain);
+}
+
 SchroederAllpassSection::SchroederAllpassSection(uint32_t filter_count)
 {
     allpasses_.reserve(filter_count);
@@ -254,6 +265,23 @@ nlohmann::json SchroederAllpassSection::ToJson() const
     return j;
 }
 
+SchroederAllpassSection SchroederAllpassSection::FromJson(const nlohmann::json& j)
+{
+    assert(j.contains("type") && j["type"] == "SchroederAllpassSection");
+    assert(j.contains("parallel"));
+    assert(j.contains("allpasses") && j["allpasses"].is_array());
+
+    bool parallel = j["parallel"];
+    const auto& allpasses_json = j["allpasses"];
+    SchroederAllpassSection section(static_cast<uint32_t>(allpasses_json.size()));
+    section.SetParallel(parallel);
+    for (uint32_t i = 0; i < allpasses_json.size(); i++)
+    {
+        section.allpasses_[i] = SchroederAllpass::FromJson(allpasses_json[i]);
+    }
+    return section;
+}
+
 ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
     : stage_count_(stage_count)
 {
@@ -262,6 +290,23 @@ ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channe
     {
         allpasses_.emplace_back(stage_count);
     }
+}
+
+ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&& other) noexcept
+    : allpasses_(std::move(other.allpasses_))
+    , stage_count_(other.stage_count_)
+{
+}
+
+ParallelSchroederAllpassSection& ParallelSchroederAllpassSection::operator=(
+    ParallelSchroederAllpassSection&& other) noexcept
+{
+    if (this != &other)
+    {
+        allpasses_ = std::move(other.allpasses_);
+        stage_count_ = other.stage_count_;
+    }
+    return *this;
 }
 
 void ParallelSchroederAllpassSection::SetDelays(std::span<const uint32_t> delays)
@@ -340,6 +385,22 @@ nlohmann::json ParallelSchroederAllpassSection::ToJson() const
         j["allpasses"].push_back(allpass.ToJson());
     }
     return j;
+}
+
+ParallelSchroederAllpassSection ParallelSchroederAllpassSection::FromJson(const nlohmann::json& j)
+{
+    assert(j.contains("type") && j["type"] == "ParallelSchroederAllpassSection");
+    assert(j.contains("stage_count"));
+    assert(j.contains("allpasses") && j["allpasses"].is_array());
+
+    const auto& allpasses_json = j["allpasses"];
+    uint32_t stage_count = j["stage_count"];
+    ParallelSchroederAllpassSection section(static_cast<uint32_t>(allpasses_json.size()), stage_count);
+    for (uint32_t i = 0; i < allpasses_json.size(); i++)
+    {
+        section.allpasses_[i] = SchroederAllpassSection::FromJson(allpasses_json[i]);
+    }
+    return section;
 }
 
 } // namespace sfFDN

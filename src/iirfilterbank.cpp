@@ -152,6 +152,9 @@ class IIRFilterBank::IIRFilterBankImpl
             filters_[i].SetCoefficients(coeffs_span);
         }
 #endif
+
+        coeffs_.clear();
+        coeffs_.assign(coeffs.begin(), coeffs.end());
     }
 
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
@@ -204,6 +207,19 @@ class IIRFilterBank::IIRFilterBankImpl
 #endif
     }
 
+    nlohmann::json ToJson() const
+    {
+        nlohmann::json j;
+        j["type"] = "IIRFilterBank";
+        j["filters"] = nlohmann::json::array();
+        for (const auto& coeffs : coeffs_)
+        {
+            std::array<float, 6> coeffs_array{coeffs.b0, coeffs.b1, coeffs.b2, coeffs.a0, coeffs.a1, coeffs.a2};
+            j["filters"].push_back(coeffs_array);
+        }
+        return j;
+    }
+
   private:
 #if IIRFILTERBANK_USE_EIGEN
     std::vector<BiquadMC> filters_;
@@ -212,6 +228,7 @@ class IIRFilterBank::IIRFilterBankImpl
 #else
     std::vector<CascadedBiquads> filters_;
 #endif
+    std::vector<FilterCoefficients> coeffs_;
 };
 #else
 class IIRFilterBank::IIRFilterBankImpl
@@ -420,6 +437,11 @@ std::unique_ptr<AudioProcessor> IIRFilterBank::Clone() const
     clone->impl_->Clear();
 
     return clone;
+}
+
+nlohmann::json IIRFilterBank::ToJson() const
+{
+    return impl_->ToJson();
 }
 
 } // namespace sfFDN
