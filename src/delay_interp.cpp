@@ -2,6 +2,8 @@
 
 #include "sffdn/audio_buffer.h"
 
+#include "json_helper.h"
+
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -25,8 +27,6 @@ std::array<float, N + 1> GetLagrangeCoefficients(float delay)
             }
         }
     }
-
-    // std::reverse(coeffs.begin(), coeffs.end());
 
     return coeffs;
 }
@@ -218,6 +218,21 @@ nlohmann::json DelayInterp<type>::ToJson() const
     }
 
     return j;
+}
+
+template <DelayInterpolationType type>
+DelayInterp<type> DelayInterp<type>::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "DelayInterp");
+    float delay = j.at("delay").get<float>();
+    uint32_t max_delay = j.at("max_delay").get<uint32_t>();
+    std::string interpolation = j.at("interpolation").get<std::string>();
+    assert((interpolation == "None" && type == DelayInterpolationType::None) ||
+           (interpolation == "Linear" && type == DelayInterpolationType::Linear) ||
+           (interpolation == "Allpass" && type == DelayInterpolationType::Allpass) ||
+           (interpolation == "Lagrange" && type == DelayInterpolationType::Lagrange));
+
+    return DelayInterp(delay, max_delay);
 }
 
 template class DelayInterp<DelayInterpolationType::None>;

@@ -174,7 +174,7 @@ class SchroederAllpassSection : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
-    static SchroederAllpassSection FromJson(const nlohmann::json& j);
+    static std::unique_ptr<SchroederAllpassSection> FromJson(const nlohmann::json& j);
 
   private:
     std::vector<SchroederAllpass> allpasses_;
@@ -234,7 +234,7 @@ class ParallelSchroederAllpassSection : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
-    static ParallelSchroederAllpassSection FromJson(const nlohmann::json& j);
+    static std::unique_ptr<ParallelSchroederAllpassSection> FromJson(const nlohmann::json& j);
 
   private:
     std::vector<SchroederAllpassSection> allpasses_;

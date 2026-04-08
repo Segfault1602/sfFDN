@@ -40,6 +40,7 @@ target_sources(
             filter_design.cpp
             filter_feedback_matrix.cpp
             iirfilterbank.cpp
+            json_helper.cpp
             math_utils.cpp
             matrix_gallery.cpp
             matrix_multiplication.cpp

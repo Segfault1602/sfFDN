@@ -69,6 +69,8 @@ class DelayInterp
 
     nlohmann::json ToJson() const;
 
+    static DelayInterp FromJson(const nlohmann::json& j);
+
   private:
     Delay delayline_;
 

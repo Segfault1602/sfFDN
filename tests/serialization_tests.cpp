@@ -50,5 +50,5 @@ TEST_CASE("Json_DelayBank", "[serialization]")
     nlohmann::json j = delay_bank.ToJson();
     auto deserialized_delay_bank = sfFDN::DelayBank::FromJson(j);
 
-    TestAudioProcessor(delay_bank, deserialized_delay_bank);
+    TestAudioProcessor(delay_bank, *deserialized_delay_bank.get());
 }

@@ -206,15 +206,6 @@ class Fir::FirImpl
         return clone;
     }
 
-    nlohmann::json ToJson() const
-    {
-        nlohmann::json j;
-        j["type"] = "Fir";
-        // Coefficients can be large, so we won't include them in the JSON representation for now
-        j["coefficients"] = "Not implemented";
-        return j;
-    }
-
   private:
     int tap_length_{0};
     float* taps_{nullptr};
@@ -299,7 +290,10 @@ std::unique_ptr<AudioProcessor> Fir::Clone() const
 
 nlohmann::json Fir::ToJson() const
 {
-    return impl_->ToJson();
+    nlohmann::json j;
+    j["type"] = "Fir";
+    // Coefficients can be large, so we won't include them in the JSON representation for now
+    j["coefficients"] = "Not implemented";
+    return j;
 }
-
 } // namespace sfFDN

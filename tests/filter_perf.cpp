@@ -100,22 +100,22 @@ TEST_CASE("IIRFilterBankPerf")
         nanobench::doNotOptimizeAway(output);
     });
 
-    // auto iir_filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
-    // std::vector<float> coeffs;
-    // for (auto i = 0u; i < kChannelCount; i++)
-    // {
-    //     auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
-    //     coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
-    // }
-    // iir_filter_bank->SetFilter(coeffs, kChannelCount, 11);
+    auto iir_filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    std::vector<sfFDN::FilterCoefficients> coeffs;
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
+        coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
+    }
+    iir_filter_bank->SetFilter(coeffs, kChannelCount);
 
-    // bench.run("IIRFilterBank", [&] {
-    //     sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
-    //     sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
-    //     iir_filter_bank->Process(input_buffer, output_buffer);
+    bench.run("IIRFilterBank", [&] {
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+        iir_filter_bank->Process(input_buffer, output_buffer);
 
-    //     nanobench::doNotOptimizeAway(output);
-    // });
+        nanobench::doNotOptimizeAway(output);
+    });
 }
 
 TEST_CASE("OnePoleFilter")
@@ -346,8 +346,21 @@ TEST_CASE("ParallelSchroederAllpassSection")
     bench.title("ParallelSchroederAllpassSection perf");
     bench.minEpochIterations(5000);
     bench.timeUnit(1us, "us");
+    bench.relative(true);
 
     bench.run("ParallelSchroederAllpassSection", [&] { filter.Process(input_buffer, output_buffer); });
+
+    // Compare with a FilterBank of SchroederAllpassSections
+    sfFDN::FilterBank filter_bank;
+    for (uint32_t i = 0; i < kChannelCount; ++i)
+    {
+        auto allpass_section = std::make_unique<sfFDN::SchroederAllpassSection>(kFilterOrder);
+        allpass_section->SetDelays(std::span(delays).subspan(i * kFilterOrder, kFilterOrder));
+        allpass_section->SetGains(std::span(gains).subspan(i * kFilterOrder, kFilterOrder));
+        filter_bank.AddFilter(std::move(allpass_section));
+    }
+
+    bench.run("FilterBank of SchroederAllpassSections", [&] { filter_bank.Process(input_buffer, output_buffer); });
 }
 
 #ifdef __APPLE__

@@ -265,7 +265,7 @@ nlohmann::json SchroederAllpassSection::ToJson() const
     return j;
 }
 
-SchroederAllpassSection SchroederAllpassSection::FromJson(const nlohmann::json& j)
+std::unique_ptr<SchroederAllpassSection> SchroederAllpassSection::FromJson(const nlohmann::json& j)
 {
     assert(j.contains("type") && j["type"] == "SchroederAllpassSection");
     assert(j.contains("parallel"));
@@ -273,11 +273,11 @@ SchroederAllpassSection SchroederAllpassSection::FromJson(const nlohmann::json& 
 
     bool parallel = j["parallel"];
     const auto& allpasses_json = j["allpasses"];
-    SchroederAllpassSection section(static_cast<uint32_t>(allpasses_json.size()));
-    section.SetParallel(parallel);
+    auto section = std::make_unique<SchroederAllpassSection>(static_cast<uint32_t>(allpasses_json.size()));
+    section->SetParallel(parallel);
     for (uint32_t i = 0; i < allpasses_json.size(); i++)
     {
-        section.allpasses_[i] = SchroederAllpass::FromJson(allpasses_json[i]);
+        section->allpasses_[i] = SchroederAllpass::FromJson(allpasses_json[i]);
     }
     return section;
 }
@@ -387,7 +387,7 @@ nlohmann::json ParallelSchroederAllpassSection::ToJson() const
     return j;
 }
 
-ParallelSchroederAllpassSection ParallelSchroederAllpassSection::FromJson(const nlohmann::json& j)
+std::unique_ptr<ParallelSchroederAllpassSection> ParallelSchroederAllpassSection::FromJson(const nlohmann::json& j)
 {
     assert(j.contains("type") && j["type"] == "ParallelSchroederAllpassSection");
     assert(j.contains("stage_count"));
@@ -395,10 +395,13 @@ ParallelSchroederAllpassSection ParallelSchroederAllpassSection::FromJson(const 
 
     const auto& allpasses_json = j["allpasses"];
     uint32_t stage_count = j["stage_count"];
-    ParallelSchroederAllpassSection section(static_cast<uint32_t>(allpasses_json.size()), stage_count);
+    auto section =
+        std::make_unique<ParallelSchroederAllpassSection>(static_cast<uint32_t>(allpasses_json.size()), stage_count);
+    section->allpasses_.resize(allpasses_json.size());
     for (uint32_t i = 0; i < allpasses_json.size(); i++)
     {
-        section.allpasses_[i] = SchroederAllpassSection::FromJson(allpasses_json[i]);
+        auto allpass_section = SchroederAllpassSection::FromJson(allpasses_json[i]);
+        section->allpasses_[i] = std::move(*allpass_section.get());
     }
     return section;
 }

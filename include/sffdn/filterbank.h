@@ -120,6 +120,9 @@ class IIRFilterBank : public AudioProcessor
   private:
     class IIRFilterBankImpl;
     std::unique_ptr<IIRFilterBankImpl> impl_;
+
+    std::vector<FilterCoefficients> coeffs_;
+    uint32_t channel_count_;
 };
 
 } // namespace sfFDN

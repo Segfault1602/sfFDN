@@ -2,6 +2,8 @@
 
 #include "sffdn/audio_buffer.h"
 
+#include "json_helper.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -185,6 +187,28 @@ nlohmann::json AudioProcessorChain::ToJson() const
         j["processors"].push_back(processor->ToJson());
     }
     return j;
+}
+
+std::unique_ptr<AudioProcessorChain> AudioProcessorChain::FromJson(const nlohmann::json& j)
+{
+    ThrowIfNotType(j, "AudioProcessorChain");
+    if (!j.contains("block_size") || !j["block_size"].is_number_unsigned())
+    {
+        throw std::invalid_argument("AudioProcessorChain JSON must contain an unsigned integer 'block_size' field.");
+    }
+    const uint32_t block_size = j.at("block_size").get<uint32_t>();
+
+    auto chain = std::make_unique<AudioProcessorChain>(block_size);
+
+    if (j.contains("processors") && j["processors"].is_array())
+    {
+        for (const auto& processor_json : j["processors"])
+        {
+            chain->AddProcessor(from_json(processor_json));
+        }
+    }
+
+    return chain;
 }
 
 } // namespace sfFDN

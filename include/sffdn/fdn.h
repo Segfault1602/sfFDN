@@ -220,6 +220,8 @@ class FDN : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
+    static FDN FromJson(const nlohmann::json& j);
+
   private:
     void TickInternal(const AudioBuffer& input, AudioBuffer& output);
     void Tick(const AudioBuffer& input, AudioBuffer& output);

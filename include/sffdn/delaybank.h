@@ -105,7 +105,7 @@ class DelayBank : public AudioProcessor
 
     nlohmann::json ToJson() const override;
 
-    static DelayBank FromJson(const nlohmann::json& j);
+    static std::unique_ptr<DelayBank> FromJson(const nlohmann::json& j);
 
   private:
     std::vector<Delay> delays_;

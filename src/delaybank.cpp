@@ -157,7 +157,7 @@ nlohmann::json DelayBank::ToJson() const
     return j;
 }
 
-DelayBank DelayBank::FromJson(const nlohmann::json& j)
+std::unique_ptr<DelayBank> DelayBank::FromJson(const nlohmann::json& j)
 {
     if (!j.contains("type") || j["type"] != "DelayBank")
     {
@@ -170,7 +170,7 @@ DelayBank DelayBank::FromJson(const nlohmann::json& j)
     }
 
     std::vector<uint32_t> delays = j["delays"].get<std::vector<uint32_t>>();
-    return {delays, 512};
+    return std::make_unique<DelayBank>(delays, 512);
 }
 
 } // namespace sfFDN
