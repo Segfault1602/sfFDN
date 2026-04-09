@@ -30,6 +30,22 @@ DelayBank::DelayBank(std::span<const float> delays, uint32_t block_size, DelayIn
     }
 }
 
+DelayBank::DelayBank(const DelayBankConfig& config)
+    : block_size_(config.block_size)
+    , interpolation_type_(config.interpolation_type)
+{
+    for (auto delay : config.delays)
+    {
+        uint32_t max_delay = delay + block_size_;
+        if (max_delay % 64 != 0)
+        {
+            max_delay += 64 - (max_delay % 64);
+        }
+
+        delays_.emplace_back(delay, max_delay, interpolation_type_);
+    }
+}
+
 void DelayBank::Clear()
 {
     for (auto& delay : delays_)

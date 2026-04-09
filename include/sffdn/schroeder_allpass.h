@@ -95,12 +95,21 @@ class SchroederAllpass
     void Tick8(std::span<const float, 8> in, std::span<float, 8> out);
 };
 
+struct SchroederAllpassSectionConfig
+{
+    std::vector<uint32_t> delays;
+    std::vector<float> gains;
+    bool parallel{false};
+};
+
 /** @brief A section of Schroeder allpass filters in series */
 class SchroederAllpassSection : public AudioProcessor
 {
   public:
     /** @brief Constructs an empty SchroederAllpassSection. */
     SchroederAllpassSection() = default;
+
+    SchroederAllpassSection(const SchroederAllpassSectionConfig& config);
 
     /** @brief Constructs a SchroederAllpassSection with a given number of filters.
      * @param filter_count The number of allpass filters in the section.
@@ -179,6 +188,11 @@ class SchroederAllpassSection : public AudioProcessor
   private:
     std::vector<SchroederAllpass> allpasses_;
     bool parallel_ = false;
+};
+
+struct ParallelSchroederAllpassSectionConfig
+{
+    std::vector<SchroederAllpassSectionConfig> sections;
 };
 
 /** \brief Implements parallel Schroeder allpass sections. */

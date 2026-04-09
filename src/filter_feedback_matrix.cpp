@@ -147,6 +147,7 @@ std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
     clone->channel_count_ = channel_count_;
 
     clone->matrix_ = matrix_;
+    clone->delaybanks_ = delaybanks_;
 
     // TODO: fix me
     // for (const auto& delaybank : delaybanks_)

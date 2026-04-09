@@ -17,6 +17,14 @@ DelayTimeVarying::DelayTimeVarying(float delay, uint32_t max_delay, DelayInterpo
 {
 }
 
+DelayTimeVarying::DelayTimeVarying(const DelayTimeVaryingConfig& config)
+    : delay_(config.delay, config.max_delay, config.interp_type)
+    , base_delay_(config.delay)
+    , lfo_(config.lfo_frequencies, config.lfo_initial_phases)
+{
+    lfo_.SetAmplitude(config.lfo_amplitudes);
+}
+
 void DelayTimeVarying::Clear()
 {
     delay_.Clear();

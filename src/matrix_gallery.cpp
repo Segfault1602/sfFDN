@@ -501,7 +501,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
     std::vector<std::vector<float>> delays;
     std::vector<Eigen::MatrixXf> matrices;
 
-    const Eigen::MatrixXf r0 = GenerateMatrixInternal(channel_count, type, 0);
+    Eigen::MatrixXf r0 = GenerateMatrixInternal(channel_count, type, 0);
     matrices.push_back(r0);
 
     float pulse_size = 1.f;
@@ -514,6 +514,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(channel_count, sparsity_vec[i], pulse_size);
 
         const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(Eigen::pow(gain_per_samples, shift_left).matrix());
+        r0 = GenerateMatrixInternal(channel_count, type, 0);
         const Eigen::MatrixXf r1 = r0 * g1;
 
         pulse_size = pulse_size * channel_count * sparsity_vec[i];

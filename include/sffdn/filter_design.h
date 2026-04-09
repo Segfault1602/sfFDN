@@ -109,6 +109,13 @@ std::array<FilterCoefficients, 11> GetTwoFilter(std::span<const float> t60s, flo
  */
 std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr);
 
+struct AttenuationFilterBankConfig
+{
+    attenuation_filter_variant_t variant_config;
+    std::vector<float> delays;
+    float sample_rate;
+};
+
 /** @brief Creates an attenuation filter bank using the two-stage attenuation filter design.
  *
  * @param t60s Reverberation time in seconds for each band

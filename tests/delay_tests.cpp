@@ -6,6 +6,7 @@
 #include "sffdn/delay_utils.h"
 #include "sffdn/sffdn.h"
 
+#include "rng.h"
 #include "test_utils.h"
 
 #include <array>
@@ -18,10 +19,9 @@
 
 namespace
 {
-template <typename T>
-void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
+void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN::DelayInterpolationType interp_type)
 {
-    T delay_sample(delay, max_delay);
+    sfFDN::DelayInterp delay_sample(delay, max_delay, interp_type);
 
     std::vector<float> output_sample;
     output_sample.reserve(block_size);
@@ -30,7 +30,7 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay)
         output_sample.push_back(delay_sample.Tick(i));
     }
 
-    T delay_block(delay, max_delay);
+    sfFDN::DelayInterp delay_block(delay, max_delay, interp_type);
     std::vector<float> input_block(block_size, 0.f);
     for (auto i = 0u; i < input_block.size(); ++i)
     {
@@ -74,6 +74,50 @@ TEST_CASE("Delay")
     // Test copy ctor
     sfFDN::Delay delay_copy(delay);
     REQUIRE(delay_copy.GetDelay() == delay.GetDelay());
+}
+
+std::vector<float> ProcessDelay(float delay, uint32_t max_delay, uint32_t block_size,
+                                sfFDN::DelayInterpolationType interp_type, std::span<float> input)
+{
+    sfFDN::DelayInterp delay_block(delay, max_delay, interp_type);
+
+    std::vector<float> output_block(block_size, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(block_size, 1, input);
+    sfFDN::AudioBuffer output_buffer(block_size, 1, output_block);
+
+    delay_block.Process(input_buffer, output_buffer);
+
+    return output_block;
+}
+
+TEST_CASE("Delay_Integer")
+{
+    constexpr uint32_t kBlockSize = 64;
+    constexpr uint32_t kMaxDelay = 128;
+    constexpr float kDelay = 5.f;
+    std::vector<float> input;
+
+    sfFDN::RNG rng;
+    for (uint32_t i = 0; i < kBlockSize; ++i)
+    {
+        input.push_back(rng());
+    }
+
+    auto output_none = ProcessDelay(kDelay, kMaxDelay, kBlockSize, sfFDN::DelayInterpolationType::None, input);
+    auto output_linear = ProcessDelay(kDelay, kMaxDelay, kBlockSize, sfFDN::DelayInterpolationType::Linear, input);
+    auto output_allpass = ProcessDelay(kDelay, kMaxDelay, kBlockSize, sfFDN::DelayInterpolationType::Allpass, input);
+    auto output_lagrange = ProcessDelay(kDelay, kMaxDelay, kBlockSize, sfFDN::DelayInterpolationType::Lagrange, input);
+
+    for (uint32_t i = 0; i < kBlockSize; ++i)
+    {
+        REQUIRE_THAT(output_none[i],
+                     Catch::Matchers::WithinAbs(output_linear[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_linear[i],
+                     Catch::Matchers::WithinAbs(output_allpass[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(output_allpass[i],
+                     Catch::Matchers::WithinAbs(output_lagrange[i], std::numeric_limits<float>::epsilon()));
+    }
 }
 
 TEST_CASE("DelayTapOut")
@@ -226,10 +270,12 @@ TEST_CASE("DelayLagrange")
 
 TEST_CASE("DelayBlock")
 {
-    TestDelayBlock<sfFDN::Delay>(1, 8, 10);
-    // TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Linear>>(1.5f, 8, 10);
-    // TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Allpass>>(1.5f, 8, 10);
-    // TestDelayBlock<sfFDN::DelayInterp<sfFDN::DelayInterpolationType::Lagrange>>(1.5f, 8, 128);
+    constexpr uint32_t kBlockSize = 32;
+    constexpr uint32_t kMaxDelay = 64;
+    TestDelayBlock(5, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::None);
+    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
+    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
+    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
 }
 
 TEST_CASE("DelayBank")

@@ -316,18 +316,8 @@ TEST_CASE("MatrixAssignment")
 TEST_CASE("RandomMatrix")
 {
     constexpr uint32_t kMatSize = 6;
-    // clang-format off
-    constexpr std::array<float, kMatSize * kMatSize> kRandomMatrix = {
-    0.4775f,    0.0774f,    0.5334f,   -0.6286f,    0.2938f,    0.0014f,
-    0.1239f,    0.4800f,    0.1981f,   -0.0300f,   -0.7498f,   -0.3897f,
-    0.7826f,    0.2378f,   -0.4937f,    0.2650f,    0.1288f,    0.0226f,
-    0.0785f,   -0.5241f,   -0.4885f,   -0.5273f,   -0.2291f,   -0.3873f,
-    0.1624f,   -0.1916f,   -0.0102f,   -0.1466f,   -0.5125f,    0.8079f,
-    0.3342f,   -0.6291f,    0.4402f,    0.4839f,   -0.1404f,   -0.2120f,
-    };
-    // clang-format on
-    sfFDN::ScalarFeedbackMatrix mix_mat(kMatSize);
-    mix_mat.SetMatrix(kRandomMatrix);
+
+    sfFDN::ScalarFeedbackMatrix mix_mat(kMatSize, sfFDN::ScalarMatrixType::Random);
 
     std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6};
     std::array<float, kMatSize> output = {0.f};

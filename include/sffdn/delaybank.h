@@ -14,6 +14,13 @@
 namespace sfFDN
 {
 
+struct DelayBankConfig
+{
+    std::vector<float> delays;
+    uint32_t block_size;
+    DelayInterpolationType interpolation_type{DelayInterpolationType::None};
+};
+
 /**
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
  * of audio with different delays.
@@ -32,6 +39,8 @@ class DelayBank : public AudioProcessor
      */
     DelayBank(std::span<const float> delays, uint32_t block_size,
               DelayInterpolationType interpolation_type = DelayInterpolationType::None);
+
+    DelayBank(const DelayBankConfig& config);
 
     ~DelayBank() = default;
 

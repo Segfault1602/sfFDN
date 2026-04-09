@@ -11,11 +11,23 @@
 namespace sfFDN
 {
 
+struct DelayTimeVaryingConfig
+{
+    float delay;
+    uint32_t max_delay;
+    sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::Allpass};
+    float lfo_frequencies;
+    float lfo_amplitudes;
+    float lfo_initial_phases;
+};
+
 class DelayTimeVarying : public AudioProcessor
 {
   public:
     DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095,
                      DelayInterpolationType type = DelayInterpolationType::Linear);
+
+    DelayTimeVarying(const DelayTimeVaryingConfig& config);
 
     void Clear() override;
 

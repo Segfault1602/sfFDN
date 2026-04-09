@@ -31,6 +31,14 @@ struct FilterCoefficients
     }
 };
 
+struct OnePoleFilterConfig
+{
+    float t60_dc;
+    float t60_ny;
+    float delay;
+    float sample_rate;
+};
+
 /** @brief Implements a simple one pole filter with differential equation \f$y(n) = b_0x(n) - a_1y(n-1)\f$
  * @ingroup AudioProcessors
  */
@@ -115,6 +123,11 @@ class OnePoleFilter : public AudioProcessor
     std::array<float, 2> state_;
 };
 
+struct AllpassFilterConfig
+{
+    float coeff;
+};
+
 /** @brief Implements a simple allpass filter with differential equation \f$y(n) = g*x(n) + x(n-1) -g*y(n-1)\f$
  * @ingroup AudioProcessors
  */
@@ -174,6 +187,11 @@ class AllpassFilter : public AudioProcessor
     float coeff_;
     float last_in_;
     float last_out_;
+};
+
+struct CascadedBiquadsConfig
+{
+    std::vector<FilterCoefficients> coeffs;
 };
 
 /** @brief Implements a cascade of biquad IIR filters.
@@ -245,6 +263,11 @@ class CascadedBiquads : public AudioProcessor
     uint32_t stage_;
     std::vector<IIRState> states_;
     std::vector<FilterCoefficients> coeffs_;
+};
+
+struct FirConfig
+{
+    std::vector<float> coeffs;
 };
 
 class Fir : public AudioProcessor

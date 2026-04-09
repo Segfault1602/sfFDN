@@ -20,6 +20,22 @@ enum class ParallelGainsMode : uint8_t
     Parallel /** < Process each input channel separately and output to the same number of channels */
 };
 
+struct TimeVaryingParallelGainsConfig
+{
+    std::vector<float> lfo_frequencies;
+    std::vector<float> lfo_amplitudes;
+    std::vector<float> lfo_phase_offsets;
+};
+
+struct ParallelGainsConfig
+{
+    ParallelGainsMode mode{ParallelGainsMode::Split};
+    std::vector<float> gains;
+    std::optional<TimeVaryingParallelGainsConfig> time_varying_config;
+};
+
+std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsConfig& config);
+
 /** @brief A parallel gains processor.
  * Supports three modes:
  * - Split: Single input channel, multiple output channels. Each output channel is equal to the input channel
