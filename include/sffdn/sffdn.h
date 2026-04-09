@@ -4,6 +4,8 @@
 
 #include "audio_buffer.h"
 #include "audio_processor.h"
+#include "types.h"
+
 #include "delay.h"
 #include "delay_interp.h"
 #include "delay_matrix.h"

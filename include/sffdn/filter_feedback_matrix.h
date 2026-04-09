@@ -13,16 +13,6 @@
 namespace sfFDN
 {
 
-/** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
- */
-struct CascadedFeedbackMatrixInfo
-{
-    uint32_t channel_count;                   /**< Number of channels */
-    uint32_t stage_count;                     /**< Number of stages */
-    std::vector<std::vector<float>> delays;   /**< Delays, size: stage_count x N */
-    std::vector<std::vector<float>> matrices; /**< Feedback matrices, size: K x N x N */
-};
-
 /**
  * @brief A filter feedback matrix processor.
  * This processor implements a filter feedback matrix as described in [1]

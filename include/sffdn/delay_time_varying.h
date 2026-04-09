@@ -4,22 +4,13 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_interp.h"
 #include "sffdn/oscillator.h"
+#include "sffdn/types.h"
 
 #include <span>
 #include <variant>
 
 namespace sfFDN
 {
-
-struct DelayTimeVaryingConfig
-{
-    float delay;
-    uint32_t max_delay;
-    sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::Allpass};
-    float lfo_frequencies;
-    float lfo_amplitudes;
-    float lfo_initial_phases;
-};
 
 class DelayTimeVarying : public AudioProcessor
 {

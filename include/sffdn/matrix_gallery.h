@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -13,30 +15,6 @@ namespace sfFDN
  * @brief A collection of functions to generate various types of feedback matrices.
  * @{
  */
-
-/** @brief Represents the type of a scalar matrix.
- *
- * [1] D. Rocchesso and J. O. Smith, “Circulant and elliptic feedback delay networks for artificial reverberation,” IEEE
- Transactions on Speech and Audio Processing, vol. 5, no. 1, pp. 51–63, Jan. 1997, doi: 10.1109/89.554269.\n
-* [2] S. J. Schlecht, “FDNTB: the feedback delay network toolbox,” 23rd International Conference on Digital Audio
-Effects (DAFx2020), 2020.\n
-* [3] O. Das, E. K. Canfield-Dafilou, and J. S. Abel, “On The Behavior of Delay Network Reverberator Modes,” in 2019
-IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (WASPAA), Oct. 2019, pp. 50–54.
-doi: 10.1109/WASPAA.2019.8937260.
-*/
-enum class ScalarMatrixType : uint8_t
-{
-    Identity = 0,          /**< Identity matrix. */
-    Random = 1,            /**< Random orthogonal matrix. */
-    Householder = 2,       /**< Householder matrix. */
-    RandomHouseholder = 3, /**< Random Householder matrix. */
-    Hadamard = 4,          /**< Hadamard matrix. */
-    Circulant = 5,         /**< Circulant matrix as described in [1] */
-    Allpass = 6,           /**< Allpass matrix. See [2]*/
-    NestedAllpass = 7,     /**< Nested Allpass matrix. See [2] */
-    VariableDiffusion = 8, /**< Variable diffusion matrix as described in [3] */
-    Count = 9
-};
 
 /** @brief Generates a square matrix of size mat_size x mat_size based on the specified type.
  * @param mat_size The size of the matrix (number of rows and columns).
@@ -65,8 +43,6 @@ std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint
 std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed = 0,
                                        std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());
-
-struct CascadedFeedbackMatrixInfo;
 
 /**
  * @brief Constructs a Cascaded feedback matrix.

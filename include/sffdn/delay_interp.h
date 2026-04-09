@@ -5,20 +5,13 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay.h"
 #include "sffdn/filter.h"
+#include "sffdn/types.h"
 
 #include <cstdint>
 #include <vector>
 
 namespace sfFDN
 {
-
-enum class DelayInterpolationType : uint8_t
-{
-    None,
-    Linear,
-    Allpass,
-    Lagrange,
-};
 
 /** @brief Delay line with interpolation. */
 class DelayInterp

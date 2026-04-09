@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_processor.h"
-#include "oscillator.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/oscillator.h"
+#include "sffdn/types.h"
 
 #include <cstdint>
 #include <span>
@@ -11,28 +12,6 @@
 
 namespace sfFDN
 {
-
-/** @brief Enumeration for parallel gain processing modes. */
-enum class ParallelGainsMode : uint8_t
-{
-    Split,   /** < Process input as a single channel and output to multiple channels */
-    Merge,   /** < Process each input channel separately and output to one channel */
-    Parallel /** < Process each input channel separately and output to the same number of channels */
-};
-
-struct TimeVaryingParallelGainsConfig
-{
-    std::vector<float> lfo_frequencies;
-    std::vector<float> lfo_amplitudes;
-    std::vector<float> lfo_phase_offsets;
-};
-
-struct ParallelGainsConfig
-{
-    ParallelGainsMode mode{ParallelGainsMode::Split};
-    std::vector<float> gains;
-    std::optional<TimeVaryingParallelGainsConfig> time_varying_config;
-};
 
 std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsConfig& config);
 
