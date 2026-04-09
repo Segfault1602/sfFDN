@@ -1,5 +1,6 @@
 #include "sffdn/delaybank.h"
 
+#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -13,7 +14,9 @@
 namespace sfFDN
 {
 
-DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
+DelayBank::DelayBank(std::span<const float> delays, uint32_t block_size, DelayInterpolationType interpolation_type)
+    : block_size_(block_size)
+    , interpolation_type_(interpolation_type)
 {
     for (auto delay : delays)
     {
@@ -23,33 +26,8 @@ DelayBank::DelayBank(std::span<const uint32_t> delays, uint32_t block_size)
             max_delay += 64 - (max_delay % 64);
         }
 
-        delays_.emplace_back(delay, max_delay);
+        delays_.emplace_back(delay, max_delay, interpolation_type_);
     }
-}
-
-DelayBank::DelayBank(const DelayBank& other)
-    : delays_(other.delays_)
-{
-}
-
-DelayBank& DelayBank::operator=(const DelayBank& other)
-{
-    if (this != &other)
-    {
-        delays_ = other.delays_;
-    }
-    return *this;
-}
-
-DelayBank::DelayBank(DelayBank&& other) noexcept
-    : delays_(std::move(other.delays_))
-{
-}
-
-DelayBank& DelayBank::operator=(DelayBank&& other) noexcept
-{
-    delays_ = std::move(other.delays_);
-    return *this;
 }
 
 void DelayBank::Clear()
@@ -70,8 +48,9 @@ uint32_t DelayBank::OutputChannelCount() const
     return delays_.size();
 }
 
-void DelayBank::SetDelays(const std::span<const uint32_t> delays, uint32_t block_size)
+void DelayBank::SetDelays(const std::span<const float> delays, uint32_t block_size)
 {
+    block_size_ = block_size;
     delays_.resize(delays.size());
     for (uint32_t i = 0; i < delays.size(); i++)
     {
@@ -80,9 +59,9 @@ void DelayBank::SetDelays(const std::span<const uint32_t> delays, uint32_t block
     }
 }
 
-std::vector<uint32_t> DelayBank::GetDelays() const
+std::vector<float> DelayBank::GetDelays() const
 {
-    std::vector<uint32_t> delays;
+    std::vector<float> delays;
     delays.reserve(delays_.size());
     for (const auto& delay : delays_)
     {
@@ -107,19 +86,9 @@ void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 void DelayBank::AddNextInputs(const AudioBuffer& input)
 {
     assert(input.ChannelCount() == delays_.size());
-    if (input.SampleCount() > 1)
+    for (uint32_t i = 0; i < delays_.size(); i++)
     {
-        for (uint32_t i = 0; i < delays_.size(); i++)
-        {
-            delays_[i].AddNextInputs(input.GetChannelSpan(i));
-        }
-    }
-    else
-    {
-        for (uint32_t i = 0; i < delays_.size(); i++)
-        {
-            delays_[i].Tick(input.GetChannelSpan(i)[0]);
-        }
+        delays_[i].AddNextInputs(input.GetChannelSpan(i));
     }
 }
 
@@ -127,25 +96,17 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
 {
     assert(output.ChannelCount() == delays_.size());
 
-    // if (output.SampleCount() > 1)
-    // {
     for (uint32_t i = 0; i < delays_.size(); i++)
     {
         delays_[i].GetNextOutputs(output.GetChannelSpan(i));
     }
-    // }
-    // else
-    // {
-    //     for (uint32_t i = 0; i < delays_.size(); i++)
-    //     {
-    //         output.GetChannelSpan(i)[0] = delays_[i].NextOut();
-    //     }
-    // }
 }
 
 std::unique_ptr<AudioProcessor> DelayBank::Clone() const
 {
-    auto clone = std::make_unique<DelayBank>(*this);
+    std::vector<float> delays = GetDelays();
+
+    auto clone = std::make_unique<DelayBank>(delays, block_size_, interpolation_type_);
     return clone;
 }
 
@@ -154,23 +115,19 @@ nlohmann::json DelayBank::ToJson() const
     nlohmann::json j;
     j["type"] = "DelayBank";
     j["delays"] = GetDelays();
+    j["block_size"] = block_size_;
+    j["interpolation_type"] = static_cast<uint8_t>(interpolation_type_);
     return j;
 }
 
 std::unique_ptr<DelayBank> DelayBank::FromJson(const nlohmann::json& j)
 {
-    if (!j.contains("type") || j["type"] != "DelayBank")
-    {
-        throw std::invalid_argument("JSON does not represent a DelayBank");
-    }
+    ThrowIfNotType(j, "DelayBank");
 
-    if (!j.contains("delays") || !j["delays"].is_array())
-    {
-        throw std::invalid_argument("DelayBank JSON must contain an array of delays");
-    }
-
-    std::vector<uint32_t> delays = j["delays"].get<std::vector<uint32_t>>();
-    return std::make_unique<DelayBank>(delays, 512);
+    std::vector<float> delays = j["delays"].get<std::vector<float>>();
+    uint32_t block_size = j["block_size"].get<uint32_t>();
+    DelayInterpolationType interpolation_type = static_cast<DelayInterpolationType>(j.value("interpolation_type", 0));
+    return std::make_unique<DelayBank>(delays, block_size, interpolation_type);
 }
 
 } // namespace sfFDN

@@ -70,7 +70,7 @@ TEST_CASE("Json_FDN", "[serialization]")
 
 TEST_CASE("Json_DelayBank", "[serialization]")
 {
-    std::vector<uint32_t> delays = {4, 7, 13, 23, 37, 61, 97, 151};
+    std::vector<float> delays = {4, 7, 13, 23, 37, 61, 97, 151};
     sfFDN::DelayBank delay_bank(delays, kBlockSize);
 
     nlohmann::json j = delay_bank.ToJson();
@@ -93,9 +93,46 @@ TEST_CASE("Json_FilterBank", "[serialization]")
 TEST_CASE("Json_FilterFeedbackMatrix", "[serialization]")
 {
     constexpr uint32_t kChannelCount = 4;
-    auto filter_feedback_matrix = CreateFFM(kChannelCount, 2, 1);
+    auto filter_feedback_matrix = CreateFFM(kChannelCount, 4, 1.5);
 
     nlohmann::json j = filter_feedback_matrix->ToJson();
     auto deserialized_filter_feedback_matrix = sfFDN::FilterFeedbackMatrix::FromJson(j);
     TestAudioProcessor(filter_feedback_matrix.get(), deserialized_filter_feedback_matrix.get());
+}
+
+TEST_CASE("Json_ParallelGains", "[serialization]")
+{
+    constexpr std::array<float, 4> gains = {0.5f, 1.0f, 1.5f, 2.0f};
+    {
+        auto parallel_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, gains);
+
+        nlohmann::json j = parallel_gains->ToJson();
+        auto deserialized_parallel_gains = sfFDN::ParallelGains::FromJson(j);
+        TestAudioProcessor(parallel_gains.get(), deserialized_parallel_gains.get());
+    }
+
+    {
+        auto parallel_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, gains);
+
+        nlohmann::json j = parallel_gains->ToJson();
+        auto deserialized_parallel_gains = sfFDN::ParallelGains::FromJson(j);
+        TestAudioProcessor(parallel_gains.get(), deserialized_parallel_gains.get());
+    }
+
+    {
+        auto parallel_gains = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, gains);
+
+        nlohmann::json j = parallel_gains->ToJson();
+        auto deserialized_parallel_gains = sfFDN::ParallelGains::FromJson(j);
+        TestAudioProcessor(parallel_gains.get(), deserialized_parallel_gains.get());
+    }
+}
+
+TEST_CASE("Json_CascadedBiquads", "[serialization]")
+{
+    auto tc_filter = GetDefaultTCFilter();
+
+    nlohmann::json j = tc_filter->ToJson();
+    auto deserialized_tc_filter = sfFDN::CascadedBiquads::FromJson(j);
+    TestAudioProcessor(tc_filter.get(), deserialized_tc_filter.get());
 }

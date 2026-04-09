@@ -25,11 +25,6 @@ class AudioProcessor
     AudioProcessor() = default;
     virtual ~AudioProcessor() = default;
 
-    AudioProcessor(const AudioProcessor&) = delete;
-    AudioProcessor& operator=(const AudioProcessor&) = delete;
-    AudioProcessor(AudioProcessor&&) = delete;
-    AudioProcessor& operator=(AudioProcessor&&) = delete;
-
     /** @brief Process audio buffers.
      * @param input The input audio buffer.
      * @param output The output audio buffer.

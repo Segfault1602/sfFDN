@@ -13,6 +13,7 @@
 #include "sffdn/sffdn.h"
 
 #include "sffdn/oscillator.h"
+#include "test_utils.h"
 
 TEST_CASE("SineWave")
 {
@@ -32,19 +33,7 @@ TEST_CASE("SineWave")
         sine_wave.Generate(block_span);
     }
 
-    SF_INFO sf_info;
-    sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
-    sf_info.channels = 1;
-    sf_info.samplerate = kSampleRate;
-    SNDFILE* file = sf_open("sine_wave.wav", SFM_WRITE, &sf_info);
-    if (file == nullptr)
-    {
-        std::print("Error opening file for writing: {}\n", sf_strerror(file));
-        return;
-    }
-
-    sf_writef_float(file, output.data(), kOutputSize);
-    sf_close(file);
+    WriteWavFile("sine_wave.wav", output);
 
     constexpr float kPhaseIncrement = kFrequency / kSampleRate;
     float phase = 0;
@@ -68,17 +57,5 @@ TEST_CASE("Noise")
         output[i] = rng();
     }
 
-    SF_INFO sf_info;
-    sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
-    sf_info.channels = 1;
-    sf_info.samplerate = kSampleRate;
-    SNDFILE* file = sf_open("rng_noise.wav", SFM_WRITE, &sf_info);
-    if (file == nullptr)
-    {
-        std::print("Error opening file for writing: {}\n", sf_strerror(file));
-        return;
-    }
-
-    sf_writef_float(file, output.data(), kOutputSize);
-    sf_close(file);
+    WriteWavFile("rng_noise.wav", output);
 }

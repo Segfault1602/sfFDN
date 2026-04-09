@@ -60,7 +60,7 @@ struct FDNConfig
     float direct_gain;
     std::vector<float> input_gains;                         // Input gains for each channel
     std::vector<float> output_gains;                        // Output gains for each channel
-    std::vector<uint32_t> delays;                           // Delay lengths in samples for each channel
+    std::vector<float> delays;                              // Delay lengths in samples for each channel
     matrix_variant_t matrix_info;                           // Info for feedback matrix
     attenuation_filter_variant_t attenuation_filter_config; // Configuration for attenuation filters
     std::vector<float> tc_gains;                            // Tone correction gains for each band
@@ -69,7 +69,7 @@ struct FDNConfig
     // Extras!
     // Input Stage
     bool use_extra_delays;
-    std::vector<uint32_t> input_stage_delays;
+    std::vector<float> input_stage_delays;
     std::optional<VelvetNoiseDecorrelatorConfig> input_velvet_decorrelator = std::nullopt;
     std::optional<VelvetNoiseDecorrelatorConfig> input_velvet_decorrelator_mc = std::nullopt;
     std::optional<SchroederAllpassConfig> input_series_schroeder_config = std::nullopt;

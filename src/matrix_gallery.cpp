@@ -498,7 +498,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         sparsity = 1.f;
     }
 
-    std::vector<std::vector<uint32_t>> delays;
+    std::vector<std::vector<float>> delays;
     std::vector<Eigen::MatrixXf> matrices;
 
     const Eigen::MatrixXf r0 = GenerateMatrixInternal(channel_count, type, 0);
@@ -519,10 +519,10 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         pulse_size = pulse_size * channel_count * sparsity_vec[i];
 
         matrices.push_back(r1);
-        std::vector<uint32_t> delays_stage;
+        std::vector<float> delays_stage;
         for (auto d : shift_left)
         {
-            delays_stage.push_back(static_cast<uint32_t>(d));
+            delays_stage.push_back(std::floor(d));
         }
         delays.push_back(delays_stage);
     }

@@ -43,8 +43,8 @@ enum class DelayLengthType : uint8_t
  *  @note While this method uses `min_delay` and `max_delay`, it does not guarantee that the delays will be within
     this range when using DelayLengthType::SteamAudio.
  */
-std::vector<uint32_t> GetDelayLengths(uint32_t delay_count, uint32_t min_delay, uint32_t max_delay,
-                                      DelayLengthType type, uint32_t seed = 0);
+std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float max_delay, DelayLengthType type,
+                                   uint32_t seed = 0);
 
 /**
  * @brief Generates a list of delay lengths logarithmically spaced around a mean value.
@@ -55,8 +55,8 @@ std::vector<uint32_t> GetDelayLengths(uint32_t delay_count, uint32_t min_delay, 
  * @param sample_rate the sample rate in Hz
  * @return std::vector<uint32_t> a vector containing the generated delay lengths
  */
-std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t delay_count, float mean_delay_ms, float sigma,
-                                              uint32_t sample_rate);
+std::vector<float> GetDelayLengthsFromMean(uint32_t delay_count, float mean_delay_ms, float sigma,
+                                           uint32_t sample_rate);
 
 /** @} */
 } // namespace sfFDN

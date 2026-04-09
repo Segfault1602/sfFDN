@@ -142,7 +142,8 @@ class FDN : public AudioProcessor
      * @return false if the delays could not be set. Happens if the size of the span does not match GetOrder() or if any
      * of the delay lengths are smaller than the block_size set in the constructor.
      */
-    bool SetDelays(const std::span<const uint32_t> delays);
+    bool SetDelays(const std::span<const float> delays,
+                   DelayInterpolationType interpolation_type = DelayInterpolationType::None);
 
     /** @brief Get the Delay Bank.
      * @returns A const reference to the Delay Bank.

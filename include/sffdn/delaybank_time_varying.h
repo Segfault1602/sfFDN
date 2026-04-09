@@ -5,6 +5,7 @@
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delay_time_varying.h"
+#include "filterbank.h"
 
 #include <cstdint>
 #include <span>
@@ -13,6 +14,16 @@
 namespace sfFDN
 {
 
+struct DelayBankTimeVaryingConfig
+{
+    std::vector<float> delays;
+    uint32_t max_delay;
+    DelayInterpolationType interpolation_type;
+    std::vector<float> mod_freqs;
+    std::vector<float> mod_depths;
+    std::vector<float> mod_phase_offsets;
+};
+
 /**
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
  * of audio with different delays.
@@ -20,44 +31,35 @@ namespace sfFDN
  *
  * @ingroup AudioProcessors
  */
-template <DelayInterpolationType type = DelayInterpolationType::Linear>
 class DelayBankTimeVarying : public AudioProcessor
 {
   public:
     /**
      * @brief Constructs a delay bank with a specified set of delays and maximum delay.
-     * @param delays A span of delay values for each channel.
-     * @param max_delay The maximum delay in samples.
+     * @param config The configuration for the delay bank.
      */
-    DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay);
+    DelayBankTimeVarying(const DelayBankTimeVaryingConfig& config);
 
     ~DelayBankTimeVarying() = default;
 
-    DelayBankTimeVarying(const DelayBankTimeVarying& other);
-    DelayBankTimeVarying& operator=(const DelayBankTimeVarying& other);
+    // /**
+    //  * @brief Sets the maximum delay for all delay lines in the bank.
+    //  * @param delay The maximum delay in samples.
+    //  * @param block_size The size of the audio blocks to be processed in the main loop.
+    //  * @note This can increase the size of the internal buffers if the new maximum delay is larger than the current
+    //  * buffer size.
+    //  * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
+    //  */
+    // void SetDelays(const std::span<const uint32_t> delays, uint32_t block_size = 512);
 
-    DelayBankTimeVarying(DelayBankTimeVarying&& other) noexcept;
-
-    DelayBankTimeVarying& operator=(DelayBankTimeVarying&& other) noexcept;
-
-    /**
-     * @brief Sets the maximum delay for all delay lines in the bank.
-     * @param delay The maximum delay in samples.
-     * @param block_size The size of the audio blocks to be processed in the main loop.
-     * @note This can increase the size of the internal buffers if the new maximum delay is larger than the current
-     * buffer size.
-     * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
-     */
-    void SetDelays(const std::span<const uint32_t> delays, uint32_t block_size = 512);
-
-    void SetMods(const std::span<const float> freqs, const std::span<const float> depths,
-                 const std::span<const float> phase_offsets = {});
+    // void SetMods(const std::span<const float> freqs, const std::span<const float> depths,
+    //              const std::span<const float> phase_offsets = {});
 
     /**
      * @brief Returns the current delays for each delay line in the bank.
      * @return A vector of delay values for each channel.
      */
-    std::vector<uint32_t> GetDelays() const;
+    std::vector<float> GetDelays() const;
 
     /**
      * @brief Returns the number of input channels this processor expects.
@@ -96,10 +98,8 @@ class DelayBankTimeVarying : public AudioProcessor
     nlohmann::json ToJson() const override;
 
   private:
-    std::vector<DelayTimeVarying<type>> delays_;
+    FilterBank delay_bank_;
+    DelayBankTimeVaryingConfig config_;
 };
-
-extern template class DelayBankTimeVarying<DelayInterpolationType::Linear>;
-extern template class DelayBankTimeVarying<DelayInterpolationType::Allpass>;
 
 } // namespace sfFDN

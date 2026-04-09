@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 #include "sffdn/delay_interp.h"
 #include "sffdn/oscillator.h"
 
@@ -9,13 +10,14 @@
 
 namespace sfFDN
 {
-template <DelayInterpolationType type>
-class DelayTimeVarying
+
+class DelayTimeVarying : public AudioProcessor
 {
   public:
-    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095);
+    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095,
+                     DelayInterpolationType type = DelayInterpolationType::Linear);
 
-    void Clear();
+    void Clear() override;
 
     void SetMaximumDelay(uint32_t delay);
 
@@ -27,20 +29,32 @@ class DelayTimeVarying
 
     float Tick(float input);
 
-    void Process(const AudioBuffer& input, AudioBuffer& output);
+    /**
+     * @brief Returns the number of input channels this processor expects.
+     * @return The number of input channels.
+     * @note This is equal to the number of delay lines in the bank.
+     */
+    uint32_t InputChannelCount() const override;
 
-    nlohmann::json ToJson() const;
+    /**
+     * @brief Returns the number of output channels this processor produces.
+     * @return The number of output channels.
+     * @note This is equal to the number of delay lines in the bank.
+     */
+    uint32_t OutputChannelCount() const override;
+
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
+
+    nlohmann::json ToJson() const override;
 
   private:
     void UpdateDelay();
-
     DelayInterp delay_;
     float base_delay_;
 
     SineWave lfo_;
 };
-
-extern template class DelayTimeVarying<DelayInterpolationType::Linear>;
-extern template class DelayTimeVarying<DelayInterpolationType::Allpass>;
 
 } // namespace sfFDN

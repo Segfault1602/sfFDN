@@ -322,12 +322,17 @@ TEST_CASE("ParallelSchroederAllpassSection")
     constexpr uint32_t kFilterOrder = 2;
 
     sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, kFilterOrder);
-    std::vector<uint32_t> delays =
+    auto delays =
         sfFDN::GetDelayLengths(kChannelCount * kFilterOrder, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
     std::array<float, kChannelCount * kFilterOrder> gains{};
     gains.fill(0.7f);
 
-    filter.SetDelays(delays);
+    std::vector<uint32_t> delays_int(delays.size());
+    for (size_t i = 0; i < delays.size(); ++i)
+    {
+        delays_int[i] = static_cast<uint32_t>(std::round(delays[i]));
+    }
+    filter.SetDelays(delays_int);
     filter.SetGains(gains);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
@@ -355,7 +360,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     for (uint32_t i = 0; i < kChannelCount; ++i)
     {
         auto allpass_section = std::make_unique<sfFDN::SchroederAllpassSection>(kFilterOrder);
-        allpass_section->SetDelays(std::span(delays).subspan(i * kFilterOrder, kFilterOrder));
+        allpass_section->SetDelays(std::span(delays_int).subspan(i * kFilterOrder, kFilterOrder));
         allpass_section->SetGains(std::span(gains).subspan(i * kFilterOrder, kFilterOrder));
         filter_bank.AddFilter(std::move(allpass_section));
     }

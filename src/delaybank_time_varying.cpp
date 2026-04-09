@@ -15,139 +15,69 @@
 namespace sfFDN
 {
 
-template <DelayInterpolationType type>
-DelayBankTimeVarying<type>::DelayBankTimeVarying(std::span<const float> delays, uint32_t max_delay)
+DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingConfig& config)
+    : config_(config)
 {
-    for (auto delay : delays)
+    // validate config
+    const uint32_t num_delays = config.delays.size();
+    if (config.mod_freqs.size() != num_delays || config.mod_depths.size() != num_delays ||
+        (!config.mod_phase_offsets.empty() && config.mod_phase_offsets.size() != num_delays))
     {
-        delays_.emplace_back(delay, max_delay);
+        throw std::invalid_argument(
+            "DelayBankTimeVarying: size of mod_freqs, mod_depths, and mod_phase_offsets must match number of delays");
+    }
+
+    for (uint32_t i = 0; i < num_delays; i++)
+    {
+        auto tv_delay =
+            std::make_unique<DelayTimeVarying>(config.delays[i], config.max_delay, config.interpolation_type);
+        tv_delay->SetMod(config.mod_freqs[i], config.mod_depths[i],
+                         config.mod_phase_offsets.empty() ? 0.0f : config.mod_phase_offsets[i]);
+        delay_bank_.AddFilter(std::move(tv_delay));
     }
 }
 
-template <DelayInterpolationType type>
-DelayBankTimeVarying<type>::DelayBankTimeVarying(const DelayBankTimeVarying& other)
-    : delays_(other.delays_)
+std::vector<float> DelayBankTimeVarying::GetDelays() const
 {
+    return config_.delays;
 }
 
-template <DelayInterpolationType type>
-DelayBankTimeVarying<type>& DelayBankTimeVarying<type>::operator=(const DelayBankTimeVarying& other)
+uint32_t DelayBankTimeVarying::InputChannelCount() const
 {
-    if (this != &other)
-    {
-        delays_ = other.delays_;
-    }
-    return *this;
+    return delay_bank_.InputChannelCount();
 }
 
-template <DelayInterpolationType type>
-DelayBankTimeVarying<type>::DelayBankTimeVarying(DelayBankTimeVarying<type>&& other) noexcept
-    : delays_(std::move(other.delays_))
+uint32_t DelayBankTimeVarying::OutputChannelCount() const
 {
+    return delay_bank_.OutputChannelCount();
 }
 
-template <DelayInterpolationType type>
-DelayBankTimeVarying<type>& DelayBankTimeVarying<type>::operator=(DelayBankTimeVarying<type>&& other) noexcept
+void DelayBankTimeVarying::Clear()
 {
-    delays_ = std::move(other.delays_);
-    return *this;
+    delay_bank_.Clear();
 }
 
-template <DelayInterpolationType type>
-void DelayBankTimeVarying<type>::SetDelays(const std::span<const uint32_t> delays, uint32_t block_size)
-{
-    delays_.resize(delays.size());
-    for (uint32_t i = 0; i < delays.size(); i++)
-    {
-        delays_[i].SetMaximumDelay(delays[i] + block_size);
-        delays_[i].SetDelay(delays[i]);
-    }
-}
-
-template <DelayInterpolationType type>
-void DelayBankTimeVarying<type>::SetMods(const std::span<const float> freqs, const std::span<const float> depths,
-                                         const std::span<const float> phase_offsets)
-{
-    if (freqs.size() != delays_.size() || depths.size() != delays_.size() ||
-        (!phase_offsets.empty() && phase_offsets.size() != delays_.size()))
-    {
-        throw std::invalid_argument("SetMods: size of freqs, depths, and phase_offsets must match number of delays");
-    }
-
-    for (uint32_t i = 0; i < delays_.size(); i++)
-    {
-        delays_[i].SetMod(freqs[i], depths[i], phase_offsets.empty() ? 0.0f : phase_offsets[i]);
-    }
-}
-
-template <DelayInterpolationType type>
-std::vector<uint32_t> DelayBankTimeVarying<type>::GetDelays() const
-{
-    std::vector<uint32_t> delays;
-    delays.reserve(delays_.size());
-    for (const auto& delay : delays_)
-    {
-        delays.push_back(delay.GetDelay());
-    }
-    return delays;
-}
-
-template <DelayInterpolationType type>
-uint32_t DelayBankTimeVarying<type>::InputChannelCount() const
-{
-    return delays_.size();
-}
-
-template <DelayInterpolationType type>
-uint32_t DelayBankTimeVarying<type>::OutputChannelCount() const
-{
-    return delays_.size();
-}
-
-template <DelayInterpolationType type>
-void DelayBankTimeVarying<type>::Clear()
-{
-    for (auto& delay : delays_)
-    {
-        delay.Clear();
-    }
-}
-
-template <DelayInterpolationType type>
-void DelayBankTimeVarying<type>::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayBankTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
-    assert(input.ChannelCount() == delays_.size());
+    assert(input.ChannelCount() == delay_bank_.InputChannelCount());
 
-    for (uint32_t i = 0; i < delays_.size(); i++)
-    {
-        auto output_buffer = output.GetChannelBuffer(i);
-        delays_[i].Process(input.GetChannelBuffer(i), output_buffer);
-    }
+    delay_bank_.Process(input, output);
 }
 
-template <DelayInterpolationType type>
-std::unique_ptr<AudioProcessor> DelayBankTimeVarying<type>::Clone() const
+std::unique_ptr<AudioProcessor> DelayBankTimeVarying::Clone() const
 {
-    auto clone = std::make_unique<DelayBankTimeVarying<type>>(*this);
+    auto clone = std::make_unique<DelayBankTimeVarying>(config_);
     return clone;
 }
 
-template <DelayInterpolationType type>
-nlohmann::json DelayBankTimeVarying<type>::ToJson() const
+nlohmann::json DelayBankTimeVarying::ToJson() const
 {
     nlohmann::json j;
     j["type"] = "DelayBankTimeVarying";
-    j["delays"] = nlohmann::json::array();
-    for (const auto& delay : delays_)
-    {
-        j["delays"].push_back(delay.ToJson());
-    }
+    j["delay_bank_"] = delay_bank_.ToJson();
     return j;
 }
-
-template class DelayBankTimeVarying<DelayInterpolationType::Linear>;
-template class DelayBankTimeVarying<DelayInterpolationType::Allpass>;
 
 } // namespace sfFDN

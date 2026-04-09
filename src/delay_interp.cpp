@@ -242,9 +242,7 @@ DelayInterp DelayInterp::FromJson(const nlohmann::json& j)
     uint32_t max_delay = j.at("max_delay").get<uint32_t>();
     DelayInterpolationType type = j.at("interpolation").get<DelayInterpolationType>();
 
-    DelayInterp delay_interp(delay, max_delay, type);
-
-    return delay_interp;
+    return DelayInterp{delay, max_delay, type};
 }
 
 } // namespace sfFDN

@@ -75,7 +75,7 @@ FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
 {
     input_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Split, 0.5f);
     output_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Merge, 0.5f);
-    delay_bank_.SetDelays(std::vector<uint32_t>(order, 500), block_size_);
+    delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
 }
 
 FDN::FDN(FDN&& other) noexcept
@@ -131,7 +131,7 @@ void FDN::SetOrder(uint32_t order)
     feedback_.resize(order * block_size_, 0.f);
     temp_buffer_.resize(order * block_size_, 0.f);
 
-    delay_bank_.SetDelays(std::vector<uint32_t>(order, 500), block_size_);
+    delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
     filter_bank_ = nullptr;
 
     SetFeedbackMatrix(std::make_unique<ScalarFeedbackMatrix>(order));
@@ -243,7 +243,7 @@ AudioProcessor* FDN::GetFilterBank() const
     return filter_bank_.get();
 }
 
-bool FDN::SetDelays(const std::span<const uint32_t> delays)
+bool FDN::SetDelays(const std::span<const float> delays, DelayInterpolationType interpolation_type)
 {
     for (const auto& delay : delays)
     {
@@ -266,7 +266,8 @@ bool FDN::SetDelays(const std::span<const uint32_t> delays)
         return false;
     }
 
-    delay_bank_.SetDelays(delays, block_size_);
+    delay_bank_ = DelayBank(delays, block_size_, interpolation_type);
+
     return true;
 }
 

@@ -46,7 +46,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "DelayLagrange"
+                "DelayBank"
             ],
             "MIMode": "lldb",
             "cwd": "${workspaceFolder}",

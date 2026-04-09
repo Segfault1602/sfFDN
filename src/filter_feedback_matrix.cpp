@@ -41,23 +41,28 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& inf
     }
 }
 
-FilterFeedbackMatrix::FilterFeedbackMatrix(const FilterFeedbackMatrix& other)
-    : channel_count_(other.channel_count_)
-    , delaybanks_(other.delaybanks_)
-    , matrix_(other.matrix_)
+FilterFeedbackMatrix::FilterFeedbackMatrix()
+    : channel_count_(0)
 {
 }
 
-FilterFeedbackMatrix& FilterFeedbackMatrix::operator=(const FilterFeedbackMatrix& other)
-{
-    if (this != &other)
-    {
-        channel_count_ = other.channel_count_;
-        delaybanks_ = other.delaybanks_;
-        matrix_ = other.matrix_;
-    }
-    return *this;
-}
+// FilterFeedbackMatrix::FilterFeedbackMatrix(const FilterFeedbackMatrix& other)
+//     : channel_count_(other.channel_count_)
+//     , delaybanks_(other.delaybanks_)
+//     , matrix_(other.matrix_)
+// {
+// }
+
+// FilterFeedbackMatrix& FilterFeedbackMatrix::operator=(const FilterFeedbackMatrix& other)
+// {
+//     if (this != &other)
+//     {
+//         channel_count_ = other.channel_count_;
+//         delaybanks_ = other.delaybanks_;
+//         matrix_ = other.matrix_;
+//     }
+//     return *this;
+// }
 
 FilterFeedbackMatrix::FilterFeedbackMatrix(FilterFeedbackMatrix&& other) noexcept
     : channel_count_(other.channel_count_)
@@ -138,7 +143,18 @@ bool FilterFeedbackMatrix::GetFirstMatrix(std::span<float> matrix) const
 
 std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
 {
-    auto clone = std::make_unique<FilterFeedbackMatrix>(*this);
+    auto clone = std::unique_ptr<FilterFeedbackMatrix>(new FilterFeedbackMatrix());
+    clone->channel_count_ = channel_count_;
+
+    clone->matrix_ = matrix_;
+
+    // TODO: fix me
+    // for (const auto& delaybank : delaybanks_)
+    // {
+    //     auto clone_delaybank = delaybank.Clone();
+    //     clone->delaybanks_.emplace_back(std::move(*clone_delaybank));
+    // }
+
     return clone;
 }
 
@@ -179,12 +195,8 @@ std::unique_ptr<FilterFeedbackMatrix> FilterFeedbackMatrix::FromJson(const nlohm
         matrices.emplace_back(*ScalarFeedbackMatrix::FromJson(matrix_json));
     }
 
-    // Create a dummy CascadedFeedbackMatrixInfo to construct the FilterFeedbackMatrix, then replace the delaybanks and
-    // matrices with the deserialized ones.
-    CascadedFeedbackMatrixInfo info =
-        ConstructCascadedFeedbackMatrix(channel_count, delaybanks.size(), 1.f, ScalarMatrixType::Identity);
-
-    auto filter_feedback_matrix = std::make_unique<FilterFeedbackMatrix>(info);
+    auto filter_feedback_matrix = std::unique_ptr<FilterFeedbackMatrix>(new FilterFeedbackMatrix());
+    filter_feedback_matrix->channel_count_ = channel_count;
     filter_feedback_matrix->delaybanks_ = std::move(delaybanks);
     filter_feedback_matrix->matrix_ = std::move(matrices);
     return filter_feedback_matrix;

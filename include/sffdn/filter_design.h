@@ -117,7 +117,7 @@ std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, s
  * @return A unique pointer to the created FilterBank processor containing the attenuation filters.
  */
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_variant_t variant_config,
-                                                            std::span<const uint32_t> delays, float sample_rate);
+                                                            std::span<const float> delays, float sample_rate);
 
 /** @} */
 } // namespace sfFDN

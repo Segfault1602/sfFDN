@@ -23,7 +23,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
                                                           -0.38236806f, -0.057921566f, -0.39115807f};
     constexpr std::array<float, kFDNOrder> kOutputGains = {-0.46316639f, -0.36613876f, 0.30902779f,
                                                            0.30143532f,  -0.49200505f, 0.58704174f};
-    constexpr std::array<uint32_t, kFDNOrder> kDelays = {593, 743, 929, 1153, 1399, 1699};
+    constexpr std::array<float, kFDNOrder> kDelays = {593, 743, 929, 1153, 1399, 1699};
 
     constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {
         0.590748429298401f,  0.457586556673050f,  0.0557801127433777f, -0.148047655820847f,  -0.478258520364761f,

@@ -134,7 +134,12 @@ class Fir::FirImpl
 
     void SetCoefficients(std::span<const float> coeffs)
     {
+        if (coeffs.size() == 0)
+        {
+            throw std::invalid_argument("FirImpl: Tap length must be greater than zero");
+        }
         int tap_length = static_cast<int>(coeffs.size());
+
         int spec_size = 0;
         int buffer_size = 0;
         IppStatus status = ippsFIRSRGetSize(tap_length, ipp32f, &spec_size, &buffer_size);
@@ -200,9 +205,14 @@ class Fir::FirImpl
     std::unique_ptr<FirImpl> Clone() const
     {
         auto clone = std::make_unique<FirImpl>();
+
+        if (tap_length_ > 0 && taps_)
+        {
 #pragma clang unsafe_buffer_usage begin
-        clone->SetCoefficients(std::span<const float>(taps_, tap_length_));
+            clone->SetCoefficients(std::span<const float>(taps_, tap_length_));
 #pragma clang unsafe_buffer_usage end
+        }
+
         return clone;
     }
 

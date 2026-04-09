@@ -14,6 +14,8 @@
 #include "sffdn/parallel_gains.h"
 #include "sffdn/sffdn.h"
 
+#include "test_utils.h"
+
 TEST_CASE("ParallelGainsInput")
 {
     constexpr uint32_t kChannelCount = 4;
@@ -173,28 +175,4 @@ TEST_CASE("TimeVaryingParallelGainsInput")
     sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
     tv_parallel_gains.Process(input_buffer, output_buffer);
-
-    SF_INFO sf_info;
-    sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
-    sf_info.channels = kChannelCount;
-    sf_info.samplerate = kSampleRate;
-
-    SNDFILE* file = sf_open("tv_gains.wav", SFM_WRITE, &sf_info);
-    if (file == nullptr)
-    {
-        std::cerr << "Error opening file for writing: " << sf_strerror(file) << "\n";
-        return;
-    }
-
-    for (auto i = 0u; i < kBlockSize; ++i)
-    {
-        std::array<float, kChannelCount> frame{};
-        for (auto j = 0u; j < kChannelCount; ++j)
-        {
-            frame[j] = output_buffer.GetChannelSpan(j)[i];
-        }
-        sf_writef_float(file, frame.data(), 1);
-    }
-
-    sf_close(file);
 }

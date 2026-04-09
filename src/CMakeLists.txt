@@ -20,7 +20,6 @@ target_sources(
     PRIVATE audio_buffer.cpp
             audio_processor.cpp
             array_math.cpp
-            # vdsp_array_math.cpp
             cascaded_filter.cpp
             circular_buffer.cpp
             delay.cpp

@@ -30,15 +30,10 @@ class DelayBank : public AudioProcessor
      * @param block_size The size of the audio blocks to be processed in the main loop.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
-    DelayBank(std::span<const uint32_t> delays, uint32_t block_size);
+    DelayBank(std::span<const float> delays, uint32_t block_size,
+              DelayInterpolationType interpolation_type = DelayInterpolationType::None);
 
     ~DelayBank() = default;
-
-    DelayBank(const DelayBank&);
-    DelayBank& operator=(const DelayBank&);
-
-    DelayBank(DelayBank&&) noexcept;
-    DelayBank& operator=(DelayBank&&) noexcept;
 
     /**
      * @brief Sets the maximum delay for all delay lines in the bank.
@@ -48,13 +43,13 @@ class DelayBank : public AudioProcessor
      * buffer size.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
-    void SetDelays(const std::span<const uint32_t> delays, uint32_t block_size = 512);
+    void SetDelays(const std::span<const float> delays, uint32_t block_size = 512);
 
     /**
      * @brief Returns the current delays for each delay line in the bank.
      * @return A vector of delay values for each channel.
      */
-    std::vector<uint32_t> GetDelays() const;
+    std::vector<float> GetDelays() const;
 
     /**
      * @brief Returns the number of input channels this processor expects.
@@ -110,5 +105,7 @@ class DelayBank : public AudioProcessor
 
   private:
     std::vector<DelayInterp> delays_;
+    uint32_t block_size_;
+    DelayInterpolationType interpolation_type_;
 };
 } // namespace sfFDN

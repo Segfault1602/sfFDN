@@ -412,7 +412,7 @@ std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, s
 }
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_variant_t variant_config,
-                                                            std::span<const uint32_t> delays, float sample_rate)
+                                                            std::span<const float> delays, float sample_rate)
 {
     return std::visit(
         [&](auto&& config) -> std::unique_ptr<AudioProcessor> {
@@ -502,75 +502,6 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_v
             }
         },
         variant_config);
-
-    /**
-if (t60s.size() == 1) // Proportional attenuation
-{
-    const auto feedback_gain = Db2Mag(RT602Slope(t60s[0], sample_rate));
-    std::vector<float> proportional_fb_gains(delays.size(), 0.f);
-    for (size_t i = 0; i < delays.size(); ++i)
-    {
-        proportional_fb_gains[i] = std::powf(feedback_gain, static_cast<float>(delays[i]));
-    }
-
-    return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, proportional_fb_gains);
-}
-
-if (t60s.size() == 2) // One-pole absorption filter
-{
-    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto delay : delays)
-    {
-        auto onepole_filter = std::make_unique<sfFDN::OnePoleFilter>();
-        onepole_filter->SetT60s(t60s[0], t60s[1], delay, sample_rate);
-        filter_bank->AddFilter(std::move(onepole_filter));
-    }
-
-    return filter_bank;
-}
-
-if (t60s.size() == 3) // Three-band absorption filter
-{
-    ThreeBandAbsorptionParams params{.t60_dc = t60s[0],
-                                     .t60_mid = t60s[1],
-                                     .t60_ny = t60s[2],
-                                     .low_shelf_cutoff = 300.f,
-                                     .high_shelf_cutoff = 8000.f,
-                                     .q = 1.f / std::numbers::sqrt2_v<float>,
-                                     .sample_rate = sample_rate};
-    if (freqs.size() == 2)
-    {
-        params.low_shelf_cutoff = freqs[0];
-        params.high_shelf_cutoff = freqs[1];
-    }
-
-    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto delay : delays)
-    {
-        auto sos = DesignThreeBandAbsorption(params, delay);
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-        filter->SetCoefficients(sos.size() / 6, sos);
-        filter_bank->AddFilter(std::move(filter));
-    }
-
-    return filter_bank;
-}
-
-if (t60s.size() == 10) // Two-filter attenuation
-{
-    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-    for (auto delay : delays)
-    {
-        std::vector<float> sos = GetTwoFilter(t60s, static_cast<float>(delay), sample_rate);
-        const size_t num_stages = sos.size() / 6;
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-        filter->SetCoefficients(num_stages, sos);
-        filter_bank->AddFilter(std::move(filter));
-    }
-
-    return filter_bank;
-}
-    */
 
     return nullptr;
 }

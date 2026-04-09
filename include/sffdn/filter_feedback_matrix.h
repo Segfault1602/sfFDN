@@ -17,10 +17,10 @@ namespace sfFDN
  */
 struct CascadedFeedbackMatrixInfo
 {
-    uint32_t channel_count;                    /**< Number of channels */
-    uint32_t stage_count;                      /**< Number of stages */
-    std::vector<std::vector<uint32_t>> delays; /**< Delays, size: stage_count x N */
-    std::vector<std::vector<float>> matrices;  /**< Feedback matrices, size: K x N x N */
+    uint32_t channel_count;                   /**< Number of channels */
+    uint32_t stage_count;                     /**< Number of stages */
+    std::vector<std::vector<float>> delays;   /**< Delays, size: stage_count x N */
+    std::vector<std::vector<float>> matrices; /**< Feedback matrices, size: K x N x N */
 };
 
 /**
@@ -44,8 +44,9 @@ class FilterFeedbackMatrix : public AudioProcessor
     FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info);
 
     ~FilterFeedbackMatrix() override = default;
-    FilterFeedbackMatrix(const FilterFeedbackMatrix& other);
-    FilterFeedbackMatrix& operator=(const FilterFeedbackMatrix& other);
+
+    FilterFeedbackMatrix(const FilterFeedbackMatrix& other) = delete;
+    FilterFeedbackMatrix& operator=(const FilterFeedbackMatrix& other) = delete;
     FilterFeedbackMatrix(FilterFeedbackMatrix&& other) noexcept;
     FilterFeedbackMatrix& operator=(FilterFeedbackMatrix&& other) noexcept;
 
@@ -101,6 +102,8 @@ class FilterFeedbackMatrix : public AudioProcessor
     uint32_t channel_count_;
     std::vector<DelayBank> delaybanks_;
     std::vector<ScalarFeedbackMatrix> matrix_;
+
+    FilterFeedbackMatrix();
 };
 
 } // namespace sfFDN

@@ -238,7 +238,6 @@ void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<
 
 void Delay::GetNextOutputs(std::span<float> output)
 {
-
     std::span<float> buffer = GetNextOutputBuffers(output.size());
 
     int sample_written = 0;

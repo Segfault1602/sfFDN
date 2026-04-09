@@ -164,8 +164,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
     bench.relative(true);
     bench.timeUnit(1us, "us");
 
-#if 0
-    sfFDN::DelayTimeVarying<sfFDN::DelayInterpolationType::Linear> delay_time_varying(kDelay, kMaxDelay);
+    sfFDN::DelayTimeVarying delay_time_varying(kDelay, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
     delay_time_varying.SetMod(0.001f, 16.f);
 
     bench.minEpochIterations(50000);
@@ -186,7 +185,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
         nanobench::doNotOptimizeAway(output_buffer);
     });
 
-    sfFDN::DelayTimeVarying<sfFDN::DelayInterpolationType::Allpass> delay_time_varying_ap(kDelay, kMaxDelay);
+    sfFDN::DelayTimeVarying delay_time_varying_ap(kDelay, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
     delay_time_varying_ap.SetMod(0.001f, 16.f);
     bench.minEpochIterations(10000);
     bench.run("DelayTimeVarying Tick (allpass)", [&] {
@@ -198,9 +197,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
         nanobench::doNotOptimizeAway(input);
         nanobench::doNotOptimizeAway(output);
     });
-#endif
-    sfFDN::DelayTimeVarying<sfFDN::DelayInterpolationType::Allpass> delay_time_varying_ap(kDelay, kMaxDelay);
-    delay_time_varying_ap.SetMod(0.001f, 16.f);
+
     bench.minEpochIterations(200000);
     bench.run("DelayTimeVarying block (allpass)", [&] {
         delay_time_varying_ap.Process(input_buffer, output_buffer);
@@ -212,8 +209,8 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
 TEST_CASE("DelayBank")
 {
     constexpr uint32_t kChannelCount = 16;
-    constexpr std::array<uint32_t, kChannelCount> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
-                                                             3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
+    constexpr std::array<float, kChannelCount> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
+                                                          3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
 
     constexpr uint32_t kBlockSize = 128;
 
@@ -244,8 +241,8 @@ TEST_CASE("DelayBank")
 TEST_CASE("DelayBank_BlockSize")
 {
     constexpr uint32_t kChannelCount = 16;
-    constexpr std::array<uint32_t, kChannelCount> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
-                                                             3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
+    constexpr std::array<float, kChannelCount> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
+                                                          3253, 3343, 3547, 3559, 4483, 4507, 4663, 5483};
 
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     constexpr uint32_t kInputSize = 1 << 12;

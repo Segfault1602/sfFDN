@@ -9,10 +9,10 @@
 
 #include "filter_coeffs.h"
 
-std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32_t stage_count, uint32_t sparsity)
+std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32_t stage_count, float sparsity)
 {
     sfFDN::CascadedFeedbackMatrixInfo info = sfFDN::ConstructCascadedFeedbackMatrix(
-        mat_size, stage_count, static_cast<float>(sparsity), sfFDN::ScalarMatrixType::Hadamard, 1.0f);
+        mat_size, stage_count, sparsity, sfFDN::ScalarMatrixType::Hadamard, 1.0f);
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info);
     return ffm;
@@ -54,11 +54,11 @@ std::unique_ptr<sfFDN::ParallelGains> GetDefaultOutputGains(uint32_t count)
     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, output_gains);
 }
 
-std::vector<uint32_t> GetDefaultDelays(uint32_t count)
+std::vector<float> GetDefaultDelays(uint32_t count)
 {
-    std::vector<uint32_t> delays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593, 3253, 3343, 3547,
-                                    3559, 4483, 4507, 4663, 5483, 5801, 6863, 6917, 6983, 7457, 7481,
-                                    7759, 8081, 8269, 8737, 8747, 8863, 8929, 9437, 9643, 9677};
+    std::vector<float> delays = {1123.f, 1291.f, 1627.f, 1741.f, 1777.f, 2099.f, 2341.f, 2593.f, 3253.f, 3343.f, 3547.f,
+                                 3559.f, 4483.f, 4507.f, 4663.f, 5483.f, 5801.f, 6863.f, 6917.f, 6983.f, 7457.f, 7481.f,
+                                 7759.f, 8081.f, 8269.f, 8737.f, 8747.f, 8863.f, 8929.f, 9437.f, 9643.f, 9677.f};
 
     if (count > delays.size())
     {
@@ -121,13 +121,20 @@ std::vector<float> ReadWavFile(const std::string& filename)
 
 void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 {
+
+    constexpr std::string_view kOutputDir = "test_outputs";
+    // Create the output directory if it doesn't exist
+    std::filesystem::create_directories(kOutputDir);
+
+    std::filesystem::path output_path = std::filesystem::path(kOutputDir) / filename;
+
     SF_INFO sfinfo;
     sfinfo.frames = data.size();
     sfinfo.samplerate = 48000; // Default sample rate
     sfinfo.channels = 1;       // Mono
     sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
 
-    SNDFILE* file = sf_open(filename.c_str(), SFM_WRITE, &sfinfo);
+    SNDFILE* file = sf_open(output_path.string().c_str(), SFM_WRITE, &sfinfo);
     if (file == nullptr)
     {
         throw std::runtime_error("Failed to open WAV file for writing: " + filename);

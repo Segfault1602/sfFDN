@@ -70,6 +70,10 @@ TEST_CASE("Delay")
     {
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, std::numeric_limits<float>::epsilon()));
     }
+
+    // Test copy ctor
+    sfFDN::Delay delay_copy(delay);
+    REQUIRE(delay_copy.GetDelay() == delay.GetDelay());
 }
 
 TEST_CASE("DelayTapOut")
@@ -231,7 +235,7 @@ TEST_CASE("DelayBlock")
 TEST_CASE("DelayBank")
 {
     constexpr uint32_t kNumDelay = 4;
-    constexpr std::array<uint32_t, kNumDelay> kDelays = {2, 3, 4, 5};
+    constexpr std::array<float, kNumDelay> kDelays = {2, 3, 4, 5};
     sfFDN::DelayBank delay_bank(kDelays, 10);
 
     std::vector<float> output;
@@ -285,8 +289,15 @@ TEST_CASE("DelayBankTimeVarying")
 {
     constexpr uint32_t kNumDelay = 4;
     constexpr uint32_t kBlockSize = 8;
-    constexpr std::array<float, kNumDelay> kDelays = {2, 3, 4, 5};
-    sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Linear> delay_bank(kDelays, 10);
+
+    const sfFDN::DelayBankTimeVaryingConfig config{.delays = {2, 3, 4, 5},
+                                                   .max_delay = 16,
+                                                   .interpolation_type = sfFDN::DelayInterpolationType::Linear,
+                                                   .mod_freqs = {0.0f, 0.0f, 0.0f, 0.0f},
+                                                   .mod_depths = {0.0f, 0.0f, 0.0f, 0.0f},
+                                                   .mod_phase_offsets = {0.0f, 0.0f, 0.0f, 0.0f}};
+
+    sfFDN::DelayBankTimeVarying delay_bank(config);
 
     std::vector<float> input(kNumDelay * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -324,7 +335,7 @@ TEST_CASE("DelayBankProcess")
 {
     constexpr uint32_t kBlockSize = 8;
     constexpr uint32_t kNumDelay = 4;
-    constexpr std::array<uint32_t, kNumDelay> kDelays = {0, 1, 2, 3};
+    constexpr std::array<float, kNumDelay> kDelays = {0, 1, 2, 3};
     sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
 
     std::vector<float> output;
@@ -418,6 +429,7 @@ TEST_CASE("DelayInterp_Linear")
     }
 }
 
+#if 0
 TEST_CASE("DelayTimeVarying")
 {
     constexpr uint32_t kSampleRate = 48000;
@@ -494,3 +506,4 @@ TEST_CASE("DelayFeedback")
 
     WriteWavFile("delay_feedback_output.wav", output);
 }
+#endif

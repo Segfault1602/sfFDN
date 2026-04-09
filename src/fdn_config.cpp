@@ -3,7 +3,6 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_matrix.h"
 #include "sffdn/delaybank.h"
-#include "sffdn/delaybank_time_varying.h"
 #include "sffdn/fdn.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/filter.h"
@@ -398,7 +397,7 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
 
     if (j.contains("delays"))
     {
-        std::vector<uint32_t> delays;
+        std::vector<float> delays;
         j.at("delays").get_to(delays);
 
         if (delays.size() != p.N)
@@ -514,16 +513,16 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
 
     // If we have a cascaded feedback matrix, we need to adjust the attenuation filter to take into account the extra
     // delays
-    std::vector<uint32_t> adjusted_delays = config.delays;
+    std::vector<float> adjusted_delays = config.delays;
     std::visit(
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
             {
-                uint32_t extra_delay = 0;
+                float extra_delay = 0;
                 for (auto stage_delay : arg.delays)
                 {
-                    const uint32_t max_stage_delay = *std::ranges::max_element(stage_delay);
+                    const float max_stage_delay = *std::ranges::max_element(stage_delay);
                     extra_delay += max_stage_delay;
                 }
                 extra_delay /= 2;
@@ -571,26 +570,29 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
             base_delays[ch] = std::ceil(config.time_varying_delays->lfo_amplitudes[ch]) + 1.f;
         }
 
-        if (config.time_varying_delays->interp_type == DelayInterpolationType::Linear)
-        {
-            auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Linear>>(
-                base_delays, max_delay);
+        // TODO: Fix this
+        // if (config.time_varying_delays->interp_type == DelayInterpolationType::Linear)
+        // {
+        //     auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Linear>>(
+        //         base_delays, max_delay);
 
-            tv_delay->SetMods(config.time_varying_delays->lfo_frequencies, config.time_varying_delays->lfo_amplitudes,
-                              config.time_varying_delays->lfo_initial_phases);
+        //     tv_delay->SetMods(config.time_varying_delays->lfo_frequencies,
+        //     config.time_varying_delays->lfo_amplitudes,
+        //                       config.time_varying_delays->lfo_initial_phases);
 
-            chain_processor->AddProcessor(std::move(tv_delay));
-        }
-        else if (config.time_varying_delays->interp_type == DelayInterpolationType::Allpass)
-        {
-            auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Allpass>>(
-                base_delays, max_delay);
+        //     chain_processor->AddProcessor(std::move(tv_delay));
+        // }
+        // else if (config.time_varying_delays->interp_type == DelayInterpolationType::Allpass)
+        // {
+        //     auto tv_delay = std::make_unique<sfFDN::DelayBankTimeVarying<sfFDN::DelayInterpolationType::Allpass>>(
+        //         base_delays, max_delay);
 
-            tv_delay->SetMods(config.time_varying_delays->lfo_frequencies, config.time_varying_delays->lfo_amplitudes,
-                              config.time_varying_delays->lfo_initial_phases);
+        //     tv_delay->SetMods(config.time_varying_delays->lfo_frequencies,
+        //     config.time_varying_delays->lfo_amplitudes,
+        //                       config.time_varying_delays->lfo_initial_phases);
 
-            chain_processor->AddProcessor(std::move(tv_delay));
-        }
+        //     chain_processor->AddProcessor(std::move(tv_delay));
+        // }
     }
 
     if (chain_processor->GetProcessorCount() > 0)

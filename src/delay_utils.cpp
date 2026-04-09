@@ -43,10 +43,10 @@ std::vector<uint32_t> GeneratePrimes(uint32_t max)
 namespace sfFDN
 {
 
-std::vector<uint32_t> GetDelayLengths(uint32_t delay_count, uint32_t min_delay, uint32_t max_delay,
-                                      DelayLengthType type, uint32_t seed)
+std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float max_delay, DelayLengthType type,
+                                   uint32_t seed)
 {
-    std::vector<uint32_t> delays(delay_count, min_delay);
+    std::vector<float> delays(delay_count, static_cast<float>(min_delay));
     switch (type)
     {
     case DelayLengthType::Random:
@@ -165,8 +165,7 @@ std::vector<uint32_t> GetDelayLengths(uint32_t delay_count, uint32_t min_delay, 
     return delays;
 }
 
-std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t delay_count, float mean_delay_ms, float sigma,
-                                              uint32_t sample_rate)
+std::vector<float> GetDelayLengthsFromMean(uint32_t delay_count, float mean_delay_ms, float sigma, uint32_t sample_rate)
 {
     std::vector<float> m_n(delay_count);
     for (uint32_t n = 0; n < delay_count; ++n)
@@ -182,10 +181,10 @@ std::vector<uint32_t> GetDelayLengthsFromMean(uint32_t delay_count, float mean_d
         m_n[n] = mean_delay_ms * std::exp(m_n[n] / std::log(3.f));
     }
 
-    std::vector<uint32_t> delays(delay_count);
+    std::vector<float> delays(delay_count);
     for (uint32_t n = 0; n < delay_count; ++n)
     {
-        delays[n] = static_cast<uint32_t>(std::round(m_n[n] * sample_rate / 1000.0f));
+        delays[n] = std::round(m_n[n] * sample_rate / 1000.0f);
     }
 
     return delays;
