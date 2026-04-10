@@ -68,10 +68,16 @@ TEST_CASE("IIRFilterBankPerf")
     constexpr std::array<float, 10> kRT60s = {2.f, 2.1f, 2.5f, 2.f, 1.5f, 1.f, 0.8f, 0.5f, 0.3f, 0.21f};
     auto delays = sfFDN::GetDelayLengths(kChannelCount, 500, 5000, sfFDN::DelayLengthType::Uniform);
 
+    sfFDN::TenBandFilterConfig config;
+    config.t60s = kRT60s;
+    config.sample_rate = kSampleRate;
+    config.shelf_cutoff = 8000.0f;
+
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (auto i = 0u; i < kChannelCount; i++)
     {
-        auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
+        config.delay = delays[i];
+        auto filter_coeffs = sfFDN::GetTwoFilter(config);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         filter->SetCoefficients(filter_coeffs);
@@ -102,9 +108,11 @@ TEST_CASE("IIRFilterBankPerf")
 
     auto iir_filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
     std::vector<sfFDN::FilterCoefficients> coeffs;
+
     for (auto i = 0u; i < kChannelCount; i++)
     {
-        auto filter_coeffs = sfFDN::GetTwoFilter(kRT60s, delays[i], kSampleRate);
+        config.delay = delays[i];
+        auto filter_coeffs = sfFDN::GetTwoFilter(config);
         coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
     }
     iir_filter_bank->SetFilter(coeffs, kChannelCount);
@@ -289,19 +297,18 @@ TEST_CASE("FirFilterSparse")
     for (const auto& fir_size : kFirSizes)
     {
         std::uniform_int_distribution<> distribution(0, fir_size - 1);
-        std::vector<float> ir;
-        std::vector<uint32_t> indices;
+
+        sfFDN::SparseFirConfig sparse_fir_config;
 
         for (auto i = 0u; i < kFirTapCount; i++)
         {
-            ir.push_back(rng());
-            // auto idx = distribution(gen);
-            // indices.insert(std::upper_bound(indices.begin(), indices.end(), idx), idx);
-            indices.push_back(i * (fir_size / kFirTapCount));
+            auto coeff = rng();
+            auto index = i * (fir_size / kFirTapCount);
+            sparse_fir_config.coeffs.emplace_back(index, coeff);
         }
 
         sfFDN::SparseFir filter;
-        filter.SetCoefficients(ir, indices);
+        filter.SetCoefficients(sparse_fir_config);
 
         constexpr uint32_t kSize = 128;
         std::array<float, kSize> input = {0.f};

@@ -50,7 +50,13 @@ TEST_CASE("TwoFilter")
         t60s_f[i] = static_cast<float>(kT60s[i]);
     }
 
-    auto float_coeffs = sfFDN::GetTwoFilter(t60s_f, kDelay, kSR, kShelfCutoff);
+    sfFDN::TenBandFilterConfig config;
+    config.t60s = t60s_f;
+    config.delay = kDelay;
+    config.sample_rate = kSR;
+    config.shelf_cutoff = kShelfCutoff;
+
+    auto float_coeffs = sfFDN::GetTwoFilter(config);
     for (auto i = 0u; i < float_coeffs.size(); ++i)
     {
         REQUIRE_THAT(float_coeffs[i].b0, Catch::Matchers::WithinAbs(kExpectedSOS.at(i * 6), 1e-7));
@@ -158,23 +164,16 @@ TEST_CASE("GraphicEQ")
 
 TEST_CASE("ThreeBandFilter")
 {
-    // constexpr float t60_dc = 2.f;
-    // constexpr float t60_mid = 1.f;
-    // constexpr float t60_ny = 0.5f;
     constexpr float kDelay = 1000.f;
-    // constexpr float sr = 48000.f;
-    sfFDN::ThreeBandAbsorptionParams params{.t60_dc = 2.f,
-                                            .t60_mid = 1.f,
-                                            .t60_ny = 0.5f,
-                                            .low_shelf_cutoff = 300.f,
-                                            .high_shelf_cutoff = 8000.f,
-                                            .q = 1.f / std::sqrt(2.f),
-                                            .sample_rate = 48000.f};
+    constexpr float sr = 48000.f;
+    sfFDN::ThreeBandFilterConfig config{{2.f, 1.f, 0.5f}, kDelay, {300.f, 8000.f}, 1.f / std::sqrt(2.f), sr};
 
-    auto sos = sfFDN::DesignThreeBandAbsorption(params, kDelay);
+    auto sos = sfFDN::DesignThreeBandAbsorption(config);
 
     for (auto i = 0u; i < sos.size(); ++i)
     {
-        sos[i].print();
+        std::cout << std::setprecision(3) << sos[i].b0 << ", " << std::setprecision(3) << sos[i].b1 << ", "
+                  << std::setprecision(3) << sos[i].b2 << ", " << std::setprecision(3) << sos[i].a0 << ", "
+                  << std::setprecision(3) << sos[i].a1 << ", " << std::setprecision(3) << sos[i].a2 << "\n";
     }
 }

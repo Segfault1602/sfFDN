@@ -16,16 +16,11 @@
 namespace sfFDN
 {
 
-OnePoleFilter::OnePoleFilter()
-    : b0_(1.0f)
-    , a1_(0.0f)
+OnePoleFilter::OnePoleFilter(float b0, float a1)
+    : b0_(b0)
+    , a1_(a1)
     , state_{0.0f, 0.0f}
 {
-}
-
-void OnePoleFilter::SetT60s(float dc, float ny, uint32_t delay, float sample_rate)
-{
-    GetOnePoleAbsorption(dc, ny, sample_rate, delay, b0_, a1_);
 }
 
 void OnePoleFilter::SetPole(float pole)
@@ -135,8 +130,8 @@ nlohmann::json OnePoleFilter::ToJson() const
     return j;
 }
 
-AllpassFilter::AllpassFilter()
-    : coeff_(0.0f)
+AllpassFilter::AllpassFilter(const AllpassFilterConfig& config)
+    : coeff_(config.coeff)
     , last_in_(0.0f)
     , last_out_(0.0f)
 {
@@ -187,12 +182,12 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
 
 uint32_t AllpassFilter::InputChannelCount() const
 {
-    return 1; // OnePoleFilter only supports single channel input
+    return 1; // AllpassFilter only supports single channel input
 }
 
 uint32_t AllpassFilter::OutputChannelCount() const
 {
-    return 1; // OnePoleFilter only supports single channel output
+    return 1; // AllpassFilter only supports single channel output
 }
 
 void AllpassFilter::Clear()

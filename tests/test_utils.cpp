@@ -84,7 +84,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
     fdn->SetDelays(GetDefaultDelays(fdn_order));
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrix(fdn_order, sfFDN::ScalarMatrixType::Householder));
+        sfFDN::ScalarFeedbackMatrix({fdn_order, sfFDN::ScalarMatrixType::Householder}));
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = GetFilterBank(fdn_order, 11);

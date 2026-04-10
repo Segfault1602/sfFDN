@@ -71,7 +71,7 @@ TEST_CASE("Json_FDN", "[serialization]")
 TEST_CASE("Json_DelayBank", "[serialization]")
 {
     std::vector<float> delays = {4, 7, 13, 23, 37, 61, 97, 151};
-    sfFDN::DelayBank delay_bank(delays, kBlockSize);
+    sfFDN::DelayBank delay_bank({delays, kBlockSize});
 
     nlohmann::json j = delay_bank.ToJson();
     auto deserialized_delay_bank = sfFDN::DelayBank::FromJson(j);

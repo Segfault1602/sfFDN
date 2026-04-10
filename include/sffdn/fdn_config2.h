@@ -16,15 +16,15 @@
 namespace sfFDN
 {
 
-using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixInfo, ScalarMatrixType, std::vector<float>>;
+using feedback_matrix_variant_t =
+    std::variant<CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig, std::vector<float>>;
 
 using multichannel_processor_variant_t =
     std::variant<ParallelGainsConfig, ParallelSchroederAllpassSectionConfig, AttenuationFilterBankConfig,
-                 DelayBankConfig, DelayBankTimeVaryingConfig, CascadedFeedbackMatrixInfo, ScalarMatrixType>;
+                 DelayBankConfig, DelayBankTimeVaryingConfig, CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig>;
 
 using single_channel_processor_variant_t =
-    std::variant<SchroederAllpassSectionConfig, OnePoleFilterConfig, AllpassFilterConfig, CascadedBiquadsConfig,
-                 FirConfig, DelayTimeVaryingConfig>;
+    std::variant<SchroederAllpassSectionConfig, AllpassFilterConfig, CascadedBiquadsConfig, FirConfig, DelayConfig>;
 
 struct FDNConfig2
 {

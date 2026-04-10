@@ -23,7 +23,7 @@ TEST_CASE("VelvetFFM")
     sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         kMatSize, kStageCount, kSparsity, sfFDN::ScalarMatrixType::Hadamard, kCascadeGain);
 
-    REQUIRE(ffm_info.channel_count == kMatSize);
+    REQUIRE(ffm_info.matrix_size == kMatSize);
     REQUIRE(ffm_info.stage_count == kStageCount);
     REQUIRE(ffm_info.delays.size() == kStageCount);
     REQUIRE(ffm_info.matrices.size() == kStageCount + 1);
@@ -84,7 +84,7 @@ TEST_CASE("IdentityMatrix")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
-    sfFDN::ScalarFeedbackMatrix mix_mat(kMatSize);
+    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize, sfFDN::ScalarMatrixType::Identity});
 
     std::array<float, kMatSize * kBlockSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
     std::array<float, kMatSize * kBlockSize> output{};
@@ -118,7 +118,7 @@ TEST_CASE("Householder")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Householder);
+    auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Householder});
 
     std::vector<float> input(kMatSize * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -167,7 +167,7 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_4")
     {
         constexpr uint32_t kMatSize = 4;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4};
         std::array<float, kMatSize> output{};
@@ -188,7 +188,7 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_8")
     {
         constexpr uint32_t kMatSize = 8;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
         std::array<float, kMatSize> output{};
@@ -210,7 +210,7 @@ TEST_CASE("FeedbackMatrixHadamard")
     SECTION("Hadamard_16")
     {
         constexpr uint32_t kMatSize = 16;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
         std::array<float, kMatSize> output{};
@@ -264,7 +264,7 @@ TEST_CASE("Hadamard_Block")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+    auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
 
     std::vector<float> input(kMatSize * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -298,7 +298,7 @@ TEST_CASE("MatrixAssignment")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
-    sfFDN::ScalarFeedbackMatrix mix_mat(kMatSize);
+    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize});
 
     std::array<float, kMatSize * kMatSize> matrix = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
@@ -317,7 +317,7 @@ TEST_CASE("RandomMatrix")
 {
     constexpr uint32_t kMatSize = 6;
 
-    sfFDN::ScalarFeedbackMatrix mix_mat(kMatSize, sfFDN::ScalarMatrixType::Random);
+    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize, sfFDN::ScalarMatrixType::Random});
 
     std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6};
     std::array<float, kMatSize> output = {0.f};
@@ -341,7 +341,7 @@ TEST_CASE("DelayMatrix")
     constexpr uint32_t kMatSize = 4;
     constexpr std::array<uint32_t, 16> kDelays = {11, 11, 2, 6, 10, 14, 17, 8, 2, 6, 19, 5, 10, 19, 1, 13};
     sfFDN::ScalarFeedbackMatrix mixing_matrix =
-        sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+        sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
     sfFDN::DelayMatrix delay_matrix(4, kDelays, mixing_matrix);
 
     constexpr uint32_t kBlockSize = 32;
@@ -386,16 +386,6 @@ TEST_CASE("FilterFeedbackMatrix")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kStageCount = 1;
-
-    std::vector<sfFDN::ScalarFeedbackMatrix> mixing_matrices;
-    mixing_matrices.reserve(kStageCount);
-    for (uint32_t i = 0; i < kStageCount; ++i)
-    {
-        mixing_matrices.emplace_back(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
-    }
-
-    // sfFDN::FilterFeedbackMatrix ffm(kMatSize);
-    // ffm.ConstructMatrix(delays, mixing_matrices);
 
     auto ffm = CreateFFM(kMatSize, kStageCount, 3);
 

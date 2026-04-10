@@ -24,7 +24,6 @@
 
 namespace
 {
-constexpr uint32_t kDefaultBlockSize = 64;
 
 class ScopedNoDenormals
 {
@@ -62,9 +61,9 @@ class ScopedNoDenormals
 namespace sfFDN
 {
 FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
-    : delay_bank_(GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random), block_size)
+    : delay_bank_({GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random), block_size})
     , filter_bank_(nullptr)
-    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(order))
+    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(ScalarFeedbackMatrixConfig{order}))
     , order_(order)
     , block_size_(block_size == 0 ? kDefaultBlockSize : block_size)
     , direct_gain_(1.f)
@@ -134,7 +133,11 @@ void FDN::SetOrder(uint32_t order)
     delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
     filter_bank_ = nullptr;
 
-    SetFeedbackMatrix(std::make_unique<ScalarFeedbackMatrix>(order));
+    ScalarFeedbackMatrixConfig feedback_config;
+    feedback_config.matrix_size = order;
+    feedback_config.type = ScalarMatrixType::Random;
+
+    SetFeedbackMatrix(std::make_unique<ScalarFeedbackMatrix>(feedback_config));
     SetInputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Split, std::vector<float>(order, 0.5f)));
     SetOutputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Merge, std::vector<float>(order, 0.5f)));
 
@@ -243,6 +246,33 @@ AudioProcessor* FDN::GetFilterBank() const
     return filter_bank_.get();
 }
 
+bool FDN::SetDelayBank(const DelayBankConfig& config)
+{
+    for (const auto& delay : config.delays)
+    {
+        if (delay == 0)
+        {
+            std::println(std::cerr, "Delay cannot be zero.");
+            return false;
+        }
+
+        if (delay < block_size_)
+        {
+            std::println(std::cerr, "Delay {} is smaller than block size {}.", delay, block_size_);
+            return false;
+        }
+    }
+
+    if (config.delays.size() != order_)
+    {
+        std::println(std::cerr, "Delays must have {} elements.", order_);
+        return false;
+    }
+
+    delay_bank_ = DelayBank(config);
+    return true;
+}
+
 bool FDN::SetDelays(const std::span<const float> delays, DelayInterpolationType interpolation_type)
 {
     for (const auto& delay : delays)
@@ -266,7 +296,9 @@ bool FDN::SetDelays(const std::span<const float> delays, DelayInterpolationType 
         return false;
     }
 
-    delay_bank_ = DelayBank(delays, block_size_, interpolation_type);
+    std::vector<float> delay_vector(delays.begin(), delays.end());
+
+    delay_bank_ = DelayBank(DelayBankConfig{delay_vector, block_size_, interpolation_type});
 
     return true;
 }

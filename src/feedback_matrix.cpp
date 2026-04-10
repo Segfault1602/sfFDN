@@ -28,49 +28,17 @@
 namespace sfFDN
 {
 
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, ScalarMatrixType type)
-    : order_(order)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixConfig& config)
+    : order_(config.matrix_size)
 {
-    matrix_data_ = GenerateMatrix(order, type);
-}
-
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix)
-    : order_(order)
-{
-    assert(matrix.size() == order * order);
-    matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
-}
-
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other)
-{
-    order_ = other.order_;
-    matrix_data_ = other.matrix_data_;
-}
-
-ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(const ScalarFeedbackMatrix& other)
-{
-    if (this != &other)
+    if (config.custom_matrix)
     {
-        order_ = other.order_;
-        matrix_data_ = other.matrix_data_;
+        matrix_data_ = *config.custom_matrix;
     }
-    return *this;
-}
-
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept
-    : order_(std::move(other.order_))
-    , matrix_data_(std::move(other.matrix_data_))
-{
-}
-
-ScalarFeedbackMatrix& ScalarFeedbackMatrix::operator=(ScalarFeedbackMatrix&& other) noexcept
-{
-    if (this != &other)
+    else
     {
-        order_ = std::move(other.order_);
-        matrix_data_ = std::move(other.matrix_data_);
+        matrix_data_ = GenerateMatrix(config.matrix_size, config.type);
     }
-    return *this;
 }
 
 ScalarFeedbackMatrix::~ScalarFeedbackMatrix() = default;
@@ -187,7 +155,11 @@ std::unique_ptr<ScalarFeedbackMatrix> ScalarFeedbackMatrix::FromJson(const nlohm
         throw std::invalid_argument("Matrix data size does not match the specified order.");
     }
 
-    return std::make_unique<ScalarFeedbackMatrix>(order, matrix_data);
+    ScalarFeedbackMatrixConfig config;
+    config.matrix_size = order;
+    config.custom_matrix = matrix_data;
+
+    return std::make_unique<ScalarFeedbackMatrix>(config);
 }
 
 } // namespace sfFDN

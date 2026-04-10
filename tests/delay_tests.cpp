@@ -21,7 +21,8 @@ namespace
 {
 void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN::DelayInterpolationType interp_type)
 {
-    sfFDN::DelayInterp delay_sample(delay, max_delay, interp_type);
+    sfFDN::DelayConfig config{delay, max_delay, interp_type};
+    sfFDN::DelayInterp delay_sample(config);
 
     std::vector<float> output_sample;
     output_sample.reserve(block_size);
@@ -30,7 +31,7 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN:
         output_sample.push_back(delay_sample.Tick(i));
     }
 
-    sfFDN::DelayInterp delay_block(delay, max_delay, interp_type);
+    sfFDN::DelayInterp delay_block(config);
     std::vector<float> input_block(block_size, 0.f);
     for (auto i = 0u; i < input_block.size(); ++i)
     {
@@ -79,7 +80,7 @@ TEST_CASE("Delay")
 std::vector<float> ProcessDelay(float delay, uint32_t max_delay, uint32_t block_size,
                                 sfFDN::DelayInterpolationType interp_type, std::span<float> input)
 {
-    sfFDN::DelayInterp delay_block(delay, max_delay, interp_type);
+    sfFDN::DelayInterp delay_block({delay, max_delay, interp_type});
 
     std::vector<float> output_block(block_size, 0.f);
 
@@ -185,7 +186,7 @@ TEST_CASE("ZeroDelay")
 
 TEST_CASE("DelayA")
 {
-    sfFDN::DelayInterp delay(1.5, 10, sfFDN::DelayInterpolationType::Allpass);
+    sfFDN::DelayInterp delay({1.5, 10, sfFDN::DelayInterpolationType::Allpass});
 
     std::vector<float> output;
     constexpr uint32_t kIteration = 10;
@@ -202,7 +203,7 @@ TEST_CASE("DelayA")
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
     }
 
-    sfFDN::DelayInterp delay_block(1.5, 32, sfFDN::DelayInterpolationType::Allpass);
+    sfFDN::DelayInterp delay_block({1.5f, 32, sfFDN::DelayInterpolationType::Allpass});
 
     std::vector<float> input_block(kIteration, 0.f);
     for (auto i = 0u; i < input_block.size(); ++i)
@@ -225,7 +226,7 @@ TEST_CASE("DelayA")
 
 TEST_CASE("DelayA_MinDelay")
 {
-    sfFDN::DelayInterp delay(0.5, 10, sfFDN::DelayInterpolationType::Allpass);
+    sfFDN::DelayInterp delay({0.5, 10, sfFDN::DelayInterpolationType::Allpass});
 
     std::vector<float> output;
     constexpr uint32_t kIteration = 10;
@@ -247,7 +248,7 @@ TEST_CASE("DelayLagrange")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kInputSize = 128;
-    sfFDN::DelayInterp delay(1.5f, kInputSize * 2, sfFDN::DelayInterpolationType::Lagrange);
+    sfFDN::DelayInterp delay({1.5f, kInputSize * 2, sfFDN::DelayInterpolationType::Lagrange});
 
     std::vector<float> input(kInputSize, 0.f);
     sfFDN::SineWave sine(200.f / kSampleRate, 0.f);
@@ -281,8 +282,8 @@ TEST_CASE("DelayBlock")
 TEST_CASE("DelayBank")
 {
     constexpr uint32_t kNumDelay = 4;
-    constexpr std::array<float, kNumDelay> kDelays = {2, 3, 4, 5};
-    sfFDN::DelayBank delay_bank(kDelays, 10);
+    const std::vector<float> kDelays = {2, 3, 4, 5};
+    sfFDN::DelayBank delay_bank({kDelays, 10});
 
     std::vector<float> output;
 
@@ -381,8 +382,8 @@ TEST_CASE("DelayBankProcess")
 {
     constexpr uint32_t kBlockSize = 8;
     constexpr uint32_t kNumDelay = 4;
-    constexpr std::array<float, kNumDelay> kDelays = {0, 1, 2, 3};
-    sfFDN::DelayBank delay_bank(kDelays, kBlockSize);
+    const std::vector<float> kDelays = {0.f, 1.f, 2.f, 3.f};
+    sfFDN::DelayBank delay_bank({kDelays, kBlockSize});
 
     std::vector<float> output;
 
@@ -437,7 +438,7 @@ TEST_CASE("DelayLengths")
 
 TEST_CASE("DelayInterp_Linear")
 {
-    sfFDN::DelayInterp delay(1.1f, 10, sfFDN::DelayInterpolationType::Linear);
+    sfFDN::DelayInterp delay({1.1f, 10, sfFDN::DelayInterpolationType::Linear});
 
     std::vector<float> output;
     constexpr uint32_t kIteration = 10;
@@ -454,7 +455,7 @@ TEST_CASE("DelayInterp_Linear")
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
     }
 
-    sfFDN::DelayInterp delay_block(1.1f, 32, sfFDN::DelayInterpolationType::Linear);
+    sfFDN::DelayInterp delay_block({1.1f, 32, sfFDN::DelayInterpolationType::Linear});
 
     std::vector<float> input_block(kIteration, 0.f);
     for (auto i = 0u; i < input_block.size(); ++i)

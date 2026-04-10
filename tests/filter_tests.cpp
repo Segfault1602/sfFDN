@@ -113,7 +113,8 @@ TEST_CASE("SparseFirFilter")
     constexpr uint32_t kFirSize = 64;
     std::vector<float> ir(kFirSize, 0.f);
     std::vector<float> sparse_ir;
-    std::vector<uint32_t> indices;
+
+    sfFDN::SparseFirConfig sparse_fir_config;
 
     sfFDN::RNG rng;
     for (auto i = 0u; i < kFirSize; i++)
@@ -123,14 +124,14 @@ TEST_CASE("SparseFirFilter")
             auto s = rng();
             ir[i] = s;
             sparse_ir.push_back(s);
-            indices.push_back(i);
+            sparse_fir_config.coeffs.push_back({i, s});
         }
     }
     sfFDN::Fir filter;
     filter.SetCoefficients(ir);
 
     sfFDN::SparseFir sparse_filter;
-    sparse_filter.SetCoefficients(sparse_ir, indices);
+    sparse_filter.SetCoefficients(sparse_fir_config);
 
     constexpr uint32_t kSize = 128;
     std::array<float, kSize> input = {0.f};

@@ -10,19 +10,16 @@
 
 namespace sfFDN
 {
-DelayTimeVarying::DelayTimeVarying(float delay, uint32_t max_delay, DelayInterpolationType type)
-    : delay_(delay, max_delay, type)
-    , base_delay_(delay)
-    , lfo_(0.0f, 0.0f)
-{
-}
 
-DelayTimeVarying::DelayTimeVarying(const DelayTimeVaryingConfig& config)
-    : delay_(config.delay, config.max_delay, config.interp_type)
-    , base_delay_(config.delay)
-    , lfo_(config.lfo_frequencies, config.lfo_initial_phases)
+DelayTimeVarying::DelayTimeVarying(const DelayConfig& config)
+    : delay_{config}
+    , base_delay_{config.delay}
 {
-    lfo_.SetAmplitude(config.lfo_amplitudes);
+    if (config.lfo_config.has_value())
+    {
+        const auto& lfo_config = config.lfo_config.value();
+        SetMod(lfo_config.frequency, lfo_config.amplitude, lfo_config.initial_phase);
+    }
 }
 
 void DelayTimeVarying::Clear()

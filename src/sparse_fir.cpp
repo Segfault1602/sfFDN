@@ -37,12 +37,18 @@ class SparseFir::SparseFirImpl
   public:
     SparseFirImpl() = default;
 
-    void SetCoefficients(std::span<const float> coeffs, std::span<const uint32_t> indices)
+    void SetCoefficients(const SparseFirConfig& config)
     {
-        assert(coeffs.size() == indices.size());
-        coeffs_.assign(coeffs.begin(), coeffs.end());
-        sparse_index_.assign(indices.begin(), indices.end());
-        filter_order_ = *std::ranges::max_element(indices) + 1;
+        coeffs_.clear();
+        sparse_index_.clear();
+
+        for (const auto& [index, coefficient] : config.coeffs)
+        {
+            coeffs_.push_back(coefficient);
+            sparse_index_.push_back(index);
+        }
+
+        filter_order_ = *std::ranges::max_element(sparse_index_) + 1;
 
         delay_line_.SetMaximumDelay(filter_order_ + kDefaultBlockSize);
     }
@@ -90,7 +96,10 @@ class SparseFir::SparseFirImpl
     std::unique_ptr<SparseFirImpl> Clone() const
     {
         auto clone = std::make_unique<SparseFirImpl>();
-        clone->SetCoefficients(coeffs_, sparse_index_);
+        clone->coeffs_ = coeffs_;
+        clone->sparse_index_ = sparse_index_;
+        clone->filter_order_ = filter_order_;
+        clone->delay_line_ = delay_line_;
         return clone;
     }
 
@@ -139,18 +148,18 @@ class SparseFir::SparseFirImpl
 
         Cleanup();
 
-        int tap_length = static_cast<int>(coeffs.size());
+        int tap_length = static_cast<int>(coeffs_.size());
         int buffer_size = 0;
-        IppStatus status = ippsFIRSparseGetStateSize_32f(tap_length, indices.back(), &buffer_size);
+        IppStatus status = ippsFIRSparseGetStateSize_32f(tap_length, sparse_index_.back(), &buffer_size);
         if (status != ippStsNoErr)
         {
             throw std::runtime_error("Failed to get FIR sparse state size");
         }
         buffer_ = ippsMalloc_8u(buffer_size);
-        std::vector<Ipp32s> ipps_indices(indices.size());
-        std::transform(indices.begin(), indices.end(), ipps_indices.begin(),
+        std::vector<Ipp32s> ipps_indices(sparse_index_.size());
+        std::transform(sparse_index_.begin(), sparse_index_.end(), ipps_indices.begin(),
                        [](uint32_t idx) { return static_cast<Ipp32s>(idx); });
-        status = ippsFIRSparseInit_32f(&state_, coeffs.data(), ipps_indices.data(), tap_length, nullptr, buffer_);
+        status = ippsFIRSparseInit_32f(&state_, coeffs_.data(), ipps_indices.data(), tap_length, nullptr, buffer_);
         if (status != ippStsNoErr)
         {
             throw std::runtime_error("Failed to initialize FIR sparse state");
@@ -205,16 +214,17 @@ class SparseFir::SparseFirImpl
 };
 #endif
 
-SparseFir::SparseFir()
+SparseFir::SparseFir(const SparseFirConfig& config)
     : impl_(std::make_unique<SparseFirImpl>())
 {
+    (void)config;
 }
 
 SparseFir::~SparseFir() = default;
 
-void SparseFir::SetCoefficients(std::span<const float> coeffs, std::span<const uint32_t> indices)
+void SparseFir::SetCoefficients(const SparseFirConfig& config)
 {
-    impl_->SetCoefficients(coeffs, indices);
+    impl_->SetCoefficients(config);
 }
 
 float SparseFir::Tick(float in)

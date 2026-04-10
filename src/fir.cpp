@@ -226,9 +226,10 @@ class Fir::FirImpl
 };
 #endif
 
-Fir::Fir()
+Fir::Fir(const FirConfig& config)
     : impl_(std::make_unique<FirImpl>())
 {
+    SetCoefficients(config.coeffs);
 }
 
 Fir::~Fir() = default;

@@ -28,8 +28,14 @@ TEST_CASE("TwoFilter")
     bench.minEpochIterations(10000);
     bench.timeUnit(1us, "us");
 
+    sfFDN::TenBandFilterConfig config;
+    config.t60s = kT60s;
+    config.delay = kDelay;
+    config.sample_rate = kSR;
+    config.shelf_cutoff = kShelfCutoff;
+
     bench.run("GetTwoFilter", [&] {
-        auto coeffs = sfFDN::GetTwoFilter(kT60s, kDelay, kSR, kShelfCutoff);
+        auto coeffs = sfFDN::GetTwoFilter(config);
         nanobench::doNotOptimizeAway(coeffs);
     });
 }

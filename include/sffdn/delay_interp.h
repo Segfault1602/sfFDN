@@ -22,8 +22,7 @@ class DelayInterp
      * @param delay The initial delay in samples.
      * @param max_delay The maximum delay in samples.
      */
-    DelayInterp(float delay = 0.5, uint32_t max_delay = 4095,
-                DelayInterpolationType type = DelayInterpolationType::None);
+    DelayInterp(const DelayConfig& config = {});
 
     /** @brief Clears all internal states of the delay line. */
     void Clear();

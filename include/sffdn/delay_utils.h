@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "sffdn/types.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -12,24 +14,6 @@ namespace sfFDN
  * @brief A collection of functions to generate delay lengths for feedback delay networks.
  * @{
  */
-
-/**
- * @brief Types of delay length distributions.
- */
-enum class DelayLengthType : uint8_t
-{
-
-    Random = 0,     /**< %Delay lengths are generated randomly within the specified range based on a uniform
-                       distribution. */
-    Gaussian = 1,   /**< %Delay lengths are generated based on a Gaussian distribution within the specified range. */
-    Primes = 2,     /**< %Delay lengths are selected randomly from a list of prime numbers. */
-    Uniform = 3,    /**< %Delay lengths are uniformly distributed within the specified range. */
-    PrimePower = 4, /**< %Delay lengths are generated as powers of prime numbers within the specified range.
-     Based on https://ccrma.stanford.edu/~jos/pasp/Prime_Power_Delay_Line_Lengths.html*/
-    SteamAudio = 5, /**< %Delay lengths are generated using the algorithm from the SteamAudio library. */
-
-    Count = 6,
-};
 
 /**
  * @brief Generates a list of delay lengths based on the specified parameters.

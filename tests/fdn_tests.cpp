@@ -25,7 +25,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
                                                            0.30143532f,  -0.49200505f, 0.58704174f};
     constexpr std::array<float, kFDNOrder> kDelays = {593, 743, 929, 1153, 1399, 1699};
 
-    constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {
+    const std::vector<float> kMixingMatrix = {
         0.590748429298401f,  0.457586556673050f,  0.0557801127433777f, -0.148047655820847f,  -0.478258520364761f,
         -0.433439940214157f, -0.158531382679939f, 0.433001756668091f,  -0.0591235160827637f, 0.626041889190674f,
         0.430089294910431f,  -0.454946815967560f, -0.665803074836731f, 0.195845842361450f,   0.568070054054260f,
@@ -41,8 +41,11 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetDirectGain(0.f);
     fdn->SetDelays(kDelays);
 
-    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(kFDNOrder);
-    mix_mat->SetMatrix(kMixingMatrix);
+    sfFDN::ScalarFeedbackMatrixConfig mix_mat_config;
+    mix_mat_config.matrix_size = kFDNOrder;
+    mix_mat_config.custom_matrix = kMixingMatrix;
+
+    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config);
 
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 

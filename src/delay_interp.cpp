@@ -35,14 +35,14 @@ std::array<float, N + 1> GetLagrangeCoefficients(float delay)
 namespace sfFDN
 {
 
-DelayInterp::DelayInterp(float delay, uint32_t max_delay, DelayInterpolationType type)
-    : delayline_(static_cast<uint32_t>(delay + 1), max_delay)
+DelayInterp::DelayInterp(const DelayConfig& config)
+    : delayline_(static_cast<uint32_t>(config.delay), config.max_delay)
     , delay_(0)
     , int_delay_(0)
     , frac_delay_(0.0f)
-    , type_(type)
+    , type_(config.interp_type)
 {
-    this->SetDelay(delay);
+    this->SetDelay(config.delay);
 }
 
 void DelayInterp::Clear()
@@ -242,7 +242,7 @@ DelayInterp DelayInterp::FromJson(const nlohmann::json& j)
     uint32_t max_delay = j.at("max_delay").get<uint32_t>();
     DelayInterpolationType type = j.at("interpolation").get<DelayInterpolationType>();
 
-    return DelayInterp{delay, max_delay, type};
+    return DelayInterp{{delay, max_delay, type}};
 }
 
 } // namespace sfFDN

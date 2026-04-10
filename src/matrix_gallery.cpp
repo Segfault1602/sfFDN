@@ -529,7 +529,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
     }
 
     CascadedFeedbackMatrixInfo info;
-    info.channel_count = channel_count;
+    info.matrix_size = channel_count;
     info.stage_count = stage_count;
     info.delays = delays;
     info.matrices.reserve(matrices.size());

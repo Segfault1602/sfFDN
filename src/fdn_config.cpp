@@ -53,7 +53,10 @@ class MatrixVisitor
 
     void operator()(const std::vector<float>& matrix_info) const
     {
-        auto scalar_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(fdn_->GetOrder(), matrix_info);
+        sfFDN::ScalarFeedbackMatrixConfig config;
+        config.matrix_size = static_cast<uint32_t>(std::sqrt(matrix_info.size()));
+        config.custom_matrix = matrix_info;
+        auto scalar_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(config);
         fdn_->SetFeedbackMatrix(std::move(scalar_matrix));
     }
 
@@ -118,7 +121,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
             }
         }
 
-        sparse_fir->SetCoefficients(coeffs, indices);
+        // TODO
+        // sparse_fir->SetCoefficients(coeffs, indices);
         chain_processor->AddProcessor(std::move(sparse_fir));
     }
 
@@ -145,8 +149,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     if (config.use_extra_delays && !config.input_stage_delays.empty())
     {
         assert(config.input_stage_delays.size() == config.N);
-
-        auto delaybank = std::make_unique<sfFDN::DelayBank>(config.input_stage_delays, 128);
+        std::vector<float> delays(config.input_stage_delays);
+        auto delaybank = std::make_unique<sfFDN::DelayBank>(sfFDN::DelayBankConfig{delays, 128});
         chain_processor->AddProcessor(std::move(delaybank));
     }
 
@@ -189,7 +193,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
                 }
             }
 
-            sparse_fir->SetCoefficients(coeffs, indices);
+            // TODO
+            // sparse_fir->SetCoefficients(coeffs, indices);
             filterbank->AddFilter(std::move(sparse_fir));
         }
 
@@ -257,7 +262,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
                 }
             }
 
-            sparse_fir->SetCoefficients(coeffs, indices);
+            // TODO
+            // sparse_fir->SetCoefficients(coeffs, indices);
             filterbank->AddFilter(std::move(sparse_fir));
         }
 
@@ -329,7 +335,7 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
             else if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
             {
                 j["filter_matrix"] = {
-                    {"N", arg.channel_count},
+                    {"N", arg.matrix_size},
                     {"num_stages", arg.stage_count},
                     {"delays", arg.delays},
                     {"matrices", arg.matrices},
@@ -429,7 +435,7 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
     else if (j.contains("filter_matrix"))
     {
         sfFDN::CascadedFeedbackMatrixInfo matrix_info;
-        j.at("filter_matrix").at("N").get_to(matrix_info.channel_count);
+        j.at("filter_matrix").at("N").get_to(matrix_info.matrix_size);
         j.at("filter_matrix").at("num_stages").get_to(matrix_info.stage_count);
         j.at("filter_matrix").at("delays").get_to(matrix_info.delays);
         j.at("filter_matrix").at("matrices").get_to(matrix_info.matrices);

@@ -15,10 +15,7 @@ namespace sfFDN
 class DelayTimeVarying : public AudioProcessor
 {
   public:
-    DelayTimeVarying(float delay = 0.5, uint32_t max_delay = 4095,
-                     DelayInterpolationType type = DelayInterpolationType::Linear);
-
-    DelayTimeVarying(const DelayTimeVaryingConfig& config);
+    DelayTimeVarying(const DelayConfig& config);
 
     void Clear() override;
 

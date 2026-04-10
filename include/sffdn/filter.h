@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_processor.h"
-#include "delay.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/delay.h"
+#include "sffdn/types.h"
 
 #include <array>
 #include <cassert>
@@ -15,29 +16,6 @@
 
 namespace sfFDN
 {
-struct FilterCoefficients
-{
-    float b0, b1, b2, a0, a1, a2;
-
-    void print() const
-    {
-        std::cout << "b0: " << b0 << ", b1: " << b1 << ", b2: " << b2 << ", a0: " << a0 << ", a1: " << a1
-                  << ", a2: " << a2 << std::endl;
-    }
-
-    FilterCoefficients Normalize() const
-    {
-        return {b0 / a0, b1 / a0, b2 / a0, 1.0f, a1 / a0, a2 / a0};
-    }
-};
-
-struct OnePoleFilterConfig
-{
-    float t60_dc;
-    float t60_ny;
-    float delay;
-    float sample_rate;
-};
 
 /** @brief Implements a simple one pole filter with differential equation \f$y(n) = b_0x(n) - a_1y(n-1)\f$
  * @ingroup AudioProcessors
@@ -46,17 +24,7 @@ class OnePoleFilter : public AudioProcessor
 {
   public:
     /** @brief Constructs a one pole filter. */
-    OnePoleFilter();
-
-    /** @brief Sets the pole of the filter based on T60 times.
-     * @param dc The T60 time in seconds at DC (0 Hz).
-     * @param ny The T60 time in seconds at Nyquist frequency.
-     * @param delay The delay in samples for the delay line preceding the filter.
-     * @param sample_rate The sample rate in Hz.
-     *
-     * See sfFDN::GetOnePoleAbsorption.
-     */
-    void SetT60s(float dc, float ny, uint32_t delay, float sample_rate);
+    OnePoleFilter(float b0 = 1.f, float a1 = 0.f);
 
     /**
      * @brief Set the pole of the filter.
@@ -123,11 +91,6 @@ class OnePoleFilter : public AudioProcessor
     std::array<float, 2> state_;
 };
 
-struct AllpassFilterConfig
-{
-    float coeff;
-};
-
 /** @brief Implements a simple allpass filter with differential equation \f$y(n) = g*x(n) + x(n-1) -g*y(n-1)\f$
  * @ingroup AudioProcessors
  */
@@ -135,7 +98,7 @@ class AllpassFilter : public AudioProcessor
 {
   public:
     /** @brief Constructs an allpass filter. */
-    AllpassFilter();
+    AllpassFilter(const AllpassFilterConfig& config = {});
 
     /** @brief Sets the allpass coefficient.
      * @param coeff The allpass coefficient.
@@ -189,11 +152,6 @@ class AllpassFilter : public AudioProcessor
     float last_out_;
 };
 
-struct CascadedBiquadsConfig
-{
-    std::vector<FilterCoefficients> coeffs;
-};
-
 /** @brief Implements a cascade of biquad IIR filters.
  * @ingroup AudioProcessors
  */
@@ -201,14 +159,8 @@ class CascadedBiquads : public AudioProcessor
 {
   public:
     /** @brief Constructs a cascaded biquad filter. */
-    CascadedBiquads();
+    CascadedBiquads(const CascadedBiquadsConfig& config = {});
     ~CascadedBiquads() = default;
-
-    CascadedBiquads(const CascadedBiquads&);
-    CascadedBiquads& operator=(const CascadedBiquads&);
-
-    CascadedBiquads(CascadedBiquads&&) noexcept;
-    CascadedBiquads& operator=(CascadedBiquads&&) noexcept;
 
     /** @brief Sets the biquad coefficients for each stage.
      * @param coeffs A span of FilterCoefficients, one for each biquad stage.
@@ -265,16 +217,11 @@ class CascadedBiquads : public AudioProcessor
     std::vector<FilterCoefficients> coeffs_;
 };
 
-struct FirConfig
-{
-    std::vector<float> coeffs;
-};
-
 class Fir : public AudioProcessor
 {
   public:
     /** @brief Constructs a FIR filter. */
-    Fir();
+    Fir(const FirConfig& config = {});
     ~Fir();
 
     Fir(const Fir&);
@@ -335,13 +282,13 @@ class SparseFir : public AudioProcessor
 {
   public:
     /** @brief Constructs a sparse FIR filter. */
-    SparseFir();
+    SparseFir(const SparseFirConfig& config = {});
     ~SparseFir();
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.
      */
-    void SetCoefficients(std::span<const float> coeffs, std::span<const uint32_t> indices);
+    void SetCoefficients(const SparseFirConfig& config = {});
 
     /**
      * @brief Input a sample in the filter and return the next output

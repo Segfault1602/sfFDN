@@ -25,20 +25,9 @@ class ScalarFeedbackMatrix : public AudioProcessor
      * @param order The size of the square matrix, where the size == number of rows == number of columns.
      * @param type The type of matrix to create.
      */
-    ScalarFeedbackMatrix(uint32_t order = 4, ScalarMatrixType type = ScalarMatrixType::Identity);
-
-    /** @brief Constructs a scalar feedback matrix from a custom matrix.
-     * @param order The size of the square matrix, where the size == number of rows == number of columns.
-     * @param matrix A span representing the matrix coefficients in column-major order. The span must be of size
-     * `order * order`.
-     */
-    ScalarFeedbackMatrix(uint32_t order, std::span<const float> matrix);
+    ScalarFeedbackMatrix(const ScalarFeedbackMatrixConfig& config);
 
     ~ScalarFeedbackMatrix() override;
-    ScalarFeedbackMatrix(const ScalarFeedbackMatrix& other);
-    ScalarFeedbackMatrix& operator=(const ScalarFeedbackMatrix& other);
-    ScalarFeedbackMatrix(ScalarFeedbackMatrix&& other) noexcept;
-    ScalarFeedbackMatrix& operator=(ScalarFeedbackMatrix&& other) noexcept;
 
     /** @brief Sets the matrix coefficients.
      * @param matrix A span representing the matrix coefficients in column-major order. The span must be of size

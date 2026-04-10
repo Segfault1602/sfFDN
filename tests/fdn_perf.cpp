@@ -56,7 +56,7 @@ TEST_CASE("FDNPerf", "FDN")
         input_gains->Process(input_buffer, output_buffer);
     });
 
-    sfFDN::DelayBank delay_bank(GetDefaultDelays(kFDNOrder), kBlockSize);
+    sfFDN::DelayBank delay_bank({GetDefaultDelays(kFDNOrder), kBlockSize});
     bench.run("Delay Bank", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
@@ -86,7 +86,7 @@ TEST_CASE("FDNPerf", "FDN")
     });
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrix(kFDNOrder, sfFDN::ScalarMatrixType::Householder));
+        sfFDN::ScalarFeedbackMatrix({kFDNOrder, sfFDN::ScalarMatrixType::Householder}));
     bench.run("Mixing Matrix", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);

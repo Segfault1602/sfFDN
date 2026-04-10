@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_buffer.h"
-#include "audio_processor.h"
-#include "delay_time_varying.h"
-#include "filterbank.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/delay_time_varying.h"
+#include "sffdn/filterbank.h"
+#include "sffdn/types.h"
 
 #include <cstdint>
 #include <span>
@@ -13,16 +14,6 @@
 
 namespace sfFDN
 {
-
-struct DelayBankTimeVaryingConfig
-{
-    std::vector<float> delays;
-    uint32_t max_delay;
-    DelayInterpolationType interpolation_type;
-    std::vector<float> mod_freqs;
-    std::vector<float> mod_depths;
-    std::vector<float> mod_phase_offsets;
-};
 
 /**
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels

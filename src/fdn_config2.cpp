@@ -40,7 +40,7 @@ bool ValidateConfig(const sfFDN::FDNConfig2& config)
             using T = std::decay_t<decltype(matrix_config)>;
             if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
             {
-                if (matrix_config.channel_count != config.fdn_size)
+                if (matrix_config.matrix_size != config.fdn_size)
                 {
                     std::cerr << "Feedback matrix channel count must match FDN size" << std::endl;
                     return false;
@@ -73,13 +73,6 @@ struct SingleChannelProcessorVisitor
         return std::make_unique<sfFDN::SchroederAllpassSection>(config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::OnePoleFilterConfig& config) const
-    {
-        auto filter = std::make_unique<sfFDN::OnePoleFilter>();
-        filter->SetT60s(config.t60_dc, config.t60_ny, config.delay, config.sample_rate);
-        return filter;
-    }
-
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::AllpassFilterConfig& config) const
     {
         auto filter = std::make_unique<sfFDN::AllpassFilter>();
@@ -101,7 +94,7 @@ struct SingleChannelProcessorVisitor
         return filter;
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayTimeVaryingConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayConfig& config) const
     {
         return std::make_unique<sfFDN::DelayTimeVarying>(config);
     }
@@ -109,8 +102,6 @@ struct SingleChannelProcessorVisitor
 
 struct MultichannelProcessorVisitor
 {
-    const sfFDN::FDNConfig2& config;
-
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsConfig& gains_config) const
     {
         return MakeParallelGainsFromConfig(gains_config);
@@ -131,8 +122,7 @@ struct MultichannelProcessorVisitor
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
         const sfFDN::AttenuationFilterBankConfig& attenuation_config) const
     {
-        (void)attenuation_config;
-        return nullptr;
+        return sfFDN::CreateAttenuationFilterBank(attenuation_config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankConfig& delay_bank_config) const
@@ -150,9 +140,9 @@ struct MultichannelProcessorVisitor
         return std::make_unique<sfFDN::FilterFeedbackMatrix>(matrix_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarMatrixType& matrix_type) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixConfig& matrix_config) const
     {
-        return std::make_unique<sfFDN::ScalarFeedbackMatrix>(config.fdn_size, matrix_type);
+        return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
 };
 
@@ -178,12 +168,69 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     chain_processor->AddProcessor(std::move(input_gains));
     for (const auto& processor_config : config.input_block_config.multichannel_processors)
     {
-        auto processor = std::visit(MultichannelProcessorVisitor{config}, processor_config);
+        auto processor = std::visit(MultichannelProcessorVisitor{}, processor_config);
         chain_processor->AddProcessor(std::move(processor));
     }
 
     return chain_processor;
 }
+
+std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::FDNConfig2& config)
+{
+    std::unique_ptr<sfFDN::AudioProcessor> output_gains =
+        MakeParallelGainsFromConfig(config.output_block_config.parallel_gains_config);
+
+    if (config.output_block_config.single_channel_processors.empty() &&
+        config.output_block_config.multichannel_processors.empty())
+    {
+        return output_gains;
+    }
+
+    auto chain_processor = std::make_unique<sfFDN::AudioProcessorChain>(config.block_size);
+
+    for (const auto& processor_config : config.output_block_config.multichannel_processors)
+    {
+        chain_processor->AddProcessor(std::visit(MultichannelProcessorVisitor{}, processor_config));
+    }
+
+    chain_processor->AddProcessor(std::move(output_gains));
+
+    for (const auto& processor_config : config.output_block_config.single_channel_processors)
+    {
+        chain_processor->AddProcessor(std::visit(SingleChannelProcessorVisitor{}, processor_config));
+    }
+
+    return chain_processor;
+}
+
+struct FeedbackMatrixVisitor
+{
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedFeedbackMatrixInfo& matrix_config) const
+    {
+        return std::make_unique<sfFDN::FilterFeedbackMatrix>(matrix_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixConfig& matrix_config) const
+    {
+        return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const std::vector<float>& matrix_config) const
+    {
+        uint32_t matrix_size = static_cast<uint32_t>(std::sqrt(matrix_config.size()));
+
+        if (matrix_size * matrix_size != matrix_config.size())
+        {
+            throw std::runtime_error("Custom scalar feedback matrix size must be a perfect square");
+        }
+
+        sfFDN::ScalarFeedbackMatrixConfig scalar_config;
+        scalar_config.matrix_size = matrix_size;
+        scalar_config.custom_matrix = matrix_config;
+        return std::make_unique<sfFDN::ScalarFeedbackMatrix>(scalar_config);
+    }
+};
+
 } // namespace
 
 namespace sfFDN
@@ -198,7 +245,35 @@ std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig2& config)
     fdn->SetTranspose(config.transposed);
     fdn->SetDirectGain(config.direct_gain);
 
+    // Delaybank
+    fdn->SetDelayBank(config.delay_bank_config);
+
+    // Input gain Block
     fdn->SetInputGains(CreateInputGainsFromConfig(config));
+
+    // Feedback matrix block
+    fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config));
+
+    // Loop filter block
+    if (!config.loop_filter_configs.empty())
+    {
+        if (config.loop_filter_configs.size() > 1)
+        {
+            auto loop_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
+            for (const auto& processor_config : config.loop_filter_configs)
+            {
+                loop_filter_chain->AddProcessor(std::visit(MultichannelProcessorVisitor{}, processor_config));
+            }
+            fdn->SetFilterBank(std::move(loop_filter_chain));
+        }
+        else
+        {
+            fdn->SetFilterBank(std::visit(MultichannelProcessorVisitor{}, config.loop_filter_configs[0]));
+        }
+    }
+
+    // Output gain block
+    fdn->SetOutputGains(CreateOutputGainsFromConfig(config));
 
     return fdn;
 }

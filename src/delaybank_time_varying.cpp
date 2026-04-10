@@ -29,10 +29,11 @@ DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingConfig& con
 
     for (uint32_t i = 0; i < num_delays; i++)
     {
-        auto tv_delay =
-            std::make_unique<DelayTimeVarying>(config.delays[i], config.max_delay, config.interpolation_type);
-        tv_delay->SetMod(config.mod_freqs[i], config.mod_depths[i],
-                         config.mod_phase_offsets.empty() ? 0.0f : config.mod_phase_offsets[i]);
+        DelayConfig delay_config{config.delays[i], config.max_delay, config.interpolation_type};
+        delay_config.lfo_config =
+            ModulationConfig{config.mod_freqs[i], config.mod_depths[i],
+                             config.mod_phase_offsets.empty() ? 0.0f : config.mod_phase_offsets[i]};
+        auto tv_delay = std::make_unique<DelayTimeVarying>(delay_config);
         delay_bank_.AddFilter(std::move(tv_delay));
     }
 }

@@ -29,47 +29,10 @@ float ComputeSample(float x, const sfFDN::FilterCoefficients& coeffs, sfFDN::Cas
 namespace sfFDN
 {
 
-CascadedBiquads::CascadedBiquads()
-    : stage_(0)
+CascadedBiquads::CascadedBiquads(const CascadedBiquadsConfig& config)
+    : stage_(config.coeffs.size())
 {
-}
-
-CascadedBiquads::CascadedBiquads(const CascadedBiquads& other)
-    : stage_(other.stage_)
-    , states_(other.states_)
-    , coeffs_(other.coeffs_)
-{
-    CascadedBiquads::Clear();
-}
-
-CascadedBiquads& CascadedBiquads::operator=(const CascadedBiquads& other)
-{
-    if (this != &other)
-    {
-        stage_ = other.stage_;
-        states_ = other.states_;
-        coeffs_ = other.coeffs_;
-    }
-    Clear();
-    return *this;
-}
-
-CascadedBiquads::CascadedBiquads(CascadedBiquads&& other) noexcept
-    : stage_(other.stage_)
-    , states_(std::move(other.states_))
-    , coeffs_(std::move(other.coeffs_))
-{
-}
-
-CascadedBiquads& CascadedBiquads::operator=(CascadedBiquads&& other) noexcept
-{
-    if (this != &other)
-    {
-        stage_ = other.stage_;
-        states_ = std::move(other.states_);
-        coeffs_ = std::move(other.coeffs_);
-    }
-    return *this;
+    SetCoefficients(config.coeffs);
 }
 
 void CascadedBiquads::SetCoefficients(std::span<const FilterCoefficients> coeffs)

@@ -14,15 +14,10 @@
 #include <utility>
 #include <vector>
 
-namespace
-{
-constexpr uint32_t kDefaultBlockSize = 1024; // Default block size for delay banks
-}
-
 namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
-    : channel_count_(info.channel_count)
+    : channel_count_(info.matrix_size)
 {
     delaybanks_.reserve(info.stage_count);
     matrix_.reserve(info.stage_count + 1);
@@ -32,12 +27,16 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& inf
 
     for (const auto& stage_delays : info.delays)
     {
-        delaybanks_.emplace_back(stage_delays, kDefaultBlockSize);
+        std::vector<float> delay_vector(stage_delays.begin(), stage_delays.end());
+        delaybanks_.emplace_back(DelayBankConfig{delay_vector, kDefaultBlockSize});
     }
 
     for (const auto& matrix : info.matrices)
     {
-        matrix_.emplace_back(channel_count_, matrix);
+        ScalarFeedbackMatrixConfig scalar_config;
+        scalar_config.matrix_size = info.matrix_size;
+        scalar_config.custom_matrix = matrix;
+        matrix_.emplace_back(scalar_config);
     }
 }
 

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_buffer.h"
-#include "audio_processor.h"
-#include "delay.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/delay.h"
+#include "sffdn/types.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -95,13 +96,6 @@ class SchroederAllpass
     void Tick8(std::span<const float, 8> in, std::span<float, 8> out);
 };
 
-struct SchroederAllpassSectionConfig
-{
-    std::vector<uint32_t> delays;
-    std::vector<float> gains;
-    bool parallel{false};
-};
-
 /** @brief A section of Schroeder allpass filters in series */
 class SchroederAllpassSection : public AudioProcessor
 {
@@ -188,11 +182,6 @@ class SchroederAllpassSection : public AudioProcessor
   private:
     std::vector<SchroederAllpass> allpasses_;
     bool parallel_ = false;
-};
-
-struct ParallelSchroederAllpassSectionConfig
-{
-    std::vector<SchroederAllpassSectionConfig> sections;
 };
 
 /** \brief Implements parallel Schroeder allpass sections. */

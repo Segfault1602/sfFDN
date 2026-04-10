@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "audio_buffer.h"
-#include "audio_processor.h"
-#include "delay.h"
-#include "delay_interp.h"
+#include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
+#include "sffdn/delay.h"
+#include "sffdn/delay_interp.h"
+#include "sffdn/types.h"
 
 #include <cstdint>
 #include <span>
@@ -13,13 +14,6 @@
 
 namespace sfFDN
 {
-
-struct DelayBankConfig
-{
-    std::vector<float> delays;
-    uint32_t block_size;
-    DelayInterpolationType interpolation_type{DelayInterpolationType::None};
-};
 
 /**
  * @brief A bank of parallel delay lines, each with its own delay setting. Used for processing multiple channels
@@ -33,14 +27,10 @@ class DelayBank : public AudioProcessor
   public:
     /**
      * @brief Constructs a delay bank with a specified set of delays and block size.
-     * @param delays A span of delay values for each channel.
-     * @param block_size The size of the audio blocks to be processed in the main loop.
+     * @param config The configuration for the delay bank.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
-    DelayBank(std::span<const float> delays, uint32_t block_size,
-              DelayInterpolationType interpolation_type = DelayInterpolationType::None);
-
-    DelayBank(const DelayBankConfig& config);
+    DelayBank(const DelayBankConfig& config = {});
 
     ~DelayBank() = default;
 

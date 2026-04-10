@@ -21,7 +21,7 @@ TEST_CASE("MixMatPerf")
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kInputSize = kMatSize * kBlockSize;
 
-    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Householder);
+    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Householder});
 
     std::array<float, kInputSize> input{};
     std::array<float, kInputSize> output{};
@@ -46,14 +46,14 @@ TEST_CASE("MixMatPerf")
         nanobench::doNotOptimizeAway(output);
     });
 
-    sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Random);
+    sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Random});
 
     bench.run("Random", [&] {
         random_mat.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
     });
 
-    auto hadamard = sfFDN::ScalarFeedbackMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
+    auto hadamard = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
     bench.run("Hadamard", [&] {
         hadamard.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
@@ -62,7 +62,7 @@ TEST_CASE("MixMatPerf")
 
 TEST_CASE("Matrix_Order")
 {
-    constexpr std::array kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
+    constexpr std::array<uint32_t, 14> kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
 
     constexpr uint32_t kBlockSize = 128;
 
@@ -86,7 +86,7 @@ TEST_CASE("Matrix_Order")
         sfFDN::AudioBuffer output_buffer(kBlockSize, mat_size, output);
 
         sfFDN::ScalarFeedbackMatrix mix_mat =
-            sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::Householder);
+            sfFDN::ScalarFeedbackMatrix({mat_size, sfFDN::ScalarMatrixType::Householder});
         bench.run("Householder - Order " + std::to_string(mat_size),
                   [&] { mix_mat.Process(input_buffer, output_buffer); });
     }
@@ -131,7 +131,7 @@ TEST_CASE("FFMPerf_Order")
 
 TEST_CASE("Delay_Matrix")
 {
-    constexpr std::array kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32};
+    constexpr std::array<uint32_t, 12> kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32};
 
     constexpr uint32_t kBlockSize = 128;
 
@@ -162,7 +162,7 @@ TEST_CASE("Delay_Matrix")
         }
 
         sfFDN::ScalarFeedbackMatrix mixing_matrix =
-            sfFDN::ScalarFeedbackMatrix(mat_size, sfFDN::ScalarMatrixType::Hadamard);
+            sfFDN::ScalarFeedbackMatrix({mat_size, sfFDN::ScalarMatrixType::Hadamard});
         sfFDN::DelayMatrix delay_matrix(mat_size, delays, mixing_matrix);
 
         bench.run("Delay Matrix - Order " + std::to_string(mat_size),
