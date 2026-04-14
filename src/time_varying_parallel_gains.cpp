@@ -12,35 +12,24 @@
 
 namespace sfFDN
 {
-TimeVaryingParallelGains::TimeVaryingParallelGains(ParallelGainsMode mode)
-    : mode_(mode)
-{
-    lfos_.emplace_back(0.0f, 0.0f); // Default to one LFO with 0 Hz
-    lfos_[0].SetAmplitude(0.0f);
-    lfos_[0].SetOffset(1.0f);
-}
 
-TimeVaryingParallelGains::TimeVaryingParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain)
-    : mode_(mode)
+TimeVaryingParallelGains::TimeVaryingParallelGains(const ParallelGainsOptions& config)
+    : mode_(config.mode)
 {
-    lfos_.reserve(channel_count);
-    for (uint32_t i = 0; i < channel_count; ++i)
+    lfos_.reserve(config.gains.size());
+    for (uint32_t i = 0; i < config.gains.size(); ++i)
     {
+
         lfos_.emplace_back(0.0f, 0.0f);
         lfos_[i].SetAmplitude(0.0f);
-        lfos_[i].SetOffset(gain);
-    }
-}
+        lfos_[i].SetOffset(config.gains[i]);
 
-TimeVaryingParallelGains::TimeVaryingParallelGains(ParallelGainsMode mode, std::span<const float> gains)
-    : mode_(mode)
-{
-    lfos_.reserve(gains.size());
-    for (const float& gain : gains)
-    {
-        lfos_.emplace_back(0.0f, 0.0f);
-        lfos_.back().SetAmplitude(0.0f);
-        lfos_.back().SetOffset(gain);
+        if (i < config.time_varying_config.size())
+        {
+            lfos_[i].SetFrequency(config.time_varying_config[i].frequency);
+            lfos_[i].SetAmplitude(config.time_varying_config[i].amplitude);
+            lfos_[i].SetPhaseOffset(config.time_varying_config[i].initial_phase);
+        }
     }
 }
 
@@ -63,7 +52,7 @@ void TimeVaryingParallelGains::GetCenterGains(std::span<float> gains) const
     }
 }
 
-void TimeVaryingParallelGains::SetModulation(std::span<const ModulationConfig> modulation_configs)
+void TimeVaryingParallelGains::SetModulation(std::span<const ModulationOptions> modulation_configs)
 {
     assert(!modulation_configs.empty());
 
@@ -213,7 +202,7 @@ void TimeVaryingParallelGains::Clear()
 
 std::unique_ptr<AudioProcessor> TimeVaryingParallelGains::Clone() const
 {
-    auto clone = std::make_unique<TimeVaryingParallelGains>(mode_);
+    auto clone = std::make_unique<TimeVaryingParallelGains>(ParallelGainsOptions{mode_, {}, {}});
     clone->lfos_ = lfos_;
 
     return clone;
@@ -246,7 +235,7 @@ std::unique_ptr<TimeVaryingParallelGains> TimeVaryingParallelGains::FromJson(con
         lfos.push_back(SineWave::FromJson(lfo_json));
     }
 
-    auto processor = std::make_unique<TimeVaryingParallelGains>(mode);
+    auto processor = std::make_unique<TimeVaryingParallelGains>(ParallelGainsOptions{mode, {}, {}});
     processor->lfos_ = std::move(lfos);
 
     return processor;

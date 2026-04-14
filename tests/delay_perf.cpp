@@ -324,7 +324,7 @@ TEST_CASE("Delay_MultiTap")
     delay_bank.AddNextInputs(input);
     delay_bank.GetNextOutputsAt(taps, output, coeffs);
 
-    sfFDN::SparseFirConfig sparse_fir_config;
+    sfFDN::SparseFirOptions sparse_fir_config;
     for (size_t i = 0; i < taps.size(); ++i)
     {
         sparse_fir_config.coeffs.emplace_back(taps[i], coeffs[i]);

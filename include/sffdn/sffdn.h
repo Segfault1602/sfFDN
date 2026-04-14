@@ -14,7 +14,6 @@
 #include "delaybank.h"
 #include "delaybank_time_varying.h"
 #include "fdn.h"
-#include "fdn_config.h"
 #include "fdn_config2.h"
 #include "feedback_matrix.h"
 #include "filter.h"

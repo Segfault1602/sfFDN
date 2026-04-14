@@ -151,19 +151,19 @@ TEST_CASE("FDNConfig2")
         sfFDN::DelayInterpolationType::None,
     };
 
-    config.input_block_config.single_channel_processors = {sfFDN::AllpassFilterConfig{.coeff = 0.5f},
-                                                           sfFDN::DelayConfig{.delay = 64}};
+    config.input_block_config.single_channel_processors = {sfFDN::AllpassFilterOptions{.coeff = 0.5f},
+                                                           sfFDN::DelayOptions{.delay = 64}};
     config.input_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Split, {0.5f, 0.3f, 0.4f, 0.8f}, {}};
 
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixConfig{
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
         .matrix_size = 4,
         .type = sfFDN::ScalarMatrixType::Hadamard,
     };
 
-    sfFDN::AttenuationFilterBankConfig attenuation_filter_bank_config;
+    sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_config;
     for (size_t i = 0; i < 4; ++i)
     {
-        attenuation_filter_bank_config.filter_configs.push_back(sfFDN::TwoBandFilterConfig{
+        attenuation_filter_bank_config.filter_configs.push_back(sfFDN::TwoBandFilterOptions{
             .t60s = {1.f, 0.5f},
             .delay = 64.f,
             .sample_rate = 48000.f,

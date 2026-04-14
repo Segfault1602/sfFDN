@@ -28,7 +28,7 @@
 namespace sfFDN
 {
 
-ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixConfig& config)
+ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config)
     : order_(config.matrix_size)
 {
     if (config.custom_matrix)
@@ -155,7 +155,7 @@ std::unique_ptr<ScalarFeedbackMatrix> ScalarFeedbackMatrix::FromJson(const nlohm
         throw std::invalid_argument("Matrix data size does not match the specified order.");
     }
 
-    ScalarFeedbackMatrixConfig config;
+    ScalarFeedbackMatrixOptions config;
     config.matrix_size = order;
     config.custom_matrix = matrix_data;
 

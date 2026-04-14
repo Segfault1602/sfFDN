@@ -103,7 +103,7 @@ class SchroederAllpassSection : public AudioProcessor
     /** @brief Constructs an empty SchroederAllpassSection. */
     SchroederAllpassSection() = default;
 
-    SchroederAllpassSection(const SchroederAllpassSectionConfig& config);
+    SchroederAllpassSection(const SchroederAllpassSectionOptions& config);
 
     /** @brief Constructs a SchroederAllpassSection with a given number of filters.
      * @param filter_count The number of allpass filters in the section.

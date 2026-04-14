@@ -30,7 +30,7 @@ class SparseFir::SparseFirImpl
   public:
     SparseFirImpl() = default;
 
-    void SetCoefficients(const SparseFirConfig& config)
+    void SetCoefficients(const SparseFirOptions& config)
     {
         coeffs_.clear();
         sparse_index_.clear();
@@ -207,7 +207,7 @@ class SparseFir::SparseFirImpl
 };
 #endif
 
-SparseFir::SparseFir(const SparseFirConfig& config)
+SparseFir::SparseFir(const SparseFirOptions& config)
     : impl_(std::make_unique<SparseFirImpl>())
 {
     (void)config;
@@ -215,7 +215,7 @@ SparseFir::SparseFir(const SparseFirConfig& config)
 
 SparseFir::~SparseFir() = default;
 
-void SparseFir::SetCoefficients(const SparseFirConfig& config)
+void SparseFir::SetCoefficients(const SparseFirOptions& config)
 {
     impl_->SetCoefficients(config);
 }

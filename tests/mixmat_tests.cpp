@@ -20,7 +20,7 @@ TEST_CASE("VelvetFFM")
     constexpr uint32_t kMatSize = 4;
     constexpr float kCascadeGain = 1.f;
 
-    sfFDN::CascadedFeedbackMatrixInfo ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
+    sfFDN::CascadedFeedbackMatrixOptions ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
         kMatSize, kStageCount, kSparsity, sfFDN::ScalarMatrixType::Hadamard, kCascadeGain);
 
     REQUIRE(ffm_info.matrix_size == kMatSize);

@@ -112,7 +112,7 @@ SchroederAllpass SchroederAllpass::FromJson(const nlohmann::json& j)
     return SchroederAllpass(delay, gain);
 }
 
-SchroederAllpassSection::SchroederAllpassSection(const SchroederAllpassSectionConfig& config)
+SchroederAllpassSection::SchroederAllpassSection(const SchroederAllpassSectionOptions& config)
 {
     allpasses_.reserve(config.delays.size());
     for (size_t i = 0; i < config.delays.size(); ++i)

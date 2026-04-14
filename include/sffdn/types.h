@@ -87,7 +87,7 @@ enum class ParallelGainsMode : uint8_t
 
 // STRUCTS
 
-struct ScalarFeedbackMatrixConfig
+struct ScalarFeedbackMatrixOptions
 {
     uint32_t matrix_size;
     ScalarMatrixType type{ScalarMatrixType::Random};
@@ -99,7 +99,7 @@ struct ScalarFeedbackMatrixConfig
 
 /** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
  */
-struct CascadedFeedbackMatrixInfo
+struct CascadedFeedbackMatrixOptions
 {
     uint32_t matrix_size;                     /**< Size of the feedback matrix */
     uint32_t stage_count;                     /**< Number of stages */
@@ -107,41 +107,41 @@ struct CascadedFeedbackMatrixInfo
     std::vector<std::vector<float>> matrices; /**< Feedback matrices, size: K x N x N */
 };
 
-struct ModulationConfig
+struct ModulationOptions
 {
     float frequency{0.f};
     float amplitude{0.f};
     float initial_phase{0.f};
 };
 
-struct ParallelGainsConfig
+struct ParallelGainsOptions
 {
     ParallelGainsMode mode{ParallelGainsMode::Split};
     std::vector<float> gains;
-    std::vector<ModulationConfig> time_varying_config{};
+    std::vector<ModulationOptions> time_varying_config{};
 };
 
-struct DelayConfig
+struct DelayOptions
 {
     float delay{256.f};
     uint32_t max_delay{512};
     sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::Allpass};
-    std::optional<sfFDN::ModulationConfig> lfo_config{std::nullopt};
+    std::optional<sfFDN::ModulationOptions> lfo_config{std::nullopt};
 };
 
-struct DelayBankConfig
+struct DelayBankOptions
 {
     std::vector<float> delays;
     uint32_t block_size{kDefaultBlockSize};
     DelayInterpolationType interpolation_type{DelayInterpolationType::None};
 };
 
-struct DelayBankTimeVaryingConfig
+struct DelayBankTimeVaryingOptions
 {
     std::vector<float> delays;
     uint32_t max_delay;
     DelayInterpolationType interpolation_type;
-    std::vector<ModulationConfig> time_varying_config;
+    std::vector<ModulationOptions> time_varying_config;
 };
 
 struct FilterCoefficients
@@ -154,53 +154,53 @@ struct FilterCoefficients
     }
 };
 
-struct AllpassFilterConfig
+struct AllpassFilterOptions
 {
     float coeff{0.f};
 };
 
-struct SparseFirConfig
+struct SparseFirOptions
 {
     std::vector<std::pair<uint32_t, float>> coeffs; // pair of (index, coefficient)
 };
 
-struct CascadedBiquadsConfig
+struct CascadedBiquadsOptions
 {
     std::vector<FilterCoefficients> coeffs;
 };
 
-struct FirConfig
+struct FirOptions
 {
     std::vector<float> coeffs{1.f};
 };
 
-struct SchroederAllpassSectionConfig
+struct SchroederAllpassSectionOptions
 {
     std::vector<uint32_t> delays;
     std::vector<float> gains;
     bool parallel{false};
 };
 
-struct ParallelSchroederAllpassSectionConfig
+struct ParallelSchroederAllpassSectionOptions
 {
-    std::vector<SchroederAllpassSectionConfig> sections;
+    std::vector<SchroederAllpassSectionOptions> sections;
 };
 
-struct ProportionalAttenuationConfig
+struct ProportionalAttenuationOptions
 {
     float t60 = 1.f;
     float delay;
     float sample_rate = kDefaultSampleRate;
 };
 
-struct TwoBandFilterConfig
+struct TwoBandFilterOptions
 {
     std::array<float, 2> t60s{1.f, 0.5f};
     float delay;
     float sample_rate = kDefaultSampleRate;
 };
 
-struct ThreeBandFilterConfig
+struct ThreeBandFilterOptions
 {
     std::array<float, 3> t60s{1.f, 0.5f, 0.25f};
     float delay;
@@ -209,7 +209,7 @@ struct ThreeBandFilterConfig
     float sample_rate = kDefaultSampleRate;
 };
 
-struct TenBandFilterConfig
+struct TenBandFilterOptions
 {
     std::array<float, 10> t60s = {1.f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f, 0.3f, 0.2f, 0.1f};
     float delay;
@@ -218,23 +218,24 @@ struct TenBandFilterConfig
 };
 
 using attenuation_filter_variant_t =
-    std::variant<ProportionalAttenuationConfig, TwoBandFilterConfig, ThreeBandFilterConfig, TenBandFilterConfig>;
+    std::variant<ProportionalAttenuationOptions, TwoBandFilterOptions, ThreeBandFilterOptions, TenBandFilterOptions>;
 
-struct AttenuationFilterBankConfig
+struct AttenuationFilterBankOptions
 {
     std::vector<attenuation_filter_variant_t> filter_configs;
 };
 
-struct GraphicEQConfig
+struct GraphicEQOptions
 {
     std::array<float, 10> gains_db;
     std::array<float, 10> freqs;
     float sample_rate = kDefaultSampleRate;
 };
 
-using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig>;
-using single_channel_processor_variant_t = std::variant<SchroederAllpassSectionConfig, AllpassFilterConfig,
-                                                        CascadedBiquadsConfig, FirConfig, DelayConfig, GraphicEQConfig>;
+using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
+using single_channel_processor_variant_t =
+    std::variant<SchroederAllpassSectionOptions, AllpassFilterOptions, CascadedBiquadsOptions, FirOptions, DelayOptions,
+                 GraphicEQOptions>;
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ScalarMatrixType, {{ScalarMatrixType::Identity, "Identity"},
                                                 {ScalarMatrixType::Random, "Random"},
@@ -263,30 +264,30 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {{ParallelGainsMode::Split, "Spl
                                                  {ParallelGainsMode::Merge, "Merge"},
                                                  {ParallelGainsMode::Parallel, "Parallel"}});
 
-void to_json(nlohmann::json& j, const ScalarFeedbackMatrixConfig& config);
-void from_json(const nlohmann::json& j, ScalarFeedbackMatrixConfig& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixInfo, matrix_size, stage_count, delays, matrices);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationConfig, frequency, amplitude, initial_phase);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsConfig, mode, gains, time_varying_config);
-void to_json(nlohmann::json& j, const DelayConfig& config);
-void from_json(const nlohmann::json& j, DelayConfig& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankConfig, delays, block_size, interpolation_type);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankTimeVaryingConfig, delays, max_delay, interpolation_type,
+void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
+void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, delays, matrices);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationOptions, frequency, amplitude, initial_phase);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsOptions, mode, gains, time_varying_config);
+void to_json(nlohmann::json& j, const DelayOptions& config);
+void from_json(const nlohmann::json& j, DelayOptions& config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankOptions, delays, block_size, interpolation_type);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankTimeVaryingOptions, delays, max_delay, interpolation_type,
                                    time_varying_config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FilterCoefficients, b0, b1, b2, a0, a1, a2);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AllpassFilterConfig, coeff);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirConfig, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsConfig, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirConfig, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionConfig, delays, gains, parallel);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelSchroederAllpassSectionConfig, sections);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ProportionalAttenuationConfig, t60, delay, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterConfig, t60s, delay, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterConfig, t60s, delay, freqs, q, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TenBandFilterConfig, t60s, delay, sample_rate, shelf_cutoff);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GraphicEQConfig, gains_db, freqs, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AllpassFilterOptions, coeff);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirOptions, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelSchroederAllpassSectionOptions, sections);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ProportionalAttenuationOptions, t60, delay, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TenBandFilterOptions, t60s, delay, sample_rate, shelf_cutoff);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GraphicEQOptions, gains_db, freqs, sample_rate);
 
-void to_json(nlohmann::json& j, const AttenuationFilterBankConfig& config);
-void from_json(const nlohmann::json& j, AttenuationFilterBankConfig& config);
+void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config);
+void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config);
 
 } // namespace sfFDN

@@ -98,7 +98,7 @@ class AllpassFilter : public AudioProcessor
 {
   public:
     /** @brief Constructs an allpass filter. */
-    AllpassFilter(const AllpassFilterConfig& config = {});
+    AllpassFilter(const AllpassFilterOptions& config = {});
 
     /** @brief Sets the allpass coefficient.
      * @param coeff The allpass coefficient.
@@ -159,7 +159,7 @@ class CascadedBiquads : public AudioProcessor
 {
   public:
     /** @brief Constructs a cascaded biquad filter. */
-    CascadedBiquads(const CascadedBiquadsConfig& config = {});
+    CascadedBiquads(const CascadedBiquadsOptions& config = {});
     ~CascadedBiquads() = default;
 
     /** @brief Sets the biquad coefficients for each stage.
@@ -221,7 +221,7 @@ class Fir : public AudioProcessor
 {
   public:
     /** @brief Constructs a FIR filter. */
-    Fir(const FirConfig& config = {});
+    Fir(const FirOptions& config = {});
     ~Fir();
 
     Fir(const Fir&);
@@ -282,13 +282,13 @@ class SparseFir : public AudioProcessor
 {
   public:
     /** @brief Constructs a sparse FIR filter. */
-    SparseFir(const SparseFirConfig& config = {});
+    SparseFir(const SparseFirOptions& config = {});
     ~SparseFir();
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.
      */
-    void SetCoefficients(const SparseFirConfig& config = {});
+    void SetCoefficients(const SparseFirOptions& config = {});
 
     /**
      * @brief Input a sample in the filter and return the next output
@@ -333,6 +333,6 @@ class SparseFir : public AudioProcessor
     std::unique_ptr<SparseFirImpl> impl_;
 };
 
-std::unique_ptr<AudioProcessor> MakeFirFilter(const FirConfig& config, float sparse_threshold = 0.25f);
+std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold = 0.25f);
 
 } // namespace sfFDN

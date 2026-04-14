@@ -16,7 +16,7 @@
 
 namespace sfFDN
 {
-FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& info)
+FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& info)
     : channel_count_(info.matrix_size)
 {
     delaybanks_.reserve(info.stage_count);
@@ -28,12 +28,12 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixInfo& inf
     for (const auto& stage_delays : info.delays)
     {
         std::vector<float> delay_vector(stage_delays.begin(), stage_delays.end());
-        delaybanks_.emplace_back(DelayBankConfig{delay_vector, kDefaultBlockSize});
+        delaybanks_.emplace_back(DelayBankOptions{delay_vector, kDefaultBlockSize});
     }
 
     for (const auto& matrix : info.matrices)
     {
-        ScalarFeedbackMatrixConfig scalar_config;
+        ScalarFeedbackMatrixOptions scalar_config;
         scalar_config.matrix_size = info.matrix_size;
         scalar_config.custom_matrix = matrix;
         matrix_.emplace_back(scalar_config);

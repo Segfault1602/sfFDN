@@ -50,7 +50,7 @@ TEST_CASE("TwoFilter")
         t60s_f[i] = static_cast<float>(kT60s[i]);
     }
 
-    sfFDN::TenBandFilterConfig config;
+    sfFDN::TenBandFilterOptions config;
     config.t60s = t60s_f;
     config.delay = kDelay;
     config.sample_rate = kSR;
@@ -166,7 +166,7 @@ TEST_CASE("ThreeBandFilter")
 {
     constexpr float kDelay = 1000.f;
     constexpr float sr = 48000.f;
-    sfFDN::ThreeBandFilterConfig config{{2.f, 1.f, 0.5f}, kDelay, {300.f, 8000.f}, 1.f / std::sqrt(2.f), sr};
+    sfFDN::ThreeBandFilterOptions config{{2.f, 1.f, 0.5f}, kDelay, {300.f, 8000.f}, 1.f / std::sqrt(2.f), sr};
 
     auto sos = sfFDN::DesignThreeBandAbsorption(config);
 

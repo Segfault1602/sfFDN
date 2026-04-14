@@ -13,7 +13,7 @@
 namespace sfFDN
 {
 
-std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsConfig& config);
+std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsOptions& config);
 
 /** @brief A parallel gains processor.
  * Supports three modes:
@@ -34,11 +34,9 @@ class ParallelGains : public AudioProcessor
     ParallelGains(ParallelGainsMode mode);
 
     /** @brief Constructs a ParallelGains processor.
-     * @param channel_count The number of channels to process.
-     * @param mode The processing mode to use.
-     * @param gain The gain to apply.
+     * @param options The options for the processor.
      */
-    ParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain = 1.0f);
+    ParallelGains(const ParallelGainsOptions& options);
 
     /** @brief Constructs a ParallelGains processor.
      * @param mode The processing mode to use.
@@ -118,24 +116,10 @@ class ParallelGains : public AudioProcessor
 class TimeVaryingParallelGains : public AudioProcessor
 {
   public:
-    /**
-     * @brief Constructs a TimeVaryingParallelGains processor.
-     * @param mode The processing mode to use.
-     */
-    TimeVaryingParallelGains(ParallelGainsMode mode);
-
     /** @brief Constructs a TimeVaryingParallelGains processor.
-     * @param channel_count The number of channels to process.
-     * @param mode The processing mode to use.
-     * @param gain The initial gain to apply to each channel.
+     * @param options The options for the processor.
      */
-    TimeVaryingParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain = 1.0f);
-
-    /** @brief Constructs a TimeVaryingParallelGains processor.
-     * @param mode The processing mode to use.
-     * @param gains A span of initial gains to apply to each channel.
-     */
-    TimeVaryingParallelGains(ParallelGainsMode mode, std::span<const float> gains);
+    TimeVaryingParallelGains(const ParallelGainsOptions& options);
 
     /** @brief Sets the processing mode.
      * @param mode The processing mode to use.
@@ -157,7 +141,7 @@ class TimeVaryingParallelGains : public AudioProcessor
      */
     void GetCenterGains(std::span<float> gains) const;
 
-    void SetModulation(std::span<const ModulationConfig> modulation_configs);
+    void SetModulation(std::span<const ModulationOptions> modulation_configs);
 
     /** @brief Sets the LFO frequency for each channel.
      * @param frequencies A span of LFO frequencies to apply to each channel. Frequencies are in cycles per sample.

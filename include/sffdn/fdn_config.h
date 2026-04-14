@@ -24,7 +24,7 @@ enum class DelayFilterType : uint8_t
     TwoFilter = 3,
 };
 
-using matrix_variant_t = std::variant<sfFDN::CascadedFeedbackMatrixInfo, std::vector<float>>;
+using matrix_variant_t = std::variant<sfFDN::CascadedFeedbackMatrixOptions, std::vector<float>>;
 
 struct SchroederAllpassConfig
 {
@@ -74,7 +74,7 @@ struct FDNConfig
     std::optional<VelvetNoiseDecorrelatorConfig> input_velvet_decorrelator_mc = std::nullopt;
     std::optional<SchroederAllpassConfig> input_series_schroeder_config = std::nullopt;
     std::optional<SchroederAllpassConfig> input_schroeder_allpass_config = std::nullopt;
-    std::optional<sfFDN::CascadedFeedbackMatrixInfo> input_diffuser = std::nullopt;
+    std::optional<sfFDN::CascadedFeedbackMatrixOptions> input_diffuser = std::nullopt;
     std::optional<TimeVaryingGainsConfig> time_varying_input_gains = std::nullopt;
 
     // Output Stage

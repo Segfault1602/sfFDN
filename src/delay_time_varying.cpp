@@ -11,7 +11,7 @@
 namespace sfFDN
 {
 
-DelayTimeVarying::DelayTimeVarying(const DelayConfig& config)
+DelayTimeVarying::DelayTimeVarying(const DelayOptions& config)
     : delay_{config}
     , base_delay_{config.delay}
 {

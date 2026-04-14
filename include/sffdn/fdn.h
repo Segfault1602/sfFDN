@@ -136,7 +136,7 @@ class FDN : public AudioProcessor
      */
     AudioProcessor* GetFilterBank() const;
 
-    bool SetDelayBank(const DelayBankConfig& config);
+    bool SetDelayBank(const DelayBankOptions& config);
 
     /** @brief Set the delays.
      * @param delays A span of delay lengths in samples. The size of the span must be equal to GetOrder().

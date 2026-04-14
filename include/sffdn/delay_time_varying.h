@@ -15,7 +15,7 @@ namespace sfFDN
 class DelayTimeVarying : public AudioProcessor
 {
   public:
-    DelayTimeVarying(const DelayConfig& config);
+    DelayTimeVarying(const DelayOptions& config);
 
     void Clear() override;
 

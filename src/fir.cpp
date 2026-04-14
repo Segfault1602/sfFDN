@@ -226,7 +226,7 @@ class Fir::FirImpl
 };
 #endif
 
-Fir::Fir(const FirConfig& config)
+Fir::Fir(const FirOptions& config)
     : impl_(std::make_unique<FirImpl>())
 {
     SetCoefficients(config.coeffs);
@@ -308,7 +308,7 @@ nlohmann::json Fir::ToJson() const
     return j;
 }
 
-std::unique_ptr<AudioProcessor> MakeFirFilter(const FirConfig& config, float sparse_threshold)
+std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold)
 {
     if (config.coeffs.size() == 0)
     {
@@ -321,7 +321,7 @@ std::unique_ptr<AudioProcessor> MakeFirFilter(const FirConfig& config, float spa
 
     if (sparsity >= sparse_threshold)
     {
-        SparseFirConfig sparse_config;
+        SparseFirOptions sparse_config;
         for (size_t i = 0; i < config.coeffs.size(); ++i)
         {
             if (std::abs(config.coeffs[i]) > 1e-6f)

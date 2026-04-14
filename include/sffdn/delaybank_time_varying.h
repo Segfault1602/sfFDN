@@ -29,7 +29,7 @@ class DelayBankTimeVarying : public AudioProcessor
      * @brief Constructs a delay bank with a specified set of delays and maximum delay.
      * @param config The configuration for the delay bank.
      */
-    DelayBankTimeVarying(const DelayBankTimeVaryingConfig& config);
+    DelayBankTimeVarying(const DelayBankTimeVaryingOptions& config);
 
     ~DelayBankTimeVarying() = default;
 
@@ -90,7 +90,7 @@ class DelayBankTimeVarying : public AudioProcessor
 
   private:
     FilterBank delay_bank_;
-    DelayBankTimeVaryingConfig config_;
+    DelayBankTimeVaryingOptions config_;
 };
 
 } // namespace sfFDN

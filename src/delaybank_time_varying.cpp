@@ -15,7 +15,7 @@
 namespace sfFDN
 {
 
-DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingConfig& config)
+DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingOptions& config)
     : config_(config)
 {
     // validate config
@@ -31,7 +31,7 @@ DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingConfig& con
 
     for (uint32_t i = 0; i < num_delays; i++)
     {
-        DelayConfig delay_config{config.delays[i], config.max_delay, config.interpolation_type};
+        DelayOptions delay_config{config.delays[i], config.max_delay, config.interpolation_type};
         if (config.time_varying_config.size() > 0)
         {
             delay_config.lfo_config = config.time_varying_config.at(i);

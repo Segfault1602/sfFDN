@@ -30,7 +30,7 @@ class DelayBank : public AudioProcessor
      * @param config The configuration for the delay bank.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
-    DelayBank(const DelayBankConfig& config = {});
+    DelayBank(const DelayBankOptions& config = {});
 
     ~DelayBank() = default;
 

@@ -53,8 +53,9 @@ std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed = 0,
  * @param gain_per_samples Gain per sample (default: 1.0)
  * @return CascadedFeedbackMatrixInfo
  */
-CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count, float sparsity,
-                                                           ScalarMatrixType type, float gain_per_samples = 1.f);
+CascadedFeedbackMatrixOptions ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count,
+                                                              float sparsity, ScalarMatrixType type,
+                                                              float gain_per_samples = 1.f);
 
 /** @} */
 } // namespace sfFDN

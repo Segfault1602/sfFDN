@@ -130,7 +130,7 @@ nlohmann::json OnePoleFilter::ToJson() const
     return j;
 }
 
-AllpassFilter::AllpassFilter(const AllpassFilterConfig& config)
+AllpassFilter::AllpassFilter(const AllpassFilterOptions& config)
     : coeff_(config.coeff)
     , last_in_(0.0f)
     , last_out_(0.0f)

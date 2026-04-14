@@ -13,7 +13,7 @@
 
 namespace sfFDN
 {
-DelayBank::DelayBank(const DelayBankConfig& config)
+DelayBank::DelayBank(const DelayBankOptions& config)
     : block_size_(config.block_size)
     , interpolation_type_(config.interpolation_type)
 {
@@ -25,7 +25,7 @@ DelayBank::DelayBank(const DelayBankConfig& config)
             max_delay += 64 - (max_delay % 64);
         }
 
-        delays_.emplace_back(DelayConfig{delay, max_delay, interpolation_type_});
+        delays_.emplace_back(DelayOptions{delay, max_delay, interpolation_type_});
     }
 }
 
@@ -129,7 +129,7 @@ std::unique_ptr<DelayBank> DelayBank::FromJson(const nlohmann::json& j)
     std::vector<float> delays = j["delays"].get<std::vector<float>>();
     uint32_t block_size = j["block_size"].get<uint32_t>();
     DelayInterpolationType interpolation_type = static_cast<DelayInterpolationType>(j.value("interpolation_type", 0));
-    return std::make_unique<DelayBank>(DelayBankConfig{delays, block_size, interpolation_type});
+    return std::make_unique<DelayBank>(DelayBankOptions{delays, block_size, interpolation_type});
 }
 
 } // namespace sfFDN

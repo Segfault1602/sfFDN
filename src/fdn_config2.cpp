@@ -58,38 +58,38 @@ bool ValidateConfig(const sfFDN::FDNConfig2& config)
 
 struct SingleChannelProcessorVisitor
 {
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::SchroederAllpassSectionConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::SchroederAllpassSectionOptions& config) const
     {
         return std::make_unique<sfFDN::SchroederAllpassSection>(config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::AllpassFilterConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::AllpassFilterOptions& config) const
     {
         auto filter = std::make_unique<sfFDN::AllpassFilter>();
         filter->SetCoefficients(config.coeff);
         return filter;
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedBiquadsConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedBiquadsOptions& config) const
     {
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
         filter->SetCoefficients(config.coeffs);
         return filter;
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::FirConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::FirOptions& config) const
     {
         auto filter = std::make_unique<sfFDN::Fir>();
         filter->SetCoefficients(config.coeffs);
         return filter;
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayOptions& config) const
     {
         return std::make_unique<sfFDN::DelayTimeVarying>(config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::GraphicEQConfig& config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::GraphicEQOptions& config) const
     {
         auto sos = sfFDN::DesignGraphicEQ(config);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
@@ -100,13 +100,13 @@ struct SingleChannelProcessorVisitor
 
 struct MultichannelProcessorVisitor
 {
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsConfig& gains_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsOptions& gains_config) const
     {
         return MakeParallelGainsFromConfig(gains_config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::ParallelSchroederAllpassSectionConfig& schroeder_config) const
+        const sfFDN::ParallelSchroederAllpassSectionOptions& schroeder_config) const
     {
         auto bank = std::make_unique<sfFDN::FilterBank>();
         for (const auto& section_config : schroeder_config.sections)
@@ -118,27 +118,27 @@ struct MultichannelProcessorVisitor
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::AttenuationFilterBankConfig& attenuation_config) const
+        const sfFDN::AttenuationFilterBankOptions& attenuation_config) const
     {
         return sfFDN::CreateAttenuationFilterBank(attenuation_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankConfig& delay_bank_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankOptions& delay_bank_config) const
     {
         return std::make_unique<sfFDN::DelayBank>(delay_bank_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankTimeVaryingConfig& delay_bank_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankTimeVaryingOptions& delay_bank_config) const
     {
         return std::make_unique<sfFDN::DelayBankTimeVarying>(delay_bank_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedFeedbackMatrixInfo& matrix_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedFeedbackMatrixOptions& matrix_config) const
     {
         return std::make_unique<sfFDN::FilterFeedbackMatrix>(matrix_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixConfig& matrix_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixOptions& matrix_config) const
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
@@ -203,12 +203,12 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
 
 struct FeedbackMatrixVisitor
 {
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedFeedbackMatrixInfo& matrix_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedFeedbackMatrixOptions& matrix_config) const
     {
         return std::make_unique<sfFDN::FilterFeedbackMatrix>(matrix_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixConfig& matrix_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixOptions& matrix_config) const
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
@@ -222,7 +222,7 @@ struct FeedbackMatrixVisitor
             throw std::runtime_error("Custom scalar feedback matrix size must be a perfect square");
         }
 
-        sfFDN::ScalarFeedbackMatrixConfig scalar_config;
+        sfFDN::ScalarFeedbackMatrixOptions scalar_config;
         scalar_config.matrix_size = matrix_size;
         scalar_config.custom_matrix = matrix_config;
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(scalar_config);
@@ -279,53 +279,53 @@ std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig2& config)
 template <typename T>
 std::string VariantTypeName()
 {
-    if constexpr (std::is_same_v<T, ParallelGainsConfig>)
+    if constexpr (std::is_same_v<T, ParallelGainsOptions>)
     {
-        return "ParallelGainsConfig";
+        return "ParallelGainsOptions";
     }
-    else if constexpr (std::is_same_v<T, ParallelSchroederAllpassSectionConfig>)
+    else if constexpr (std::is_same_v<T, ParallelSchroederAllpassSectionOptions>)
     {
-        return "ParallelSchroederAllpassSectionConfig";
+        return "ParallelSchroederAllpassSectionOptions";
     }
-    else if constexpr (std::is_same_v<T, AttenuationFilterBankConfig>)
+    else if constexpr (std::is_same_v<T, AttenuationFilterBankOptions>)
     {
-        return "AttenuationFilterBankConfig";
+        return "AttenuationFilterBankOptions";
     }
-    else if constexpr (std::is_same_v<T, SchroederAllpassSectionConfig>)
+    else if constexpr (std::is_same_v<T, SchroederAllpassSectionOptions>)
     {
-        return "SchroederAllpassSectionConfig";
+        return "SchroederAllpassSectionOptions";
     }
-    else if constexpr (std::is_same_v<T, AllpassFilterConfig>)
+    else if constexpr (std::is_same_v<T, AllpassFilterOptions>)
     {
-        return "AllpassFilterConfig";
+        return "AllpassFilterOptions";
     }
-    else if constexpr (std::is_same_v<T, CascadedBiquadsConfig>)
+    else if constexpr (std::is_same_v<T, CascadedBiquadsOptions>)
     {
-        return "CascadedBiquadsConfig";
+        return "CascadedBiquadsOptions";
     }
-    else if constexpr (std::is_same_v<T, FirConfig>)
+    else if constexpr (std::is_same_v<T, FirOptions>)
     {
-        return "FirConfig";
+        return "FirOptions";
     }
-    else if constexpr (std::is_same_v<T, DelayConfig>)
+    else if constexpr (std::is_same_v<T, DelayOptions>)
     {
-        return "DelayConfig";
+        return "DelayOptions";
     }
-    else if constexpr (std::is_same_v<T, DelayBankConfig>)
+    else if constexpr (std::is_same_v<T, DelayBankOptions>)
     {
-        return "DelayBankConfig";
+        return "DelayBankOptions";
     }
-    else if constexpr (std::is_same_v<T, DelayBankTimeVaryingConfig>)
+    else if constexpr (std::is_same_v<T, DelayBankTimeVaryingOptions>)
     {
-        return "DelayBankTimeVaryingConfig";
+        return "DelayBankTimeVaryingOptions";
     }
-    else if constexpr (std::is_same_v<T, CascadedFeedbackMatrixInfo>)
+    else if constexpr (std::is_same_v<T, CascadedFeedbackMatrixOptions>)
     {
         return "CascadedFeedbackMatrixInfo";
     }
-    else if constexpr (std::is_same_v<T, ScalarFeedbackMatrixConfig>)
+    else if constexpr (std::is_same_v<T, ScalarFeedbackMatrixOptions>)
     {
-        return "ScalarFeedbackMatrixConfig";
+        return "ScalarFeedbackMatrixOptions";
     }
     else
     {
@@ -404,11 +404,11 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig2& p)
     p.direct_gain = j.at("direct_gain").get<float>();
     p.block_size = j.at("block_size").get<uint32_t>();
     p.sample_rate = j.at("sample_rate").get<uint32_t>();
-    p.delay_bank_config = j.at("delay_bank_config").get<DelayBankConfig>();
+    p.delay_bank_config = j.at("delay_bank_config").get<DelayBankOptions>();
 
     const auto& input_block_json = j.at("input_block_config");
     p.input_block_config.parallel_gains_config =
-        input_block_json.at("parallel_gains_config").get<ParallelGainsConfig>();
+        input_block_json.at("parallel_gains_config").get<ParallelGainsOptions>();
 
     p.input_block_config.single_channel_processors.clear();
     for (const auto& processor_json : input_block_json.at("single_channel_processors"))
@@ -432,7 +432,7 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig2& p)
 
     const auto& output_block_json = j.at("output_block_config");
     p.output_block_config.parallel_gains_config =
-        output_block_json.at("parallel_gains_config").get<ParallelGainsConfig>();
+        output_block_json.at("parallel_gains_config").get<ParallelGainsOptions>();
     p.output_block_config.single_channel_processors.clear();
     for (const auto& processor_json : output_block_json.at("single_channel_processors"))
     {

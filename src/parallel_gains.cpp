@@ -15,17 +15,15 @@
 namespace sfFDN
 {
 
-std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsConfig& config)
+std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsOptions& config)
 {
     if (config.time_varying_config.size() > 0)
     {
-        auto processor = std::make_unique<TimeVaryingParallelGains>(config.mode, config.gains);
-        processor->SetModulation(config.time_varying_config);
-        return processor;
+        return std::make_unique<TimeVaryingParallelGains>(config);
     }
     else
     {
-        return std::make_unique<ParallelGains>(config.mode, config.gains);
+        return std::make_unique<ParallelGains>(config);
     }
 }
 
@@ -35,9 +33,9 @@ ParallelGains::ParallelGains(ParallelGainsMode mode)
 {
 }
 
-ParallelGains::ParallelGains(uint32_t channel_count, ParallelGainsMode mode, float gain)
-    : gains_(channel_count, gain)
-    , mode_(mode)
+ParallelGains::ParallelGains(const ParallelGainsOptions& config)
+    : gains_(config.gains)
+    , mode_(config.mode)
 {
 }
 

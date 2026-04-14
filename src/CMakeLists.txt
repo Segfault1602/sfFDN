@@ -31,7 +31,7 @@ target_sources(
             delay_utils.cpp
             feedback_matrix.cpp
             fdn.cpp
-            fdn_config.cpp
+            # fdn_config.cpp
             fdn_config2.cpp
             fir.cpp
             fft.cpp
@@ -71,7 +71,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn.h
-           ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
+        #    ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config2.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_design.h

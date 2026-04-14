@@ -63,7 +63,7 @@ namespace sfFDN
 FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
     : delay_bank_({GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random), block_size})
     , filter_bank_(nullptr)
-    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(ScalarFeedbackMatrixConfig{order}))
+    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(ScalarFeedbackMatrixOptions{order}))
     , order_(order)
     , block_size_(block_size == 0 ? kDefaultBlockSize : block_size)
     , direct_gain_(1.f)
@@ -72,8 +72,16 @@ FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
     , tc_filter_(nullptr)
     , transpose_(transpose)
 {
-    input_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Split, 0.5f);
-    output_gains_ = std::make_unique<ParallelGains>(order, ParallelGainsMode::Merge, 0.5f);
+
+    ParallelGainsOptions gains_options;
+    gains_options.mode = ParallelGainsMode::Split;
+    gains_options.gains = std::vector<float>(order, 0.5f);
+
+    input_gains_ = std::make_unique<ParallelGains>(gains_options);
+
+    gains_options.mode = ParallelGainsMode::Merge;
+    output_gains_ = std::make_unique<ParallelGains>(gains_options);
+
     delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
 }
 
@@ -133,7 +141,7 @@ void FDN::SetOrder(uint32_t order)
     delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
     filter_bank_ = nullptr;
 
-    ScalarFeedbackMatrixConfig feedback_config;
+    ScalarFeedbackMatrixOptions feedback_config;
     feedback_config.matrix_size = order;
     feedback_config.type = ScalarMatrixType::Random;
 
@@ -246,7 +254,7 @@ AudioProcessor* FDN::GetFilterBank() const
     return filter_bank_.get();
 }
 
-bool FDN::SetDelayBank(const DelayBankConfig& config)
+bool FDN::SetDelayBank(const DelayBankOptions& config)
 {
     for (const auto& delay : config.delays)
     {
@@ -298,7 +306,7 @@ bool FDN::SetDelays(const std::span<const float> delays, DelayInterpolationType 
 
     std::vector<float> delay_vector(delays.begin(), delays.end());
 
-    delay_bank_ = DelayBank(DelayBankConfig{delay_vector, block_size_, interpolation_type});
+    delay_bank_ = DelayBank(DelayBankOptions{delay_vector, block_size_, interpolation_type});
 
     return true;
 }

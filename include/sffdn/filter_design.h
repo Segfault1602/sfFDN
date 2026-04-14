@@ -30,7 +30,7 @@ namespace sfFDN
  * @note Based on Jot, J. M., & Chaigne, A. (1991). Digital delay networks for designing artificial reverberators (pp.
  * 1-12). Presented at the Proc. Audio Eng. Soc. Conv., Paris, France.
  */
-std::pair<float, float> GetOnePoleAbsorption(const TwoBandFilterConfig& config);
+std::pair<float, float> GetOnePoleAbsorption(const TwoBandFilterOptions& config);
 
 struct ThreeBandAbsorptionParams
 {
@@ -50,7 +50,7 @@ struct ThreeBandAbsorptionParams
  * @param delay Delay in samples for the delay line preceding the filter
  * @return std::array<FilterCoefficients, 2> Coefficients of the designed EQ filter.
  */
-std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilterConfig& params);
+std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilterOptions& params);
 
 /**
  * @brief Design an attenuation filter according to the method described in [1]
@@ -64,7 +64,7 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilte
  * IEEE Signal Processing Letters, vol. 31, pp. 391–395, 2024, doi: 10.1109/LSP.2024.3352510.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/twoFilters.m
  */
-std::array<FilterCoefficients, 11> GetTwoFilter(const TenBandFilterConfig& config);
+std::array<FilterCoefficients, 11> GetTwoFilter(const TenBandFilterOptions& config);
 
 /**
  * @brief Design an octave EQ filter consisting of a low shelf, high shelf and 8 band-pass peaking filters
@@ -79,7 +79,7 @@ std::array<FilterCoefficients, 11> GetTwoFilter(const TenBandFilterConfig& confi
  * 2, pp. 176–180, Feb. 2017, doi: 10.1109/LSP.2016.2645280.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/aceq.m
  */
-std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQConfig& config);
+std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& config);
 
 /** @brief Creates an attenuation filter bank using the two-stage attenuation filter design.
  *
@@ -92,6 +92,6 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_v
                                                             std::span<const float> delays, float sample_rate);
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter_variant_t& config);
-std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankConfig& configs);
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& configs);
 /** @} */
 } // namespace sfFDN

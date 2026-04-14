@@ -489,8 +489,9 @@ std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed, std::sp
     return flat_matrix;
 }
 
-CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count, float sparsity,
-                                                           ScalarMatrixType type, float gain_per_samples)
+CascadedFeedbackMatrixOptions ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count,
+                                                              float sparsity, ScalarMatrixType type,
+                                                              float gain_per_samples)
 {
     if (sparsity < 1.f)
     {
@@ -528,7 +529,7 @@ CascadedFeedbackMatrixInfo ConstructCascadedFeedbackMatrix(uint32_t channel_coun
         delays.push_back(delays_stage);
     }
 
-    CascadedFeedbackMatrixInfo info;
+    CascadedFeedbackMatrixOptions info;
     info.matrix_size = channel_count;
     info.stage_count = stage_count;
     info.delays = delays;

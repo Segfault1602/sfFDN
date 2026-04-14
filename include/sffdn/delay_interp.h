@@ -22,7 +22,7 @@ class DelayInterp
      * @param delay The initial delay in samples.
      * @param max_delay The maximum delay in samples.
      */
-    DelayInterp(const DelayConfig& config = {});
+    DelayInterp(const DelayOptions& config = {});
 
     /** @brief Clears all internal states of the delay line. */
     void Clear();

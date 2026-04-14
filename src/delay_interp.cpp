@@ -35,7 +35,7 @@ std::array<float, N + 1> GetLagrangeCoefficients(float delay)
 namespace sfFDN
 {
 
-DelayInterp::DelayInterp(const DelayConfig& config)
+DelayInterp::DelayInterp(const DelayOptions& config)
     : delayline_(static_cast<uint32_t>(config.delay), config.max_delay)
     , delay_(0)
     , int_delay_(0)

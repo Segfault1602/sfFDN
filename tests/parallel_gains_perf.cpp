@@ -18,8 +18,8 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kChannelCount = 16;
-    constexpr std::array kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
-                                   0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+    const std::vector<float> kGains = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+                                       0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
     std::vector<float> input(kBlockSize, 0.f);
     std::vector<float> output(kBlockSize * kChannelCount, 0.f);
@@ -56,7 +56,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
                                    4.5f / kSampleRate, 5.0f / kSampleRate, 5.5f / kSampleRate, 6.0f / kSampleRate,
                                    6.5f / kSampleRate, 7.0f / kSampleRate, 7.5f / kSampleRate, 8.0f / kSampleRate};
 
-    sfFDN::TimeVaryingParallelGains tv_input_gains(sfFDN::ParallelGainsMode::Split);
+    sfFDN::TimeVaryingParallelGains tv_input_gains({sfFDN::ParallelGainsMode::Split, kGains, {}});
     tv_input_gains.SetCenterGains(kGains);
     tv_input_gains.SetLfoFrequency(kFreqs);
 
@@ -67,7 +67,7 @@ TEST_CASE("ParallelGainsPerf", "[Gains]")
         tv_input_gains.Process(input_buffer, output_buffer);
     });
 
-    sfFDN::TimeVaryingParallelGains tv_output_gains(sfFDN::ParallelGainsMode::Merge);
+    sfFDN::TimeVaryingParallelGains tv_output_gains({sfFDN::ParallelGainsMode::Merge, kGains, {}});
     tv_output_gains.SetCenterGains(kGains);
     tv_output_gains.SetLfoFrequency(kFreqs);
 

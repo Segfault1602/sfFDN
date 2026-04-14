@@ -41,7 +41,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetDirectGain(0.f);
     fdn->SetDelays(kDelays);
 
-    sfFDN::ScalarFeedbackMatrixConfig mix_mat_config;
+    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config;
     mix_mat_config.matrix_size = kFDNOrder;
     mix_mat_config.custom_matrix = kMixingMatrix;
 

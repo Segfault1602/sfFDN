@@ -68,7 +68,7 @@ TEST_CASE("IIRFilterBankPerf")
     constexpr std::array<float, 10> kRT60s = {2.f, 2.1f, 2.5f, 2.f, 1.5f, 1.f, 0.8f, 0.5f, 0.3f, 0.21f};
     auto delays = sfFDN::GetDelayLengths(kChannelCount, 500, 5000, sfFDN::DelayLengthType::Uniform);
 
-    sfFDN::TenBandFilterConfig config;
+    sfFDN::TenBandFilterOptions config;
     config.t60s = kRT60s;
     config.sample_rate = kSampleRate;
     config.shelf_cutoff = 8000.0f;
@@ -298,7 +298,7 @@ TEST_CASE("FirFilterSparse")
     {
         std::uniform_int_distribution<> distribution(0, fir_size - 1);
 
-        sfFDN::SparseFirConfig sparse_fir_config;
+        sfFDN::SparseFirOptions sparse_fir_config;
 
         for (auto i = 0u; i < kFirTapCount; i++)
         {

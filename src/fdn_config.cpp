@@ -45,7 +45,7 @@ class MatrixVisitor
     {
     }
 
-    void operator()(const sfFDN::CascadedFeedbackMatrixInfo& matrix_info) const
+    void operator()(const sfFDN::CascadedFeedbackMatrixOptions& matrix_info) const
     {
         auto filter_matrix = std::make_unique<sfFDN::FilterFeedbackMatrix>(matrix_info);
         fdn_->SetFeedbackMatrix(std::move(filter_matrix));
@@ -53,7 +53,7 @@ class MatrixVisitor
 
     void operator()(const std::vector<float>& matrix_info) const
     {
-        sfFDN::ScalarFeedbackMatrixConfig config;
+        sfFDN::ScalarFeedbackMatrixOptions config;
         config.matrix_size = static_cast<uint32_t>(std::sqrt(matrix_info.size()));
         config.custom_matrix = matrix_info;
         auto scalar_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(config);
@@ -69,8 +69,11 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     std::unique_ptr<sfFDN::AudioProcessor> input_gains;
     if (config.time_varying_input_gains.has_value())
     {
-        auto tv_input_gains =
-            std::make_unique<sfFDN::TimeVaryingParallelGains>(sfFDN::ParallelGainsMode::Split, config.input_gains);
+        sfFDN::ParallelGainsOptions gains_options;
+        gains_options.mode = sfFDN::ParallelGainsMode::Split;
+        gains_options.gains = config.input_gains;
+
+        auto tv_input_gains = std::make_unique<sfFDN::TimeVaryingParallelGains>(gains_options);
 
         std::vector<float> lfo_freqs(config.N, config.time_varying_input_gains->lfo_frequency);
         std::vector<float> lfo_amps(config.N, config.time_varying_input_gains->lfo_amplitude);
@@ -150,7 +153,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     {
         assert(config.input_stage_delays.size() == config.N);
         std::vector<float> delays(config.input_stage_delays);
-        auto delaybank = std::make_unique<sfFDN::DelayBank>(sfFDN::DelayBankConfig{delays, 128});
+        auto delaybank = std::make_unique<sfFDN::DelayBank>(sfFDN::DelayBankOptions{delays, 128});
         chain_processor->AddProcessor(std::move(delaybank));
     }
 
@@ -305,20 +308,20 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
     std::visit(
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, sfFDN::ProportionalAttenuationConfig>)
+            if constexpr (std::is_same_v<T, sfFDN::ProportionalAttenuationOptions>)
             {
                 j["attenuation_t60s"] = {arg.t60};
             }
-            else if constexpr (std::is_same_v<T, sfFDN::TwoBandFilterConfig>)
+            else if constexpr (std::is_same_v<T, sfFDN::TwoBandFilterOptions>)
             {
                 j["attenuation_t60s"] = arg.t60s;
             }
-            else if constexpr (std::is_same_v<T, sfFDN::ThreeBandFilterConfig>)
+            else if constexpr (std::is_same_v<T, sfFDN::ThreeBandFilterOptions>)
             {
                 j["attenuation_t60s"] = arg.t60s;
                 j["attenuation_freqs"] = arg.freqs;
             }
-            else if constexpr (std::is_same_v<T, sfFDN::TenBandFilterConfig>)
+            else if constexpr (std::is_same_v<T, sfFDN::TenBandFilterOptions>)
             {
                 j["attenuation_t60s"] = arg.t60s;
             }
@@ -332,7 +335,7 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
             {
                 j["scalar_matrix"] = arg;
             }
-            else if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
+            else if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixOptions>)
             {
                 j["filter_matrix"] = {
                     {"N", arg.matrix_size},
@@ -434,7 +437,7 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
     }
     else if (j.contains("filter_matrix"))
     {
-        sfFDN::CascadedFeedbackMatrixInfo matrix_info;
+        sfFDN::CascadedFeedbackMatrixOptions matrix_info;
         j.at("filter_matrix").at("N").get_to(matrix_info.matrix_size);
         j.at("filter_matrix").at("num_stages").get_to(matrix_info.stage_count);
         j.at("filter_matrix").at("delays").get_to(matrix_info.delays);
@@ -523,7 +526,7 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
     std::visit(
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
+            if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixOptions>)
             {
                 float extra_delay = 0;
                 for (auto stage_delay : arg.delays)

@@ -28,7 +28,7 @@ TEST_CASE("TwoFilter")
     bench.minEpochIterations(10000);
     bench.timeUnit(1us, "us");
 
-    sfFDN::TenBandFilterConfig config;
+    sfFDN::TenBandFilterOptions config;
     config.t60s = kT60s;
     config.delay = kDelay;
     config.sample_rate = kSR;

@@ -173,7 +173,7 @@ TEST_CASE("FDNPerf_FFM")
 
     constexpr uint32_t kStageCount = 4;
 
-    sfFDN::CascadedFeedbackMatrixInfo ffm_info =
+    sfFDN::CascadedFeedbackMatrixOptions ffm_info =
         sfFDN::ConstructCascadedFeedbackMatrix(kFDNOrder, kStageCount, 1, sfFDN::ScalarMatrixType::Hadamard);
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(ffm_info);

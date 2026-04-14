@@ -114,7 +114,7 @@ TEST_CASE("SparseFirFilter")
     std::vector<float> ir(kFirSize, 0.f);
     std::vector<float> sparse_ir;
 
-    sfFDN::SparseFirConfig sparse_fir_config;
+    sfFDN::SparseFirOptions sparse_fir_config;
 
     sfFDN::RNG rng;
     for (auto i = 0u; i < kFirSize; i++)

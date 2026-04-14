@@ -85,8 +85,11 @@ TEST_CASE("TimeVaryingParallelGainsInput_static")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, kChannelCount> kGains = {0.25f, 0.5f, 0.75f, 1.f};
-    sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::Split);
+    const std::vector<float> kGains = {0.25f, 0.5f, 0.75f, 1.f};
+    sfFDN::ParallelGainsOptions gains_options;
+    gains_options.mode = sfFDN::ParallelGainsMode::Split;
+    gains_options.gains = kGains;
+    sfFDN::TimeVaryingParallelGains tv_parallel_gains(gains_options);
     tv_parallel_gains.SetCenterGains(kGains);
 
     std::vector<float> input(kBlockSize, 0.f);
@@ -119,8 +122,11 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
-    constexpr std::array<float, kChannelCount> kGains = {0.5f, 0.5f, 0.5f, 0.5f};
-    sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::Merge);
+    const std::vector<float> kGains = {0.5f, 0.5f, 0.5f, 0.5f};
+    sfFDN::ParallelGainsOptions gains_options;
+    gains_options.mode = sfFDN::ParallelGainsMode::Merge;
+    gains_options.gains = kGains;
+    sfFDN::TimeVaryingParallelGains tv_parallel_gains(gains_options);
     tv_parallel_gains.SetCenterGains(kGains);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
@@ -156,12 +162,15 @@ TEST_CASE("TimeVaryingParallelGainsInput")
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = kSampleRate;
-    constexpr std::array<float, kChannelCount> kCenterGains = {0.25f, 0.5f, -0.0f, -0.5f};
+    const std::vector<float> kCenterGains = {0.25f, 0.5f, -0.0f, -0.5f};
     constexpr std::array<float, kChannelCount> kLfoRates = {1.f / kSampleRate, 2.f / kSampleRate, 3.f / kSampleRate,
                                                             4.f / kSampleRate};
     constexpr std::array<float, kChannelCount> kLfoAmps = {0.25f, 0.33f, 0.2f, -0.1f};
 
-    sfFDN::TimeVaryingParallelGains tv_parallel_gains(sfFDN::ParallelGainsMode::Split);
+    sfFDN::ParallelGainsOptions gains_options;
+    gains_options.mode = sfFDN::ParallelGainsMode::Split;
+    gains_options.gains = kCenterGains;
+    sfFDN::TimeVaryingParallelGains tv_parallel_gains(gains_options);
     tv_parallel_gains.SetCenterGains(kCenterGains);
     tv_parallel_gains.SetLfoFrequency(kLfoRates);
     tv_parallel_gains.SetLfoAmplitude(kLfoAmps);

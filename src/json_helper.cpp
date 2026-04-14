@@ -66,7 +66,7 @@ std::unique_ptr<AudioProcessor> from_json(const nlohmann::json& j)
     return it->second(j);
 }
 
-void to_json(nlohmann::json& j, const ScalarFeedbackMatrixConfig& config)
+void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 {
     j["matrix_size"] = config.matrix_size;
     j["type"] = config.type;
@@ -81,7 +81,7 @@ void to_json(nlohmann::json& j, const ScalarFeedbackMatrixConfig& config)
     }
 }
 
-void from_json(const nlohmann::json& j, ScalarFeedbackMatrixConfig& config)
+void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config)
 {
     config.matrix_size = j.at("matrix_size").get<uint32_t>();
     config.type = j.at("type").get<ScalarMatrixType>();
@@ -96,7 +96,7 @@ void from_json(const nlohmann::json& j, ScalarFeedbackMatrixConfig& config)
     }
 }
 
-void to_json(nlohmann::json& j, const DelayConfig& config)
+void to_json(nlohmann::json& j, const DelayOptions& config)
 {
     j["delay"] = config.delay;
     j["max_delay"] = config.max_delay;
@@ -107,14 +107,14 @@ void to_json(nlohmann::json& j, const DelayConfig& config)
     }
 }
 
-void from_json(const nlohmann::json& j, DelayConfig& config)
+void from_json(const nlohmann::json& j, DelayOptions& config)
 {
     config.delay = j.at("delay").get<float>();
     config.max_delay = j.at("max_delay").get<uint32_t>();
     config.interp_type = j.at("interp_type").get<DelayInterpolationType>();
     if (j.contains("lfo_config") && !j["lfo_config"].is_null())
     {
-        config.lfo_config = j["lfo_config"].get<ModulationConfig>();
+        config.lfo_config = j["lfo_config"].get<ModulationOptions>();
     }
     else
     {
@@ -122,41 +122,41 @@ void from_json(const nlohmann::json& j, DelayConfig& config)
     }
 }
 
-void to_json(nlohmann::json& j, const AttenuationFilterBankConfig& config)
+void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config)
 {
     nlohmann::json filter_configs_json = nlohmann::json::array();
     for (const auto& filter_config : config.filter_configs)
     {
-        filter_configs_json.push_back(std::visit(overloaded{[](const ProportionalAttenuationConfig& config) {
+        filter_configs_json.push_back(std::visit(overloaded{[](const ProportionalAttenuationOptions& config) {
                                                                 nlohmann::json j;
                                                                 j["ProportionalAttenuationConfig"] = config;
                                                                 return j;
                                                             },
-                                                            [](const TwoBandFilterConfig& config) {
+                                                            [](const TwoBandFilterOptions& config) {
                                                                 nlohmann::json j;
                                                                 j["TwoBandFilterConfig"] = config;
                                                                 return j;
                                                             },
-                                                            [](const ThreeBandFilterConfig& config) {
+                                                            [](const ThreeBandFilterOptions& config) {
                                                                 nlohmann::json j;
                                                                 j["ThreeBandFilterConfig"] = config;
                                                                 return j;
                                                             },
-                                                            [](const TenBandFilterConfig& config) {
+                                                            [](const TenBandFilterOptions& config) {
                                                                 nlohmann::json j;
                                                                 j["TenBandFilterConfig"] = config;
                                                                 return j;
                                                             }},
                                                  filter_config));
     }
-    j["AttenuationFilterBankConfig"] = filter_configs_json;
+    j["AttenuationFilterBankOptions"] = filter_configs_json;
 }
 
-void from_json(const nlohmann::json& j, AttenuationFilterBankConfig& config)
+void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config)
 {
     if (!j.is_array())
     {
-        throw std::invalid_argument("AttenuationFilterBankConfig must be an array.");
+        throw std::invalid_argument("AttenuationFilterBankOptions must be an array.");
     }
 
     config.filter_configs.clear();
@@ -165,37 +165,37 @@ void from_json(const nlohmann::json& j, AttenuationFilterBankConfig& config)
         if (filter_config_json.contains("ProportionalAttenuationConfig"))
         {
             config.filter_configs.push_back(
-                filter_config_json["ProportionalAttenuationConfig"].get<ProportionalAttenuationConfig>());
+                filter_config_json["ProportionalAttenuationConfig"].get<ProportionalAttenuationOptions>());
         }
         else if (filter_config_json.contains("TwoBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterConfig>());
+            config.filter_configs.push_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterOptions>());
         }
         else if (filter_config_json.contains("ThreeBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterConfig>());
+            config.filter_configs.push_back(filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterOptions>());
         }
         else if (filter_config_json.contains("TenBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterConfig>());
+            config.filter_configs.push_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterOptions>());
         }
         else
         {
-            throw std::invalid_argument("Unknown filter config type in AttenuationFilterBankConfig");
+            throw std::invalid_argument("Unknown filter config type in AttenuationFilterBankOptions");
         }
     }
 }
 
 nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
 {
-    return std::visit(overloaded{[](const CascadedFeedbackMatrixInfo& info) {
+    return std::visit(overloaded{[](const CascadedFeedbackMatrixOptions& info) {
                                      nlohmann::json mat;
                                      mat["CascadedFeedbackMatrixInfo"] = info;
                                      return mat;
                                  },
-                                 [](const ScalarFeedbackMatrixConfig& config) {
+                                 [](const ScalarFeedbackMatrixOptions& config) {
                                      nlohmann::json mat;
-                                     mat["ScalarFeedbackMatrixConfig"] = config;
+                                     mat["ScalarFeedbackMatrixOptions"] = config;
                                      return mat;
                                  }},
                       matrix_config);
@@ -203,34 +203,34 @@ nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
 
 nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config)
 {
-    return std::visit(overloaded{[](const SchroederAllpassSectionConfig& config) {
+    return std::visit(overloaded{[](const SchroederAllpassSectionOptions& config) {
                                      nlohmann::json proc;
-                                     proc["SchroederAllpassSectionConfig"] = config;
+                                     proc["SchroederAllpassSectionOptions"] = config;
                                      return proc;
                                  },
-                                 [](const AllpassFilterConfig& config) {
+                                 [](const AllpassFilterOptions& config) {
                                      nlohmann::json proc;
-                                     proc["AllpassFilterConfig"] = config;
+                                     proc["AllpassFilterOptions"] = config;
                                      return proc;
                                  },
-                                 [](const CascadedBiquadsConfig& config) {
+                                 [](const CascadedBiquadsOptions& config) {
                                      nlohmann::json proc;
-                                     proc["CascadedBiquadsConfig"] = config;
+                                     proc["CascadedBiquadsOptions"] = config;
                                      return proc;
                                  },
-                                 [](const FirConfig& config) {
+                                 [](const FirOptions& config) {
                                      nlohmann::json proc;
-                                     proc["FirConfig"] = config;
+                                     proc["FirOptions"] = config;
                                      return proc;
                                  },
-                                 [](const DelayConfig& config) {
+                                 [](const DelayOptions& config) {
                                      nlohmann::json proc;
-                                     proc["DelayConfig"] = config;
+                                     proc["DelayOptions"] = config;
                                      return proc;
                                  },
-                                 [](const GraphicEQConfig& config) {
+                                 [](const GraphicEQOptions& config) {
                                      nlohmann::json proc;
-                                     proc["GraphicEQConfig"] = config;
+                                     proc["GraphicEQOptions"] = config;
                                      return proc;
                                  }},
                       processor_config);
@@ -238,38 +238,38 @@ nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config
 
 nlohmann::json ToJson(const multichannel_processor_variant_t& processor_config)
 {
-    return std::visit(overloaded{[](const ParallelGainsConfig& config) {
+    return std::visit(overloaded{[](const ParallelGainsOptions& config) {
                                      nlohmann::json proc;
                                      proc["ParallelGainsConfig"] = config;
                                      return proc;
                                  },
-                                 [](const ParallelSchroederAllpassSectionConfig& config) {
+                                 [](const ParallelSchroederAllpassSectionOptions& config) {
                                      nlohmann::json proc;
-                                     proc["ParallelSchroederAllpassSectionConfig"] = config;
+                                     proc["ParallelSchroederAllpassSectionOptions"] = config;
                                      return proc;
                                  },
-                                 [](const AttenuationFilterBankConfig& config) {
+                                 [](const AttenuationFilterBankOptions& config) {
                                      nlohmann::json proc = config;
                                      return proc;
                                  },
-                                 [](const DelayBankConfig& config) {
+                                 [](const DelayBankOptions& config) {
                                      nlohmann::json proc;
-                                     proc["DelayBankConfig"] = config;
+                                     proc["DelayBankOptions"] = config;
                                      return proc;
                                  },
-                                 [](const DelayBankTimeVaryingConfig& config) {
+                                 [](const DelayBankTimeVaryingOptions& config) {
                                      nlohmann::json proc;
-                                     proc["DelayBankTimeVaryingConfig"] = config;
+                                     proc["DelayBankTimeVaryingOptions"] = config;
                                      return proc;
                                  },
-                                 [](const CascadedFeedbackMatrixInfo& config) {
+                                 [](const CascadedFeedbackMatrixOptions& config) {
                                      nlohmann::json proc;
                                      proc["CascadedFeedbackMatrixInfo"] = config;
                                      return proc;
                                  },
-                                 [](const ScalarFeedbackMatrixConfig& config) {
+                                 [](const ScalarFeedbackMatrixOptions& config) {
                                      nlohmann::json proc;
-                                     proc["ScalarFeedbackMatrixConfig"] = config;
+                                     proc["ScalarFeedbackMatrixOptions"] = config;
                                      return proc;
                                  }},
                       processor_config);
@@ -277,29 +277,29 @@ nlohmann::json ToJson(const multichannel_processor_variant_t& processor_config)
 
 single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann::json& j)
 {
-    if (j.contains("SchroederAllpassSectionConfig"))
+    if (j.contains("SchroederAllpassSectionOptions"))
     {
-        return j["SchroederAllpassSectionConfig"].get<SchroederAllpassSectionConfig>();
+        return j["SchroederAllpassSectionOptions"].get<SchroederAllpassSectionOptions>();
     }
-    else if (j.contains("AllpassFilterConfig"))
+    else if (j.contains("AllpassFilterOptions"))
     {
-        return j["AllpassFilterConfig"].get<AllpassFilterConfig>();
+        return j["AllpassFilterOptions"].get<AllpassFilterOptions>();
     }
-    else if (j.contains("CascadedBiquadsConfig"))
+    else if (j.contains("CascadedBiquadsOptions"))
     {
-        return j["CascadedBiquadsConfig"].get<CascadedBiquadsConfig>();
+        return j["CascadedBiquadsOptions"].get<CascadedBiquadsOptions>();
     }
-    else if (j.contains("FirConfig"))
+    else if (j.contains("FirOptions"))
     {
-        return j["FirConfig"].get<FirConfig>();
+        return j["FirOptions"].get<FirOptions>();
     }
-    else if (j.contains("DelayConfig"))
+    else if (j.contains("DelayOptions"))
     {
-        return j["DelayConfig"].get<DelayConfig>();
+        return j["DelayOptions"].get<DelayOptions>();
     }
-    else if (j.contains("GraphicEQConfig"))
+    else if (j.contains("GraphicEQOptions"))
     {
-        return j["GraphicEQConfig"].get<GraphicEQConfig>();
+        return j["GraphicEQOptions"].get<GraphicEQOptions>();
     }
 
     throw std::invalid_argument("Unknown single channel processor config type" + j.dump());
@@ -309,25 +309,25 @@ multichannel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::j
 {
     if (j.contains("ParallelGainsConfig"))
     {
-        auto config = j["ParallelGainsConfig"].get<ParallelGainsConfig>();
+        auto config = j["ParallelGainsConfig"].get<ParallelGainsOptions>();
         return config;
     }
-    else if (j.contains("ParallelSchroederAllpassSectionConfig"))
+    else if (j.contains("ParallelSchroederAllpassSectionOptions"))
     {
-        return j["ParallelSchroederAllpassSectionConfig"].get<ParallelSchroederAllpassSectionConfig>();
+        return j["ParallelSchroederAllpassSectionOptions"].get<ParallelSchroederAllpassSectionOptions>();
     }
-    else if (j.contains("AttenuationFilterBankConfig"))
+    else if (j.contains("AttenuationFilterBankOptions"))
     {
-        auto config = j["AttenuationFilterBankConfig"].get<AttenuationFilterBankConfig>();
+        auto config = j["AttenuationFilterBankOptions"].get<AttenuationFilterBankOptions>();
         return config;
     }
-    else if (j.contains("DelayBankConfig"))
+    else if (j.contains("DelayBankOptions"))
     {
-        return j["DelayBankConfig"].get<DelayBankConfig>();
+        return j["DelayBankOptions"].get<DelayBankOptions>();
     }
-    else if (j.contains("DelayBankTimeVaryingConfig"))
+    else if (j.contains("DelayBankTimeVaryingOptions"))
     {
-        return j["DelayBankTimeVaryingConfig"].get<DelayBankTimeVaryingConfig>();
+        return j["DelayBankTimeVaryingOptions"].get<DelayBankTimeVaryingOptions>();
     }
     throw std::invalid_argument("Unknown multichannel processor config type");
 }
@@ -336,14 +336,14 @@ feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
 {
     if (j.contains("CascadedFeedbackMatrixInfo"))
     {
-        auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixInfo>();
+        auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();
         return config;
     }
-    else if (j.contains("ScalarFeedbackMatrixConfig"))
+    else if (j.contains("ScalarFeedbackMatrixOptions"))
     {
-        ScalarFeedbackMatrixConfig config;
-        from_json(j["ScalarFeedbackMatrixConfig"], config);
-        // auto config = j["ScalarFeedbackMatrixConfig"].get<ScalarFeedbackMatrixConfig>();
+        ScalarFeedbackMatrixOptions config;
+        from_json(j["ScalarFeedbackMatrixOptions"], config);
+        // auto config = j["ScalarFeedbackMatrixOptions"].get<ScalarFeedbackMatrixOptions>();
         return config;
     }
     else

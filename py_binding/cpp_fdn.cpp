@@ -153,7 +153,7 @@ class PyFDN
                                         matrix_info.delays.shape(0), matrix_info.delays.shape(1)));
                     }
 
-                    sfFDN::CascadedFeedbackMatrixInfo cascaded_info;
+                    sfFDN::CascadedFeedbackMatrixOptions cascaded_info;
                     cascaded_info.N = matrix_info.N;
                     cascaded_info.K = matrix_info.K;
 

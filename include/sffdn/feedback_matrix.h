@@ -25,7 +25,7 @@ class ScalarFeedbackMatrix : public AudioProcessor
      * @param order The size of the square matrix, where the size == number of rows == number of columns.
      * @param type The type of matrix to create.
      */
-    ScalarFeedbackMatrix(const ScalarFeedbackMatrixConfig& config);
+    ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config);
 
     ~ScalarFeedbackMatrix() override;
 

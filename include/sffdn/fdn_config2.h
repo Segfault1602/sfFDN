@@ -17,8 +17,9 @@ namespace sfFDN
 {
 
 using multichannel_processor_variant_t =
-    std::variant<ParallelGainsConfig, ParallelSchroederAllpassSectionConfig, AttenuationFilterBankConfig,
-                 DelayBankConfig, DelayBankTimeVaryingConfig, CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig>;
+    std::variant<ParallelGainsOptions, ParallelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
+                 DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
+                 ScalarFeedbackMatrixOptions>;
 
 struct FDNConfig2
 {
@@ -27,13 +28,13 @@ struct FDNConfig2
     float direct_gain;
     uint32_t block_size;
     uint32_t sample_rate;
-    DelayBankConfig delay_bank_config;
+    DelayBankOptions delay_bank_config;
 
     // Input gain Block
     struct
     {
         std::vector<single_channel_processor_variant_t> single_channel_processors;
-        ParallelGainsConfig parallel_gains_config;
+        ParallelGainsOptions parallel_gains_config;
         std::vector<multichannel_processor_variant_t> multichannel_processors;
     } input_block_config;
 
@@ -47,7 +48,7 @@ struct FDNConfig2
     struct
     {
         std::vector<multichannel_processor_variant_t> multichannel_processors;
-        ParallelGainsConfig parallel_gains_config;
+        ParallelGainsOptions parallel_gains_config;
         std::vector<single_channel_processor_variant_t> single_channel_processors;
     } output_block_config;
 

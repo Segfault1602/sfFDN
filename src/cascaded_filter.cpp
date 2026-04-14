@@ -29,7 +29,7 @@ float ComputeSample(float x, const sfFDN::FilterCoefficients& coeffs, sfFDN::Cas
 namespace sfFDN
 {
 
-CascadedBiquads::CascadedBiquads(const CascadedBiquadsConfig& config)
+CascadedBiquads::CascadedBiquads(const CascadedBiquadsOptions& config)
     : stage_(config.coeffs.size())
 {
     SetCoefficients(config.coeffs);
@@ -138,54 +138,6 @@ std::unique_ptr<AudioProcessor> CascadedBiquads::Clone() const
 {
     auto clone = std::make_unique<CascadedBiquads>(*this);
     return clone;
-}
-
-nlohmann::json CascadedBiquads::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "CascadedBiquads";
-    j["coefficients"] = nlohmann::json::array();
-    for (const auto& coeffs : coeffs_)
-    {
-        std::array<float, 6> coeff_array = {coeffs.b0, coeffs.b1, coeffs.b2, coeffs.a0, coeffs.a1, coeffs.a2};
-        j["coefficients"].push_back(coeff_array);
-    }
-    return j;
-}
-
-std::unique_ptr<CascadedBiquads> CascadedBiquads::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "CascadedBiquads");
-    ThrowIfDoesNotContainKey(j, "coefficients");
-
-    auto coeffs_json = j["coefficients"];
-    if (!coeffs_json.is_array())
-    {
-        throw std::invalid_argument("Coefficients must be an array.");
-    }
-
-    std::vector<FilterCoefficients> coeffs;
-    for (const auto& coeffs_entry : coeffs_json)
-    {
-        if (!coeffs_entry.is_array() || coeffs_entry.size() != 6)
-        {
-            throw std::invalid_argument("Each coefficient entry must be an array of 6 floats.");
-        }
-
-        FilterCoefficients fc;
-        fc.b0 = coeffs_entry[0].get<float>();
-        fc.b1 = coeffs_entry[1].get<float>();
-        fc.b2 = coeffs_entry[2].get<float>();
-        fc.a0 = coeffs_entry[3].get<float>();
-        fc.a1 = coeffs_entry[4].get<float>();
-        fc.a2 = coeffs_entry[5].get<float>();
-
-        coeffs.push_back(fc);
-    }
-
-    auto filter = std::make_unique<CascadedBiquads>();
-    filter->SetCoefficients(coeffs);
-    return filter;
 }
 
 } // namespace sfFDN

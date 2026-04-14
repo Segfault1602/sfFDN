@@ -21,7 +21,7 @@ namespace
 {
 void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN::DelayInterpolationType interp_type)
 {
-    sfFDN::DelayConfig config{delay, max_delay, interp_type};
+    sfFDN::DelayOptions config{delay, max_delay, interp_type};
     sfFDN::DelayInterp delay_sample(config);
 
     std::vector<float> output_sample;
@@ -337,10 +337,10 @@ TEST_CASE("DelayBankTimeVarying")
     constexpr uint32_t kNumDelay = 4;
     constexpr uint32_t kBlockSize = 8;
 
-    const sfFDN::DelayBankTimeVaryingConfig config{.delays = {2, 3, 4, 5},
-                                                   .max_delay = 16,
-                                                   .interpolation_type = sfFDN::DelayInterpolationType::Linear,
-                                                   .time_varying_config = {}};
+    const sfFDN::DelayBankTimeVaryingOptions config{.delays = {2, 3, 4, 5},
+                                                    .max_delay = 16,
+                                                    .interpolation_type = sfFDN::DelayInterpolationType::Linear,
+                                                    .time_varying_config = {}};
 
     sfFDN::DelayBankTimeVarying delay_bank(config);
 
