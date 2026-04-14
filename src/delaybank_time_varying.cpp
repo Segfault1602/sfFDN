@@ -20,19 +20,22 @@ DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingConfig& con
 {
     // validate config
     const uint32_t num_delays = config.delays.size();
-    if (config.mod_freqs.size() != num_delays || config.mod_depths.size() != num_delays ||
-        (!config.mod_phase_offsets.empty() && config.mod_phase_offsets.size() != num_delays))
+    if (config.time_varying_config.size() > 0)
     {
-        throw std::invalid_argument(
-            "DelayBankTimeVarying: size of mod_freqs, mod_depths, and mod_phase_offsets must match number of delays");
+        if (config.time_varying_config.size() != num_delays)
+        {
+            throw std::invalid_argument(
+                "DelayBankTimeVarying: size of time_varying_config must match number of delays");
+        }
     }
 
     for (uint32_t i = 0; i < num_delays; i++)
     {
         DelayConfig delay_config{config.delays[i], config.max_delay, config.interpolation_type};
-        delay_config.lfo_config =
-            ModulationConfig{config.mod_freqs[i], config.mod_depths[i],
-                             config.mod_phase_offsets.empty() ? 0.0f : config.mod_phase_offsets[i]};
+        if (config.time_varying_config.size() > 0)
+        {
+            delay_config.lfo_config = config.time_varying_config.at(i);
+        }
         auto tv_delay = std::make_unique<DelayTimeVarying>(delay_config);
         delay_bank_.AddFilter(std::move(tv_delay));
     }

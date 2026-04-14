@@ -611,14 +611,14 @@ std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_
         fdn->SetFilterBank(std::move(filter_bank));
     }
 
-    if (!config.tc_gains.empty())
-    {
-        assert(config.tc_gains.size() == 10);
-        auto tc_sos = sfFDN::DesignGraphicEQ(config.tc_gains, config.tc_frequencies, samplerate);
-        std::unique_ptr<sfFDN::CascadedBiquads> tc_filter = std::make_unique<sfFDN::CascadedBiquads>();
-        tc_filter->SetCoefficients(tc_sos);
-        fdn->SetTCFilter(std::move(tc_filter));
-    }
+    // if (!config.tc_gains.empty())
+    // {
+    //     assert(config.tc_gains.size() == 10);
+    //     auto tc_sos = sfFDN::DesignGraphicEQ(config.tc_gains, config.tc_frequencies, samplerate);
+    //     std::unique_ptr<sfFDN::CascadedBiquads> tc_filter = std::make_unique<sfFDN::CascadedBiquads>();
+    //     tc_filter->SetCoefficients(tc_sos);
+    //     fdn->SetTCFilter(std::move(tc_filter));
+    // }
 
     return fdn;
 }

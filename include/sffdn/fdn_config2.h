@@ -16,15 +16,9 @@
 namespace sfFDN
 {
 
-using feedback_matrix_variant_t =
-    std::variant<CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig, std::vector<float>>;
-
 using multichannel_processor_variant_t =
     std::variant<ParallelGainsConfig, ParallelSchroederAllpassSectionConfig, AttenuationFilterBankConfig,
                  DelayBankConfig, DelayBankTimeVaryingConfig, CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig>;
-
-using single_channel_processor_variant_t =
-    std::variant<SchroederAllpassSectionConfig, AllpassFilterConfig, CascadedBiquadsConfig, FirConfig, DelayConfig>;
 
 struct FDNConfig2
 {
@@ -62,4 +56,8 @@ struct FDNConfig2
 };
 
 std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig2& config);
+
+void to_json(nlohmann::json& j, const sfFDN::FDNConfig2& p);
+void from_json(const nlohmann::json& j, sfFDN::FDNConfig2& p);
+
 } // namespace sfFDN

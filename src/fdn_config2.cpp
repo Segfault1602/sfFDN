@@ -1,5 +1,6 @@
 #include "sffdn/fdn_config2.h"
 
+#include "json_helper.h"
 #include "sffdn/sffdn.h"
 
 #include <cassert>
@@ -37,23 +38,12 @@ bool ValidateConfig(const sfFDN::FDNConfig2& config)
 
     bool feedback_matrix_valid = std::visit(
         [&](const auto& matrix_config) -> bool {
-            using T = std::decay_t<decltype(matrix_config)>;
-            if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixInfo>)
+            if (matrix_config.matrix_size != config.fdn_size)
             {
-                if (matrix_config.matrix_size != config.fdn_size)
-                {
-                    std::cerr << "Feedback matrix channel count must match FDN size" << std::endl;
-                    return false;
-                }
+                std::cerr << "Feedback matrix channel count must match FDN size" << std::endl;
+                return false;
             }
-            else if constexpr (std::is_same_v<T, std::vector<float>>)
-            {
-                if (matrix_config.size() != config.fdn_size * config.fdn_size)
-                {
-                    std::cerr << "Scalar feedback matrix size must be N x N where N is FDN size" << std::endl;
-                    return false;
-                }
-            }
+
             return true;
         },
         config.feedback_matrix_config);
@@ -97,6 +87,14 @@ struct SingleChannelProcessorVisitor
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayConfig& config) const
     {
         return std::make_unique<sfFDN::DelayTimeVarying>(config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::GraphicEQConfig& config) const
+    {
+        auto sos = sfFDN::DesignGraphicEQ(config);
+        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+        filter->SetCoefficients(sos);
+        return filter;
     }
 };
 
@@ -276,6 +274,181 @@ std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig2& config)
     fdn->SetOutputGains(CreateOutputGainsFromConfig(config));
 
     return fdn;
+}
+
+template <typename T>
+std::string VariantTypeName()
+{
+    if constexpr (std::is_same_v<T, ParallelGainsConfig>)
+    {
+        return "ParallelGainsConfig";
+    }
+    else if constexpr (std::is_same_v<T, ParallelSchroederAllpassSectionConfig>)
+    {
+        return "ParallelSchroederAllpassSectionConfig";
+    }
+    else if constexpr (std::is_same_v<T, AttenuationFilterBankConfig>)
+    {
+        return "AttenuationFilterBankConfig";
+    }
+    else if constexpr (std::is_same_v<T, SchroederAllpassSectionConfig>)
+    {
+        return "SchroederAllpassSectionConfig";
+    }
+    else if constexpr (std::is_same_v<T, AllpassFilterConfig>)
+    {
+        return "AllpassFilterConfig";
+    }
+    else if constexpr (std::is_same_v<T, CascadedBiquadsConfig>)
+    {
+        return "CascadedBiquadsConfig";
+    }
+    else if constexpr (std::is_same_v<T, FirConfig>)
+    {
+        return "FirConfig";
+    }
+    else if constexpr (std::is_same_v<T, DelayConfig>)
+    {
+        return "DelayConfig";
+    }
+    else if constexpr (std::is_same_v<T, DelayBankConfig>)
+    {
+        return "DelayBankConfig";
+    }
+    else if constexpr (std::is_same_v<T, DelayBankTimeVaryingConfig>)
+    {
+        return "DelayBankTimeVaryingConfig";
+    }
+    else if constexpr (std::is_same_v<T, CascadedFeedbackMatrixInfo>)
+    {
+        return "CascadedFeedbackMatrixInfo";
+    }
+    else if constexpr (std::is_same_v<T, ScalarFeedbackMatrixConfig>)
+    {
+        return "ScalarFeedbackMatrixConfig";
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported variant type");
+    }
+}
+
+void to_json(nlohmann::json& j, const sfFDN::FDNConfig2& p)
+{
+    nlohmann::json json;
+    json["fdn_size"] = p.fdn_size;
+    json["transposed"] = p.transposed;
+    json["direct_gain"] = p.direct_gain;
+    json["block_size"] = p.block_size;
+    json["sample_rate"] = p.sample_rate;
+    json["delay_bank_config"] = p.delay_bank_config;
+
+    nlohmann::json input_block_json;
+    nlohmann::json single_channel_processors_json = nlohmann::json::array();
+    for (const auto& processor_config : p.input_block_config.single_channel_processors)
+    {
+        std::visit(
+            [&](const auto& config) {
+                single_channel_processors_json.push_back({{VariantTypeName<std::decay_t<decltype(config)>>(), config}});
+            },
+            processor_config);
+    }
+    input_block_json["single_channel_processors"] = single_channel_processors_json;
+    input_block_json["parallel_gains_config"] = p.input_block_config.parallel_gains_config;
+    nlohmann::json multichannel_processors_json = nlohmann::json::array();
+    for (const auto& processor_config : p.input_block_config.multichannel_processors)
+    {
+        multichannel_processors_json.push_back(ToJson(processor_config));
+    }
+    input_block_json["multichannel_processors"] = multichannel_processors_json;
+    json["input_block_config"] = input_block_json;
+
+    json["feedback_matrix_config"] = ToJson(p.feedback_matrix_config);
+
+    nlohmann::json loop_filter_configs_json = nlohmann::json::array();
+    for (const auto& processor_config : p.loop_filter_configs)
+    {
+        loop_filter_configs_json.push_back(ToJson(processor_config));
+    }
+    json["loop_filter_configs"] = loop_filter_configs_json;
+
+    nlohmann::json output_block_json;
+    nlohmann::json output_single_channel_processors_json = nlohmann::json::array();
+    for (const auto& processor_config : p.output_block_config.single_channel_processors)
+    {
+        output_single_channel_processors_json.push_back(ToJson(processor_config));
+    }
+    output_block_json["single_channel_processors"] = output_single_channel_processors_json;
+    output_block_json["parallel_gains_config"] = p.output_block_config.parallel_gains_config;
+    nlohmann::json output_multichannel_processors_json = nlohmann::json::array();
+    for (const auto& processor_config : p.output_block_config.multichannel_processors)
+    {
+        output_multichannel_processors_json.push_back(ToJson(processor_config));
+    }
+    output_block_json["multichannel_processors"] = output_multichannel_processors_json;
+    json["output_block_config"] = output_block_json;
+
+    json["tone_correction_filters"] = nlohmann::json::array();
+    for (const auto& processor_config : p.tone_correction_filters)
+    {
+        json["tone_correction_filters"].push_back(ToJson(processor_config));
+    }
+
+    j = json;
+}
+
+void from_json(const nlohmann::json& j, sfFDN::FDNConfig2& p)
+{
+    p.fdn_size = j.at("fdn_size").get<uint32_t>();
+    p.transposed = j.at("transposed").get<bool>();
+    p.direct_gain = j.at("direct_gain").get<float>();
+    p.block_size = j.at("block_size").get<uint32_t>();
+    p.sample_rate = j.at("sample_rate").get<uint32_t>();
+    p.delay_bank_config = j.at("delay_bank_config").get<DelayBankConfig>();
+
+    const auto& input_block_json = j.at("input_block_config");
+    p.input_block_config.parallel_gains_config =
+        input_block_json.at("parallel_gains_config").get<ParallelGainsConfig>();
+
+    p.input_block_config.single_channel_processors.clear();
+    for (const auto& processor_json : input_block_json.at("single_channel_processors"))
+    {
+        p.input_block_config.single_channel_processors.push_back(SingleChannelProcessorFromJson(processor_json));
+    }
+
+    p.input_block_config.multichannel_processors.clear();
+    for (const auto& processor_json : input_block_json.at("multichannel_processors"))
+    {
+        p.input_block_config.multichannel_processors.push_back(MultichannelProcessorFromJson(processor_json));
+    }
+
+    p.feedback_matrix_config = FeedbackMatrixFromJson(j.at("feedback_matrix_config"));
+
+    p.loop_filter_configs.clear();
+    for (const auto& processor_json : j.at("loop_filter_configs"))
+    {
+        p.loop_filter_configs.push_back(MultichannelProcessorFromJson(processor_json));
+    }
+
+    const auto& output_block_json = j.at("output_block_config");
+    p.output_block_config.parallel_gains_config =
+        output_block_json.at("parallel_gains_config").get<ParallelGainsConfig>();
+    p.output_block_config.single_channel_processors.clear();
+    for (const auto& processor_json : output_block_json.at("single_channel_processors"))
+    {
+        p.output_block_config.single_channel_processors.push_back(SingleChannelProcessorFromJson(processor_json));
+    }
+    p.output_block_config.multichannel_processors.clear();
+    for (const auto& processor_json : output_block_json.at("multichannel_processors"))
+    {
+        p.output_block_config.multichannel_processors.push_back(MultichannelProcessorFromJson(processor_json));
+    }
+
+    p.tone_correction_filters.clear();
+    for (const auto& processor_json : j.at("tone_correction_filters"))
+    {
+        p.tone_correction_filters.push_back(SingleChannelProcessorFromJson(processor_json));
+    }
 }
 
 } // namespace sfFDN

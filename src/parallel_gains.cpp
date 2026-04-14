@@ -17,13 +17,10 @@ namespace sfFDN
 
 std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsConfig& config)
 {
-    if (config.time_varying_config.has_value())
+    if (config.time_varying_config.size() > 0)
     {
         auto processor = std::make_unique<TimeVaryingParallelGains>(config.mode, config.gains);
-        processor->SetCenterGains(config.time_varying_config->lfo_frequencies);
-        processor->SetLfoFrequency(config.time_varying_config->lfo_frequencies);
-        processor->SetLfoAmplitude(config.time_varying_config->lfo_amplitudes);
-        processor->SetLfoPhaseOffset(config.time_varying_config->lfo_phase_offsets);
+        processor->SetModulation(config.time_varying_config);
         return processor;
     }
     else
@@ -163,12 +160,6 @@ std::unique_ptr<AudioProcessor> ParallelGains::Clone() const
 {
     return std::make_unique<ParallelGains>(mode_, gains_);
 }
-
-NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {
-                                                    {ParallelGainsMode::Split, "Split"},
-                                                    {ParallelGainsMode::Merge, "Merge"},
-                                                    {ParallelGainsMode::Parallel, "Parallel"},
-                                                })
 
 nlohmann::json ParallelGains::ToJson() const
 {

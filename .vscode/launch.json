@@ -31,22 +31,12 @@
             "console": "externalTerminal"
         },
         {
-            "name": "PyFDN",
-            "type": "lldb-dap",
-            "request": "launch",
-            "program": "/opt/miniconda3/bin/python",
-            "args": [
-                "${workspaceFolder}/py_binding/tests.py"
-            ],
-            "cwd": "${workspaceFolder}",
-        },
-        {
             "name": "Tests",
             "type": "lldb-dap",
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "DelayBank"
+                "FDNConfig2"
             ],
             "MIMode": "lldb",
             "cwd": "${workspaceFolder}",

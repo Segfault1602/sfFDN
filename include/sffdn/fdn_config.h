@@ -92,7 +92,7 @@ struct FDNConfig
 };
 
 std::unique_ptr<sfFDN::FDN> CreateFDNFromConfig(const FDNConfig& config, uint32_t samplerate);
-} // namespace sfFDN
 
 void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p);
 void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p);
+} // namespace sfFDN

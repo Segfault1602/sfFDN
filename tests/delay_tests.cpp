@@ -340,9 +340,7 @@ TEST_CASE("DelayBankTimeVarying")
     const sfFDN::DelayBankTimeVaryingConfig config{.delays = {2, 3, 4, 5},
                                                    .max_delay = 16,
                                                    .interpolation_type = sfFDN::DelayInterpolationType::Linear,
-                                                   .mod_freqs = {0.0f, 0.0f, 0.0f, 0.0f},
-                                                   .mod_depths = {0.0f, 0.0f, 0.0f, 0.0f},
-                                                   .mod_phase_offsets = {0.0f, 0.0f, 0.0f, 0.0f}};
+                                                   .time_varying_config = {}};
 
     sfFDN::DelayBankTimeVarying delay_bank(config);
 

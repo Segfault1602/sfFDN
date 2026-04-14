@@ -216,13 +216,6 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
     }
 }
 
-NLOHMANN_JSON_SERIALIZE_ENUM(DelayInterpolationType, {
-                                                         {DelayInterpolationType::None, "None"},
-                                                         {DelayInterpolationType::Linear, "Linear"},
-                                                         {DelayInterpolationType::Allpass, "Allpass"},
-                                                         {DelayInterpolationType::Lagrange, "Lagrange"},
-                                                     })
-
 nlohmann::json DelayInterp::ToJson() const
 {
     nlohmann::json j;

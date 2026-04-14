@@ -1,5 +1,8 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
+
+#include <array>
 #include <cstdint>
 #include <numbers>
 #include <optional>
@@ -106,23 +109,16 @@ struct CascadedFeedbackMatrixInfo
 
 struct ModulationConfig
 {
-    float frequency;
-    float amplitude;
-    float initial_phase;
-};
-
-struct TimeVaryingParallelGainsConfig
-{
-    std::vector<float> lfo_frequencies;
-    std::vector<float> lfo_amplitudes;
-    std::vector<float> lfo_phase_offsets;
+    float frequency{0.f};
+    float amplitude{0.f};
+    float initial_phase{0.f};
 };
 
 struct ParallelGainsConfig
 {
     ParallelGainsMode mode{ParallelGainsMode::Split};
     std::vector<float> gains;
-    std::optional<TimeVaryingParallelGainsConfig> time_varying_config;
+    std::vector<ModulationConfig> time_varying_config{};
 };
 
 struct DelayConfig
@@ -145,9 +141,7 @@ struct DelayBankTimeVaryingConfig
     std::vector<float> delays;
     uint32_t max_delay;
     DelayInterpolationType interpolation_type;
-    std::vector<float> mod_freqs;
-    std::vector<float> mod_depths;
-    std::vector<float> mod_phase_offsets;
+    std::vector<ModulationConfig> time_varying_config;
 };
 
 struct FilterCoefficients
@@ -177,7 +171,7 @@ struct CascadedBiquadsConfig
 
 struct FirConfig
 {
-    std::vector<float> coeffs;
+    std::vector<float> coeffs{1.f};
 };
 
 struct SchroederAllpassSectionConfig
@@ -225,5 +219,74 @@ struct TenBandFilterConfig
 
 using attenuation_filter_variant_t =
     std::variant<ProportionalAttenuationConfig, TwoBandFilterConfig, ThreeBandFilterConfig, TenBandFilterConfig>;
+
+struct AttenuationFilterBankConfig
+{
+    std::vector<attenuation_filter_variant_t> filter_configs;
+};
+
+struct GraphicEQConfig
+{
+    std::array<float, 10> gains_db;
+    std::array<float, 10> freqs;
+    float sample_rate = kDefaultSampleRate;
+};
+
+using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixInfo, ScalarFeedbackMatrixConfig>;
+using single_channel_processor_variant_t = std::variant<SchroederAllpassSectionConfig, AllpassFilterConfig,
+                                                        CascadedBiquadsConfig, FirConfig, DelayConfig, GraphicEQConfig>;
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ScalarMatrixType, {{ScalarMatrixType::Identity, "Identity"},
+                                                {ScalarMatrixType::Random, "Random"},
+                                                {ScalarMatrixType::Householder, "Householder"},
+                                                {ScalarMatrixType::RandomHouseholder, "RandomHouseholder"},
+                                                {ScalarMatrixType::Hadamard, "Hadamard"},
+                                                {ScalarMatrixType::Circulant, "Circulant"},
+                                                {ScalarMatrixType::Allpass, "Allpass"},
+                                                {ScalarMatrixType::NestedAllpass, "NestedAllpass"},
+                                                {ScalarMatrixType::VariableDiffusion, "VariableDiffusion"},
+                                                {ScalarMatrixType::Count, "Count"}});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DelayInterpolationType, {{DelayInterpolationType::None, "None"},
+                                                      {DelayInterpolationType::Linear, "Linear"},
+                                                      {DelayInterpolationType::Allpass, "Allpass"},
+                                                      {DelayInterpolationType::Lagrange, "Lagrange"}});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DelayLengthType, {{DelayLengthType::Random, "Random"},
+                                               {DelayLengthType::Gaussian, "Gaussian"},
+                                               {DelayLengthType::Primes, "Primes"},
+                                               {DelayLengthType::Uniform, "Uniform"},
+                                               {DelayLengthType::PrimePower, "PrimePower"},
+                                               {DelayLengthType::SteamAudio, "SteamAudio"}});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {{ParallelGainsMode::Split, "Split"},
+                                                 {ParallelGainsMode::Merge, "Merge"},
+                                                 {ParallelGainsMode::Parallel, "Parallel"}});
+
+void to_json(nlohmann::json& j, const ScalarFeedbackMatrixConfig& config);
+void from_json(const nlohmann::json& j, ScalarFeedbackMatrixConfig& config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixInfo, matrix_size, stage_count, delays, matrices);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationConfig, frequency, amplitude, initial_phase);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsConfig, mode, gains, time_varying_config);
+void to_json(nlohmann::json& j, const DelayConfig& config);
+void from_json(const nlohmann::json& j, DelayConfig& config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankConfig, delays, block_size, interpolation_type);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankTimeVaryingConfig, delays, max_delay, interpolation_type,
+                                   time_varying_config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FilterCoefficients, b0, b1, b2, a0, a1, a2);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AllpassFilterConfig, coeff);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirConfig, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsConfig, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirConfig, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionConfig, delays, gains, parallel);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelSchroederAllpassSectionConfig, sections);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ProportionalAttenuationConfig, t60, delay, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterConfig, t60s, delay, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterConfig, t60s, delay, freqs, q, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TenBandFilterConfig, t60s, delay, sample_rate, shelf_cutoff);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GraphicEQConfig, gains_db, freqs, sample_rate);
+
+void to_json(nlohmann::json& j, const AttenuationFilterBankConfig& config);
+void from_json(const nlohmann::json& j, AttenuationFilterBankConfig& config);
 
 } // namespace sfFDN

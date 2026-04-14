@@ -149,7 +149,7 @@ TEST_CASE("GraphicEQ")
     constexpr std::array<float, 10> kFreq = {62.5, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 8000};
     constexpr std::array<float, 10> kMag = {1.0, 1.5, 2.0, 0.5, 1.0, 0.9, -0.5, 1.0, -1.0, -6.0};
 
-    auto graphic_eq_coeffs = sfFDN::DesignGraphicEQ(kMag, kFreq, kSR);
+    auto graphic_eq_coeffs = sfFDN::DesignGraphicEQ({kMag, kFreq, kSR});
 
     for (auto i = 0u; i < graphic_eq_coeffs.size(); ++i)
     {

@@ -386,17 +386,12 @@ std::array<FilterCoefficients, 11> GetTwoFilter(const TenBandFilterConfig& confi
     return sos_f;
 }
 
-std::array<FilterCoefficients, 11> DesignGraphicEQ(std::span<const float> mag, std::span<const float> freqs, float sr)
+std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQConfig& config)
 {
-    if (mag.size() != 10 || freqs.size() != 10)
-    {
-        throw std::runtime_error("mag and freqs must have size 10");
-    }
+    std::vector<double> gains(config.gains_db.begin(), config.gains_db.end());
+    std::vector<double> freqs_d(config.freqs.begin(), config.freqs.end());
 
-    std::vector<double> gains(mag.begin(), mag.end());
-    std::vector<double> freqs_d(freqs.begin(), freqs.end());
-
-    const std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(sr), 8000.0);
+    const std::vector<double> sos = GetTwoFilterImpl(gains, freqs_d, static_cast<double>(config.sample_rate), 8000.0);
 
     std::array<FilterCoefficients, 11> sos_f;
     assert(sos.size() == sos_f.size() * 6);

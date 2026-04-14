@@ -307,4 +307,33 @@ nlohmann::json Fir::ToJson() const
     j["coefficients"] = "Not implemented";
     return j;
 }
+
+std::unique_ptr<AudioProcessor> MakeFirFilter(const FirConfig& config, float sparse_threshold)
+{
+    if (config.coeffs.size() == 0)
+    {
+        throw std::invalid_argument("MakeFirFilter: Coefficients cannot be empty");
+    }
+
+    size_t non_zero_count =
+        std::count_if(config.coeffs.begin(), config.coeffs.end(), [](float coeff) { return std::abs(coeff) > 1e-6f; });
+    float sparsity = static_cast<float>(non_zero_count) / static_cast<float>(config.coeffs.size());
+
+    if (sparsity >= sparse_threshold)
+    {
+        SparseFirConfig sparse_config;
+        for (size_t i = 0; i < config.coeffs.size(); ++i)
+        {
+            if (std::abs(config.coeffs[i]) > 1e-6f)
+            {
+                sparse_config.coeffs.emplace_back(i, config.coeffs[i]);
+            }
+        }
+        return std::make_unique<SparseFir>(sparse_config);
+    }
+    else
+    {
+        return std::make_unique<Fir>(config);
+    }
+}
 } // namespace sfFDN

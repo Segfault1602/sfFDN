@@ -22,13 +22,6 @@
 // #define SFFDN_USE_IPP_SPARSE_FIR
 #endif
 
-namespace
-{
-#ifndef SFFDN_USE_IPP_SPARSE_FIR
-constexpr uint32_t kDefaultBlockSize = 512; // Arbitrary block size, should be configurable at some point
-#endif
-} // namespace
-
 namespace sfFDN
 {
 #ifndef SFFDN_USE_IPP_SPARSE_FIR

@@ -63,6 +63,20 @@ void TimeVaryingParallelGains::GetCenterGains(std::span<float> gains) const
     }
 }
 
+void TimeVaryingParallelGains::SetModulation(std::span<const ModulationConfig> modulation_configs)
+{
+    assert(!modulation_configs.empty());
+
+    lfos_.resize(modulation_configs.size());
+
+    for (auto i = 0u; i < modulation_configs.size(); ++i)
+    {
+        lfos_[i].SetFrequency(modulation_configs[i].frequency);
+        lfos_[i].SetAmplitude(modulation_configs[i].amplitude);
+        lfos_[i].SetPhaseOffset(modulation_configs[i].initial_phase);
+    }
+}
+
 void TimeVaryingParallelGains::SetLfoFrequency(std::span<const float> frequencies)
 {
     assert(!frequencies.empty());

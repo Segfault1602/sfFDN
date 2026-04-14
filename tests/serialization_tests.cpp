@@ -136,3 +136,46 @@ TEST_CASE("Json_CascadedBiquads", "[serialization]")
     auto deserialized_tc_filter = sfFDN::CascadedBiquads::FromJson(j);
     TestAudioProcessor(tc_filter.get(), deserialized_tc_filter.get());
 }
+
+TEST_CASE("FDNConfig2")
+{
+    sfFDN::FDNConfig2 config;
+    config.fdn_size = 4;
+    config.transposed = false;
+    config.direct_gain = 0.5f;
+    config.block_size = 128;
+    config.sample_rate = 48000;
+    config.delay_bank_config = {
+        {4, 7, 13, 23},
+        128,
+        sfFDN::DelayInterpolationType::None,
+    };
+
+    config.input_block_config.single_channel_processors = {sfFDN::AllpassFilterConfig{.coeff = 0.5f},
+                                                           sfFDN::DelayConfig{.delay = 64}};
+    config.input_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Split, {0.5f, 0.3f, 0.4f, 0.8f}, {}};
+
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixConfig{
+        .matrix_size = 4,
+        .type = sfFDN::ScalarMatrixType::Hadamard,
+    };
+
+    sfFDN::AttenuationFilterBankConfig attenuation_filter_bank_config;
+    for (size_t i = 0; i < 4; ++i)
+    {
+        attenuation_filter_bank_config.filter_configs.push_back(sfFDN::TwoBandFilterConfig{
+            .t60s = {1.f, 0.5f},
+            .delay = 64.f,
+            .sample_rate = 48000.f,
+        });
+    }
+    config.loop_filter_configs.push_back(attenuation_filter_bank_config);
+
+    config.output_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Merge, {0.7f, 0.6f, 0.5f, 0.4f}, {}};
+
+    nlohmann::json j = config;
+
+    std::cout << j.dump(4) << std::endl;
+
+    sfFDN::FDNConfig2 deserialized_config = j.get<sfFDN::FDNConfig2>();
+}
