@@ -91,10 +91,6 @@ class SineWave : public Generator
      */
     void MultiplyAccumulate(std::span<const float> input, std::span<float> output);
 
-    nlohmann::json ToJson() const;
-
-    static SineWave FromJson(const nlohmann::json& j);
-
   private:
     float phase_;
     float phase_increment_;

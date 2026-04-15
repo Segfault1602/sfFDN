@@ -41,6 +41,7 @@ DelayInterp::DelayInterp(const DelayOptions& config)
     , int_delay_(0)
     , frac_delay_(0.0f)
     , type_(config.interp_type)
+    , linear_last_out_(0.0f)
 {
     this->SetDelay(config.delay);
 }
@@ -150,27 +151,22 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output)
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // This class only works with mono input.
 
-    auto in_span = input.GetChannelSpan(0);
-    auto out_span = output.GetChannelSpan(0);
-
     if (type_ == DelayInterpolationType::None)
     {
         delayline_.Process(input, output);
     }
     else if (type_ == DelayInterpolationType::Linear)
     {
-        if (delayline_.AddNextInputs(in_span))
+        delayline_.Process(input, output);
+        std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
+        auto out_span = output.GetChannelSpan(0);
+        out_span[0] = out_span[0] * coeffs[0] + linear_last_out_ * coeffs[1];
+        linear_last_out_ = out_span[0];
+        for (uint32_t n = 1; n < out_span.size(); ++n)
         {
-            std::array<uint32_t, 2> taps = {int_delay_, int_delay_ + 1};
-            std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
-            delayline_.GetNextOutputsAt(taps, out_span, coeffs);
-        }
-        else
-        {
-            for (uint32_t n = 0; n < input.SampleCount(); ++n)
-            {
-                out_span[n] = this->Tick(in_span[n]);
-            }
+            float tmp = out_span[n];
+            out_span[n] = out_span[n] * coeffs[0] + linear_last_out_ * coeffs[1];
+            linear_last_out_ = tmp;
         }
     }
     else if (type_ == DelayInterpolationType::Allpass)
@@ -198,9 +194,16 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
     }
     else if (type_ == DelayInterpolationType::Linear)
     {
-        std::array<uint32_t, 2> taps = {int_delay_, int_delay_ + 1};
+        delayline_.GetNextOutputs(output);
         std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
-        delayline_.GetNextOutputsAt(taps, output, coeffs);
+        output[0] = output[0] * coeffs[0] + linear_last_out_ * coeffs[1];
+        linear_last_out_ = output[0];
+        for (uint32_t n = 1; n < output.size(); ++n)
+        {
+            float tmp = output[n];
+            output[n] = output[n] * coeffs[0] + linear_last_out_ * coeffs[1];
+            linear_last_out_ = tmp;
+        }
     }
     else if (type_ == DelayInterpolationType::Allpass)
     {
@@ -214,28 +217,6 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
         AudioBuffer output_buffer(output);
         lagrange_filter_.Process(output_buffer, output_buffer);
     }
-}
-
-nlohmann::json DelayInterp::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "DelayInterp";
-    j["delay"] = delay_;
-    j["max_delay"] = delayline_.GetMaximumDelay();
-
-    j["interpolation"] = type_;
-
-    return j;
-}
-
-DelayInterp DelayInterp::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "DelayInterp");
-    float delay = j.at("delay").get<float>();
-    uint32_t max_delay = j.at("max_delay").get<uint32_t>();
-    DelayInterpolationType type = j.at("interpolation").get<DelayInterpolationType>();
-
-    return DelayInterp{{delay, max_delay, type}};
 }
 
 } // namespace sfFDN

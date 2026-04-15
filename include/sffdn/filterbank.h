@@ -55,10 +55,6 @@ class FilterBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<FilterBank> FromJson(const nlohmann::json& j);
-
   private:
     std::vector<std::unique_ptr<AudioProcessor>> filters_;
 };
@@ -117,16 +113,11 @@ class IIRFilterBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<IIRFilterBank> FromJson(const nlohmann::json& j);
-
   private:
     class IIRFilterBankImpl;
     std::unique_ptr<IIRFilterBankImpl> impl_;
 
     std::vector<FilterCoefficients> coeffs_;
-    uint32_t channel_count_;
 };
 
 } // namespace sfFDN

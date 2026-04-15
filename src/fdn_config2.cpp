@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <variant>
 
 namespace
@@ -229,6 +230,37 @@ struct FeedbackMatrixVisitor
     }
 };
 
+sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
+    const sfFDN::multi_channel_processor_variant_t& processor_config, const sfFDN::FDNConfig2& config)
+{
+    if (std::holds_alternative<sfFDN::AttenuationFilterBankOptions>(processor_config))
+    {
+        const auto& attenuation_config = std::get<sfFDN::AttenuationFilterBankOptions>(processor_config);
+        sfFDN::AttenuationFilterBankOptions updated_config = attenuation_config;
+        // Always update the delays in the attenuation filter bank to match the current delay lengths
+        if (attenuation_config.filter_configs.size() != config.fdn_size)
+        {
+            auto filter_config = attenuation_config.filter_configs.back();
+
+            // Copy the last filter config to match the number of channels in the FDN
+            for (size_t i = attenuation_config.filter_configs.size(); i < config.fdn_size; ++i)
+            {
+                updated_config.filter_configs.push_back(filter_config);
+            }
+        }
+
+        for (size_t i = 0; i < config.fdn_size; ++i)
+        {
+            auto& filter_config = updated_config.filter_configs[i];
+            std::visit(sfFDN::overloaded{[&](auto& arg) { arg.delay = config.delay_bank_config.delays[i]; }},
+                       filter_config);
+        }
+        return updated_config;
+    }
+
+    return processor_config;
+}
+
 } // namespace
 
 namespace sfFDN
@@ -260,13 +292,17 @@ std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig2& config)
             auto loop_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
             for (const auto& processor_config : config.loop_filter_configs)
             {
-                loop_filter_chain->AddProcessor(std::visit(MultichannelProcessorVisitor{}, processor_config));
+                auto updated_config = UpdateAttenuationFilterBank(processor_config, config);
+                auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
+                loop_filter_chain->AddProcessor(std::move(processor));
             }
             fdn->SetFilterBank(std::move(loop_filter_chain));
         }
         else
         {
-            fdn->SetFilterBank(std::visit(MultichannelProcessorVisitor{}, config.loop_filter_configs[0]));
+            auto updated_config = UpdateAttenuationFilterBank(config.loop_filter_configs[0], config);
+            auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
+            fdn->SetFilterBank(std::move(processor));
         }
     }
 

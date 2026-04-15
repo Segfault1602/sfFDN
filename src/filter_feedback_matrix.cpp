@@ -1,42 +1,114 @@
 #include "sffdn/filter_feedback_matrix.h"
 
 #include "json_helper.h"
+#include "matrix_gallery_internal.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/matrix_gallery.h"
 
+#include <Eigen/Core>
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <print>
+#include <random>
 #include <span>
 #include <utility>
 #include <vector>
 
-namespace sfFDN
+namespace
 {
-FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& info)
-    : channel_count_(info.matrix_size)
+// Generate a random array of floats in the range [0, 1)
+Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
 {
-    delaybanks_.reserve(info.stage_count);
-    matrix_.reserve(info.stage_count + 1);
+    std::random_device rd;
+    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-    assert(info.delays.size() == info.stage_count);
-    assert(info.matrices.size() == info.stage_count + 1);
-
-    for (const auto& stage_delays : info.delays)
+    Eigen::ArrayXf random_vector(size);
+    for (auto i = 0u; i < size; ++i)
     {
-        std::vector<float> delay_vector(stage_delays.begin(), stage_delays.end());
-        delaybanks_.emplace_back(DelayBankOptions{delay_vector, kDefaultBlockSize});
+        random_vector(i) = dist(gen);
     }
 
-    for (const auto& matrix : info.matrices)
+    return random_vector;
+}
+
+Eigen::ArrayXf ShiftMatrixDistribute(uint32_t size, float sparsity, float pulse_size)
+{
+    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size) * 0.99f);
+
+    shift = shift.floor() * pulse_size;
+    return shift;
+}
+
+sfFDN::ScalarFeedbackMatrixOptions EigenToMatrixOptions(const Eigen::MatrixXf& matrix)
+{
+    std::vector<float> flat_matrix;
+    flat_matrix.reserve(matrix.rows() * matrix.cols());
+    for (auto i = 0u; i < matrix.rows(); ++i)
     {
-        ScalarFeedbackMatrixOptions scalar_config;
-        scalar_config.matrix_size = info.matrix_size;
-        scalar_config.custom_matrix = matrix;
-        matrix_.emplace_back(scalar_config);
+        for (auto j = 0u; j < matrix.cols(); ++j)
+        {
+            flat_matrix.push_back(matrix(i, j));
+        }
+    }
+    return sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = static_cast<uint32_t>(matrix.rows()),
+                                              .custom_matrix = flat_matrix};
+}
+
+} // namespace
+
+namespace sfFDN
+{
+FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& options)
+    : channel_count_(options.matrix_size)
+{
+    float sparsity = options.sparsity;
+    if (sparsity < 1.f)
+    {
+        std::cerr << "Sparsity must be at least 1.\n";
+        sparsity = 1.f;
+    }
+
+    std::vector<std::vector<float>> delays;
+
+    Eigen::MatrixXf r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
+    matrix_.emplace_back(EigenToMatrixOptions(r0));
+
+    float pulse_size = 1.f;
+
+    Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(options.stage_count + 1);
+    sparsity_vec[0] = sparsity;
+
+    for (auto i = 0u; i < options.stage_count; ++i)
+    {
+        const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(options.matrix_size, sparsity_vec[i], pulse_size);
+
+        const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(
+            Eigen::pow(options.gain_per_samples, shift_left).matrix());
+        r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
+        const Eigen::MatrixXf r1 = r0 * g1;
+
+        pulse_size = pulse_size * options.matrix_size * sparsity_vec[i];
+
+        // matrices.push_back(r1);
+        std::vector<float> delays_stage;
+        for (auto d : shift_left)
+        {
+            delays_stage.push_back(std::floor(d));
+        }
+
+        DelayBankOptions delaybank_options;
+        delaybank_options.block_size = kDefaultBlockSize;
+        delaybank_options.delays = delays_stage;
+        delaybank_options.interpolation_type = DelayInterpolationType::None;
+        delaybanks_.emplace_back(delaybank_options);
+
+        sfFDN::ScalarFeedbackMatrixOptions matrix_options = EigenToMatrixOptions(r1);
+        matrix_.emplace_back(matrix_options);
     }
 }
 
@@ -156,50 +228,6 @@ std::unique_ptr<AudioProcessor> FilterFeedbackMatrix::Clone() const
     // }
 
     return clone;
-}
-
-nlohmann::json FilterFeedbackMatrix::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "FilterFeedbackMatrix";
-    j["channel_count"] = channel_count_;
-    j["delaybanks"] = nlohmann::json::array();
-    for (const auto& delaybank : delaybanks_)
-    {
-        j["delaybanks"].push_back(delaybank.ToJson());
-    }
-    j["matrices"] = nlohmann::json::array();
-    for (const auto& matrix : matrix_)
-    {
-        j["matrices"].push_back(matrix.ToJson());
-    }
-    return j;
-}
-
-std::unique_ptr<FilterFeedbackMatrix> FilterFeedbackMatrix::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "FilterFeedbackMatrix");
-    auto channel_count = j.at("channel_count").get<uint32_t>();
-    auto delaybanks_json = j.at("delaybanks");
-    auto matrices_json = j.at("matrices");
-
-    std::vector<DelayBank> delaybanks;
-    for (const auto& delaybank_json : delaybanks_json)
-    {
-        delaybanks.emplace_back(*DelayBank::FromJson(delaybank_json));
-    }
-
-    std::vector<ScalarFeedbackMatrix> matrices;
-    for (const auto& matrix_json : matrices_json)
-    {
-        matrices.emplace_back(*ScalarFeedbackMatrix::FromJson(matrix_json));
-    }
-
-    auto filter_feedback_matrix = std::unique_ptr<FilterFeedbackMatrix>(new FilterFeedbackMatrix());
-    filter_feedback_matrix->channel_count_ = channel_count;
-    filter_feedback_matrix->delaybanks_ = std::move(delaybanks);
-    filter_feedback_matrix->matrix_ = std::move(matrices);
-    return filter_feedback_matrix;
 }
 
 } // namespace sfFDN

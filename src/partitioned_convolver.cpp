@@ -271,9 +271,4 @@ std::unique_ptr<AudioProcessor> PartitionedConvolver::Clone() const
     return clone;
 }
 
-nlohmann::json PartitionedConvolver::ToJson() const
-{
-    return impl_->ToJson();
-}
-
 } // namespace sfFDN

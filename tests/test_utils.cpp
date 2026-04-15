@@ -11,8 +11,11 @@
 
 std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32_t stage_count, float sparsity)
 {
-    sfFDN::CascadedFeedbackMatrixOptions info = sfFDN::ConstructCascadedFeedbackMatrix(
-        mat_size, stage_count, sparsity, sfFDN::ScalarMatrixType::Hadamard, 1.0f);
+    sfFDN::CascadedFeedbackMatrixOptions info = {.matrix_size = mat_size,
+                                                 .stage_count = stage_count,
+                                                 .sparsity = sparsity,
+                                                 .type = sfFDN::ScalarMatrixType::Random,
+                                                 .gain_per_samples = 1.f};
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info);
     return ffm;

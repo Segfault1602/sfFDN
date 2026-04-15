@@ -213,9 +213,4 @@ std::unique_ptr<AudioProcessor> DelayMatrix::Clone() const
     return clone;
 }
 
-nlohmann::json DelayMatrix::ToJson() const
-{
-    return impl_->ToJson();
-}
-
 } // namespace sfFDN

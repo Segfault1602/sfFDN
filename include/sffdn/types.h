@@ -53,10 +53,11 @@ enum class ScalarMatrixType : uint8_t
 
 enum class DelayInterpolationType : uint8_t
 {
-    None,
-    Linear,
-    Allpass,
-    Lagrange,
+    None = 0,
+    Linear = 1,
+    Allpass = 2,
+    Lagrange = 3,
+    Count = 4,
 };
 
 /**
@@ -101,10 +102,12 @@ struct ScalarFeedbackMatrixOptions
  */
 struct CascadedFeedbackMatrixOptions
 {
-    uint32_t matrix_size;                     /**< Size of the feedback matrix */
-    uint32_t stage_count;                     /**< Number of stages */
-    std::vector<std::vector<float>> delays;   /**< Delays, size: stage_count x N */
-    std::vector<std::vector<float>> matrices; /**< Feedback matrices, size: K x N x N */
+    uint32_t matrix_size; /**< Size of the feedback matrix */
+    uint32_t stage_count; /**< Number of stages */
+    float sparsity{1.f};  /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
+                             values correspond to sparser matrices. */
+    ScalarMatrixType type{ScalarMatrixType::Random};
+    float gain_per_samples{1.f};
 };
 
 struct ModulationOptions
@@ -125,7 +128,7 @@ struct DelayOptions
 {
     float delay{256.f};
     uint32_t max_delay{512};
-    sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::Allpass};
+    sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::None};
     std::optional<sfFDN::ModulationOptions> lfo_config{std::nullopt};
 };
 
@@ -233,9 +236,15 @@ struct GraphicEQOptions
 };
 
 using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
+
 using single_channel_processor_variant_t =
     std::variant<SchroederAllpassSectionOptions, AllpassFilterOptions, CascadedBiquadsOptions, FirOptions, DelayOptions,
                  GraphicEQOptions>;
+
+using multi_channel_processor_variant_t =
+    std::variant<ParallelGainsOptions, ParallelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
+                 DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
+                 ScalarFeedbackMatrixOptions>;
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ScalarMatrixType, {{ScalarMatrixType::Identity, "Identity"},
                                                 {ScalarMatrixType::Random, "Random"},
@@ -266,7 +275,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {{ParallelGainsMode::Split, "Spl
 
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, delays, matrices);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, sparsity, type,
+                                   gain_per_samples);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationOptions, frequency, amplitude, initial_phase);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsOptions, mode, gains, time_varying_config);
 void to_json(nlohmann::json& j, const DelayOptions& config);

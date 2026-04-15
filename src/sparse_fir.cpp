@@ -252,9 +252,4 @@ std::unique_ptr<AudioProcessor> SparseFir::Clone() const
     return clone;
 }
 
-nlohmann::json SparseFir::ToJson() const
-{
-    return impl_->ToJson();
-}
-
 } // namespace sfFDN

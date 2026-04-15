@@ -98,10 +98,6 @@ class DelayBank : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<DelayBank> FromJson(const nlohmann::json& j);
-
   private:
     std::vector<DelayInterp> delays_;
     uint32_t block_size_;

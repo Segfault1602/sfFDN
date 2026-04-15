@@ -56,7 +56,7 @@ TEST_CASE("TwoFilter")
     config.sample_rate = kSR;
     config.shelf_cutoff = kShelfCutoff;
 
-    auto float_coeffs = sfFDN::GetTwoFilter(config);
+    auto float_coeffs = sfFDN::DesignTenBandAbsorption(config);
     for (auto i = 0u; i < float_coeffs.size(); ++i)
     {
         REQUIRE_THAT(float_coeffs[i].b0, Catch::Matchers::WithinAbs(kExpectedSOS.at(i * 6), 1e-7));

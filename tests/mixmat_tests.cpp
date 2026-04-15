@@ -20,24 +20,11 @@ TEST_CASE("VelvetFFM")
     constexpr uint32_t kMatSize = 4;
     constexpr float kCascadeGain = 1.f;
 
-    sfFDN::CascadedFeedbackMatrixOptions ffm_info = sfFDN::ConstructCascadedFeedbackMatrix(
-        kMatSize, kStageCount, kSparsity, sfFDN::ScalarMatrixType::Hadamard, kCascadeGain);
-
-    REQUIRE(ffm_info.matrix_size == kMatSize);
-    REQUIRE(ffm_info.stage_count == kStageCount);
-    REQUIRE(ffm_info.delays.size() == kStageCount);
-    REQUIRE(ffm_info.matrices.size() == kStageCount + 1);
-
-    // Print delays
-    for (auto i = 0u; i < ffm_info.delays.size(); ++i)
-    {
-        auto stage_delays = ffm_info.delays[i];
-        for (auto d : stage_delays)
-        {
-            std::cout << d << " ";
-        }
-        std::cout << "\n";
-    }
+    sfFDN::CascadedFeedbackMatrixOptions ffm_info = {.matrix_size = kMatSize,
+                                                     .stage_count = kStageCount,
+                                                     .sparsity = kSparsity,
+                                                     .type = sfFDN::ScalarMatrixType::Random,
+                                                     .gain_per_samples = kCascadeGain};
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(ffm_info);
     REQUIRE(ffm != nullptr);

@@ -24,7 +24,7 @@ TEST_CASE("TwoFilter")
     constexpr float kShelfCutoff = 8000.0f;
 
     nanobench::Bench bench;
-    bench.title("GetTwoFilter");
+    bench.title("DesignTenBandAbsorption");
     bench.minEpochIterations(10000);
     bench.timeUnit(1us, "us");
 
@@ -34,8 +34,8 @@ TEST_CASE("TwoFilter")
     config.sample_rate = kSR;
     config.shelf_cutoff = kShelfCutoff;
 
-    bench.run("GetTwoFilter", [&] {
-        auto coeffs = sfFDN::GetTwoFilter(config);
+    bench.run("DesignTenBandAbsorption", [&] {
+        auto coeffs = sfFDN::DesignTenBandAbsorption(config);
         nanobench::doNotOptimizeAway(coeffs);
     });
 }

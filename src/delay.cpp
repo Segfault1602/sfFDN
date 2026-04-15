@@ -310,8 +310,6 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, 
                                        output.subspan(buffer_1.size()));
         }
     }
-
-    AdvanceRead(output.size());
 }
 
 void Delay::AdvanceRead(uint32_t sample_count)

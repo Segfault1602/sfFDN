@@ -299,15 +299,6 @@ std::unique_ptr<AudioProcessor> Fir::Clone() const
     return clone;
 }
 
-nlohmann::json Fir::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "Fir";
-    // Coefficients can be large, so we won't include them in the JSON representation for now
-    j["coefficients"] = "Not implemented";
-    return j;
-}
-
 std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold)
 {
     if (config.coeffs.size() == 0)

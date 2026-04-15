@@ -125,14 +125,4 @@ std::unique_ptr<AudioProcessor> DelayTimeVarying::Clone() const
     return clone;
 }
 
-nlohmann::json DelayTimeVarying::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "DelayTimeVarying";
-    j["delay"] = delay_.ToJson();
-    j["base_delay"] = base_delay_;
-    j["lfo"] = lfo_.ToJson();
-    return j;
-}
-
 } // namespace sfFDN

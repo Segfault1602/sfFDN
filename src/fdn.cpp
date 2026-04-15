@@ -555,10 +555,12 @@ std::unique_ptr<FDN> FDN::CloneFDN() const
     clone->SetOutputGains(output_gains_->Clone());
 
     clone->SetFilterBank(filter_bank_ ? filter_bank_->Clone() : nullptr);
-    clone->SetDelays(delay_bank_.GetDelays());
+    clone->delay_bank_ = delay_bank_;
     clone->SetFeedbackMatrix(mixing_matrix_ ? mixing_matrix_->Clone() : nullptr);
     clone->SetTCFilter(tc_filter_ ? tc_filter_->Clone() : nullptr);
     clone->SetDirectGain(direct_gain_);
+
+    clone->Clear();
 
     assert(clone->order_ == order_);
     assert(clone->block_size_ == block_size_);
@@ -568,64 +570,6 @@ std::unique_ptr<FDN> FDN::CloneFDN() const
     assert(clone->OutputChannelCount() == OutputChannelCount());
 
     return clone;
-}
-
-nlohmann::json FDN::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "FDN";
-    j["order_"] = order_;
-    j["block_size_"] = block_size_;
-    j["transpose_"] = transpose_;
-    j["direct_gain_"] = direct_gain_;
-    j["delay_bank_"] = delay_bank_.ToJson();
-    j["input_gains_"] = input_gains_ ? input_gains_->ToJson() : nullptr;
-    j["output_gains_"] = output_gains_ ? output_gains_->ToJson() : nullptr;
-    j["filter_bank_"] = filter_bank_ ? filter_bank_->ToJson() : nullptr;
-    j["feedback_matrix_"] = mixing_matrix_ ? mixing_matrix_->ToJson() : nullptr;
-    j["tc_filter_"] = tc_filter_ ? tc_filter_->ToJson() : nullptr;
-    return j;
-}
-
-FDN FDN::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "FDN");
-
-    const uint32_t order = j.at("order_").get<uint32_t>();
-    const uint32_t block_size = j.at("block_size_").get<uint32_t>();
-    const bool transpose = j.at("transpose_").get<bool>();
-
-    FDN fdn(order, block_size, transpose);
-    fdn.SetDirectGain(j.at("direct_gain_").get<float>());
-    auto delay_bank_ptr = DelayBank::FromJson(j.at("delay_bank_"));
-    fdn.delay_bank_ = std::move(*delay_bank_ptr);
-
-    if (j.contains("input_gains_") && !j["input_gains_"].is_null())
-    {
-        fdn.SetInputGains(from_json(j.at("input_gains_")));
-    }
-
-    if (j.contains("output_gains_") && !j["output_gains_"].is_null())
-    {
-        fdn.SetOutputGains(from_json(j.at("output_gains_")));
-    }
-
-    if (j.contains("filter_bank_") && !j["filter_bank_"].is_null())
-    {
-        fdn.SetFilterBank(from_json(j.at("filter_bank_")));
-    }
-
-    if (j.contains("feedback_matrix_") && !j["feedback_matrix_"].is_null())
-    {
-        fdn.SetFeedbackMatrix(from_json(j.at("feedback_matrix_")));
-    }
-
-    if (j.contains("tc_filter_") && !j["tc_filter_"].is_null())
-    {
-        fdn.SetTCFilter(from_json(j.at("tc_filter_")));
-    }
-
-    return fdn;
 }
 
 } // namespace sfFDN

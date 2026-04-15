@@ -53,22 +53,6 @@ Eigen::MatrixXf CreateToeplitzMatrix(const Eigen::VectorXf& c, const Eigen::Vect
     return matrix;
 }
 
-// Generate a random array of floats in the range [0, 1)
-Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
-{
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-
-    Eigen::ArrayXf random_vector(size);
-    for (auto i = 0u; i < size; ++i)
-    {
-        random_vector(i) = dist(gen);
-    }
-
-    return random_vector;
-}
-
 Eigen::MatrixXf NestedAllpassMatrixInternal(uint32_t mat_size, uint32_t seed,
                                             std::span<float> input_gains = std::span<float>(),
                                             std::span<float> output_gains = std::span<float>())
@@ -133,14 +117,6 @@ Eigen::MatrixXf NestedAllpassMatrixInternal(uint32_t mat_size, uint32_t seed,
     return matrix;
 }
 
-Eigen::ArrayXf ShiftMatrixDistribute(uint32_t size, float sparsity, float pulse_size)
-{
-    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size) * 0.99f);
-
-    shift = shift.floor() * pulse_size;
-    return shift;
-}
-
 Eigen::MatrixXf KroneckerProduct(const Eigen::MatrixXf& lhs, const Eigen::MatrixXf& rhs)
 {
     Eigen::MatrixXf result(lhs.rows() * rhs.rows(), lhs.cols() * rhs.cols());
@@ -184,9 +160,12 @@ Eigen::MatrixXf VariableDiffusionMatrix(uint32_t mat_size, float diffusion)
 
     return r2;
 }
+} // namespace
 
+namespace sfFDN
+{
 Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, sfFDN::ScalarMatrixType type, uint32_t seed,
-                                       std::optional<float> arg = std::nullopt)
+                                       std::optional<float> arg)
 {
     Eigen::MatrixXf matrix(mat_size, mat_size);
     switch (type)
@@ -248,11 +227,6 @@ Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, sfFDN::ScalarMatrixTyp
 
     return matrix;
 }
-
-} // namespace
-
-namespace sfFDN
-{
 
 Eigen::MatrixXf RandN(uint32_t mat_size, uint32_t seed)
 {
@@ -489,67 +463,4 @@ std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed, std::sp
     return flat_matrix;
 }
 
-CascadedFeedbackMatrixOptions ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count,
-                                                              float sparsity, ScalarMatrixType type,
-                                                              float gain_per_samples)
-{
-    if (sparsity < 1.f)
-    {
-        std::cerr << "Sparsity must be at least 1.\n";
-        sparsity = 1.f;
-    }
-
-    std::vector<std::vector<float>> delays;
-    std::vector<Eigen::MatrixXf> matrices;
-
-    Eigen::MatrixXf r0 = GenerateMatrixInternal(channel_count, type, 0);
-    matrices.push_back(r0);
-
-    float pulse_size = 1.f;
-
-    Eigen::ArrayXf sparsity_vec = Eigen::ArrayXf::Ones(stage_count + 1);
-    sparsity_vec[0] = sparsity;
-
-    for (auto i = 0u; i < stage_count; ++i)
-    {
-        const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(channel_count, sparsity_vec[i], pulse_size);
-
-        const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(Eigen::pow(gain_per_samples, shift_left).matrix());
-        r0 = GenerateMatrixInternal(channel_count, type, 0);
-        const Eigen::MatrixXf r1 = r0 * g1;
-
-        pulse_size = pulse_size * channel_count * sparsity_vec[i];
-
-        matrices.push_back(r1);
-        std::vector<float> delays_stage;
-        for (auto d : shift_left)
-        {
-            delays_stage.push_back(std::floor(d));
-        }
-        delays.push_back(delays_stage);
-    }
-
-    CascadedFeedbackMatrixOptions info;
-    info.matrix_size = channel_count;
-    info.stage_count = stage_count;
-    info.delays = delays;
-    info.matrices.reserve(matrices.size());
-
-    // Flatten the matrices into a single vector, column-major order
-    for (const auto& matrix : matrices)
-    {
-        std::vector<float> flat_matrix;
-        flat_matrix.reserve(channel_count * channel_count);
-        for (auto i = 0u; i < channel_count; ++i)
-        {
-            for (auto j = 0u; j < channel_count; ++j)
-            {
-                flat_matrix.push_back(matrix(i, j));
-            }
-        }
-        info.matrices.push_back(flat_matrix);
-    }
-
-    return info;
-}
 } // namespace sfFDN

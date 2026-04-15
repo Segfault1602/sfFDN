@@ -76,12 +76,4 @@ std::unique_ptr<AudioProcessor> DelayBankTimeVarying::Clone() const
     return clone;
 }
 
-nlohmann::json DelayBankTimeVarying::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "DelayBankTimeVarying";
-    j["delay_bank_"] = delay_bank_.ToJson();
-    return j;
-}
-
 } // namespace sfFDN

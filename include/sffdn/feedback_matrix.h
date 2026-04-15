@@ -84,10 +84,6 @@ class ScalarFeedbackMatrix : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<ScalarFeedbackMatrix> FromJson(const nlohmann::json& j);
-
   private:
     uint32_t order_;
     std::vector<float> matrix_data_;

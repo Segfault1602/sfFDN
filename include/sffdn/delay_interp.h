@@ -75,10 +75,6 @@ class DelayInterp
      */
     void GetNextOutputs(std::span<float> output);
 
-    nlohmann::json ToJson() const;
-
-    static DelayInterp FromJson(const nlohmann::json& j);
-
   private:
     Delay delayline_;
 
@@ -91,6 +87,7 @@ class DelayInterp
 
     std::vector<float> lagrange_coeffs_;
     Fir lagrange_filter_;
+    float linear_last_out_;
 };
 
 } // namespace sfFDN

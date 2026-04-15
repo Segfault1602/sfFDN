@@ -263,7 +263,7 @@ nb::ndarray<nb::numpy, float, nb::shape<-1, 6>> DesignFilter(nb::ndarray<float, 
 {
     std::cout << "Designing filter with " << t60s.size() << " bands\n";
 
-    auto filter = sfFDN::GetTwoFilter(std::span<const float>(t60s.data(), t60s.size()), 1619, 48000.0f);
+    auto filter = sfFDN::DesignTenBandAbsorption(std::span<const float>(t60s.data(), t60s.size()), 1619, 48000.0f);
 
     float* sos = new float[filter.size()];
 

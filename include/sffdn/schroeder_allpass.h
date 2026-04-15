@@ -85,10 +85,6 @@ class SchroederAllpass
      */
     void Clear();
 
-    nlohmann::json ToJson() const;
-
-    static SchroederAllpass FromJson(const nlohmann::json& j);
-
   private:
     Delay delay_;
     float g_{};
@@ -175,10 +171,6 @@ class SchroederAllpassSection : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<SchroederAllpassSection> FromJson(const nlohmann::json& j);
-
   private:
     std::vector<SchroederAllpass> allpasses_;
     bool parallel_ = false;
@@ -234,10 +226,6 @@ class ParallelSchroederAllpassSection : public AudioProcessor
      * @return A unique pointer to the cloned ParallelSchroederAllpassSection.
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
-
-    nlohmann::json ToJson() const override;
-
-    static std::unique_ptr<ParallelSchroederAllpassSection> FromJson(const nlohmann::json& j);
 
   private:
     std::vector<SchroederAllpassSection> allpasses_;

@@ -19,7 +19,7 @@ DelayBank::DelayBank(const DelayBankOptions& config)
 {
     for (auto delay : config.delays)
     {
-        uint32_t max_delay = delay + block_size_;
+        uint32_t max_delay = delay + block_size_ * 2;
         if (max_delay % 64 != 0)
         {
             max_delay += 64 - (max_delay % 64);
@@ -110,26 +110,6 @@ std::unique_ptr<AudioProcessor> DelayBank::Clone() const
     clone->block_size_ = block_size_;
     clone->interpolation_type_ = interpolation_type_;
     return clone;
-}
-
-nlohmann::json DelayBank::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "DelayBank";
-    j["delays"] = GetDelays();
-    j["block_size"] = block_size_;
-    j["interpolation_type"] = static_cast<uint8_t>(interpolation_type_);
-    return j;
-}
-
-std::unique_ptr<DelayBank> DelayBank::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "DelayBank");
-
-    std::vector<float> delays = j["delays"].get<std::vector<float>>();
-    uint32_t block_size = j["block_size"].get<uint32_t>();
-    DelayInterpolationType interpolation_type = static_cast<DelayInterpolationType>(j.value("interpolation_type", 0));
-    return std::make_unique<DelayBank>(DelayBankOptions{delays, block_size, interpolation_type});
 }
 
 } // namespace sfFDN

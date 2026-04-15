@@ -86,8 +86,6 @@ class DelayBankTimeVarying : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
   private:
     FilterBank delay_bank_;
     DelayBankTimeVaryingOptions config_;

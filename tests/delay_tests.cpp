@@ -118,6 +118,9 @@ TEST_CASE("Delay_Integer")
                      Catch::Matchers::WithinAbs(output_allpass[i], std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(output_allpass[i],
                      Catch::Matchers::WithinAbs(output_lagrange[i], std::numeric_limits<float>::epsilon()));
+
+        std::cout << "Input: " << input[i] << ", None: " << output_none[i] << ", Linear: " << output_linear[i]
+                  << ", Allpass: " << output_allpass[i] << ", Lagrange: " << output_lagrange[i] << std::endl;
     }
 }
 

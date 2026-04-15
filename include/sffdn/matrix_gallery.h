@@ -44,18 +44,5 @@ std::vector<float> NestedAllpassMatrix(uint32_t mat_size, uint32_t seed = 0,
                                        std::span<float> input_gains = std::span<float>(),
                                        std::span<float> output_gains = std::span<float>());
 
-/**
- * @brief Constructs a Cascaded feedback matrix.
- *
- * @param channel_count Number of channels
- * @param stage_count Number of stages
- * @param sparsity Sparsity level (>= 1)
- * @param gain_per_samples Gain per sample (default: 1.0)
- * @return CascadedFeedbackMatrixInfo
- */
-CascadedFeedbackMatrixOptions ConstructCascadedFeedbackMatrix(uint32_t channel_count, uint32_t stage_count,
-                                                              float sparsity, ScalarMatrixType type,
-                                                              float gain_per_samples = 1.f);
-
 /** @} */
 } // namespace sfFDN

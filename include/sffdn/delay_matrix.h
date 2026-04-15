@@ -62,8 +62,6 @@ class DelayMatrix : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
   private:
     class DelayMatrixImpl;
     std::unique_ptr<DelayMatrixImpl> impl_;

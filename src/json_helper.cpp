@@ -8,21 +8,6 @@
 namespace sfFDN
 {
 
-using AudioProcessorFactoryFunction = std::function<std::unique_ptr<AudioProcessor>(const nlohmann::json&)>;
-
-static const std::map<std::string, AudioProcessorFactoryFunction> processor_factory = {
-    {"AudioProcessorChain", AudioProcessorChain::FromJson},
-    {"DelayBank", DelayBank::FromJson},
-    {"ParallelGains", ParallelGains::FromJson},
-    {"FilterBank", FilterBank::FromJson},
-    {"IIRFilterBank", IIRFilterBank::FromJson},
-    {"CascadedBiquads", CascadedBiquads::FromJson},
-    {"ScalarFeedbackMatrix", ScalarFeedbackMatrix::FromJson},
-    {"FilterFeedbackMatrix", FilterFeedbackMatrix::FromJson},
-    {"TimeVaryingParallelGains", TimeVaryingParallelGains::FromJson},
-    {"SchroederAllpassSection", SchroederAllpassSection::FromJson},
-    {"ParallelSchroederAllpassSection", ParallelSchroederAllpassSection::FromJson}};
-
 void ThrowIfNotType(const nlohmann::json& j, const std::string& expected_type)
 {
     ThrowIfDoesNotContainKey(j, "type");
@@ -46,24 +31,6 @@ void ThrowIfDoesNotContainKey(const nlohmann::json& j, const std::string& key)
     {
         throw std::invalid_argument("JSON object does not contain required key: " + key);
     }
-}
-
-std::unique_ptr<AudioProcessor> from_json(const nlohmann::json& j)
-{
-    if (!j.contains("type") || !j["type"].is_string())
-    {
-        throw std::runtime_error("JSON object does not contain a valid 'type' field.");
-    }
-
-    std::string type = j["type"].get<std::string>();
-
-    auto it = processor_factory.find(type);
-    if (it == processor_factory.end())
-    {
-        throw std::runtime_error("Unknown audio processor type: " + type);
-    }
-
-    return it->second(j);
 }
 
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
@@ -236,7 +203,7 @@ nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config
                       processor_config);
 }
 
-nlohmann::json ToJson(const multichannel_processor_variant_t& processor_config)
+nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
 {
     return std::visit(overloaded{[](const ParallelGainsOptions& config) {
                                      nlohmann::json proc;
@@ -305,7 +272,7 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
     throw std::invalid_argument("Unknown single channel processor config type" + j.dump());
 }
 
-multichannel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::json& j)
+multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::json& j)
 {
     if (j.contains("ParallelGainsConfig"))
     {

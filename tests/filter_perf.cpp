@@ -77,7 +77,7 @@ TEST_CASE("IIRFilterBankPerf")
     for (auto i = 0u; i < kChannelCount; i++)
     {
         config.delay = delays[i];
-        auto filter_coeffs = sfFDN::GetTwoFilter(config);
+        auto filter_coeffs = sfFDN::DesignTenBandAbsorption(config);
         auto filter = std::make_unique<sfFDN::CascadedBiquads>();
 
         filter->SetCoefficients(filter_coeffs);
@@ -112,7 +112,7 @@ TEST_CASE("IIRFilterBankPerf")
     for (auto i = 0u; i < kChannelCount; i++)
     {
         config.delay = delays[i];
-        auto filter_coeffs = sfFDN::GetTwoFilter(config);
+        auto filter_coeffs = sfFDN::DesignTenBandAbsorption(config);
         coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
     }
     iir_filter_bank->SetFilter(coeffs, kChannelCount);

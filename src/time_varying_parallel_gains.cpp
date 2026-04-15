@@ -208,37 +208,4 @@ std::unique_ptr<AudioProcessor> TimeVaryingParallelGains::Clone() const
     return clone;
 }
 
-nlohmann::json TimeVaryingParallelGains::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "TimeVaryingParallelGains";
-    j["mode"] = mode_;
-
-    j["lfos"] = nlohmann::json::array();
-    for (const auto& lfo : lfos_)
-    {
-        j["lfos"].push_back(lfo.ToJson());
-    }
-
-    return j;
-}
-
-std::unique_ptr<TimeVaryingParallelGains> TimeVaryingParallelGains::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "TimeVaryingParallelGains");
-
-    const auto mode = j.at("mode").get<ParallelGainsMode>();
-
-    std::vector<SineWave> lfos;
-    for (const auto& lfo_json : j.at("lfos"))
-    {
-        lfos.push_back(SineWave::FromJson(lfo_json));
-    }
-
-    auto processor = std::make_unique<TimeVaryingParallelGains>(ParallelGainsOptions{mode, {}, {}});
-    processor->lfos_ = std::move(lfos);
-
-    return processor;
-}
-
 } // namespace sfFDN

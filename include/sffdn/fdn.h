@@ -221,10 +221,6 @@ class FDN : public AudioProcessor
      */
     std::unique_ptr<FDN> CloneFDN() const;
 
-    nlohmann::json ToJson() const override;
-
-    static FDN FromJson(const nlohmann::json& j);
-
   private:
     void TickInternal(const AudioBuffer& input, AudioBuffer& output);
     void Tick(const AudioBuffer& input, AudioBuffer& output);

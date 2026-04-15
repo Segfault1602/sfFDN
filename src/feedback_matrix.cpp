@@ -135,31 +135,4 @@ std::unique_ptr<AudioProcessor> ScalarFeedbackMatrix::Clone() const
     return clone;
 }
 
-nlohmann::json ScalarFeedbackMatrix::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "ScalarFeedbackMatrix";
-    j["order"] = order_;
-    j["matrix"] = matrix_data_;
-    return j;
-}
-
-std::unique_ptr<ScalarFeedbackMatrix> ScalarFeedbackMatrix::FromJson(const nlohmann::json& j)
-{
-    ThrowIfNotType(j, "ScalarFeedbackMatrix");
-    auto order = j["order"].get<uint32_t>();
-    auto matrix_data = j["matrix"].get<std::vector<float>>();
-
-    if (matrix_data.size() != order * order)
-    {
-        throw std::invalid_argument("Matrix data size does not match the specified order.");
-    }
-
-    ScalarFeedbackMatrixOptions config;
-    config.matrix_size = order;
-    config.custom_matrix = matrix_data;
-
-    return std::make_unique<ScalarFeedbackMatrix>(config);
-}
-
 } // namespace sfFDN

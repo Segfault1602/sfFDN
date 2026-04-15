@@ -121,15 +121,6 @@ std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
     return clone;
 }
 
-nlohmann::json OnePoleFilter::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "OnePoleFilter";
-    j["b0"] = b0_;
-    j["a1"] = a1_;
-    return j;
-}
-
 AllpassFilter::AllpassFilter(const AllpassFilterOptions& config)
     : coeff_(config.coeff)
     , last_in_(0.0f)
@@ -201,14 +192,6 @@ std::unique_ptr<AudioProcessor> AllpassFilter::Clone() const
     auto clone = std::make_unique<AllpassFilter>();
     clone->SetCoefficients(coeff_);
     return clone;
-}
-
-nlohmann::json AllpassFilter::ToJson() const
-{
-    nlohmann::json j;
-    j["type"] = "AllpassFilter";
-    j["coeff"] = coeff_;
-    return j;
 }
 
 } // namespace sfFDN

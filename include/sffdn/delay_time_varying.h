@@ -47,8 +47,6 @@ class DelayTimeVarying : public AudioProcessor
 
     std::unique_ptr<AudioProcessor> Clone() const override;
 
-    nlohmann::json ToJson() const override;
-
   private:
     void UpdateDelay();
     DelayInterp delay_;
