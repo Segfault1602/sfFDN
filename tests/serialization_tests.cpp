@@ -5,9 +5,9 @@
 #include "sffdn/sffdn.h"
 #include "test_utils.h"
 
-TEST_CASE("FDNConfig2")
+TEST_CASE("FDNConfig")
 {
-    sfFDN::FDNConfig2 config;
+    sfFDN::FDNConfig config;
     config.fdn_size = 4;
     config.transposed = false;
     config.direct_gain = 0.5f;
@@ -45,5 +45,5 @@ TEST_CASE("FDNConfig2")
 
     std::cout << j.dump(4) << std::endl;
 
-    sfFDN::FDNConfig2 deserialized_config = j.get<sfFDN::FDNConfig2>();
+    sfFDN::FDNConfig deserialized_config = j.get<sfFDN::FDNConfig>();
 }
