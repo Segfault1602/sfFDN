@@ -127,11 +127,17 @@ TEST_CASE("SparseFirFilter")
             sparse_fir_config.coeffs.push_back({i, s});
         }
     }
-    sfFDN::Fir filter;
-    filter.SetCoefficients(ir);
 
-    sfFDN::SparseFir sparse_filter;
-    sparse_filter.SetCoefficients(sparse_fir_config);
+    sfFDN::FirOptions fir_config;
+    fir_config.coeffs = ir;
+    sfFDN::Fir filter(fir_config);
+
+    auto sparse_filter = sfFDN::MakeFirFilter(fir_config, 0.25f);
+    // Make sure that the sparse filter is actually created
+    REQUIRE(dynamic_cast<sfFDN::SparseFir*>(sparse_filter.get()) != nullptr);
+
+    // sfFDN::SparseFir sparse_filter;
+    // sparse_filter.SetCoefficients(sparse_fir_config);
 
     constexpr uint32_t kSize = 128;
     std::array<float, kSize> input = {0.f};
@@ -144,7 +150,7 @@ TEST_CASE("SparseFirFilter")
     sfFDN::AudioBuffer sparse_output_buffer(kSize, 1, sparse_output);
 
     filter.Process(input_buffer, output_buffer);
-    sparse_filter.Process(input_buffer, sparse_output_buffer);
+    sparse_filter->Process(input_buffer, sparse_output_buffer);
 
     for (auto i = 0u; i < kFirSize; ++i)
     {

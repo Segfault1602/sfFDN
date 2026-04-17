@@ -3,6 +3,7 @@
 #pragma once
 
 #include "sffdn/audio_buffer.h"
+#include "sffdn/audio_processor.h"
 #include "sffdn/delay.h"
 #include "sffdn/filter.h"
 #include "sffdn/types.h"
@@ -14,7 +15,7 @@ namespace sfFDN
 {
 
 /** @brief Delay line with interpolation. */
-class DelayInterp
+class DelayInterp : public AudioProcessor
 {
   public:
     /**
@@ -25,7 +26,7 @@ class DelayInterp
     DelayInterp(const DelayOptions& config = {});
 
     /** @brief Clears all internal states of the delay line. */
-    void Clear();
+    void Clear() override;
 
     /** @brief Gets the maximum delay-line length. */
     uint32_t GetMaximumDelay() const;
@@ -57,7 +58,7 @@ class DelayInterp
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output);
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
     /**
      * @brief Adds the next input samples to the delay line.
@@ -74,6 +75,18 @@ class DelayInterp
      * @param output The output samples to fill.
      */
     void GetNextOutputs(std::span<float> output);
+
+    uint32_t InputChannelCount() const override
+    {
+        return 1;
+    }
+
+    uint32_t OutputChannelCount() const override
+    {
+        return 1;
+    }
+
+    std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
     Delay delayline_;

@@ -137,15 +137,22 @@ float DelayInterp::Tick(float input)
     }
     else if (type_ == DelayInterpolationType::Lagrange)
     {
-        const float out = delayline_.Tick(input);
-        return lagrange_filter_.Tick(out);
+        // const float out = delayline_.Tick(input);
+        // return lagrange_filter_.Tick(out);
+        delayline_.Tick(input);
+        float xm1 = delayline_.TapOut(int_delay_ - 1);
+        float x0 = delayline_.TapOut(int_delay_);
+        float x1 = delayline_.TapOut(int_delay_ + 1);
+        float x2 = delayline_.TapOut(int_delay_ + 2);
+        return xm1 * lagrange_coeffs_[0] + x0 * lagrange_coeffs_[1] + x1 * lagrange_coeffs_[2] +
+               x2 * lagrange_coeffs_[3];
     }
 
     assert(false);
     return 0.0f;
 }
 
-void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output)
+void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -217,6 +224,11 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
         AudioBuffer output_buffer(output);
         lagrange_filter_.Process(output_buffer, output_buffer);
     }
+}
+
+std::unique_ptr<AudioProcessor> DelayInterp::Clone() const
+{
+    return std::make_unique<DelayInterp>(*this);
 }
 
 } // namespace sfFDN

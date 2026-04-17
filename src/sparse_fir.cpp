@@ -28,7 +28,10 @@ namespace sfFDN
 class SparseFir::SparseFirImpl
 {
   public:
-    SparseFirImpl() = default;
+    SparseFirImpl(const SparseFirOptions& config)
+    {
+        SetCoefficients(config);
+    }
 
     void SetCoefficients(const SparseFirOptions& config)
     {
@@ -88,11 +91,13 @@ class SparseFir::SparseFirImpl
 
     std::unique_ptr<SparseFirImpl> Clone() const
     {
-        auto clone = std::make_unique<SparseFirImpl>();
-        clone->coeffs_ = coeffs_;
-        clone->sparse_index_ = sparse_index_;
-        clone->filter_order_ = filter_order_;
-        clone->delay_line_ = delay_line_;
+        auto clone = std::make_unique<SparseFirImpl>(*this);
+        // clone->coeffs_ = coeffs_;
+        // clone->sparse_index_ = sparse_index_;
+        // clone->filter_order_ = filter_order_;
+        // clone->delay_line_ = delay_line_;
+
+        // clone->Clear();
         return clone;
     }
 
@@ -111,6 +116,8 @@ class SparseFir::SparseFirImpl
 
     std::vector<uint32_t> sparse_index_;
     uint32_t filter_order_;
+
+    SparseFirImpl() = default;
 };
 #else
 class SparseFir::SparseFirImpl
@@ -208,9 +215,9 @@ class SparseFir::SparseFirImpl
 #endif
 
 SparseFir::SparseFir(const SparseFirOptions& config)
-    : impl_(std::make_unique<SparseFirImpl>())
+    : impl_(std::make_unique<SparseFirImpl>(config))
+    , config_(config)
 {
-    (void)config;
 }
 
 SparseFir::~SparseFir() = default;
@@ -247,8 +254,7 @@ void SparseFir::Clear()
 
 std::unique_ptr<AudioProcessor> SparseFir::Clone() const
 {
-    auto clone = std::make_unique<SparseFir>();
-    clone->impl_ = impl_->Clone();
+    auto clone = std::make_unique<SparseFir>(config_);
     return clone;
 }
 

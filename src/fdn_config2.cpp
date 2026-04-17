@@ -80,14 +80,18 @@ struct SingleChannelProcessorVisitor
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::FirOptions& config) const
     {
-        auto filter = std::make_unique<sfFDN::Fir>();
-        filter->SetCoefficients(config.coeffs);
+        auto filter = sfFDN::MakeFirFilter(config);
         return filter;
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayOptions& config) const
     {
-        return std::make_unique<sfFDN::DelayTimeVarying>(config);
+        if (config.lfo_config.has_value())
+        {
+            return std::make_unique<sfFDN::DelayTimeVarying>(config);
+        }
+
+        return std::make_unique<sfFDN::DelayInterp>(config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::GraphicEQOptions& config) const

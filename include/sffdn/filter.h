@@ -319,6 +319,8 @@ class SparseFir : public AudioProcessor
   private:
     class SparseFirImpl;
     std::unique_ptr<SparseFirImpl> impl_;
+
+    SparseFirOptions config_;
 };
 
 std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold = 0.25f);

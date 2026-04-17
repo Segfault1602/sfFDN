@@ -310,7 +310,7 @@ std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sp
         std::count_if(config.coeffs.begin(), config.coeffs.end(), [](float coeff) { return std::abs(coeff) > 1e-6f; });
     float sparsity = static_cast<float>(non_zero_count) / static_cast<float>(config.coeffs.size());
 
-    if (sparsity >= sparse_threshold)
+    if (sparsity <= sparse_threshold)
     {
         SparseFirOptions sparse_config;
         for (size_t i = 0; i < config.coeffs.size(); ++i)

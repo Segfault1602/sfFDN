@@ -59,6 +59,11 @@ void DelayTimeVarying::SetMod(float freq, float amplitude, float phase_offset)
     lfo_.SetFrequency(freq);
     lfo_.SetAmplitude(amplitude);
     lfo_.SetPhaseOffset(phase_offset);
+
+    if (delay_.GetMaximumDelay() < delay_.GetDelay() + amplitude)
+    {
+        delay_.SetMaximumDelay(static_cast<uint32_t>(delay_.GetDelay() + amplitude) + 64);
+    }
 }
 
 void DelayTimeVarying::UpdateDelay()
