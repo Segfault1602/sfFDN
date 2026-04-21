@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Alexandre St-Onge
+// SPDX-License-Identifier: MIT
 #pragma once
 
 #include "sffdn/audio_buffer.h"
@@ -12,21 +14,42 @@
 namespace sfFDN
 {
 
+/** @brief A delay line with time-varying delay. */
 class DelayTimeVarying : public AudioProcessor
 {
   public:
+    /** @brief Constructs a delay line with time-varying delay.
+     * @param config The configuration options for the delay line.
+     */
     DelayTimeVarying(const DelayOptions& config);
 
+    /** @brief Clears the delay line.*/
     void Clear() override;
 
+    /** @brief Sets the maximum delay for the delay line.
+     * @param delay The maximum delay in samples.
+     */
     void SetMaximumDelay(uint32_t delay);
 
+    /** @brief Sets the delay for the delay line.
+     * @param delay The delay in samples.
+     */
     void SetDelay(float delay);
 
+    /** @brief Gets the current delay of the delay line.
+     * @return The delay in samples.
+     */
     float GetDelay() const;
 
-    void SetMod(float freq, float amplitude, float phase_offset = 0.0f);
+    /** @brief Sets the modulation options for the delay line.
+     * @param options The modulation options.
+     */
+    void SetMod(const ModulationOptions& options);
 
+    /** @brief Processes a single sample.
+     * @param input The input sample.
+     * @return The output sample.
+     */
     float Tick(float input);
 
     /**
@@ -43,8 +66,15 @@ class DelayTimeVarying : public AudioProcessor
      */
     uint32_t OutputChannelCount() const override;
 
+    /** @brief Processes the audio buffer.
+     * @param input The input audio buffer.
+     * @param output The output audio buffer.
+     */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
+    /** @brief Creates a copy of the processor.
+     * @return A unique pointer to the cloned processor.
+     */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:

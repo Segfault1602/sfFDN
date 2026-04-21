@@ -4,8 +4,6 @@
 
 #include "audio_buffer.h"
 
-#include <nlohmann/json.hpp>
-
 namespace sfFDN
 {
 /** @brief Base class for oscillators and signal generators. */

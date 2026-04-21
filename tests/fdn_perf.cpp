@@ -65,7 +65,7 @@ TEST_CASE("FDNPerf", "FDN")
     });
 
     bench.minEpochIterations(1000);
-    auto filter_bank = GetFilterBank(kFDNOrder, 11);
+    auto filter_bank = GetLoopFilter(kFDNOrder, 11);
     bench.run("Filter Bank", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
@@ -133,7 +133,7 @@ TEST_CASE("FDNPerf_FIR", "FDN")
         filter_bank->AddFilter(std::move(convolver));
     }
 
-    fdn->SetFilterBank(std::move(filter_bank));
+    fdn->SetLoopFilter(std::move(filter_bank));
 
     std::vector<float> input(kBlockSize * kFDNOrder, 0.f);
     std::vector<float> output(kBlockSize * kFDNOrder, 0.f);

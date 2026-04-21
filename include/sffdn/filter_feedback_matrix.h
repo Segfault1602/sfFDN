@@ -31,7 +31,7 @@ class FilterFeedbackMatrix : public AudioProcessor
     /** @brief Constructs a filter feedback matrix with a specified number of channels.
      * @param info The information structure containing channel and stage counts, delays, and matrices.
      */
-    FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& info);
+    FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& options);
 
     ~FilterFeedbackMatrix() override = default;
 

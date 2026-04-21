@@ -105,27 +105,27 @@ class Fir::FirImpl
 
     void Cleanup()
     {
-        if (spec_)
+        if (spec_ != nullptr)
         {
             ippsFree(spec_);
             spec_ = nullptr;
         }
-        if (buffer_)
+        if (buffer_ != nullptr)
         {
             ippsFree(buffer_);
             buffer_ = nullptr;
         }
-        if (taps_)
+        if (taps_ != nullptr)
         {
             ippsFree(taps_);
             taps_ = nullptr;
         }
-        if (delay_line_)
+        if (delay_line_ != nullptr)
         {
             ippsFree(delay_line_);
             delay_line_ = nullptr;
         }
-        if (source_delay_)
+        if (source_delay_ != nullptr)
         {
             ippsFree(source_delay_);
             source_delay_ = nullptr;
@@ -134,11 +134,12 @@ class Fir::FirImpl
 
     void SetCoefficients(std::span<const float> coeffs)
     {
-        if (coeffs.size() == 0)
+        if (coeffs.empty())
         {
             throw std::invalid_argument("FirImpl: Tap length must be greater than zero");
         }
-        int tap_length = static_cast<int>(coeffs.size());
+
+        const int tap_length = static_cast<int>(coeffs.size());
 
         int spec_size = 0;
         int buffer_size = 0;
@@ -152,7 +153,7 @@ class Fir::FirImpl
         Cleanup();
         tap_length_ = tap_length;
         spec_ = reinterpret_cast<IppsFIRSpec_32f*>(ippsMalloc_8u(spec_size));
-        buffer_ = static_cast<Ipp8u*>(ippsMalloc_8u(buffer_size));
+        buffer_ = ippsMalloc_8u(buffer_size);
         taps_ = ippsMalloc_32f(tap_length);
         delay_line_ = ippsMalloc_32f(tap_length - 1);
         source_delay_ = ippsMalloc_32f(tap_length - 1);
@@ -206,7 +207,7 @@ class Fir::FirImpl
     {
         auto clone = std::make_unique<FirImpl>();
 
-        if (tap_length_ > 0 && taps_)
+        if (tap_length_ > 0 && (taps_ != nullptr))
         {
 #pragma clang unsafe_buffer_usage begin
             clone->SetCoefficients(std::span<const float>(taps_, tap_length_));
@@ -301,14 +302,14 @@ std::unique_ptr<AudioProcessor> Fir::Clone() const
 
 std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold)
 {
-    if (config.coeffs.size() == 0)
+    if (config.coeffs.empty())
     {
         throw std::invalid_argument("MakeFirFilter: Coefficients cannot be empty");
     }
 
-    size_t non_zero_count =
+    const size_t non_zero_count =
         std::count_if(config.coeffs.begin(), config.coeffs.end(), [](float coeff) { return std::abs(coeff) > 1e-6f; });
-    float sparsity = static_cast<float>(non_zero_count) / static_cast<float>(config.coeffs.size());
+    const float sparsity = static_cast<float>(non_zero_count) / static_cast<float>(config.coeffs.size());
 
     if (sparsity <= sparse_threshold)
     {
@@ -322,9 +323,7 @@ std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sp
         }
         return std::make_unique<SparseFir>(sparse_config);
     }
-    else
-    {
-        return std::make_unique<Fir>(config);
-    }
+
+    return std::make_unique<Fir>(config);
 }
 } // namespace sfFDN

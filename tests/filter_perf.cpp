@@ -22,7 +22,7 @@ TEST_CASE("FilterBankPerf")
 {
     constexpr uint32_t kChannelCount = 16;
 
-    auto filter_bank = GetFilterBank(kChannelCount, 11);
+    auto filter_bank = GetLoopFilter(kChannelCount, 11);
 
     constexpr uint32_t kSampleToProcess = 512;
 
@@ -328,19 +328,16 @@ TEST_CASE("ParallelSchroederAllpassSection")
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFilterOrder = 2;
 
-    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, kFilterOrder);
-    auto delays =
-        sfFDN::GetDelayLengths(kChannelCount * kFilterOrder, kBlockSize, 1000, sfFDN::DelayLengthType::Uniform);
-    std::array<float, kChannelCount * kFilterOrder> gains{};
-    gains.fill(0.7f);
-
-    std::vector<uint32_t> delays_int(delays.size());
-    for (size_t i = 0; i < delays.size(); ++i)
+    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    for (auto i = 0u; i < kChannelCount; i++)
     {
-        delays_int[i] = static_cast<uint32_t>(std::round(delays[i]));
+        sfFDN::SchroederAllpassSectionOptions section_options;
+        section_options.delays = sfFDN::GetDelayLengths(kFilterOrder, kBlockSize, 1000, sfFDN::DelayLengthType::Random);
+        section_options.gains = std::vector<float>(kFilterOrder, 0.7f);
+        options.sections.push_back(section_options);
     }
-    filter.SetDelays(delays_int);
-    filter.SetGains(gains);
+
+    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -360,19 +357,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     bench.timeUnit(1us, "us");
     bench.relative(true);
 
-    bench.run("ParallelSchroederAllpassSection", [&] { filter.Process(input_buffer, output_buffer); });
-
-    // Compare with a FilterBank of SchroederAllpassSections
-    sfFDN::FilterBank filter_bank;
-    for (uint32_t i = 0; i < kChannelCount; ++i)
-    {
-        auto allpass_section = std::make_unique<sfFDN::SchroederAllpassSection>(kFilterOrder);
-        allpass_section->SetDelays(std::span(delays_int).subspan(i * kFilterOrder, kFilterOrder));
-        allpass_section->SetGains(std::span(gains).subspan(i * kFilterOrder, kFilterOrder));
-        filter_bank.AddFilter(std::move(allpass_section));
-    }
-
-    bench.run("FilterBank of SchroederAllpassSections", [&] { filter_bank.Process(input_buffer, output_buffer); });
+    bench.run("ParallelSchroederAllpassSection", [&] { filter->Process(input_buffer, output_buffer); });
 }
 
 #ifdef __APPLE__

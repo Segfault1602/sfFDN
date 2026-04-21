@@ -186,119 +186,119 @@ void WalshHadamardTransform(std::span<float> inout)
 void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
                        const std::span<const float, 16 * 16> matrix)
 {
-    auto To1D = [](int x, int y) constexpr -> size_t { return (y * 16) + x; };
+    auto to_1d = [](int x, int y) constexpr -> size_t { return (y * 16) + x; };
 
-    out[0] = in[0] * matrix[To1D(0, 0)] + in[1] * matrix[To1D(0, 1)] + in[2] * matrix[To1D(0, 2)] +
-             in[3] * matrix[To1D(0, 3)] + in[4] * matrix[To1D(0, 4)] + in[5] * matrix[To1D(0, 5)] +
-             in[6] * matrix[To1D(0, 6)] + in[7] * matrix[To1D(0, 7)] + in[8] * matrix[To1D(0, 8)] +
-             in[9] * matrix[To1D(0, 9)] + in[10] * matrix[To1D(0, 10)] + in[11] * matrix[To1D(0, 11)] +
-             in[12] * matrix[To1D(0, 12)] + in[13] * matrix[To1D(0, 13)] + in[14] * matrix[To1D(0, 14)] +
-             in[15] * matrix[To1D(0, 15)];
+    out[0] = in[0] * matrix[to_1d(0, 0)] + in[1] * matrix[to_1d(0, 1)] + in[2] * matrix[to_1d(0, 2)] +
+             in[3] * matrix[to_1d(0, 3)] + in[4] * matrix[to_1d(0, 4)] + in[5] * matrix[to_1d(0, 5)] +
+             in[6] * matrix[to_1d(0, 6)] + in[7] * matrix[to_1d(0, 7)] + in[8] * matrix[to_1d(0, 8)] +
+             in[9] * matrix[to_1d(0, 9)] + in[10] * matrix[to_1d(0, 10)] + in[11] * matrix[to_1d(0, 11)] +
+             in[12] * matrix[to_1d(0, 12)] + in[13] * matrix[to_1d(0, 13)] + in[14] * matrix[to_1d(0, 14)] +
+             in[15] * matrix[to_1d(0, 15)];
 
-    out[1] = in[0] * matrix[To1D(1, 0)] + in[1] * matrix[To1D(1, 1)] + in[2] * matrix[To1D(1, 2)] +
-             in[3] * matrix[To1D(1, 3)] + in[4] * matrix[To1D(1, 4)] + in[5] * matrix[To1D(1, 5)] +
-             in[6] * matrix[To1D(1, 6)] + in[7] * matrix[To1D(1, 7)] + in[8] * matrix[To1D(1, 8)] +
-             in[9] * matrix[To1D(1, 9)] + in[10] * matrix[To1D(1, 10)] + in[11] * matrix[To1D(1, 11)] +
-             in[12] * matrix[To1D(1, 12)] + in[13] * matrix[To1D(1, 13)] + in[14] * matrix[To1D(1, 14)] +
-             in[15] * matrix[To1D(1, 15)];
+    out[1] = in[0] * matrix[to_1d(1, 0)] + in[1] * matrix[to_1d(1, 1)] + in[2] * matrix[to_1d(1, 2)] +
+             in[3] * matrix[to_1d(1, 3)] + in[4] * matrix[to_1d(1, 4)] + in[5] * matrix[to_1d(1, 5)] +
+             in[6] * matrix[to_1d(1, 6)] + in[7] * matrix[to_1d(1, 7)] + in[8] * matrix[to_1d(1, 8)] +
+             in[9] * matrix[to_1d(1, 9)] + in[10] * matrix[to_1d(1, 10)] + in[11] * matrix[to_1d(1, 11)] +
+             in[12] * matrix[to_1d(1, 12)] + in[13] * matrix[to_1d(1, 13)] + in[14] * matrix[to_1d(1, 14)] +
+             in[15] * matrix[to_1d(1, 15)];
 
-    out[2] = in[0] * matrix[To1D(2, 0)] + in[1] * matrix[To1D(2, 1)] + in[2] * matrix[To1D(2, 2)] +
-             in[3] * matrix[To1D(2, 3)] + in[4] * matrix[To1D(2, 4)] + in[5] * matrix[To1D(2, 5)] +
-             in[6] * matrix[To1D(2, 6)] + in[7] * matrix[To1D(2, 7)] + in[8] * matrix[To1D(2, 8)] +
-             in[9] * matrix[To1D(2, 9)] + in[10] * matrix[To1D(2, 10)] + in[11] * matrix[To1D(2, 11)] +
-             in[12] * matrix[To1D(2, 12)] + in[13] * matrix[To1D(2, 13)] + in[14] * matrix[To1D(2, 14)] +
-             in[15] * matrix[To1D(2, 15)];
+    out[2] = in[0] * matrix[to_1d(2, 0)] + in[1] * matrix[to_1d(2, 1)] + in[2] * matrix[to_1d(2, 2)] +
+             in[3] * matrix[to_1d(2, 3)] + in[4] * matrix[to_1d(2, 4)] + in[5] * matrix[to_1d(2, 5)] +
+             in[6] * matrix[to_1d(2, 6)] + in[7] * matrix[to_1d(2, 7)] + in[8] * matrix[to_1d(2, 8)] +
+             in[9] * matrix[to_1d(2, 9)] + in[10] * matrix[to_1d(2, 10)] + in[11] * matrix[to_1d(2, 11)] +
+             in[12] * matrix[to_1d(2, 12)] + in[13] * matrix[to_1d(2, 13)] + in[14] * matrix[to_1d(2, 14)] +
+             in[15] * matrix[to_1d(2, 15)];
 
-    out[3] = in[0] * matrix[To1D(3, 0)] + in[1] * matrix[To1D(3, 1)] + in[2] * matrix[To1D(3, 2)] +
-             in[3] * matrix[To1D(3, 3)] + in[4] * matrix[To1D(3, 4)] + in[5] * matrix[To1D(3, 5)] +
-             in[6] * matrix[To1D(3, 6)] + in[7] * matrix[To1D(3, 7)] + in[8] * matrix[To1D(3, 8)] +
-             in[9] * matrix[To1D(3, 9)] + in[10] * matrix[To1D(3, 10)] + in[11] * matrix[To1D(3, 11)] +
-             in[12] * matrix[To1D(3, 12)] + in[13] * matrix[To1D(3, 13)] + in[14] * matrix[To1D(3, 14)] +
-             in[15] * matrix[To1D(3, 15)];
+    out[3] = in[0] * matrix[to_1d(3, 0)] + in[1] * matrix[to_1d(3, 1)] + in[2] * matrix[to_1d(3, 2)] +
+             in[3] * matrix[to_1d(3, 3)] + in[4] * matrix[to_1d(3, 4)] + in[5] * matrix[to_1d(3, 5)] +
+             in[6] * matrix[to_1d(3, 6)] + in[7] * matrix[to_1d(3, 7)] + in[8] * matrix[to_1d(3, 8)] +
+             in[9] * matrix[to_1d(3, 9)] + in[10] * matrix[to_1d(3, 10)] + in[11] * matrix[to_1d(3, 11)] +
+             in[12] * matrix[to_1d(3, 12)] + in[13] * matrix[to_1d(3, 13)] + in[14] * matrix[to_1d(3, 14)] +
+             in[15] * matrix[to_1d(3, 15)];
 
-    out[4] = in[0] * matrix[To1D(4, 0)] + in[1] * matrix[To1D(4, 1)] + in[2] * matrix[To1D(4, 2)] +
-             in[3] * matrix[To1D(4, 3)] + in[4] * matrix[To1D(4, 4)] + in[5] * matrix[To1D(4, 5)] +
-             in[6] * matrix[To1D(4, 6)] + in[7] * matrix[To1D(4, 7)] + in[8] * matrix[To1D(4, 8)] +
-             in[9] * matrix[To1D(4, 9)] + in[10] * matrix[To1D(4, 10)] + in[11] * matrix[To1D(4, 11)] +
-             in[12] * matrix[To1D(4, 12)] + in[13] * matrix[To1D(4, 13)] + in[14] * matrix[To1D(4, 14)] +
-             in[15] * matrix[To1D(4, 15)];
+    out[4] = in[0] * matrix[to_1d(4, 0)] + in[1] * matrix[to_1d(4, 1)] + in[2] * matrix[to_1d(4, 2)] +
+             in[3] * matrix[to_1d(4, 3)] + in[4] * matrix[to_1d(4, 4)] + in[5] * matrix[to_1d(4, 5)] +
+             in[6] * matrix[to_1d(4, 6)] + in[7] * matrix[to_1d(4, 7)] + in[8] * matrix[to_1d(4, 8)] +
+             in[9] * matrix[to_1d(4, 9)] + in[10] * matrix[to_1d(4, 10)] + in[11] * matrix[to_1d(4, 11)] +
+             in[12] * matrix[to_1d(4, 12)] + in[13] * matrix[to_1d(4, 13)] + in[14] * matrix[to_1d(4, 14)] +
+             in[15] * matrix[to_1d(4, 15)];
 
-    out[5] = in[0] * matrix[To1D(5, 0)] + in[1] * matrix[To1D(5, 1)] + in[2] * matrix[To1D(5, 2)] +
-             in[3] * matrix[To1D(5, 3)] + in[4] * matrix[To1D(5, 4)] + in[5] * matrix[To1D(5, 5)] +
-             in[6] * matrix[To1D(5, 6)] + in[7] * matrix[To1D(5, 7)] + in[8] * matrix[To1D(5, 8)] +
-             in[9] * matrix[To1D(5, 9)] + in[10] * matrix[To1D(5, 10)] + in[11] * matrix[To1D(5, 11)] +
-             in[12] * matrix[To1D(5, 12)] + in[13] * matrix[To1D(5, 13)] + in[14] * matrix[To1D(5, 14)] +
-             in[15] * matrix[To1D(5, 15)];
+    out[5] = in[0] * matrix[to_1d(5, 0)] + in[1] * matrix[to_1d(5, 1)] + in[2] * matrix[to_1d(5, 2)] +
+             in[3] * matrix[to_1d(5, 3)] + in[4] * matrix[to_1d(5, 4)] + in[5] * matrix[to_1d(5, 5)] +
+             in[6] * matrix[to_1d(5, 6)] + in[7] * matrix[to_1d(5, 7)] + in[8] * matrix[to_1d(5, 8)] +
+             in[9] * matrix[to_1d(5, 9)] + in[10] * matrix[to_1d(5, 10)] + in[11] * matrix[to_1d(5, 11)] +
+             in[12] * matrix[to_1d(5, 12)] + in[13] * matrix[to_1d(5, 13)] + in[14] * matrix[to_1d(5, 14)] +
+             in[15] * matrix[to_1d(5, 15)];
 
-    out[6] = in[0] * matrix[To1D(6, 0)] + in[1] * matrix[To1D(6, 1)] + in[2] * matrix[To1D(6, 2)] +
-             in[3] * matrix[To1D(6, 3)] + in[4] * matrix[To1D(6, 4)] + in[5] * matrix[To1D(6, 5)] +
-             in[6] * matrix[To1D(6, 6)] + in[7] * matrix[To1D(6, 7)] + in[8] * matrix[To1D(6, 8)] +
-             in[9] * matrix[To1D(6, 9)] + in[10] * matrix[To1D(6, 10)] + in[11] * matrix[To1D(6, 11)] +
-             in[12] * matrix[To1D(6, 12)] + in[13] * matrix[To1D(6, 13)] + in[14] * matrix[To1D(6, 14)] +
-             in[15] * matrix[To1D(6, 15)];
+    out[6] = in[0] * matrix[to_1d(6, 0)] + in[1] * matrix[to_1d(6, 1)] + in[2] * matrix[to_1d(6, 2)] +
+             in[3] * matrix[to_1d(6, 3)] + in[4] * matrix[to_1d(6, 4)] + in[5] * matrix[to_1d(6, 5)] +
+             in[6] * matrix[to_1d(6, 6)] + in[7] * matrix[to_1d(6, 7)] + in[8] * matrix[to_1d(6, 8)] +
+             in[9] * matrix[to_1d(6, 9)] + in[10] * matrix[to_1d(6, 10)] + in[11] * matrix[to_1d(6, 11)] +
+             in[12] * matrix[to_1d(6, 12)] + in[13] * matrix[to_1d(6, 13)] + in[14] * matrix[to_1d(6, 14)] +
+             in[15] * matrix[to_1d(6, 15)];
 
-    out[7] = in[0] * matrix[To1D(7, 0)] + in[1] * matrix[To1D(7, 1)] + in[2] * matrix[To1D(7, 2)] +
-             in[3] * matrix[To1D(7, 3)] + in[4] * matrix[To1D(7, 4)] + in[5] * matrix[To1D(7, 5)] +
-             in[6] * matrix[To1D(7, 6)] + in[7] * matrix[To1D(7, 7)] + in[8] * matrix[To1D(7, 8)] +
-             in[9] * matrix[To1D(7, 9)] + in[10] * matrix[To1D(7, 10)] + in[11] * matrix[To1D(7, 11)] +
-             in[12] * matrix[To1D(7, 12)] + in[13] * matrix[To1D(7, 13)] + in[14] * matrix[To1D(7, 14)] +
-             in[15] * matrix[To1D(7, 15)];
+    out[7] = in[0] * matrix[to_1d(7, 0)] + in[1] * matrix[to_1d(7, 1)] + in[2] * matrix[to_1d(7, 2)] +
+             in[3] * matrix[to_1d(7, 3)] + in[4] * matrix[to_1d(7, 4)] + in[5] * matrix[to_1d(7, 5)] +
+             in[6] * matrix[to_1d(7, 6)] + in[7] * matrix[to_1d(7, 7)] + in[8] * matrix[to_1d(7, 8)] +
+             in[9] * matrix[to_1d(7, 9)] + in[10] * matrix[to_1d(7, 10)] + in[11] * matrix[to_1d(7, 11)] +
+             in[12] * matrix[to_1d(7, 12)] + in[13] * matrix[to_1d(7, 13)] + in[14] * matrix[to_1d(7, 14)] +
+             in[15] * matrix[to_1d(7, 15)];
 
-    out[8] = in[0] * matrix[To1D(8, 0)] + in[1] * matrix[To1D(8, 1)] + in[2] * matrix[To1D(8, 2)] +
-             in[3] * matrix[To1D(8, 3)] + in[4] * matrix[To1D(8, 4)] + in[5] * matrix[To1D(8, 5)] +
-             in[6] * matrix[To1D(8, 6)] + in[7] * matrix[To1D(8, 7)] + in[8] * matrix[To1D(8, 8)] +
-             in[9] * matrix[To1D(8, 9)] + in[10] * matrix[To1D(8, 10)] + in[11] * matrix[To1D(8, 11)] +
-             in[12] * matrix[To1D(8, 12)] + in[13] * matrix[To1D(8, 13)] + in[14] * matrix[To1D(8, 14)] +
-             in[15] * matrix[To1D(8, 15)];
+    out[8] = in[0] * matrix[to_1d(8, 0)] + in[1] * matrix[to_1d(8, 1)] + in[2] * matrix[to_1d(8, 2)] +
+             in[3] * matrix[to_1d(8, 3)] + in[4] * matrix[to_1d(8, 4)] + in[5] * matrix[to_1d(8, 5)] +
+             in[6] * matrix[to_1d(8, 6)] + in[7] * matrix[to_1d(8, 7)] + in[8] * matrix[to_1d(8, 8)] +
+             in[9] * matrix[to_1d(8, 9)] + in[10] * matrix[to_1d(8, 10)] + in[11] * matrix[to_1d(8, 11)] +
+             in[12] * matrix[to_1d(8, 12)] + in[13] * matrix[to_1d(8, 13)] + in[14] * matrix[to_1d(8, 14)] +
+             in[15] * matrix[to_1d(8, 15)];
 
-    out[9] = in[0] * matrix[To1D(9, 0)] + in[1] * matrix[To1D(9, 1)] + in[2] * matrix[To1D(9, 2)] +
-             in[3] * matrix[To1D(9, 3)] + in[4] * matrix[To1D(9, 4)] + in[5] * matrix[To1D(9, 5)] +
-             in[6] * matrix[To1D(9, 6)] + in[7] * matrix[To1D(9, 7)] + in[8] * matrix[To1D(9, 8)] +
-             in[9] * matrix[To1D(9, 9)] + in[10] * matrix[To1D(9, 10)] + in[11] * matrix[To1D(9, 11)] +
-             in[12] * matrix[To1D(9, 12)] + in[13] * matrix[To1D(9, 13)] + in[14] * matrix[To1D(9, 14)] +
-             in[15] * matrix[To1D(9, 15)];
+    out[9] = in[0] * matrix[to_1d(9, 0)] + in[1] * matrix[to_1d(9, 1)] + in[2] * matrix[to_1d(9, 2)] +
+             in[3] * matrix[to_1d(9, 3)] + in[4] * matrix[to_1d(9, 4)] + in[5] * matrix[to_1d(9, 5)] +
+             in[6] * matrix[to_1d(9, 6)] + in[7] * matrix[to_1d(9, 7)] + in[8] * matrix[to_1d(9, 8)] +
+             in[9] * matrix[to_1d(9, 9)] + in[10] * matrix[to_1d(9, 10)] + in[11] * matrix[to_1d(9, 11)] +
+             in[12] * matrix[to_1d(9, 12)] + in[13] * matrix[to_1d(9, 13)] + in[14] * matrix[to_1d(9, 14)] +
+             in[15] * matrix[to_1d(9, 15)];
 
-    out[10] = in[0] * matrix[To1D(10, 0)] + in[1] * matrix[To1D(10, 1)] + in[2] * matrix[To1D(10, 2)] +
-              in[3] * matrix[To1D(10, 3)] + in[4] * matrix[To1D(10, 4)] + in[5] * matrix[To1D(10, 5)] +
-              in[6] * matrix[To1D(10, 6)] + in[7] * matrix[To1D(10, 7)] + in[8] * matrix[To1D(10, 8)] +
-              in[9] * matrix[To1D(10, 9)] + in[10] * matrix[To1D(10, 10)] + in[11] * matrix[To1D(10, 11)] +
-              in[12] * matrix[To1D(10, 12)] + in[13] * matrix[To1D(10, 13)] + in[14] * matrix[To1D(10, 14)] +
-              in[15] * matrix[To1D(10, 15)];
+    out[10] = in[0] * matrix[to_1d(10, 0)] + in[1] * matrix[to_1d(10, 1)] + in[2] * matrix[to_1d(10, 2)] +
+              in[3] * matrix[to_1d(10, 3)] + in[4] * matrix[to_1d(10, 4)] + in[5] * matrix[to_1d(10, 5)] +
+              in[6] * matrix[to_1d(10, 6)] + in[7] * matrix[to_1d(10, 7)] + in[8] * matrix[to_1d(10, 8)] +
+              in[9] * matrix[to_1d(10, 9)] + in[10] * matrix[to_1d(10, 10)] + in[11] * matrix[to_1d(10, 11)] +
+              in[12] * matrix[to_1d(10, 12)] + in[13] * matrix[to_1d(10, 13)] + in[14] * matrix[to_1d(10, 14)] +
+              in[15] * matrix[to_1d(10, 15)];
 
-    out[11] = in[0] * matrix[To1D(3, 0)] + in[1] * matrix[To1D(3, 1)] + in[2] * matrix[To1D(3, 2)] +
-              in[3] * matrix[To1D(3, 3)] + in[4] * matrix[To1D(3, 4)] + in[5] * matrix[To1D(3, 5)] +
-              in[6] * matrix[To1D(3, 6)] + in[7] * matrix[To1D(3, 7)] + in[8] * matrix[To1D(3, 8)] +
-              in[9] * matrix[To1D(3, 9)] + in[10] * matrix[To1D(3, 10)] + in[11] * matrix[To1D(3, 11)] +
-              in[12] * matrix[To1D(3, 12)] + in[13] * matrix[To1D(3, 13)] + in[14] * matrix[To1D(3, 14)] +
-              in[15] * matrix[To1D(3, 15)];
+    out[11] = in[0] * matrix[to_1d(3, 0)] + in[1] * matrix[to_1d(3, 1)] + in[2] * matrix[to_1d(3, 2)] +
+              in[3] * matrix[to_1d(3, 3)] + in[4] * matrix[to_1d(3, 4)] + in[5] * matrix[to_1d(3, 5)] +
+              in[6] * matrix[to_1d(3, 6)] + in[7] * matrix[to_1d(3, 7)] + in[8] * matrix[to_1d(3, 8)] +
+              in[9] * matrix[to_1d(3, 9)] + in[10] * matrix[to_1d(3, 10)] + in[11] * matrix[to_1d(3, 11)] +
+              in[12] * matrix[to_1d(3, 12)] + in[13] * matrix[to_1d(3, 13)] + in[14] * matrix[to_1d(3, 14)] +
+              in[15] * matrix[to_1d(3, 15)];
 
-    out[12] = in[0] * matrix[To1D(12, 0)] + in[1] * matrix[To1D(12, 1)] + in[2] * matrix[To1D(12, 2)] +
-              in[3] * matrix[To1D(12, 3)] + in[4] * matrix[To1D(12, 4)] + in[5] * matrix[To1D(12, 5)] +
-              in[6] * matrix[To1D(12, 6)] + in[7] * matrix[To1D(12, 7)] + in[8] * matrix[To1D(12, 8)] +
-              in[9] * matrix[To1D(12, 9)] + in[10] * matrix[To1D(12, 10)] + in[11] * matrix[To1D(12, 11)] +
-              in[12] * matrix[To1D(12, 12)] + in[13] * matrix[To1D(12, 13)] + in[14] * matrix[To1D(12, 14)] +
-              in[15] * matrix[To1D(12, 15)];
+    out[12] = in[0] * matrix[to_1d(12, 0)] + in[1] * matrix[to_1d(12, 1)] + in[2] * matrix[to_1d(12, 2)] +
+              in[3] * matrix[to_1d(12, 3)] + in[4] * matrix[to_1d(12, 4)] + in[5] * matrix[to_1d(12, 5)] +
+              in[6] * matrix[to_1d(12, 6)] + in[7] * matrix[to_1d(12, 7)] + in[8] * matrix[to_1d(12, 8)] +
+              in[9] * matrix[to_1d(12, 9)] + in[10] * matrix[to_1d(12, 10)] + in[11] * matrix[to_1d(12, 11)] +
+              in[12] * matrix[to_1d(12, 12)] + in[13] * matrix[to_1d(12, 13)] + in[14] * matrix[to_1d(12, 14)] +
+              in[15] * matrix[to_1d(12, 15)];
 
-    out[13] = in[0] * matrix[To1D(13, 0)] + in[1] * matrix[To1D(13, 1)] + in[2] * matrix[To1D(13, 2)] +
-              in[3] * matrix[To1D(13, 3)] + in[4] * matrix[To1D(13, 4)] + in[5] * matrix[To1D(13, 5)] +
-              in[6] * matrix[To1D(13, 6)] + in[7] * matrix[To1D(13, 7)] + in[8] * matrix[To1D(13, 8)] +
-              in[9] * matrix[To1D(13, 9)] + in[10] * matrix[To1D(13, 10)] + in[11] * matrix[To1D(13, 11)] +
-              in[12] * matrix[To1D(13, 12)] + in[13] * matrix[To1D(13, 13)] + in[14] * matrix[To1D(13, 14)] +
-              in[15] * matrix[To1D(13, 15)];
+    out[13] = in[0] * matrix[to_1d(13, 0)] + in[1] * matrix[to_1d(13, 1)] + in[2] * matrix[to_1d(13, 2)] +
+              in[3] * matrix[to_1d(13, 3)] + in[4] * matrix[to_1d(13, 4)] + in[5] * matrix[to_1d(13, 5)] +
+              in[6] * matrix[to_1d(13, 6)] + in[7] * matrix[to_1d(13, 7)] + in[8] * matrix[to_1d(13, 8)] +
+              in[9] * matrix[to_1d(13, 9)] + in[10] * matrix[to_1d(13, 10)] + in[11] * matrix[to_1d(13, 11)] +
+              in[12] * matrix[to_1d(13, 12)] + in[13] * matrix[to_1d(13, 13)] + in[14] * matrix[to_1d(13, 14)] +
+              in[15] * matrix[to_1d(13, 15)];
 
-    out[14] = in[0] * matrix[To1D(14, 0)] + in[1] * matrix[To1D(14, 1)] + in[2] * matrix[To1D(14, 2)] +
-              in[3] * matrix[To1D(14, 3)] + in[4] * matrix[To1D(14, 4)] + in[5] * matrix[To1D(14, 5)] +
-              in[6] * matrix[To1D(14, 6)] + in[7] * matrix[To1D(14, 7)] + in[8] * matrix[To1D(14, 8)] +
-              in[9] * matrix[To1D(14, 9)] + in[10] * matrix[To1D(14, 10)] + in[11] * matrix[To1D(14, 11)] +
-              in[12] * matrix[To1D(14, 12)] + in[13] * matrix[To1D(14, 13)] + in[14] * matrix[To1D(14, 14)] +
-              in[15] * matrix[To1D(14, 15)];
+    out[14] = in[0] * matrix[to_1d(14, 0)] + in[1] * matrix[to_1d(14, 1)] + in[2] * matrix[to_1d(14, 2)] +
+              in[3] * matrix[to_1d(14, 3)] + in[4] * matrix[to_1d(14, 4)] + in[5] * matrix[to_1d(14, 5)] +
+              in[6] * matrix[to_1d(14, 6)] + in[7] * matrix[to_1d(14, 7)] + in[8] * matrix[to_1d(14, 8)] +
+              in[9] * matrix[to_1d(14, 9)] + in[10] * matrix[to_1d(14, 10)] + in[11] * matrix[to_1d(14, 11)] +
+              in[12] * matrix[to_1d(14, 12)] + in[13] * matrix[to_1d(14, 13)] + in[14] * matrix[to_1d(14, 14)] +
+              in[15] * matrix[to_1d(14, 15)];
 
-    out[15] = in[0] * matrix[To1D(15, 0)] + in[1] * matrix[To1D(15, 1)] + in[2] * matrix[To1D(15, 2)] +
-              in[3] * matrix[To1D(15, 3)] + in[4] * matrix[To1D(15, 4)] + in[5] * matrix[To1D(15, 5)] +
-              in[6] * matrix[To1D(15, 6)] + in[7] * matrix[To1D(15, 7)] + in[8] * matrix[To1D(15, 8)] +
-              in[9] * matrix[To1D(15, 9)] + in[10] * matrix[To1D(15, 10)] + in[11] * matrix[To1D(15, 11)] +
-              in[12] * matrix[To1D(15, 12)] + in[13] * matrix[To1D(15, 13)] + in[14] * matrix[To1D(15, 14)] +
-              in[15] * matrix[To1D(15, 15)];
+    out[15] = in[0] * matrix[to_1d(15, 0)] + in[1] * matrix[to_1d(15, 1)] + in[2] * matrix[to_1d(15, 2)] +
+              in[3] * matrix[to_1d(15, 3)] + in[4] * matrix[to_1d(15, 4)] + in[5] * matrix[to_1d(15, 5)] +
+              in[6] * matrix[to_1d(15, 6)] + in[7] * matrix[to_1d(15, 7)] + in[8] * matrix[to_1d(15, 8)] +
+              in[9] * matrix[to_1d(15, 9)] + in[10] * matrix[to_1d(15, 10)] + in[11] * matrix[to_1d(15, 11)] +
+              in[12] * matrix[to_1d(15, 12)] + in[13] * matrix[to_1d(15, 13)] + in[14] * matrix[to_1d(15, 14)] +
+              in[15] * matrix[to_1d(15, 15)];
 }
 
 void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t mat_size)

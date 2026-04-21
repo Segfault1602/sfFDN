@@ -94,14 +94,54 @@ class Delay
      */
     void GetNextOutputs(std::span<float> output);
 
+    /** @brief Gets the next output samples from the delay line at specific tap points.
+     * @param taps The tap points in samples.
+     * @param output The output samples to fill.
+     * @param coeffs The coefficients to apply to each tap point when filling the output buffer. Must have the same size
+     * as `taps`.
+     */
     void GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, std::span<float> coeffs);
 
+    /**
+     * @brief Get a span pointing to the next writable region of the buffer
+     *
+     * @param size The desired size of the buffer.
+     * @return std::span<float>
+     *
+     * Need to call AdvanceRead after reading from the buffer to update the internal state of the delay line.
+     */
     std::span<float> GetNextOutputBuffers(uint32_t size);
+
+    /**
+     * @brief Get a span pointing to the next writable region of the buffer
+     *
+     * @param size The desired size of the buffer.
+     * @return std::span<float>
+     *
+     * Need to call AdvanceWrite after writing to the buffer to update the internal state of the delay line.
+     */
     std::span<float> GetNextInputBuffers(uint32_t size);
 
+    /**
+     * @brief Gets the next read and write buffers for the delay line.
+     * @param read_buffer The span to fill with the next readable region of the buffer.
+     * @param write_buffer The span to fill with the next writable region of the buffer.
+     * @param size The desired size of the buffers.
+     */
     void GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<float>& write_buffer, uint32_t size);
 
+    /**
+     * @brief Advances the write pointer of the delay line by a specified number of samples.
+     *
+     * @param sample_count The number of samples to advance the write pointer.
+     */
     void AdvanceWrite(uint32_t sample_count);
+
+    /**
+     * @brief Advances the read pointer of the delay line by a specified number of samples.
+     *
+     * @param sample_count The number of samples to advance the read pointer.
+     */
     void AdvanceRead(uint32_t sample_count);
 
   protected:

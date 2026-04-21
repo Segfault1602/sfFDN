@@ -63,7 +63,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
     filter_bank->SetFilter(iir_coeffs, kFDNOrder);
 
-    fdn->SetFilterBank(std::move(filter_bank));
+    fdn->SetLoopFilter(std::move(filter_bank));
 
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(k_h001_EqualizationSOS);
@@ -202,7 +202,7 @@ TEST_CASE("FDN_FIR")
         filter_bank->AddFilter(std::move(convolver));
     }
 
-    fdn->SetFilterBank(std::move(filter_bank));
+    fdn->SetLoopFilter(std::move(filter_bank));
 
     {
         auto eq_fir = ReadWavFile("./tests/data/equalization_fir.wav");
@@ -299,5 +299,74 @@ TEST_CASE("FDN_Chirp")
         }
         float snr = 10.f * std::log10(signal_energy / signal_error);
         std::cout << "FDN (chirp) SNR: " << snr << " dB\n";
+    }
+}
+
+TEST_CASE("FDNConfig_Example")
+{
+    sfFDN::FDNConfig config;
+    config.fdn_size = 8;
+    config.direct_gain = 1.f;
+    config.block_size = 128;
+    config.sample_rate = 48000;
+
+    sfFDN::DelayBankOptions delay_bank_options{
+        .delays = sfFDN::GetDelayLengths(config.fdn_size, 500, 3000, sfFDN::DelayLengthType::Random),
+        .block_size = config.block_size,
+        .interpolation_type = sfFDN::DelayInterpolationType::None};
+
+    config.delay_bank_config = delay_bank_options;
+
+    sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
+                                                    .gains = std::vector<float>(config.fdn_size, 0.5f)};
+
+    config.input_block_config.parallel_gains_config = input_gains_options;
+
+    sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{.matrix_size = config.fdn_size,
+                                                               .type = sfFDN::ScalarMatrixType::Hadamard};
+
+    config.feedback_matrix_config = feedback_matrix_options;
+
+    sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
+    sfFDN::HomogenousFilterOptions homogenous_filter_options{
+        .t60 = 1.f, .delay = 0.f, .sample_rate = config.sample_rate};
+
+    // If only 1 filter is found in AttenuationFilterBankOptions, CreateFDNFromConfig() will reuse the same filter for
+    // all channels, updating the delay value based on the corresponding delay line length for each channel.
+    attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
+
+    config.loop_filter_configs.push_back(attenuation_filter_bank_options);
+
+    sfFDN::ParallelGainsOptions output_gains_options{.mode = sfFDN::ParallelGainsMode::Merge,
+                                                     .gains = std::vector<float>(config.fdn_size, 0.5f)};
+
+    config.output_block_config.parallel_gains_config = output_gains_options;
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+
+    std::vector<float> input(48000, 0.f);
+    input[0] = 1.f;
+
+    std::vector<float> output(48000, 0.f);
+
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+
+    fdn->Process(input_buffer, output_buffer);
+
+    WriteWavFile("fdn_config_example.wav", output);
+
+    nlohmann::json json_config = config;
+
+    sfFDN::FDNConfig deserialized_config = json_config.get<sfFDN::FDNConfig>();
+    auto deserialized_fdn = sfFDN::CreateFDNFromConfig(deserialized_config);
+
+    std::vector<float> deserialized_output(48000, 0.f);
+    sfFDN::AudioBuffer deserialized_output_buffer(deserialized_output);
+    deserialized_fdn->Process(input_buffer, deserialized_output_buffer);
+
+    for (size_t i = 0; i < output.size(); ++i)
+    {
+        REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
     }
 }

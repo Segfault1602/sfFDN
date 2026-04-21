@@ -242,96 +242,108 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
     return clone;
 }
 
-ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
-    : stage_count_(stage_count)
+std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
+    const MultichannelSchroederAllpassSectionOptions& options)
 {
-    allpasses_.reserve(channel_count);
-    for (uint32_t i = 0; i < channel_count; i++)
+    auto bank = std::make_unique<sfFDN::FilterBank>();
+    for (const auto& section_config : options.sections)
     {
-        allpasses_.emplace_back(stage_count);
+        auto schroeder = std::make_unique<sfFDN::SchroederAllpassSection>(section_config);
+        bank->AddFilter(std::move(schroeder));
     }
+    return bank;
 }
 
-ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&& other) noexcept
-    : allpasses_(std::move(other.allpasses_))
-    , stage_count_(other.stage_count_)
-{
-}
+// ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
+//     : stage_count_(stage_count)
+// {
+//     allpasses_.reserve(channel_count);
+//     for (uint32_t i = 0; i < channel_count; i++)
+//     {
+//         allpasses_.emplace_back(stage_count);
+//     }
+// }
 
-ParallelSchroederAllpassSection& ParallelSchroederAllpassSection::operator=(
-    ParallelSchroederAllpassSection&& other) noexcept
-{
-    if (this != &other)
-    {
-        allpasses_ = std::move(other.allpasses_);
-        stage_count_ = other.stage_count_;
-    }
-    return *this;
-}
+// ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&& other) noexcept
+//     : allpasses_(std::move(other.allpasses_))
+//     , stage_count_(other.stage_count_)
+// {
+// }
 
-void ParallelSchroederAllpassSection::SetDelays(std::span<const uint32_t> delays)
-{
-    assert(delays.size() % allpasses_.size() == 0);
-    const uint32_t stage_count = delays.size() / allpasses_.size();
+// ParallelSchroederAllpassSection& ParallelSchroederAllpassSection::operator=(
+//     ParallelSchroederAllpassSection&& other) noexcept
+// {
+//     if (this != &other)
+//     {
+//         allpasses_ = std::move(other.allpasses_);
+//         stage_count_ = other.stage_count_;
+//     }
+//     return *this;
+// }
 
-    for (uint32_t i = 0; i < allpasses_.size(); i++)
-    {
-        auto delay_span = delays.subspan(i * stage_count, stage_count);
-        allpasses_[i].SetDelays(delay_span);
-    }
-}
+// void ParallelSchroederAllpassSection::SetDelays(std::span<const uint32_t> delays)
+// {
+//     assert(delays.size() % allpasses_.size() == 0);
+//     const uint32_t stage_count = delays.size() / allpasses_.size();
 
-void ParallelSchroederAllpassSection::SetGains(std::span<const float> gains)
-{
-    assert(gains.size() == allpasses_.size());
-    for (uint32_t i = 0; i < allpasses_.size(); i++)
-    {
-        allpasses_[i].SetGain(gains[i]);
-    }
-}
+//     for (uint32_t i = 0; i < allpasses_.size(); i++)
+//     {
+//         auto delay_span = delays.subspan(i * stage_count, stage_count);
+//         allpasses_[i].SetDelays(delay_span);
+//     }
+// }
 
-uint32_t ParallelSchroederAllpassSection::InputChannelCount() const
-{
-    return allpasses_.size();
-}
+// void ParallelSchroederAllpassSection::SetGains(std::span<const float> gains)
+// {
+//     assert(gains.size() == allpasses_.size());
+//     for (uint32_t i = 0; i < allpasses_.size(); i++)
+//     {
+//         allpasses_[i].SetGain(gains[i]);
+//     }
+// }
 
-uint32_t ParallelSchroederAllpassSection::OutputChannelCount() const
-{
-    return allpasses_.size();
-}
+// uint32_t ParallelSchroederAllpassSection::InputChannelCount() const
+// {
+//     return allpasses_.size();
+// }
 
-void ParallelSchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
-{
-    assert(input.SampleCount() == output.SampleCount());
-    assert(input.ChannelCount() == output.ChannelCount());
-    assert(input.ChannelCount() == allpasses_.size());
+// uint32_t ParallelSchroederAllpassSection::OutputChannelCount() const
+// {
+//     return allpasses_.size();
+// }
 
-    for (auto i = 0u; i < allpasses_.size(); ++i)
-    {
-        auto out_channel_buffer = output.GetChannelBuffer(i);
-        allpasses_[i].Process(input.GetChannelBuffer(i), out_channel_buffer);
-    }
-}
+// void ParallelSchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+// {
+//     assert(input.SampleCount() == output.SampleCount());
+//     assert(input.ChannelCount() == output.ChannelCount());
+//     assert(input.ChannelCount() == allpasses_.size());
 
-void ParallelSchroederAllpassSection::Clear()
-{
-    for (auto& allpass : allpasses_)
-    {
-        allpass.Clear();
-    }
-}
+//     for (auto i = 0u; i < allpasses_.size(); ++i)
+//     {
+//         auto out_channel_buffer = output.GetChannelBuffer(i);
+//         allpasses_[i].Process(input.GetChannelBuffer(i), out_channel_buffer);
+//     }
+// }
 
-std::unique_ptr<AudioProcessor> ParallelSchroederAllpassSection::Clone() const
-{
-    auto clone =
-        std::make_unique<ParallelSchroederAllpassSection>(static_cast<uint32_t>(allpasses_.size()), stage_count_);
-    assert(clone->allpasses_.size() == allpasses_.size());
-    for (auto i = 0u; i < allpasses_.size(); ++i)
-    {
-        clone->allpasses_[i].SetDelays(allpasses_[i].GetDelays());
-        clone->allpasses_[i].SetGains(allpasses_[i].GetGains());
-    }
-    return clone;
-}
+// void ParallelSchroederAllpassSection::Clear()
+// {
+//     for (auto& allpass : allpasses_)
+//     {
+//         allpass.Clear();
+//     }
+// }
+
+// std::unique_ptr<AudioProcessor> ParallelSchroederAllpassSection::Clone() const
+// {
+//     auto clone =
+//         std::make_unique<ParallelSchroederAllpassSection>(static_cast<uint32_t>(allpasses_.size()), stage_count_);
+//     assert(clone->allpasses_.size() == allpasses_.size());
+//     for (auto i = 0u; i < allpasses_.size(); ++i)
+//     {
+//         clone->allpasses_[i].SetDelays(allpasses_[i].GetDelays());
+//         clone->allpasses_[i].SetGains(allpasses_[i].GetGains());
+//     }
+//     return clone;
+// }
 
 } // namespace sfFDN

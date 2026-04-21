@@ -13,22 +13,22 @@
 namespace sfFDN
 {
 
-TimeVaryingParallelGains::TimeVaryingParallelGains(const ParallelGainsOptions& config)
-    : mode_(config.mode)
+TimeVaryingParallelGains::TimeVaryingParallelGains(const ParallelGainsOptions& options)
+    : mode_(options.mode)
 {
-    lfos_.reserve(config.gains.size());
-    for (uint32_t i = 0; i < config.gains.size(); ++i)
+    lfos_.reserve(options.gains.size());
+    for (uint32_t i = 0; i < options.gains.size(); ++i)
     {
 
         lfos_.emplace_back(0.0f, 0.0f);
         lfos_[i].SetAmplitude(0.0f);
-        lfos_[i].SetOffset(config.gains[i]);
+        lfos_[i].SetOffset(options.gains[i]);
 
-        if (i < config.time_varying_config.size())
+        if (i < options.time_varying_config.size())
         {
-            lfos_[i].SetFrequency(config.time_varying_config[i].frequency);
-            lfos_[i].SetAmplitude(config.time_varying_config[i].amplitude);
-            lfos_[i].SetPhaseOffset(config.time_varying_config[i].initial_phase);
+            lfos_[i].SetFrequency(options.time_varying_config[i].frequency);
+            lfos_[i].SetAmplitude(options.time_varying_config[i].amplitude);
+            lfos_[i].SetPhaseOffset(options.time_varying_config[i].initial_phase);
         }
     }
 }
@@ -202,7 +202,11 @@ void TimeVaryingParallelGains::Clear()
 
 std::unique_ptr<AudioProcessor> TimeVaryingParallelGains::Clone() const
 {
-    auto clone = std::make_unique<TimeVaryingParallelGains>(ParallelGainsOptions{mode_, {}, {}});
+    auto clone = std::make_unique<TimeVaryingParallelGains>(ParallelGainsOptions{
+        .mode = mode_,
+        .gains = {},
+        .time_varying_config = {},
+    });
     clone->lfos_ = lfos_;
 
     return clone;

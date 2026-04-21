@@ -33,19 +33,6 @@ class DelayBankTimeVarying : public AudioProcessor
 
     ~DelayBankTimeVarying() = default;
 
-    // /**
-    //  * @brief Sets the maximum delay for all delay lines in the bank.
-    //  * @param delay The maximum delay in samples.
-    //  * @param block_size The size of the audio blocks to be processed in the main loop.
-    //  * @note This can increase the size of the internal buffers if the new maximum delay is larger than the current
-    //  * buffer size.
-    //  * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
-    //  */
-    // void SetDelays(const std::span<const uint32_t> delays, uint32_t block_size = 512);
-
-    // void SetMods(const std::span<const float> freqs, const std::span<const float> depths,
-    //              const std::span<const float> phase_offsets = {});
-
     /**
      * @brief Returns the current delays for each delay line in the bank.
      * @return A vector of delay values for each channel.

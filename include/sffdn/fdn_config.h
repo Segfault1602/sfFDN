@@ -7,7 +7,6 @@
 #include "sffdn/filter_feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 #include "sffdn/schroeder_allpass.h"
-#include "sffdn/sffdn.h"
 
 #include <cstdint>
 #include <variant>
@@ -15,14 +14,13 @@
 
 namespace sfFDN
 {
-
 struct FDNConfig
 {
     uint32_t fdn_size; // number of channels
     bool transposed;
     float direct_gain;
     uint32_t block_size;
-    uint32_t sample_rate;
+    float sample_rate;
     DelayBankOptions delay_bank_config;
 
     // Input gain Block
@@ -51,7 +49,7 @@ struct FDNConfig
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
 };
 
-std::unique_ptr<FDN> CreateFDNFromConfig2(const FDNConfig& config);
+std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
 
 void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p);
 void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p);

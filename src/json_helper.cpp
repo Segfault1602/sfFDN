@@ -7,32 +7,6 @@
 
 namespace sfFDN
 {
-
-void ThrowIfNotType(const nlohmann::json& j, const std::string& expected_type)
-{
-    ThrowIfDoesNotContainKey(j, "type");
-
-    if (!j["type"].is_string())
-    {
-        throw std::invalid_argument("JSON 'type' field must be a string.");
-    }
-
-    if (j["type"] != expected_type)
-    {
-        std::string message =
-            std::format("JSON object is of type '{}', expected '{}'.", j["type"].get<std::string>(), expected_type);
-        throw std::invalid_argument(message);
-    }
-}
-
-void ThrowIfDoesNotContainKey(const nlohmann::json& j, const std::string& key)
-{
-    if (!j.contains(key))
-    {
-        throw std::invalid_argument("JSON object does not contain required key: " + key);
-    }
-}
-
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 {
     j["matrix_size"] = config.matrix_size;
@@ -94,7 +68,7 @@ void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config)
     nlohmann::json filter_configs_json = nlohmann::json::array();
     for (const auto& filter_config : config.filter_configs)
     {
-        filter_configs_json.push_back(std::visit(overloaded{[](const ProportionalAttenuationOptions& config) {
+        filter_configs_json.push_back(std::visit(overloaded{[](const HomogenousFilterOptions& config) {
                                                                 nlohmann::json j;
                                                                 j["ProportionalAttenuationConfig"] = config;
                                                                 return j;
@@ -131,20 +105,21 @@ void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config)
     {
         if (filter_config_json.contains("ProportionalAttenuationConfig"))
         {
-            config.filter_configs.push_back(
-                filter_config_json["ProportionalAttenuationConfig"].get<ProportionalAttenuationOptions>());
+            config.filter_configs.emplace_back(
+                filter_config_json["ProportionalAttenuationConfig"].get<HomogenousFilterOptions>());
         }
         else if (filter_config_json.contains("TwoBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterOptions>());
+            config.filter_configs.emplace_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterOptions>());
         }
         else if (filter_config_json.contains("ThreeBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterOptions>());
+            config.filter_configs.emplace_back(
+                filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterOptions>());
         }
         else if (filter_config_json.contains("TenBandFilterConfig"))
         {
-            config.filter_configs.push_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterOptions>());
+            config.filter_configs.emplace_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterOptions>());
         }
         else
         {
@@ -210,9 +185,9 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                                      proc["ParallelGainsConfig"] = config;
                                      return proc;
                                  },
-                                 [](const ParallelSchroederAllpassSectionOptions& config) {
+                                 [](const MultichannelSchroederAllpassSectionOptions& config) {
                                      nlohmann::json proc;
-                                     proc["ParallelSchroederAllpassSectionOptions"] = config;
+                                     proc["MultichannelSchroederAllpassSectionOptions"] = config;
                                      return proc;
                                  },
                                  [](const AttenuationFilterBankOptions& config) {
@@ -248,23 +223,28 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
     {
         return j["SchroederAllpassSectionOptions"].get<SchroederAllpassSectionOptions>();
     }
-    else if (j.contains("AllpassFilterOptions"))
+
+    if (j.contains("AllpassFilterOptions"))
     {
         return j["AllpassFilterOptions"].get<AllpassFilterOptions>();
     }
-    else if (j.contains("CascadedBiquadsOptions"))
+
+    if (j.contains("CascadedBiquadsOptions"))
     {
         return j["CascadedBiquadsOptions"].get<CascadedBiquadsOptions>();
     }
-    else if (j.contains("FirOptions"))
+
+    if (j.contains("FirOptions"))
     {
         return j["FirOptions"].get<FirOptions>();
     }
-    else if (j.contains("DelayOptions"))
+
+    if (j.contains("DelayOptions"))
     {
         return j["DelayOptions"].get<DelayOptions>();
     }
-    else if (j.contains("GraphicEQOptions"))
+
+    if (j.contains("GraphicEQOptions"))
     {
         return j["GraphicEQOptions"].get<GraphicEQOptions>();
     }
@@ -279,23 +259,28 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
         auto config = j["ParallelGainsConfig"].get<ParallelGainsOptions>();
         return config;
     }
-    else if (j.contains("ParallelSchroederAllpassSectionOptions"))
+
+    if (j.contains("MultichannelSchroederAllpassSectionOptions"))
     {
-        return j["ParallelSchroederAllpassSectionOptions"].get<ParallelSchroederAllpassSectionOptions>();
+        return j["MultichannelSchroederAllpassSectionOptions"].get<MultichannelSchroederAllpassSectionOptions>();
     }
-    else if (j.contains("AttenuationFilterBankOptions"))
+
+    if (j.contains("AttenuationFilterBankOptions"))
     {
         auto config = j["AttenuationFilterBankOptions"].get<AttenuationFilterBankOptions>();
         return config;
     }
-    else if (j.contains("DelayBankOptions"))
+
+    if (j.contains("DelayBankOptions"))
     {
         return j["DelayBankOptions"].get<DelayBankOptions>();
     }
-    else if (j.contains("DelayBankTimeVaryingOptions"))
+
+    if (j.contains("DelayBankTimeVaryingOptions"))
     {
         return j["DelayBankTimeVaryingOptions"].get<DelayBankTimeVaryingOptions>();
     }
+
     throw std::invalid_argument("Unknown multichannel processor config type");
 }
 
@@ -306,17 +291,16 @@ feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
         auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();
         return config;
     }
-    else if (j.contains("ScalarFeedbackMatrixOptions"))
+
+    if (j.contains("ScalarFeedbackMatrixOptions"))
     {
         ScalarFeedbackMatrixOptions config;
         from_json(j["ScalarFeedbackMatrixOptions"], config);
         // auto config = j["ScalarFeedbackMatrixOptions"].get<ScalarFeedbackMatrixOptions>();
         return config;
     }
-    else
-    {
-        throw std::invalid_argument("Unknown feedback matrix config type");
-    }
+
+    throw std::invalid_argument("Unknown feedback matrix config type");
 }
 
 } // namespace sfFDN

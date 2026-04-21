@@ -14,7 +14,7 @@ namespace
 template <size_t N>
 std::array<float, N + 1> GetLagrangeCoefficients(float delay)
 {
-    std::array<float, N + 1> coeffs;
+    std::array<float, N + 1> coeffs{0.f};
     std::fill(coeffs.begin(), coeffs.end(), 1.0f);
     for (size_t k = 0; k <= N; ++k)
     {
@@ -68,15 +68,15 @@ void DelayInterp::SetDelay(float delay)
     int_delay_ = static_cast<uint32_t>(delay);
     frac_delay_ = delay - static_cast<float>(int_delay_);
 
-    if (type_ == DelayInterpolationType::None)
+    switch (type_)
+    {
+    case DelayInterpolationType::None:
+    case DelayInterpolationType::Linear:
     {
         delayline_.SetDelay(int_delay_);
+        break;
     }
-    else if (type_ == DelayInterpolationType::Linear)
-    {
-        delayline_.SetDelay(int_delay_);
-    }
-    else if (type_ == DelayInterpolationType::Allpass)
+    case DelayInterpolationType::Allpass:
     {
         if (frac_delay_ < 0.5f)
         {
@@ -86,7 +86,8 @@ void DelayInterp::SetDelay(float delay)
 
         assert(int_delay_ >= 0);
 
-        // To smooth out transients, when the integer value of the delay changes we run the filter with the last output.
+        // To smooth out transients, when the integer value of the delay changes we run the filter with the last
+        // output.
         const bool update_allpass = delayline_.GetDelay() != int_delay_;
 
         delayline_.SetDelay(int_delay_);
@@ -96,8 +97,9 @@ void DelayInterp::SetDelay(float delay)
         {
             allpass_.Tick(delayline_.LastOut());
         }
+        break;
     }
-    else if (type_ == DelayInterpolationType::Lagrange)
+    case DelayInterpolationType::Lagrange:
     {
         if (frac_delay_ < 1.f)
         {
@@ -109,6 +111,10 @@ void DelayInterp::SetDelay(float delay)
         lagrange_coeffs_.resize(coeffs.size());
         std::ranges::copy(coeffs, lagrange_coeffs_.begin());
         lagrange_filter_.SetCoefficients(coeffs);
+        break;
+    }
+    default:
+        assert(false);
     }
 }
 
@@ -140,10 +146,10 @@ float DelayInterp::Tick(float input)
         // const float out = delayline_.Tick(input);
         // return lagrange_filter_.Tick(out);
         delayline_.Tick(input);
-        float xm1 = delayline_.TapOut(int_delay_ - 1);
-        float x0 = delayline_.TapOut(int_delay_);
-        float x1 = delayline_.TapOut(int_delay_ + 1);
-        float x2 = delayline_.TapOut(int_delay_ + 2);
+        float xm1 = delayline_.TapOut(int_delay_);
+        float x0 = delayline_.TapOut(int_delay_ + 1);
+        float x1 = delayline_.TapOut(int_delay_ + 2);
+        float x2 = delayline_.TapOut(int_delay_ + 3);
         return xm1 * lagrange_coeffs_[0] + x0 * lagrange_coeffs_[1] + x1 * lagrange_coeffs_[2] +
                x2 * lagrange_coeffs_[3];
     }

@@ -17,8 +17,7 @@ DelayTimeVarying::DelayTimeVarying(const DelayOptions& config)
 {
     if (config.lfo_config.has_value())
     {
-        const auto& lfo_config = config.lfo_config.value();
-        SetMod(lfo_config.frequency, lfo_config.amplitude, lfo_config.initial_phase);
+        SetMod(config.lfo_config.value());
     }
 }
 
@@ -44,25 +43,25 @@ float DelayTimeVarying::GetDelay() const
     return delay_.GetDelay();
 }
 
-void DelayTimeVarying::SetMod(float freq, float amplitude, float phase_offset)
+void DelayTimeVarying::SetMod(const ModulationOptions& options)
 {
-    if (delay_.GetDelay() < amplitude)
+    if (delay_.GetDelay() < options.amplitude)
     {
         throw std::invalid_argument("SetMod: amplitude must be less than the current delay");
     }
 
-    if (delay_.GetDelay() + amplitude > delay_.GetMaximumDelay())
+    if (delay_.GetDelay() + options.amplitude > delay_.GetMaximumDelay())
     {
         throw std::invalid_argument("SetMod: amplitude + base delay must be less than the maximum delay");
     }
 
-    lfo_.SetFrequency(freq);
-    lfo_.SetAmplitude(amplitude);
-    lfo_.SetPhaseOffset(phase_offset);
+    lfo_.SetFrequency(options.frequency);
+    lfo_.SetAmplitude(options.amplitude);
+    lfo_.SetPhaseOffset(options.initial_phase);
 
-    if (delay_.GetMaximumDelay() < delay_.GetDelay() + amplitude)
+    if (delay_.GetMaximumDelay() < delay_.GetDelay() + options.amplitude)
     {
-        delay_.SetMaximumDelay(static_cast<uint32_t>(delay_.GetDelay() + amplitude) + 64);
+        delay_.SetMaximumDelay(static_cast<uint32_t>(delay_.GetDelay() + options.amplitude) + 64);
     }
 }
 

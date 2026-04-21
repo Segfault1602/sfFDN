@@ -30,7 +30,7 @@ namespace sfFDN
  * @note Based on Jot, J. M., & Chaigne, A. (1991). Digital delay networks for designing artificial reverberators (pp.
  * 1-12). Presented at the Proc. Audio Eng. Soc. Conv., Paris, France.
  */
-std::pair<float, float> DesignTwoBandAbsorption(const TwoBandFilterOptions& config);
+std::pair<float, float> DesignTwoBandAbsorption(const TwoBandFilterOptions& options);
 
 /**
  * @brief Design a three-band absorption filter consisting of a low-shelf, high-shelf and a gain factor to match the
@@ -39,7 +39,7 @@ std::pair<float, float> DesignTwoBandAbsorption(const TwoBandFilterOptions& conf
  * @param delay Delay in samples for the delay line preceding the filter
  * @return std::array<FilterCoefficients, 2> Coefficients of the designed EQ filter.
  */
-std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilterOptions& params);
+std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilterOptions& options);
 
 /**
  * @brief Design an attenuation filter according to the method described in [1]
@@ -53,7 +53,7 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilte
  * IEEE Signal Processing Letters, vol. 31, pp. 391–395, 2024, doi: 10.1109/LSP.2024.3352510.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/twoFilters.m
  */
-std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOptions& config);
+std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOptions& options);
 
 /**
  * @brief Design an octave EQ filter consisting of a low shelf, high shelf and 8 band-pass peaking filters
@@ -68,7 +68,15 @@ std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOp
  * 2, pp. 176–180, Feb. 2017, doi: 10.1109/LSP.2016.2645280.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/aceq.m
  */
-std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& config);
+std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& options);
+
+/** @brief Create an attenuation filter processor based on the provided configuration variant.
+ *
+ * @param config A variant containing the configuration for the attenuation filter design. The specific type of
+ * filter will be determined by the type of the variant.
+ * @return A unique pointer to the created AttenuationFilter processor.
+ */
+std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter_variant_t& options);
 
 /**
  * @brief Create a Attenuation Filter Bank object
@@ -77,18 +85,18 @@ std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& confi
  * the attenuation_filter_variant_t variant.
  * @return std::unique_ptr<AudioProcessor>
  */
-std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& configs);
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& options);
 
 /** @brief Creates an attenuation filter bank processor based on the provided configuration variant and delay values.
  *
- * @param variant_config A variant containing the configuration for the attenuation filter design. The specific type of
+ * @param variant_config A variant containing the configuration for the attenuation filter design. The specific type
+ of
  * filter will be determined by the type of the variant.
  * @param delays Delay in samples for each delay line preceding the filters
  * @return A unique pointer to the created FilterBank processor containing the attenuation filters.
  */
-std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_filter_variant_t& variant_config,
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_filter_variant_t& options,
                                                             std::span<const float> delays);
 
-std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter_variant_t& config);
 /** @} */
 } // namespace sfFDN

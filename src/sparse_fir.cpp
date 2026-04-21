@@ -74,12 +74,12 @@ class SparseFir::SparseFirImpl
         delay_line_.GetNextOutputsAt(sparse_index_, output.GetChannelSpan(0), coeffs_);
     }
 
-    uint32_t InputChannelCount() const
+    constexpr uint32_t InputChannelCount()
     {
         return 1;
     }
 
-    uint32_t OutputChannelCount() const
+    constexpr uint32_t OutputChannelCount()
     {
         return 1;
     }
@@ -115,7 +115,7 @@ class SparseFir::SparseFirImpl
     Delay delay_line_;
 
     std::vector<uint32_t> sparse_index_;
-    uint32_t filter_order_;
+    uint32_t filter_order_{0};
 
     SparseFirImpl() = default;
 };

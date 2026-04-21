@@ -82,7 +82,10 @@ std::vector<float> output_gains(kFDNOrder, 0.5f);
 fdn.SetOutputGains(output_gains);
 
 // Set Hadamard feedback matrix
-auto feedback_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(kFDNOrder, sfFDN::ScalarMatrixType::Hadamard);
+sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options;
+feedback_matrix_options.matrix_size = kFDNOrder;
+feedback_matrix_options.type = sfFDN::ScalarMatrixType::Hadamard;
+auto feedback_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(feedback_matrix_options);
 fdn.SetFeedbackMatrix(std::move(feedback_matrix));
 
 // Set random delay lengths
@@ -96,16 +99,75 @@ fdn.SetFilterBank(std::move(attenuation_filter));
 
 ```
 
+Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
+The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
+
+```cpp
+sfFDN::FDNConfig config;
+config.fdn_size = 8;
+config.direct_gain = 1.f;
+config.block_size = 128;
+config.sample_rate = 48000;
+
+sfFDN::DelayBankOptions delay_bank_options{
+    .delays = sfFDN::GetDelayLengths(config.fdn_size, 500, 3000, sfFDN::DelayLengthType::Random),
+    .block_size = config.block_size,
+    .interpolation_type = sfFDN::DelayInterpolationType::None};
+
+config.delay_bank_config = delay_bank_options;
+
+sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
+                                                .gains = std::vector<float>(config.fdn_size, 0.5f)};
+
+config.input_block_config.parallel_gains_config = input_gains_options;
+
+sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{
+    .matrix_size = config.fdn_size,
+    .type = sfFDN::ScalarMatrixType::Hadamard};
+
+config.feedback_matrix_config = feedback_matrix_options;
+
+sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
+sfFDN::HomogenousFilterOptions homogenous_filter_options{
+    .t60 = 1.f,
+    .delay = 0.f,
+    .sample_rate = config.sample_rate};
+attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
+
+config.loop_filter_configs.push_back(attenuation_filter_bank_options);
+
+sfFDN::ParallelGainsOptions output_gains_options{
+    .mode = sfFDN::ParallelGainsMode::Merge,
+    .gains = std::vector<float>(config.fdn_size, 0.5f)};
+
+config.output_block_config.parallel_gains_config = output_gains_options;
+
+auto fdn = sfFDN::CreateFDNFromConfig(config);
+```
+
 ## Build
 
-The library is built using CMake. **sfFDN** uses [vcpkg](https://vcpkg.io/en/) to manage dependencies. CMake presets are provided for building with Ninja and LLVM.
+The library is built using CMake. **sfFDN** uses [CPM](https://github.com/cpm-cmake/CPM.cmake) to manage dependencies. CMake presets are provided for building with Ninja and LLVM.
 
 ```bash
 # configure with Ninja and LLVM
 cmake --preset llvm-ninja
 
 # build
-cmake --build --preset llvm-debug
+cmake --build --preset llvm --config Release
+```
+
+## Use sfFDN in your project
+
+**sfFDN** can be included in your project using CPM (or CMake's FetchContent directly)
+```cmake
+CPMAddPackage(
+    NAME sfFDN
+    GIT_REPOSITORY https://github.com/Segfault1602/sfFDN.git
+    GIT_TAG main
+    )
+
+target_link_libraries(your_target PRIVATE sfFDN::sfFDN)
 ```
 
 ## Dependencies

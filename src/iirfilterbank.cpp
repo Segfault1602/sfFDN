@@ -19,14 +19,14 @@
 #include <Accelerate/Accelerate.h>
 #endif
 
-#define IIRFILTERBANK_USE_EIGEN 0
-#if IIRFILTERBANK_USE_EIGEN
+#define IIRFILTERBANK_USE_EIGEN
+#ifdef IIRFILTERBANK_USE_EIGEN
 #include <Eigen/Core>
 #endif
 
 namespace
 {
-#if IIRFILTERBANK_USE_EIGEN
+#ifdef IIRFILTERBANK_USE_EIGEN
 class BiquadMC
 {
   public:
@@ -44,7 +44,7 @@ class BiquadMC
 
     void SetCoefficients(uint32_t channel_count, std::span<const float> coeffs)
     {
-        constexpr uint32_t coeff_per_stage = 5;
+        constexpr uint32_t kCoeffPerStage = 5;
         assert(coeffs.size() == channel_count * 5);
         b0_ = Eigen::ArrayXf::Zero(channel_count);
         b1_ = Eigen::ArrayXf::Zero(channel_count);
@@ -57,7 +57,7 @@ class BiquadMC
 
         for (auto ch = 0u; ch < channel_count; ++ch)
         {
-            auto coeffs_span = coeffs.subspan(ch * coeff_per_stage, coeff_per_stage);
+            auto coeffs_span = coeffs.subspan(ch * kCoeffPerStage, kCoeffPerStage);
             b0_(ch) = coeffs_span[0];
             b1_(ch) = coeffs_span[1];
             b2_(ch) = coeffs_span[2];
@@ -123,8 +123,8 @@ class IIRFilterBank::IIRFilterBankImpl
             throw std::runtime_error("Invalid coefficient size");
         }
 
-        const uint32_t stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
-#if IIRFILTERBANK_USE_EIGEN
+        const auto stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
+#ifdef IIRFILTERBANK_USE_EIGEN
         filters_.clear();
         channel_count_ = channel_count;
         temp_ = Eigen::ArrayXf::Zero(channel_count);
@@ -160,7 +160,7 @@ class IIRFilterBank::IIRFilterBankImpl
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
 
-#if !IIRFILTERBANK_USE_EIGEN
+#ifndef IIRFILTERBANK_USE_EIGEN
         assert(input.ChannelCount() == filters_.size());
         for (auto i = 0u; i < filters_.size(); ++i)
         {
@@ -177,9 +177,9 @@ class IIRFilterBank::IIRFilterBankImpl
         {
             temp_ = in.row(i);
 
-            for (auto j = 0u; j < filters_.size(); ++j)
+            for (auto& filter : filters_)
             {
-                filters_[j].Process(temp_);
+                filter.Process(temp_);
             }
 
             out.row(i) = temp_;
@@ -189,7 +189,7 @@ class IIRFilterBank::IIRFilterBankImpl
 
     uint32_t InputChannelCount() const
     {
-#if IIRFILTERBANK_USE_EIGEN
+#ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
 #else
         return filters_.size();
@@ -198,7 +198,7 @@ class IIRFilterBank::IIRFilterBankImpl
 
     uint32_t OutputChannelCount() const
     {
-#if IIRFILTERBANK_USE_EIGEN
+#ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
 #else
         return filters_.size();
@@ -206,9 +206,9 @@ class IIRFilterBank::IIRFilterBankImpl
     }
 
   private:
-#if IIRFILTERBANK_USE_EIGEN
+#ifdef IIRFILTERBANK_USE_EIGEN
     std::vector<BiquadMC> filters_;
-    uint32_t channel_count_;
+    uint32_t channel_count_{0};
     Eigen::ArrayXf temp_;
 #else
     std::vector<CascadedBiquads> filters_;

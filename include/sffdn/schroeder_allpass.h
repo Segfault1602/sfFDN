@@ -5,6 +5,7 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay.h"
+#include "sffdn/filterbank.h"
 #include "sffdn/types.h"
 
 #include <cstddef>
@@ -176,59 +177,62 @@ class SchroederAllpassSection : public AudioProcessor
     bool parallel_ = false;
 };
 
-/** \brief Implements parallel Schroeder allpass sections. */
-class ParallelSchroederAllpassSection : public AudioProcessor
-{
-  public:
-    /** \brief Constructs a ParallelSchroederAllpassSection with a given number of channels and stages.
-     * @param channel_count The number of parallel channels.
-     * @param stage_count The number of allpass filters in each channel.
-     */
-    ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count);
+std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
+    const MultichannelSchroederAllpassSectionOptions& options);
 
-    ParallelSchroederAllpassSection(const ParallelSchroederAllpassSection&) = delete;
-    ParallelSchroederAllpassSection& operator=(const ParallelSchroederAllpassSection&) = delete;
+// /** \brief Implements parallel Schroeder allpass sections. */
+// class ParallelSchroederAllpassSection : public AudioProcessor
+// {
+//   public:
+//     /** \brief Constructs a ParallelSchroederAllpassSection with a given number of channels and stages.
+//      * @param channel_count The number of parallel channels.
+//      * @param stage_count The number of allpass filters in each channel.
+//      */
+//     ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count);
 
-    ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&&) noexcept;
-    ParallelSchroederAllpassSection& operator=(ParallelSchroederAllpassSection&&) noexcept;
+//     ParallelSchroederAllpassSection(const ParallelSchroederAllpassSection&) = delete;
+//     ParallelSchroederAllpassSection& operator=(const ParallelSchroederAllpassSection&) = delete;
 
-    /** @brief Sets the delays for each allpass filter in the section.
-     * @param delays A span of delay values in samples.
-     * The size of the span must be equal to (channel_count * stage_count).
-     */
-    void SetDelays(std::span<const uint32_t> delays);
+//     ParallelSchroederAllpassSection(ParallelSchroederAllpassSection&&) noexcept;
+//     ParallelSchroederAllpassSection& operator=(ParallelSchroederAllpassSection&&) noexcept;
 
-    /** @brief Sets the feedback gains for each allpass filter in the section.
-     * @param gains A span of feedback gain values.
-     * The size of the span must be equal to (channel_count * stage_count).
-     */
-    void SetGains(std::span<const float> gains);
+//     /** @brief Sets the delays for each allpass filter in the section.
+//      * @param delays A span of delay values in samples.
+//      * The size of the span must be equal to (channel_count * stage_count).
+//      */
+//     void SetDelays(std::span<const uint32_t> delays);
 
-    /** @brief Processes a block of audio through the section.
-     * @param input The input audio buffer.
-     * @param output The output audio buffer.
-     * The input and output buffers must have the same number of samples and channels equal to InputChannelCount().
-     */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+//     /** @brief Sets the feedback gains for each allpass filter in the section.
+//      * @param gains A span of feedback gain values.
+//      * The size of the span must be equal to (channel_count * stage_count).
+//      */
+//     void SetGains(std::span<const float> gains);
 
-    /** @brief Gets the number of input channels supported.*/
-    uint32_t InputChannelCount() const override;
+//     /** @brief Processes a block of audio through the section.
+//      * @param input The input audio buffer.
+//      * @param output The output audio buffer.
+//      * The input and output buffers must have the same number of samples and channels equal to InputChannelCount().
+//      */
+//     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
-    /** @brief Gets the number of output channels supported.*/
-    uint32_t OutputChannelCount() const override;
+//     /** @brief Gets the number of input channels supported.*/
+//     uint32_t InputChannelCount() const override;
 
-    /** @brief Clears the internal state of the processor.
-     * This function resets the internal state of all allpass filters in the section.
-     */
-    void Clear() override;
+//     /** @brief Gets the number of output channels supported.*/
+//     uint32_t OutputChannelCount() const override;
 
-    /** @brief Creates a copy of the ParallelSchroederAllpassSection.
-     * @return A unique pointer to the cloned ParallelSchroederAllpassSection.
-     */
-    std::unique_ptr<AudioProcessor> Clone() const override;
+//     /** @brief Clears the internal state of the processor.
+//      * This function resets the internal state of all allpass filters in the section.
+//      */
+//     void Clear() override;
 
-  private:
-    std::vector<SchroederAllpassSection> allpasses_;
-    uint32_t stage_count_;
-};
+//     /** @brief Creates a copy of the ParallelSchroederAllpassSection.
+//      * @return A unique pointer to the cloned ParallelSchroederAllpassSection.
+//      */
+//     std::unique_ptr<AudioProcessor> Clone() const override;
+
+//   private:
+//     std::vector<SchroederAllpassSection> allpasses_;
+//     uint32_t stage_count_;
+// };
 } // namespace sfFDN

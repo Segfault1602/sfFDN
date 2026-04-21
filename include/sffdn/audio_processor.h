@@ -69,8 +69,15 @@ class AudioProcessorChain : public AudioProcessor
      */
     bool AddProcessor(std::unique_ptr<AudioProcessor>&& processor);
 
+    /** @brief Returns the number of processors in the chain.
+     * @return The number of processors in the chain.
+     */
     uint32_t GetProcessorCount() const;
 
+    /** @brief Returns a pointer to the processor at the specified index.
+     * @param index The index of the processor to retrieve.
+     * @return A pointer to the processor at the specified index, or nullptr if the index is out of range.
+     */
     AudioProcessor* GetProcessor(uint32_t index) const;
 
     /** @brief Processes the audio buffers through the chain.

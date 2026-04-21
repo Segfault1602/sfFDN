@@ -61,9 +61,11 @@ class ScopedNoDenormals
 namespace sfFDN
 {
 FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
-    : delay_bank_({GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random), block_size})
+    : delay_bank_({.delays = GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random),
+                   .block_size = block_size})
     , filter_bank_(nullptr)
-    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(ScalarFeedbackMatrixOptions{order}))
+    , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(
+          ScalarFeedbackMatrixOptions{.matrix_size = order, .type = ScalarMatrixType::Random}))
     , order_(order)
     , block_size_(block_size == 0 ? kDefaultBlockSize : block_size)
     , direct_gain_(1.f)
@@ -231,7 +233,7 @@ void FDN::SetDirectGain(float gain)
     direct_gain_ = gain;
 }
 
-bool FDN::SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank)
+bool FDN::SetLoopFilter(std::unique_ptr<AudioProcessor> filter_bank)
 {
     if (filter_bank == nullptr)
     {
@@ -249,7 +251,7 @@ bool FDN::SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank)
     return true;
 }
 
-AudioProcessor* FDN::GetFilterBank() const
+AudioProcessor* FDN::GetLoopFilter() const
 {
     return filter_bank_.get();
 }
@@ -304,9 +306,12 @@ bool FDN::SetDelays(const std::span<const float> delays, DelayInterpolationType 
         return false;
     }
 
-    std::vector<float> delay_vector(delays.begin(), delays.end());
+    DelayBankOptions options;
+    options.delays = std::vector<float>(delays.begin(), delays.end());
+    options.block_size = block_size_;
+    options.interpolation_type = interpolation_type;
 
-    delay_bank_ = DelayBank(DelayBankOptions{delay_vector, block_size_, interpolation_type});
+    delay_bank_ = DelayBank(options);
 
     return true;
 }
@@ -554,7 +559,7 @@ std::unique_ptr<FDN> FDN::CloneFDN() const
     assert(output_gains_ != nullptr);
     clone->SetOutputGains(output_gains_->Clone());
 
-    clone->SetFilterBank(filter_bank_ ? filter_bank_->Clone() : nullptr);
+    clone->SetLoopFilter(filter_bank_ ? filter_bank_->Clone() : nullptr);
     clone->delay_bank_ = delay_bank_;
     clone->SetFeedbackMatrix(mixing_matrix_ ? mixing_matrix_->Clone() : nullptr);
     clone->SetTCFilter(tc_filter_ ? tc_filter_->Clone() : nullptr);

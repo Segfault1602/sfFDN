@@ -88,14 +88,18 @@ enum class ParallelGainsMode : uint8_t
 
 // STRUCTS
 
+/** @brief Options for configuring a scalar feedback matrix. */
 struct ScalarFeedbackMatrixOptions
 {
-    uint32_t matrix_size;
-    ScalarMatrixType type{ScalarMatrixType::Random};
-    std::optional<std::vector<float>> custom_matrix{std::nullopt};
+    uint32_t matrix_size;                            /**< Size of the feedback matrix */
+    ScalarMatrixType type{ScalarMatrixType::Random}; /**< Type of the feedback matrix */
+    std::optional<std::vector<float>> custom_matrix{
+        std::nullopt}; /**< Optional custom matrix values in col-major order. The size of the vector must be equal to
+                          matrix_size * matrix_size. If this is set, `type` is ignored. */
 
-    uint32_t rng_seed{0};
-    std::optional<float> arg{std::nullopt};
+    uint32_t rng_seed{0}; /*< Optional. Seed for random number generation when type is Random or RandomHouseholder. */
+    std::optional<float> arg{std::nullopt}; /*< Optional argument for certain matrix types. For example, for the
+                                               VariableDiffusion type, this could represent the diffusion parameter. */
 };
 
 /** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
@@ -106,47 +110,68 @@ struct CascadedFeedbackMatrixOptions
     uint32_t stage_count; /**< Number of stages */
     float sparsity{1.f};  /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
                              values correspond to sparser matrices. */
-    ScalarMatrixType type{ScalarMatrixType::Random};
-    float gain_per_samples{1.f};
+    ScalarMatrixType type{
+        ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
+    float gain_per_samples{1.f};   /**< Gain per sample. */
 };
 
+/** @brief Options for configuring signal modulation. */
 struct ModulationOptions
 {
-    float frequency{0.f};
-    float amplitude{0.f};
-    float initial_phase{0.f};
+    float frequency{0.f};     /*< Frequency of the modulation, normalized to [0, 1] by the sampling rate. */
+    float amplitude{0.f};     /*< Amplitude of the modulation. */
+    float initial_phase{0.f}; /*< Initial phase of the modulation, normalized to [0, 1]. */
 };
 
+/** @brief Options for configuring parallel gain processing. */
 struct ParallelGainsOptions
 {
-    ParallelGainsMode mode{ParallelGainsMode::Split};
-    std::vector<float> gains;
-    std::vector<ModulationOptions> time_varying_config{};
+    ParallelGainsMode mode{ParallelGainsMode::Split}; /**< Mode of parallel gain processing. */
+    std::vector<float>
+        gains; /**< Gain values for each channel. The size of the vector determines the number of channels. */
+    std::vector<ModulationOptions>
+        time_varying_config{}; /**< Optional time-varying modulation configuration for each channel. The size of the
+                                  vector must match the size of `gains` if provided. */
 };
 
+/** @brief Options for configuring delays. */
 struct DelayOptions
 {
-    float delay{256.f};
-    uint32_t max_delay{512};
-    sfFDN::DelayInterpolationType interp_type{sfFDN::DelayInterpolationType::None};
-    std::optional<sfFDN::ModulationOptions> lfo_config{std::nullopt};
+    float delay{256.f};      /*< Delay in samples. This can be a fractional value if interpolation is used. */
+    uint32_t max_delay{512}; /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
+                             must be greater than or equal to `delay`. */
+    sfFDN::DelayInterpolationType interp_type{
+        sfFDN::DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+    std::optional<sfFDN::ModulationOptions> lfo_config{
+        std::nullopt}; /*< Optional LFO configuration for time-varying delay modulation. If provided, the delay will be
+                          modulated according to the specified parameters. */
 };
 
+/** @brief Options for configuring a delay bank. */
 struct DelayBankOptions
 {
-    std::vector<float> delays;
-    uint32_t block_size{kDefaultBlockSize};
-    DelayInterpolationType interpolation_type{DelayInterpolationType::None};
+    std::vector<float>
+        delays; /*< Delay values for each channel in samples. These can be fractional values if interpolation is used.
+              The size of the vector determines the number of channels in the delay bank. */
+    uint32_t block_size{kDefaultBlockSize}; /*< Block size for processing audio. This is used to determine the size of
+                                               internal buffers and can affect performance. */
+    DelayInterpolationType interpolation_type{
+        DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
 };
 
+/** @brief Options for configuring a time-varying delay bank. */
 struct DelayBankTimeVaryingOptions
 {
-    std::vector<float> delays;
-    uint32_t max_delay;
-    DelayInterpolationType interpolation_type;
-    std::vector<ModulationOptions> time_varying_config;
+    std::vector<float> delays; /*< Initial delay values for each channel in samples. These can be fractional values if
+              interpolation is used. The size of the vector determines the number of channels in the delay bank. */
+    uint32_t max_delay;        /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
+                                    must be greater than or equal to the initial delays. */
+    DelayInterpolationType interpolation_type;          /*< Interpolation type for fractional delays. */
+    std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
+                                                           size of the vector must match the size of `delays`. */
 };
 
+/** @brief Coefficients for a digital IIR filter. */
 struct FilterCoefficients
 {
     float b0, b1, b2, a0, a1, a2;
@@ -162,67 +187,105 @@ struct AllpassFilterOptions
     float coeff{0.f};
 };
 
+/** @brief Options for configuring a sparse FIR filter. */
 struct SparseFirOptions
 {
     std::vector<std::pair<uint32_t, float>> coeffs; // pair of (index, coefficient)
 };
 
+/** @brief Options for configuring cascaded biquad filters. */
 struct CascadedBiquadsOptions
 {
     std::vector<FilterCoefficients> coeffs;
 };
 
+/** @brief Options for configuring a FIR filter. */
 struct FirOptions
 {
     std::vector<float> coeffs{1.f};
 };
 
+/** @brief Options for configuring a Schroeder allpass section consisting of `N` Schroeder allpass in series or in
+ * parallel.*/
 struct SchroederAllpassSectionOptions
 {
-    std::vector<uint32_t> delays;
-    std::vector<float> gains;
-    bool parallel{false};
+    std::vector<float> delays; /*< Initial delay values for each Schroeder allpass in samples. */
+    std::vector<float> gains;  /*< Feedback gain values for each Schroeder allpass. The size of this vector must match
+                                  the size of `delays`. */
+    bool parallel{false}; /*< If true, the allpass filters in the section are connected in parallel. If false, they are
+                             connected in series. */
 };
 
-struct ParallelSchroederAllpassSectionOptions
+/** @brief Options for configuring a multichannel bank of Schroeder allpass sections. Each section processes one channel
+ * of audio. */
+struct MultichannelSchroederAllpassSectionOptions
 {
     std::vector<SchroederAllpassSectionOptions> sections;
 };
 
-struct ProportionalAttenuationOptions
+/** @brief Options for configuring a homogenous filter. The homogenous filter has the same attenuation characteristics
+ * across all frequencies. */
+struct HomogenousFilterOptions
 {
-    float t60 = 1.f;
-    float delay;
-    float sample_rate = kDefaultSampleRate;
+    float t60 = 1.f; /*< Target T60 value for the filter. */
+    float delay;     /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+                        automatically when accessed from `CreateFDNFromConfig()`*/
+    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
+                                               based on the specified T60 values. */
 };
 
+/** @brief Options for configuring a two-band filter. The two-band filter allows for specifying a target t60 at DC and
+ * Nyquist. The filter is implemented as a one-pole filter based on [1].
+ *
+ * [1] Jot, J. M., & Chaigne, A. (1991). Digital delay networks for designing artificial reverberators (pp. 1-12).
+ * Presented at the Proc. Audio Eng. Soc. Conv., Paris, France.
+ */
 struct TwoBandFilterOptions
 {
-    std::array<float, 2> t60s{1.f, 0.5f};
-    float delay;
-    float sample_rate = kDefaultSampleRate;
+    std::array<float, 2> t60s{1.f, 0.5f}; /**< Target T60 values for the low and high bands. */
+    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+                    automatically when accessed from `CreateFDNFromConfig()`*/
+    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
+                                               based on the specified T60 values. */
 };
 
+/** @brief Options for configuring a three-band filter. The three-band filter is composed of a 2nd order low shelf and a
+ * 2nd order high shelf filter in series and allows control of the T60 over three bands with the first band being [0,
+ * freq[0]], the second band [freq[0], freq[1]], and the third band [freq[1], Nyquist]. */
 struct ThreeBandFilterOptions
 {
-    std::array<float, 3> t60s{1.f, 0.5f, 0.25f};
-    float delay;
-    std::array<float, 2> freqs{800.f, 8000.f};
-    float q = 1.f / std::numbers::sqrt2_v<float>;
-    float sample_rate = kDefaultSampleRate;
+    std::array<float, 3> t60s{1.f, 0.5f, 0.25f}; /*< Target T60 values for the low, mid and high bands. */
+    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+                    automatically when accessed from `CreateFDNFromConfig()`*/
+    std::array<float, 2> freqs{800.f, 8000.f};    /*< Frequency values for the low and high shelves. */
+    float q = 1.f / std::numbers::sqrt2_v<float>; /*< Q-factor for the shelf filters. Q values higher than 0.707 may
+                                                     cause instability if placed in a feedback loop. */
+    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
+                                               based on the specified T60 values. */
 };
 
+/** @brief Options for configuring a ten-band filter. The ten-band filter allows control of the T60 over ten bands.
+ * The bands of the filter are set to {32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k} Hz.
+ *
+ * The filter is implemented as a cascade of second-order biquad filters following the design method described in [1].
+ * [1] V. Välimäki, K. Prawda, and S. J. Schlecht, "Two-Stage Attenuation Filter for Artificial Reverberation,"
+ * IEEE Signal Processing Letters, vol. 31, pp. 391–395, 2024, doi: 10.1109/LSP.2024.3352510.
+ */
 struct TenBandFilterOptions
 {
-    std::array<float, 10> t60s = {1.f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f, 0.3f, 0.2f, 0.1f};
-    float delay;
-    float sample_rate = kDefaultSampleRate;
-    float shelf_cutoff = 8000.f;
+    std::array<float, 10> t60s = {1.f,  0.9f, 0.8f, 0.7f, 0.6f,
+                                  0.5f, 0.4f, 0.3f, 0.2f, 0.1f}; /**< Target T60 values for the ten bands. */
+    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+                    automatically when accessed from `CreateFDNFromConfig()`*/
+    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
+                                               based on the specified T60 values. */
+    float shelf_cutoff = 8000.f;            /*< Cutoff frequency for the shelf filters. */
 };
 
 using attenuation_filter_variant_t =
-    std::variant<ProportionalAttenuationOptions, TwoBandFilterOptions, ThreeBandFilterOptions, TenBandFilterOptions>;
+    std::variant<HomogenousFilterOptions, TwoBandFilterOptions, ThreeBandFilterOptions, TenBandFilterOptions>;
 
+/** @brief Options for configuring an attenuation filter bank. */
 struct AttenuationFilterBankOptions
 {
     std::vector<attenuation_filter_variant_t> filter_configs;
@@ -242,7 +305,7 @@ using single_channel_processor_variant_t =
                  GraphicEQOptions>;
 
 using multi_channel_processor_variant_t =
-    std::variant<ParallelGainsOptions, ParallelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
+    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
                  DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
                  ScalarFeedbackMatrixOptions>;
 
@@ -290,8 +353,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelSchroederAllpassSectionOptions, sections);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ProportionalAttenuationOptions, t60, delay, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TenBandFilterOptions, t60s, delay, sample_rate, shelf_cutoff);

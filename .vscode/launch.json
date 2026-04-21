@@ -36,7 +36,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "SparseFirFilter"
+                "DelayBlock"
             ],
             "MIMode": "lldb",
             "cwd": "${workspaceFolder}",

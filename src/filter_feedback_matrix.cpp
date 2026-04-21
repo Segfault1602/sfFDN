@@ -73,8 +73,6 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
         sparsity = 1.f;
     }
 
-    std::vector<std::vector<float>> delays;
-
     Eigen::MatrixXf r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
     matrix_.emplace_back(EigenToMatrixOptions(r0));
 
@@ -107,8 +105,7 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
         delaybank_options.interpolation_type = DelayInterpolationType::None;
         delaybanks_.emplace_back(delaybank_options);
 
-        sfFDN::ScalarFeedbackMatrixOptions matrix_options = EigenToMatrixOptions(r1);
-        matrix_.emplace_back(matrix_options);
+        matrix_.emplace_back(EigenToMatrixOptions(r1));
     }
 }
 

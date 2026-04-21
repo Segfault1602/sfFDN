@@ -16,9 +16,8 @@
 #include <utility>
 #include <vector>
 
-namespace sfFDN
+namespace
 {
-
 class PartitionedConvolverSegment
 {
   public:
@@ -26,14 +25,14 @@ class PartitionedConvolverSegment
                                 std::span<const float> fir);
 
     uint32_t GetDelay() const;
-    void Process(std::span<const float> input, CircularBuffer& output_buffer);
+    void Process(std::span<const float> input, sfFDN::CircularBuffer& output_buffer);
 
     void PrintPartition() const;
     std::string GetShortInfo() const;
     void Clear();
 
   private:
-    UPOLS upols_;
+    sfFDN::UPOLS upols_;
     uint32_t delay_;
     uint32_t deadline_offset_;
     std::vector<float> output_buffer_;
@@ -59,7 +58,7 @@ uint32_t PartitionedConvolverSegment::GetDelay() const
     return delay_;
 }
 
-void PartitionedConvolverSegment::Process(std::span<const float> input, CircularBuffer& output_buffer)
+void PartitionedConvolverSegment::Process(std::span<const float> input, sfFDN::CircularBuffer& output_buffer)
 {
     upols_.AddSamples(input);
 
@@ -85,6 +84,10 @@ void PartitionedConvolverSegment::Clear()
     upols_.Clear();
     std::ranges::fill(output_buffer_, 0.f);
 }
+} // namespace
+
+namespace sfFDN
+{
 
 class PartitionedConvolver::PartitionedConvolverImpl
 {

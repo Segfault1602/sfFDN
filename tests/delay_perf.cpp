@@ -165,7 +165,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
     bench.timeUnit(1us, "us");
 
     sfFDN::DelayTimeVarying delay_time_varying({kDelay, kMaxDelay, sfFDN::DelayInterpolationType::Linear});
-    delay_time_varying.SetMod(0.001f, 16.f);
+    delay_time_varying.SetMod({0.001f, 16.f, 0.f});
 
     bench.minEpochIterations(50000);
     bench.run("DelayTimeVarying Tick (linear)", [&] {
@@ -186,7 +186,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
     });
 
     sfFDN::DelayTimeVarying delay_time_varying_ap({kDelay, kMaxDelay, sfFDN::DelayInterpolationType::Allpass});
-    delay_time_varying_ap.SetMod(0.001f, 16.f);
+    delay_time_varying_ap.SetMod({0.001f, 16.f, 0.f});
     bench.minEpochIterations(10000);
     bench.run("DelayTimeVarying Tick (allpass)", [&] {
         for (auto i = 0u; i < kBlockSize; ++i)

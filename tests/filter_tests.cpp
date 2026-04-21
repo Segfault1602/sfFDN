@@ -224,11 +224,19 @@ TEST_CASE("ParallelSchroederAllpassSection")
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
 
-    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, 1);
-    std::array<uint32_t, kChannelCount> delays = {2, 3, 4, 5};
+    std::array<float, kChannelCount> delays = {2, 3, 4, 5};
     std::array<float, kChannelCount> gains = {-0.9f, -0.8f, -0.7f, -0.6f};
-    filter.SetDelays(delays);
-    filter.SetGains(gains);
+
+    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        sfFDN::SchroederAllpassSectionOptions section_options;
+        section_options.delays = {delays[i]};
+        section_options.gains = {gains[i]};
+        options.sections.push_back(section_options);
+    }
+
+    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)
@@ -241,7 +249,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
-    filter.Process(input_buffer, output_buffer);
+    filter->Process(input_buffer, output_buffer);
 
     constexpr std::array<float, kBlockSize> kOut0Expected = {0.9f, 0, 0.19f, 0, -0.171f, 0, 0.1539f, 0};
     constexpr std::array<float, kBlockSize> kOut1Expected = {0.8f, 0, 0, 0.36f, 0, 0, -0.288f, 0};
@@ -275,11 +283,19 @@ TEST_CASE("ParallelSchroederAllpassSection_Order2")
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
 
-    sfFDN::ParallelSchroederAllpassSection filter(kChannelCount, 2);
-    std::array<uint32_t, kChannelCount * 2> delays = {2, 5, 4, 1, 4, 6, 2, 5};
+    std::array<float, kChannelCount * 2> delays = {2, 5, 4, 1, 4, 6, 2, 5};
     std::array<float, kChannelCount> gains = {0.9f, 0.8f, 0.7f, 0.6f};
-    filter.SetDelays(delays);
-    filter.SetGains(gains);
+
+    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    for (auto i = 0u; i < kChannelCount; i++)
+    {
+        sfFDN::SchroederAllpassSectionOptions section_options;
+        section_options.delays = {delays[i * 2], delays[i * 2 + 1]};
+        section_options.gains = {gains[i], gains[i]};
+        options.sections.push_back(section_options);
+    }
+
+    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)
@@ -292,7 +308,7 @@ TEST_CASE("ParallelSchroederAllpassSection_Order2")
     sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
 
-    filter.Process(input_buffer, output_buffer);
+    filter->Process(input_buffer, output_buffer);
 
     constexpr std::array<float, kBlockSize> kOut0Expected = {0.810000f,  0.000000f,  -0.171000f, 0.000000f,
                                                              -0.153900f, -0.171000f, -0.138510f, 0.036100f};

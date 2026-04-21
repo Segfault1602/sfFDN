@@ -177,7 +177,7 @@ class PyFDN
 
         std::span<float> t60_span(config.attenuation_t60s.data(), config.attenuation_t60s.size());
         auto filter_bank = sfFDN::CreateAttenuationFilterBank(t60_span, delay_span, config.sample_rate);
-        fdn_.SetFilterBank(std::move(filter_bank));
+        fdn_.SetLoopFilter(std::move(filter_bank));
 
         if (config.tc_gains.is_valid())
         {

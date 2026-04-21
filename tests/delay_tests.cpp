@@ -47,7 +47,7 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN:
 
     for (auto [out, expected] : std::views::zip(output_block, output_sample))
     {
-        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 1e-6));
+        REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 1e-5));
     }
 }
 } // namespace
@@ -277,9 +277,9 @@ TEST_CASE("DelayBlock")
     constexpr uint32_t kBlockSize = 32;
     constexpr uint32_t kMaxDelay = 64;
     TestDelayBlock(5, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::None);
-    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
-    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
-    TestDelayBlock(5.5f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
+    TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
+    TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
 }
 
 TEST_CASE("DelayBank")

@@ -129,12 +129,12 @@ class FDN : public AudioProcessor
      * @return false if the filter bank could not be set. Only happens if filter_bank->InputChannelCount() or
      * filter_bank->OutputChannelCount() do not match GetOrder().
      */
-    bool SetFilterBank(std::unique_ptr<AudioProcessor> filter_bank);
+    bool SetLoopFilter(std::unique_ptr<AudioProcessor> filter_bank);
 
     /** @brief Get the Filter Bank AudioProcessor.
      * @returns A pointer to the Filter Bank AudioProcessor, or nullptr if not set.
      */
-    AudioProcessor* GetFilterBank() const;
+    AudioProcessor* GetLoopFilter() const;
 
     bool SetDelayBank(const DelayBankOptions& config);
 

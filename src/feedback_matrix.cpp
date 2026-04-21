@@ -61,7 +61,7 @@ bool ScalarFeedbackMatrix::GetMatrix(std::span<float> matrix) const
     {
         return false;
     }
-    std::copy(matrix_data_.begin(), matrix_data_.end(), matrix.begin());
+    std::ranges::copy(matrix_data_, matrix.begin());
     return true;
 }
 

@@ -6,11 +6,6 @@
 
 namespace sfFDN
 {
-void ThrowIfNotType(const nlohmann::json& j, const std::string& expected_type);
-void ThrowIfDoesNotContainKey(const nlohmann::json& j, const std::string& key);
-
-std::unique_ptr<AudioProcessor> from_json(const nlohmann::json& j);
-
 nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config);
 nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config);
 nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config);

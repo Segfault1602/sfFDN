@@ -21,7 +21,7 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32
     return ffm;
 }
 
-std::unique_ptr<sfFDN::AudioProcessor> GetFilterBank(uint32_t channel_count, uint32_t order)
+std::unique_ptr<sfFDN::AudioProcessor> GetLoopFilter(uint32_t channel_count, uint32_t order)
 {
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
 
@@ -90,8 +90,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
         sfFDN::ScalarFeedbackMatrix({fdn_order, sfFDN::ScalarMatrixType::Householder}));
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
-    auto filter_bank = GetFilterBank(fdn_order, 11);
-    fdn->SetFilterBank(std::move(filter_bank));
+    auto filter_bank = GetLoopFilter(fdn_order, 11);
+    fdn->SetLoopFilter(std::move(filter_bank));
 
     std::unique_ptr<sfFDN::CascadedBiquads> filter = std::make_unique<sfFDN::CascadedBiquads>();
     filter->SetCoefficients(std::span(k_h001_EqualizationSOS));
