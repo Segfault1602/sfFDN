@@ -32,8 +32,6 @@ class DelayBank : public AudioProcessor
      */
     DelayBank(const DelayBankOptions& config = {});
 
-    ~DelayBank() = default;
-
     /**
      * @brief Sets the maximum delay for all delay lines in the bank.
      * @param delay The maximum delay in samples.
@@ -100,7 +98,7 @@ class DelayBank : public AudioProcessor
 
   private:
     std::vector<DelayInterp> delays_;
-    uint32_t block_size_;
-    DelayInterpolationType interpolation_type_;
+    uint32_t block_size_{128};
+    DelayInterpolationType interpolation_type_{DelayInterpolationType::None};
 };
 } // namespace sfFDN

@@ -13,7 +13,7 @@
 namespace sfFDN
 {
 
-std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsOptions& config);
+std::unique_ptr<AudioProcessor> MakeParallelGainsFromConfig(const ParallelGainsOptions& options);
 
 /** @brief A parallel gains processor.
  * Supports three modes:

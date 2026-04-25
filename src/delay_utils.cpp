@@ -46,7 +46,7 @@ namespace sfFDN
 std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float max_delay, DelayLengthType type,
                                    uint32_t seed)
 {
-    std::vector<float> delays(delay_count, static_cast<float>(min_delay));
+    std::vector<float> delays(delay_count, min_delay);
     switch (type)
     {
     case DelayLengthType::Random:

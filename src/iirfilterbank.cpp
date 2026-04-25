@@ -245,7 +245,7 @@ class IIRFilterBank::IIRFilterBankImpl
             return;
         }
 
-        uint32_t stage_count = coeffs_d_.size() / (channel_count_ * 5);
+        const uint32_t stage_count = coeffs_d_.size() / (channel_count_ * 5);
         biquad_setup_ = vDSP_biquadm_CreateSetup(coeffs_d_.data(), stage_count, channel_count_);
     }
 
@@ -294,7 +294,7 @@ class IIRFilterBank::IIRFilterBankImpl
             throw std::runtime_error("Invalid coefficient size");
         }
 
-        const uint32_t stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
+        const auto stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
 
         coeffs_d_.reserve(coeffs.size());
         for (auto j = 0u; j < stage_count; ++j)

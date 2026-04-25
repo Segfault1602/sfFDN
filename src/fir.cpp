@@ -90,7 +90,7 @@ class Fir::FirImpl
   private:
     std::vector<float> coeffs_;
     std::vector<float> delay_line_;
-    uint32_t delay_index_;
+    uint32_t delay_index_{0};
 };
 #else
 class Fir::FirImpl

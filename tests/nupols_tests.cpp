@@ -35,7 +35,7 @@ TEST_CASE("PartitionedConvolver")
     auto fir = GetImpulseResponse(ref_filter.get());
     const uint32_t fir_length = fir.size();
 
-    sfFDN::PartitionedConvolver partitioned_convolver(kBlockSize, fir);
+    sfFDN::PartitionedConvolver partitioned_convolver(kBlockSize, fir, 2);
 
     sfFDN::Fir fir_filter;
     fir_filter.SetCoefficients(fir);

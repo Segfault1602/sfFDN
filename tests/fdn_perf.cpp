@@ -199,7 +199,7 @@ TEST_CASE("FDNPerf_Order")
 {
     constexpr uint32_t kBlockSize = 128;
 
-    constexpr std::array<uint32_t, 5> kFDNOrder = {4, 8, 16, 32, 64};
+    constexpr std::array<uint32_t, 12> kFDNOrder = {4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32, 64};
 
     nanobench::Bench bench;
     bench.title("FDN Perf - Order");
@@ -208,6 +208,8 @@ TEST_CASE("FDNPerf_Order")
     for (auto fdn_order : kFDNOrder)
     {
         auto fdn = CreateFDN(kBlockSize, fdn_order);
+        auto filter_bank = GetLoopFilter(fdn_order, 1);
+        fdn->SetLoopFilter(std::move(filter_bank));
 
         std::vector<float> input(kBlockSize, 0.f);
         std::vector<float> output(kBlockSize, 0.f);

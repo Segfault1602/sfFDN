@@ -112,12 +112,12 @@ FDN& FDN::operator=(FDN&& other) noexcept
         mixing_matrix_ = std::move(other.mixing_matrix_);
         input_gains_ = std::move(other.input_gains_);
         output_gains_ = std::move(other.output_gains_);
-        order_ = other.order_;
-        block_size_ = other.block_size_;
-        direct_gain_ = other.direct_gain_;
         feedback_ = std::move(other.feedback_);
         temp_buffer_ = std::move(other.temp_buffer_);
         tc_filter_ = std::move(other.tc_filter_);
+        order_ = other.order_;
+        direct_gain_ = other.direct_gain_;
+        block_size_ = other.block_size_;
         transpose_ = other.transpose_;
     }
     return *this;

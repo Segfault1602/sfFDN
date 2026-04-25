@@ -20,7 +20,7 @@ DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingOptions& co
 {
     // validate config
     const uint32_t num_delays = config.delays.size();
-    if (config.time_varying_config.size() > 0)
+    if (!config.time_varying_config.empty())
     {
         if (config.time_varying_config.size() != num_delays)
         {
@@ -31,8 +31,9 @@ DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingOptions& co
 
     for (uint32_t i = 0; i < num_delays; i++)
     {
-        DelayOptions delay_config{config.delays[i], config.max_delay, config.interpolation_type};
-        if (config.time_varying_config.size() > 0)
+        DelayOptions delay_config{
+            .delay = config.delays[i], .max_delay = config.max_delay, .interp_type = config.interpolation_type};
+        if (!config.time_varying_config.empty())
         {
             delay_config.lfo_config = config.time_varying_config.at(i);
         }

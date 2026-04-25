@@ -25,7 +25,7 @@ DelayBank::DelayBank(const DelayBankOptions& config)
             max_delay += 64 - (max_delay % 64);
         }
 
-        delays_.emplace_back(DelayOptions{delay, max_delay, interpolation_type_});
+        delays_.emplace_back(DelayOptions{.delay = delay, .max_delay = max_delay, .interp_type = interpolation_type_});
     }
 }
 
@@ -103,8 +103,6 @@ void DelayBank::GetNextOutputs(AudioBuffer& output)
 
 std::unique_ptr<AudioProcessor> DelayBank::Clone() const
 {
-    std::vector<float> delays = GetDelays();
-
     auto clone = std::make_unique<DelayBank>();
     clone->delays_ = delays_;
     clone->block_size_ = block_size_;

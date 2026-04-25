@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <fstream>
 #include <iostream>
 #include <memory>
 
@@ -72,10 +73,12 @@ TEST_CASE("PartitionedConvolver")
     }
 
     // Check for max time
-    constexpr auto kRepCount = 8u;
+    constexpr auto kRepCount = 2u;
     sfFDN::PartitionedConvolver nupols(kBlockSize, fir, kRepCount);
     sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    std::cout << "Measuring individual Process() calls for " << nupols.GetShortInfo() << "...\n";
 
     std::vector<float> durations;
     durations.reserve(1000);
@@ -87,6 +90,13 @@ TEST_CASE("PartitionedConvolver")
         double duration_us = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end - start).count();
         durations.push_back(duration_us);
     }
+
+    std::fstream out("nupols_perf_durations.txt", std::ios::out);
+    for (const auto& duration : durations)
+    {
+        out << duration << "\n";
+    }
+    out.close();
 
     constexpr double kMaxAllowedDurationUs = 1.0e6 / (48000.0 / kBlockSize);
     for (const auto& duration : durations)

@@ -1,12 +1,7 @@
 #pragma once
 
-#include "sffdn/delay_time_varying.h"
-#include "sffdn/delaybank.h"
-#include "sffdn/feedback_matrix.h"
-#include "sffdn/filter.h"
-#include "sffdn/filter_feedback_matrix.h"
-#include "sffdn/parallel_gains.h"
-#include "sffdn/schroeder_allpass.h"
+#include "sffdn/fdn.h"
+#include "sffdn/types.h"
 
 #include <cstdint>
 #include <variant>

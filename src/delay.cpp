@@ -88,8 +88,7 @@ float Delay::LastOut() const
 
 float Delay::NextOut() const
 {
-    float out = buffer_[out_point_];
-    return out;
+    return buffer_[out_point_];
 }
 
 float Delay::Tick(float input)

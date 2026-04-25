@@ -1,6 +1,6 @@
 ---
 Checks: "*,
-        readability-identifier-naming,
+        -readability-identifier-naming,
         -bugprone-implicit-widening-of-multiplication-result,
         -bugprone-easily-swappable-parameters,
         -bugprone-narrowing-conversions,
@@ -16,13 +16,16 @@ Checks: "*,
         -readability-magic-numbers,
         -readability-math-missing-parentheses,
         -readability-avoid-unconditional-preprocessor-if,
+        -readability-container-contains,
         -modernize-use-nodiscard,
         -modernize-use-default-member-init,
         -modernize-use-trailing-return-type,
         -modernize-use-std-numbers,
         -modernize-use-integer-sign-comparison,
         -misc-include-cleaner,
-        -cert-dcl58-cpp,
+        -misc-confusable-identifiers,
+        -mpi-*,
+        -cert-*,
         -abseil-*,
         -altera-*,
         -android-*,
@@ -33,7 +36,7 @@ Checks: "*,
         -hicpp-*,
         -zircon-*,
 "
-WarningsAsErrors: ''
+
 HeaderFilterRegex: ''
 FormatStyle:     none
 CheckOptions:

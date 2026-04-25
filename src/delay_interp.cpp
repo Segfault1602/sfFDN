@@ -129,27 +129,30 @@ float DelayInterp::Tick(float input)
     {
         return delayline_.Tick(input);
     }
-    else if (type_ == DelayInterpolationType::Linear)
+
+    if (type_ == DelayInterpolationType::Linear)
     {
         delayline_.Tick(input);
         const float a = delayline_.TapOut(int_delay_);
         const float b = delayline_.TapOut(int_delay_ + 1);
         return a + (b - a) * frac_delay_;
     }
-    else if (type_ == DelayInterpolationType::Allpass)
+
+    if (type_ == DelayInterpolationType::Allpass)
     {
         const float out = delayline_.Tick(input);
         return allpass_.Tick(out);
     }
-    else if (type_ == DelayInterpolationType::Lagrange)
+
+    if (type_ == DelayInterpolationType::Lagrange)
     {
         // const float out = delayline_.Tick(input);
         // return lagrange_filter_.Tick(out);
         delayline_.Tick(input);
-        float xm1 = delayline_.TapOut(int_delay_);
-        float x0 = delayline_.TapOut(int_delay_ + 1);
-        float x1 = delayline_.TapOut(int_delay_ + 2);
-        float x2 = delayline_.TapOut(int_delay_ + 3);
+        const float xm1 = delayline_.TapOut(int_delay_);
+        const float x0 = delayline_.TapOut(int_delay_ + 1);
+        const float x1 = delayline_.TapOut(int_delay_ + 2);
+        const float x2 = delayline_.TapOut(int_delay_ + 3);
         return xm1 * lagrange_coeffs_[0] + x0 * lagrange_coeffs_[1] + x1 * lagrange_coeffs_[2] +
                x2 * lagrange_coeffs_[3];
     }
@@ -177,7 +180,7 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcep
         linear_last_out_ = out_span[0];
         for (uint32_t n = 1; n < out_span.size(); ++n)
         {
-            float tmp = out_span[n];
+            const float tmp = out_span[n];
             out_span[n] = out_span[n] * coeffs[0] + linear_last_out_ * coeffs[1];
             linear_last_out_ = tmp;
         }
@@ -213,7 +216,7 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
         linear_last_out_ = output[0];
         for (uint32_t n = 1; n < output.size(); ++n)
         {
-            float tmp = output[n];
+            const float tmp = output[n];
             output[n] = output[n] * coeffs[0] + linear_last_out_ * coeffs[1];
             linear_last_out_ = tmp;
         }

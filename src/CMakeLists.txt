@@ -4,7 +4,7 @@ if(SFFDN_ENABLE_STATIC_ANALYSIS)
     message(STATUS "Enabling static analysis with clang-tidy")
     find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
     if(CLANG_TIDY_EXE)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--enable-check-profile")
     else()
         message(FATAL_ERROR "clang-tidy not found but SFFDN_ENABLE_STATIC_ANALYSIS is ON")
     endif()
@@ -71,7 +71,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn.h
-        #    ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
+           # ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_design.h
