@@ -119,7 +119,6 @@ TEST_CASE("Polyval")
 
 TEST_CASE("GraphicEQ")
 {
-    SKIP();
     constexpr double kSR = 48000;
     constexpr double kF0 = 1000.0;
     constexpr double kQ = 0.707;
