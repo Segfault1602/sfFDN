@@ -24,7 +24,7 @@ cpmaddpackage(
     GITHUB_REPOSITORY
     catchorg/Catch2
     VERSION
-    3.12.0
+    3.14.0
 )
 
 cpmaddpackage(
@@ -79,7 +79,9 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
 
-add_test(NAME sfFDN.tests COMMAND sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+include(Catch)
+catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(sfFDN.perf)
 target_sources(
