@@ -1,6 +1,7 @@
 #include "array_math.h"
 
 #include <cassert>
+#include <ranges>
 #include <span>
 
 #ifdef SFFDN_USE_IPP
