@@ -36,12 +36,6 @@ cpmaddpackage(
     master
 )
 
-if(Catch2_ADDED)
-    message(STATUS "Catch2 src dir: ${Catch2_SOURCE_DIR}")
-else()
-    message(FATAL_ERROR "Catch2 not found. Please ensure it is added as a dependency.")
-endif()
-
 get_target_property(_catch2_inc Catch2 INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(Catch2 SYSTEM INTERFACE ${_catch2_inc})
 
