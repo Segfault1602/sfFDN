@@ -38,6 +38,11 @@ jobs:
         # Working directory
         working-directory: "." # default is .
 
-    - uses: DenverCoder1/doxygen-github-pages-action@v2.0.0
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
+        # Default Doxyfile build documentation to html directory.
+        # Change the directory if changes in Doxyfile
+        publish_dir: ./docs/html
+        publish_branch: gh-pages
