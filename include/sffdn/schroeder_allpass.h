@@ -34,7 +34,13 @@ class SchroederAllpass
     SchroederAllpass(const SchroederAllpass&) = delete;
     SchroederAllpass& operator=(const SchroederAllpass&) = delete;
 
+    /** @brief Move constructor for the SchroederAllpass filter.
+     */
     SchroederAllpass(SchroederAllpass&&) = default;
+
+    /** @brief Move assignment operator for the SchroederAllpass filter.
+     * @return A reference to the assigned SchroederAllpass filter.
+     */
     SchroederAllpass& operator=(SchroederAllpass&&) = default;
 
     ~SchroederAllpass() = default;
@@ -100,6 +106,9 @@ class SchroederAllpassSection : public AudioProcessor
     /** @brief Constructs an empty SchroederAllpassSection. */
     SchroederAllpassSection() = default;
 
+    /** @brief Constructs a SchroederAllpassSection with a given configuration.
+     * @param config The configuration for the SchroederAllpassSection.
+     */
     SchroederAllpassSection(const SchroederAllpassSectionOptions& config);
 
     /** @brief Constructs a SchroederAllpassSection with a given number of filters.
@@ -110,7 +119,13 @@ class SchroederAllpassSection : public AudioProcessor
     SchroederAllpassSection(const SchroederAllpassSection&) = delete;
     SchroederAllpassSection& operator=(const SchroederAllpassSection&) = delete;
 
+    /** @brief Move constructor for the SchroederAllpassSection.
+     */
     SchroederAllpassSection(SchroederAllpassSection&&) noexcept;
+
+    /** @brief Move assignment operator for the SchroederAllpassSection.
+     * @return A reference to the assigned SchroederAllpassSection.
+     */
     SchroederAllpassSection& operator=(SchroederAllpassSection&&) noexcept;
 
     ~SchroederAllpassSection() = default;
@@ -120,6 +135,9 @@ class SchroederAllpassSection : public AudioProcessor
      */
     void SetFilterCount(uint32_t filter_count);
 
+    /** @brief Sets whether the allpass filters in the section are processed in parallel.
+     * @param parallel Whether to process the filters in parallel.
+     */
     void SetParallel(bool parallel);
 
     /** @brief Sets the delays for each allpass filter in the section.

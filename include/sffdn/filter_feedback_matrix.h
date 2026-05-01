@@ -29,7 +29,7 @@ class FilterFeedbackMatrix : public AudioProcessor
 {
   public:
     /** @brief Constructs a filter feedback matrix with a specified number of channels.
-     * @param info The information structure containing channel and stage counts, delays, and matrices.
+     * @param options The information structure containing channel and stage counts, delays, and matrices.
      */
     FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& options);
 
@@ -37,7 +37,16 @@ class FilterFeedbackMatrix : public AudioProcessor
 
     FilterFeedbackMatrix(const FilterFeedbackMatrix& other) = delete;
     FilterFeedbackMatrix& operator=(const FilterFeedbackMatrix& other) = delete;
+
+    /** @brief Move constructor for the filter feedback matrix.
+     * @param other The filter feedback matrix to move from.
+     */
     FilterFeedbackMatrix(FilterFeedbackMatrix&& other) noexcept;
+
+    /** @brief Move assignment operator for the filter feedback matrix.
+     * @param other The filter feedback matrix to move from.
+     * @return A reference to the assigned filter feedback matrix.
+     */
     FilterFeedbackMatrix& operator=(FilterFeedbackMatrix&& other) noexcept;
 
     /**
@@ -76,7 +85,13 @@ class FilterFeedbackMatrix : public AudioProcessor
     /** @brief Prints information about the filter feedback matrix to the standard output. */
     void PrintInfo() const;
 
-    // TODO: this is just for the GUI in FDNSandbox
+    /**
+     * @brief Retrieves the coefficients of the first feedback matrix in the cascade.
+     *
+     * @param matrix A span to fill with the coefficients of the first feedback matrix in column-major order. The span
+     * must be of size `channel_count_ * channel_count_`.
+     * @return true if the coefficients were retrieved successfully, false otherwise (e.g. if the size is incorrect).
+     */
     bool GetFirstMatrix(std::span<float> matrix) const;
 
     /** @brief Creates a copy of the filter feedback matrix.

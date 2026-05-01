@@ -23,8 +23,9 @@ namespace sfFDN
  * @param arg Optional argument for certain matrix types.
  * @return A flat vector containing the matrix elements in col-major order.
  *
- * @note For the VariableDiffusion type, the optional argument 'arg' specifies the sparsity level (0 <= arg <= 1).
- * @note Adapted from the implementation in the FDNTB toolbox by S. J. Schlecht:
+ * For the VariableDiffusion type, the optional argument 'arg' specifies the sparsity level (0 <= arg <= 1).
+ *
+ * Adapted from the implementation in the FDNTB toolbox by S. J. Schlecht:
  * https://github.com/SebastianJiroSchlecht/fdnToolbox/blob/master/Generate/fdnMatrixGallery.m
  */
 std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint32_t seed = 0,

@@ -137,6 +137,9 @@ class TimeVaryingParallelGains : public AudioProcessor
      */
     void GetCenterGains(std::span<float> gains) const;
 
+    /** @brief Sets the modulation options for each channel.
+     * @param modulation_configs A span of modulation options to apply to each channel.
+     */
     void SetModulation(std::span<const ModulationOptions> modulation_configs);
 
     /** @brief Sets the LFO frequency for each channel.

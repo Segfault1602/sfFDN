@@ -25,6 +25,15 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 constexpr uint32_t kDefaultSampleRate = 48000;
 constexpr uint32_t kDefaultBlockSize = 128;
+
+/** @defgroup AudioProcessorOptions Audio Processors Options
+ * @brief Structs for configuring audio processors used in the FDN.
+ */
+
+/** \addtogroup AudioProcessorOptions
+ *  @{
+ */
+
 // ENUMS
 
 /** @brief Represents the type of a scalar matrix.
@@ -51,11 +60,19 @@ enum class ScalarMatrixType : uint8_t
     Count = 9
 };
 
+/** @brief Types of interpolation for fractional delay lengths. */
 enum class DelayInterpolationType : uint8_t
 {
+    //! No interpolation. The delay length will be rounded to the nearest integer value.
     None = 0,
+
+    //! Linear interpolation.
     Linear = 1,
+
+    //! Allpass interpolation.
     Allpass = 2,
+
+    // Lagrange interpolation.
     Lagrange = 3,
     Count = 4,
 };
@@ -65,15 +82,24 @@ enum class DelayInterpolationType : uint8_t
  */
 enum class DelayLengthType : uint8_t
 {
+    //! Delay lengths are generated randomly within the specified range based on a uniform distribution
+    Random = 0,
 
-    Random = 0,     /**< %Delay lengths are generated randomly within the specified range based on a uniform
-                       distribution. */
-    Gaussian = 1,   /**< %Delay lengths are generated based on a Gaussian distribution within the specified range. */
-    Primes = 2,     /**< %Delay lengths are selected randomly from a list of prime numbers. */
-    Uniform = 3,    /**< %Delay lengths are uniformly distributed within the specified range. */
-    PrimePower = 4, /**< %Delay lengths are generated as powers of prime numbers within the specified range.
-     Based on https://ccrma.stanford.edu/~jos/pasp/Prime_Power_Delay_Line_Lengths.html*/
-    SteamAudio = 5, /**< %Delay lengths are generated using the algorithm from the SteamAudio library. */
+    //! Delay lengths are generated based on a Gaussian distribution within the specified range.
+    Gaussian = 1,
+
+    //! Delay lengths are selected randomly from a list of prime numbers within the specified range.
+    Primes = 2,
+
+    //! Delay lengths are uniformly distributed within the specified range.
+    Uniform = 3,
+
+    //! Delay lengths are generated as powers of prime numbers within the specified range.
+    //! Based on https://ccrma.stanford.edu/~jos/pasp/Prime_Power_Delay_Line_Lengths.html
+    PrimePower = 4,
+
+    //! Delay lengths are generated using the algorithm from the SteamAudio library.
+    SteamAudio = 5,
 
     Count = 6,
 };
@@ -81,28 +107,48 @@ enum class DelayLengthType : uint8_t
 /** @brief Enumeration for parallel gain processing modes. */
 enum class ParallelGainsMode : uint8_t
 {
-    Split,   /** < Process input as a single channel and output to multiple channels */
-    Merge,   /** < Process each input channel separately and output to one channel */
-    Parallel /** < Process each input channel separately and output to the same number of channels */
+    //! Process input as a single channel and output to multiple channels
+    Split,
+
+    //! Process each input channel separately and output to one channel
+    Merge,
+
+    //! Process each input channel separately and output to the same number of channels
+    Parallel
 };
 
 // STRUCTS
 
-/** @brief Options for configuring a scalar feedback matrix. */
+/** @brief Options for configuring a scalar feedback matrix.
+ *
+ * Can be use to construct a ScalarFeedbackMatrix.
+ */
 struct ScalarFeedbackMatrixOptions
 {
-    uint32_t matrix_size;                            /**< Size of the feedback matrix */
-    ScalarMatrixType type{ScalarMatrixType::Random}; /**< Type of the feedback matrix */
-    std::optional<std::vector<float>> custom_matrix{
-        std::nullopt}; /**< Optional custom matrix values in col-major order. The size of the vector must be equal to
-                          matrix_size * matrix_size. If this is set, `type` is ignored. */
+    //! Size of the feedback matrix
+    uint32_t matrix_size;
 
-    uint32_t rng_seed{0}; /*< Optional. Seed for random number generation when type is Random or RandomHouseholder. */
-    std::optional<float> arg{std::nullopt}; /*< Optional argument for certain matrix types. For example, for the
-                                               VariableDiffusion type, this could represent the diffusion parameter. */
+    //! Type of the feedback matrix
+    ScalarMatrixType type{ScalarMatrixType::Random};
+
+    //!   Optional custom matrix values in col-major order. The size of the vector must be equal to
+    //! matrix_size*matrix_size. If this is set, `type` is ignored.
+    std::optional<std::vector<float>> custom_matrix{std::nullopt};
+
+    //! Optional. Seed for random number generation when type is Random or RandomHouseholder.
+    uint32_t rng_seed{0};
+
+    //! Optional argument for certain matrix types. For example, for the VariableDiffusion type, this could represent
+    // the diffusion parameter.
+    std::optional<float> arg{std::nullopt};
 };
 
 /** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
+ *
+ * A cascaded feedback matrix is composed of multiple stages, where each stage consists of a scalar feedback matrix
+ * followed by a bank of delay lines.
+ *
+ * Can be used to construct a FilterFeedbackMatrix.
  */
 struct CascadedFeedbackMatrixOptions
 {
@@ -174,16 +220,35 @@ struct DelayBankTimeVaryingOptions
 /** @brief Coefficients for a digital IIR filter. */
 struct FilterCoefficients
 {
-    float b0, b1, b2, a0, a1, a2;
+    //! Feedforward coefficients
+    float b0;
 
+    //! Feedforward coefficients
+    float b1;
+
+    //! Feedforward coefficients
+    float b2;
+
+    //! Feedback coefficient
+    float a0;
+
+    //! Feedback coefficient
+    float a1;
+
+    //! Feedback coefficient
+    float a2;
+
+    /** @brief Returns the filter coefficients normalized so that a0 is equal to 1. */
     FilterCoefficients Normalize() const
     {
         return {b0 / a0, b1 / a0, b2 / a0, 1.0f, a1 / a0, a2 / a0};
     }
 };
 
+/** @brief Options for configuring an allpass filter. */
 struct AllpassFilterOptions
 {
+    /** @brief The coefficient for the allpass filter. */
     float coeff{0.f};
 };
 
@@ -273,41 +338,60 @@ struct ThreeBandFilterOptions
  */
 struct TenBandFilterOptions
 {
-    std::array<float, 10> t60s = {1.f,  0.9f, 0.8f, 0.7f, 0.6f,
-                                  0.5f, 0.4f, 0.3f, 0.2f, 0.1f}; /**< Target T60 values for the ten bands. */
-    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
-                    automatically when accessed from `CreateFDNFromConfig()`*/
-    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
-                                               based on the specified T60 values. */
-    float shelf_cutoff = 8000.f;            /*< Cutoff frequency for the shelf filters. */
+    //! Target T60 values for the ten bands.
+    std::array<float, 10> t60s = {1.f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f, 0.3f, 0.2f, 0.1f};
+
+    //! Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated automatically when
+    //! accessed from `CreateFDNFromConfig()`
+    float delay;
+
+    //! Sample rate in Hz. This is used to calculate the filter coefficients based on the specified T60 values.
+    float sample_rate = kDefaultSampleRate;
+
+    //! Cutoff frequency for the shelf filters.
+    float shelf_cutoff = 8000.f;
 };
 
+/** @brief Variant type for holding different attenuation filter options. */
 using attenuation_filter_variant_t =
     std::variant<HomogenousFilterOptions, TwoBandFilterOptions, ThreeBandFilterOptions, TenBandFilterOptions>;
 
 /** @brief Options for configuring an attenuation filter bank. */
 struct AttenuationFilterBankOptions
 {
+    //! Vector of attenuation filter configurations.
     std::vector<attenuation_filter_variant_t> filter_configs;
 };
 
+/** @brief Options for configuring a graphic equalizer. */
 struct GraphicEQOptions
 {
+
+    //! Target gains for the ten bands in dB.
     std::array<float, 10> gains_db;
+
+    //! Frequency values for the ten bands in Hz.
     std::array<float, 10> freqs;
+
+    //! Sample rate in Hz.
     float sample_rate = kDefaultSampleRate;
 };
 
+/** @brief Variant type for holding different feedback matrix options. */
 using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
 
+/** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
     std::variant<SchroederAllpassSectionOptions, AllpassFilterOptions, CascadedBiquadsOptions, FirOptions, DelayOptions,
                  GraphicEQOptions>;
 
+/** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
     std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
                  DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
                  ScalarFeedbackMatrixOptions>;
+
+/** @}*/
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ScalarMatrixType, {{ScalarMatrixType::Identity, "Identity"},
                                                 {ScalarMatrixType::Random, "Random"},

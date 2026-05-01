@@ -14,6 +14,16 @@
             },
             "problemMatcher": [],
             "detail": "CMake template build task"
+        },
+        {
+            "label": "Run Doxygen",
+            "type": "shell",
+            "command": "doxygen ./docs/doxygen.cfg",
+            "isBackground": false,
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
         }
     ]
 }
