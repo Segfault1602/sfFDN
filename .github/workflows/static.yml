@@ -43,7 +43,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload Doxygen generated documentation
-          path: './docs/output'
+          path: './docs/output/html'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
