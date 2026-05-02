@@ -73,7 +73,12 @@ class IIRFilterBank : public AudioProcessor
     IIRFilterBank(const IIRFilterBank&) = delete;
     IIRFilterBank& operator=(const IIRFilterBank&) = delete;
 
+    /** @brief Move constructor for the IIR filter bank.
+     */
     IIRFilterBank(IIRFilterBank&&) noexcept;
+    /** @brief Move assignment operator for the IIR filter bank.
+     * @return A reference to the assigned IIR filter bank.
+     */
     IIRFilterBank& operator=(IIRFilterBank&&) noexcept;
 
     ~IIRFilterBank();

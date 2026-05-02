@@ -33,11 +33,11 @@ class DelayBank : public AudioProcessor
     DelayBank(const DelayBankOptions& config = {});
 
     /**
-     * @brief Sets the maximum delay for all delay lines in the bank.
-     * @param delay The maximum delay in samples.
-     * @param block_size The size of the audio blocks to be processed in the main loop.
-     * @note This can increase the size of the internal buffers if the new maximum delay is larger than the current
-     * buffer size.
+     * @brief Sets the delay values for each channel in the delay bank.
+     * @param delays A span of delay values in samples for each channel. The size of the span determines the number of
+     * channels in the delay bank.
+     * @param block_size The block size for processing audio. This is used to determine the optimal size of the internal
+     * buffers for each delay line and can affect performance.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
     void SetDelays(const std::span<const float> delays, uint32_t block_size = 512);

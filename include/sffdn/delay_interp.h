@@ -14,14 +14,16 @@
 namespace sfFDN
 {
 
-/** @brief Delay line with interpolation. */
+/** @brief Delay line with interpolation.
+ *
+ * @ingroup AudioProcessors
+ */
 class DelayInterp : public AudioProcessor
 {
   public:
     /**
      * @brief Constructs a delay line with interpolation.
-     * @param delay The initial delay in samples.
-     * @param max_delay The maximum delay in samples.
+     * @param config The configuration for the delay line.
      */
     DelayInterp(const DelayOptions& config = {});
 

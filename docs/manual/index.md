@@ -1,12 +1,11 @@
 # sfFDN: Real-Time Feedback Delay Network Library
 
-[**More documentation here!**](https://segfault1602.github.io/sfFDN/)
-
 **sfFDN** is a C++ library inspired by the MATLAB Feedback Delay Network Toolbox (FDNTB) by S. J. Schlecht[^1]. It provides efficient implementations of FDNs with various features such as:
 - Configurable delay lines
 - Different types of feedback matrices (e.g., Hadamard, Householder, Random, Circulant, etc.)
 - Filter Feedback Matrices (FFM) as presented in [^2]
 - Single channel and multi-channel IIR filters
+- Attenuation filter variants for frequency-dependent decay control
 - Graphic Equalizers filter as presented in [^3]
 - Partitioned convolution for FIR filtering
 - Sparse FIR filter
@@ -18,13 +17,13 @@
 The FDN topology implemented in sfFDN is based on the canonical structure found in the literature and is shown here:
 ![sfFDN Architecture](sfFDN.svg)
 
-This topology can be separated into seven building blocks: the input gains (green), the delay lines (yellow), the loop filters (red), the feedback matrix (orange), the output gains (blue), the tone correction filter (purple), and the direct gain (gray). At the heart of the library is the \verb|AudioProcessor| interface. In the context of sfFDN, an audio processor is defined as a class that can take $N_{in}$ channels of audio, apply a transformation (e.g., filtering, delay, mixing matrix), and finally output $N_{out}$ channels of audio. The `AudioProcessorChain` class can be used to chain multiple audio processors in series and the `FilterBank` class can similarly be used to group multiple single-channel audio processors into a bank of parallel processor.
+This topology can be separated into seven building blocks: the input gains (green), the delay lines (yellow), the loop filters (red), the feedback matrix (orange), the output gains (blue), the tone correction filter (purple), and the direct gain (gray). At the heart of the library is the *AudioProcessor* interface. In the context of sfFDN, an audio processor is defined as a class that can take \f$N_{in}\f$ channels of audio, apply a transformation (e.g., filtering, delay, mixing matrix), and finally output \f$N_{out}\f$ channels of audio. The `AudioProcessorChain` class can be used to chain multiple audio processors in series and the `FilterBank` class can similarly be used to group multiple single-channel audio processors into a bank of parallel processor.
 
 <details>
 
 <summary> Input/Output gains </summary>
 
-The input gains block supports any processor that takes a single channel of audio as input and outputs $N$ channels of audio. Conversely, the output gains block consists of any processor that takes $N$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain ($b_i$, $c_i$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into $N$ output channels (input gains) or sum $N$ input channels into a single output channel (output gains). FIR filters are a commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining an 'FIR' processor with the `ParallelGains` processor. For longer FIR filters, the `PartitionedConvolver` processor can be used to greatly reduce the computational cost of the convolution. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented easily in sfFDN by using the `SparseFIR` class which provides an efficient implementation of sparse FIR filters, especially suited for velvet-noise sequences. The `FilterBank` processor can also be used to create a bank of parallel filters, allowing for each channel to have its own unique FIR or velvet-noise filter.
+The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain (\f$b_i\f$, \f$c_i\f$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into \f$N\f$ output channels (input gains) or sum \f$N\f$ input channels into a single output channel (output gains). FIR filters are a commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining an 'FIR' processor with the `ParallelGains` processor. For longer FIR filters, the `PartitionedConvolver` processor can be used to greatly reduce the computational cost of the convolution. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented easily in sfFDN by using the `SparseFIR` class which provides an efficient implementation of sparse FIR filters, especially suited for velvet-noise sequences. The `FilterBank` processor can also be used to create a bank of parallel filters, allowing for each channel to have its own unique FIR or velvet-noise filter.
 
 </details>
 
@@ -52,15 +51,15 @@ deviation.
 <details>
 <summary> Feedback Matrix </summary>
 
-The feedback matrix supports any processor that takes N channels of audio as input and outputs $N$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. Arbitrary matrix can also be constructed by providing the matrix coefficient directly. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7]. The matrix multiplications are performed using [Eigen](https://libeigen.gitlab.io) for fast performance.
+The feedback matrix supports any processor that takes N channels of audio as input and outputs \f$N\f$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. Arbitrary matrix can also be constructed by providing the matrix coefficient directly. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7]. The matrix multiplications are performed using [Eigen](https://libeigen.gitlab.io) for fast performance.
 
 </details>
 
 <details>
 <summary> Loop Filters </summary>
 
-The loop filters block is an optional block that supports any processor that takes $N$ channels of
-audio as input and outputs $N$ channels of audio. Most commonly, a bank of $N$ parallel filters are used to control the decay time of the FDN. The function `CreateAttenuationFilterBank()` can be used to create a bank of filters to control the decay time of the FDN. The type of filter used depends on the length of the `t60s` span parameter. If 1 $T_{60}$ value is provided, a simple homogenous decay is applied to all delay lines using a simple gain scalar. If 2 $T_{60}$ values are provided, a one-pole lowwpass filter is designed to achieve the desired decay time at low and high frequencies. If 10 $T_{60}$ values are provided, a graphic equalizer filter is designed to achieve the desired decay time at 10 octave bands. The `FilterBank` class can also be used to create an arbitrary bank of parallel filters, allowing for each channel to have its own unique filter.
+The loop filters block is an optional block that supports any processor that takes \f$N\f$ channels of
+audio as input and outputs \f$N\f$ channels of audio. Most commonly, a bank of \f$N\f$ parallel filters are used to control the decay time of the FDN. The function `CreateAttenuationFilterBank()` can be used to create a bank of filters to control the decay time of the FDN. The type of filter used depends on the length of the `t60s` span parameter. If 1 \f$T_{60}\f$ value is provided, a simple homogenous decay is applied to all delay lines using a simple gain scalar. If 2 \f$T_{60}\f$ values are provided, a one-pole lowwpass filter is designed to achieve the desired decay time at low and high frequencies. If 10 \f$T_{60}\f$ values are provided, a graphic equalizer filter is designed to achieve the desired decay time at 10 octave bands. The `FilterBank` class can also be used to create an arbitrary bank of parallel filters, allowing for each channel to have its own unique filter.
 
 </details>
 
@@ -196,5 +195,3 @@ target_link_libraries(your_target PRIVATE sfFDN::sfFDN)
 [^6]: S. J. Schlecht, “Allpass Feedback Delay Networks,” IEEE Trans. Signal Process., vol. 69, pp. 1028–1038, 2021, doi: 10.1109/TSP.2021.3053507.
 
 [^7]: S. J. Schlecht and E. A. P. Habets, “Scattering in Feedback Delay Networks,” IEEE/ACM Trans. Audio, Speech, Lang. Process., vol. 28, Jun. 2020.
-
-

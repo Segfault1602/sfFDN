@@ -23,6 +23,7 @@ class PartitionedConvolver : public AudioProcessor
      *
      * @param block_size The block size to use for processing.
      * @param fir The FIR filter coefficients.
+     * @param rep_count The number of times to repeat each block in the partitioned convolution.
      * The PartitionedConvolver only works if the block size stays constant during use.
      * Process() expects the input and output buffers to have a sample count equal to the block size.
      */
@@ -32,7 +33,12 @@ class PartitionedConvolver : public AudioProcessor
     PartitionedConvolver(const PartitionedConvolver&) = delete;
     PartitionedConvolver& operator=(const PartitionedConvolver&) = delete;
 
+    /** @brief Move constructor for the partitioned convolver.*/
     PartitionedConvolver(PartitionedConvolver&&) noexcept;
+
+    /** @brief Move assignment operator for the partitioned convolver.
+     * @return A reference to the assigned partitioned convolver.
+     */
     PartitionedConvolver& operator=(PartitionedConvolver&&) noexcept;
 
     /** @brief Processes the audio buffer.
@@ -42,12 +48,18 @@ class PartitionedConvolver : public AudioProcessor
      */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
 
+    /** @brief Gets the block size used for processing.
+     * @returns The block size used for processing.
+     */
     uint32_t GetBlockSize() const;
 
     /** @brief Dumps internal information to the standard output for debugging purposes.
      */
     void DumpInfo() const;
 
+    /** @brief Gets a short string representation of the internal state of the convolver for debugging purposes.
+     * @returns A short string representation of the internal state of the convolver.
+     */
     std::string GetShortInfo() const;
 
     /** @brief Gets the number of input channels supported.

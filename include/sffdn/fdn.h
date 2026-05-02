@@ -31,7 +31,13 @@ class FDN : public AudioProcessor
     FDN(const FDN&) = delete;
     FDN& operator=(const FDN&) = delete;
 
+    /** @brief Move constructor for the FDN.
+     */
     FDN(FDN&&) noexcept;
+
+    /** @brief Move assignment operator for the FDN.
+     * @return A reference to the assigned FDN.
+     */
     FDN& operator=(FDN&&) noexcept;
 
     /**
@@ -136,10 +142,16 @@ class FDN : public AudioProcessor
      */
     AudioProcessor* GetLoopFilter() const;
 
+    /** @brief Set the delay bank.
+     * @param config The configuration for the delay bank.
+     * @return true if the delay bank was set successfully
+     * @return false if the delay bank could not be set.
+     */
     bool SetDelayBank(const DelayBankOptions& config);
 
     /** @brief Set the delays.
      * @param delays A span of delay lengths in samples. The size of the span must be equal to GetOrder().
+     * @param interpolation_type The type of interpolation to use for the delays.
      * @return true if the delays were set successfully
      * @return false if the delays could not be set. Happens if the size of the span does not match GetOrder() or if any
      * of the delay lengths are smaller than the block_size set in the constructor.
