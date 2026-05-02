@@ -1,5 +1,7 @@
 # sfFDN: Real-Time Feedback Delay Network Library
 
+[**More documentation here!**](https://segfault1602.github.io/sfFDN/)
+
 **sfFDN** is a C++ library inspired by the MATLAB Feedback Delay Network Toolbox (FDNTB) by S. J. Schlecht[^1]. It provides efficient implementations of FDNs with various features such as:
 - Configurable delay lines
 - Different types of feedback matrices (e.g., Hadamard, Householder, Random, Circulant, etc.)
