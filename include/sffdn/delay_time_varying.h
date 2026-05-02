@@ -14,7 +14,9 @@
 namespace sfFDN
 {
 
-/** @brief A delay line with time-varying delay. */
+/** @brief A delay line with time-varying delay.
+ * @ingroup AudioProcessors
+ */
 class DelayTimeVarying : public AudioProcessor
 {
   public:

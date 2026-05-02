@@ -33,6 +33,10 @@ class Delay
      */
     void SetMaximumDelay(uint32_t delay);
 
+    /**
+     * @brief Gets the maximum delay-line length.
+     * @return The maximum delay in samples.
+     */
     uint32_t GetMaximumDelay() const;
 
     /**
@@ -47,6 +51,10 @@ class Delay
         return delay_;
     };
 
+    /**
+     * @brief Returns the last output sample from the delay line.
+     * @return The last output sample.
+     */
     float LastOut() const;
 
     /**
@@ -144,7 +152,7 @@ class Delay
      */
     void AdvanceRead(uint32_t sample_count);
 
-  protected:
+  private:
     uint32_t in_point_;
     uint32_t out_point_;
     uint32_t delay_;

@@ -32,6 +32,10 @@ class OnePoleFilter : public AudioProcessor
      */
     void SetPole(float pole);
 
+    /** @brief Set the coefficients of the filter.
+     * @param b0 The feedforward coefficient.
+     * @param a1 The feedback coefficient.
+     */
     void SetCoefficients(float b0, float a1);
 
     /**
@@ -198,6 +202,8 @@ class CascadedBiquads : public AudioProcessor
      */
     std::unique_ptr<AudioProcessor> Clone() const override;
 
+    /** @brief Represents the internal state of the IIR filter.
+     */
     struct IIRState
     {
         float s0, s1;
@@ -209,6 +215,9 @@ class CascadedBiquads : public AudioProcessor
     std::vector<FilterCoefficients> coeffs_;
 };
 
+/** @brief Implements an FIR filter with arbitrary coefficients.
+ * @ingroup AudioProcessors
+ */
 class Fir : public AudioProcessor
 {
   public:
@@ -216,10 +225,22 @@ class Fir : public AudioProcessor
     Fir(const FirOptions& config = {});
     ~Fir();
 
+    /** @brief Copy constructor for the FIR filter.
+     */
     Fir(const Fir&);
+
+    /** @brief Copy assignment operator for the FIR filter.
+     * @return A reference to the assigned FIR filter.
+     */
     Fir& operator=(const Fir&);
 
+    /** @brief Move constructor for the FIR filter.
+     */
     Fir(Fir&&) noexcept;
+
+    /** @brief Move assignment operator for the FIR filter.
+     * @return A reference to the assigned FIR filter.
+     */
     Fir& operator=(Fir&&) noexcept;
 
     /** @brief Sets the FIR coefficients.
@@ -268,6 +289,9 @@ class Fir : public AudioProcessor
     std::unique_ptr<FirImpl> impl_;
 };
 
+/** @brief Implements a sparse FIR filter.
+ * @ingroup AudioProcessors
+ */
 class SparseFir : public AudioProcessor
 {
   public:
@@ -276,7 +300,7 @@ class SparseFir : public AudioProcessor
     ~SparseFir();
 
     /** @brief Sets the FIR coefficients.
-     * @param coeffs The FIR coefficients.
+     * @param config The FIR coefficients.
      */
     void SetCoefficients(const SparseFirOptions& config = {});
 
@@ -323,6 +347,13 @@ class SparseFir : public AudioProcessor
     SparseFirOptions config_;
 };
 
+/** @brief Creates an Fir or SparseFir filter based on the provided configuration.
+ * @param config The configuration for the FIR filter.
+ * @param sparse_threshold The threshold for determining whether to create a sparse FIR filter. If the ratio of non-zero
+ * coefficients to total coefficients is below this threshold, a SparseFir filter will be created. Otherwise, a regular
+ * Fir filter will be created.
+ * @return A unique pointer to the created FIR filter.
+ */
 std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold = 0.25f);
 
 } // namespace sfFDN

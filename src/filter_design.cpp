@@ -413,15 +413,16 @@ std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& optio
     return sos_f;
 }
 
-std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(attenuation_filter_variant_t options,
+std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_filter_variant_t& options,
                                                             std::span<const float> delays)
 {
     sfFDN::AttenuationFilterBankOptions fb_options;
     fb_options.filter_configs.resize(delays.size());
     for (size_t i = 0; i < delays.size(); ++i)
     {
-        std::visit(sfFDN::overloaded{[&](auto& arg) { arg.delay = delays[i]; }}, options);
-        fb_options.filter_configs[i] = options;
+        auto option_copy = options;
+        std::visit(sfFDN::overloaded{[&](auto& arg) { arg.delay = delays[i]; }}, option_copy);
+        fb_options.filter_configs[i] = option_copy;
     }
     return CreateAttenuationFilterBank(fb_options);
 }
