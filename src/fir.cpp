@@ -64,12 +64,12 @@ class Fir::FirImpl
         }
     }
 
-    uint32_t InputChannelCount() const
+    constexpr uint32_t InputChannelCount() const
     {
         return 1;
     }
 
-    uint32_t OutputChannelCount() const
+    constexpr uint32_t OutputChannelCount() const
     {
         return 1;
     }

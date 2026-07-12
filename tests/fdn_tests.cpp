@@ -318,7 +318,8 @@ TEST_CASE("FDNConfig_Example")
     config.delay_bank_config = delay_bank_options;
 
     sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
-                                                    .gains = std::vector<float>(config.fdn_size, 0.5f)};
+                                                    .gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                    .time_varying_config = {}};
 
     config.input_block_config.parallel_gains_config = input_gains_options;
 
@@ -333,12 +334,13 @@ TEST_CASE("FDNConfig_Example")
 
     // If only 1 filter is found in AttenuationFilterBankOptions, CreateFDNFromConfig() will reuse the same filter for
     // all channels, updating the delay value based on the corresponding delay line length for each channel.
-    attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
+    attenuation_filter_bank_options.filter_configs.emplace_back(homogenous_filter_options);
 
-    config.loop_filter_configs.push_back(attenuation_filter_bank_options);
+    config.loop_filter_configs.emplace_back(attenuation_filter_bank_options);
 
     sfFDN::ParallelGainsOptions output_gains_options{.mode = sfFDN::ParallelGainsMode::Merge,
-                                                     .gains = std::vector<float>(config.fdn_size, 0.5f)};
+                                                     .gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                     .time_varying_config = {}};
 
     config.output_block_config.parallel_gains_config = output_gains_options;
 

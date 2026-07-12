@@ -87,6 +87,7 @@ add_executable(sfFDN.perf)
 target_sources(
     sfFDN.perf
     PRIVATE fdn_perf.cpp
+            fdn_perf2.cpp
             filter_perf.cpp
             filter_design_perf.cpp
             delay_perf.cpp

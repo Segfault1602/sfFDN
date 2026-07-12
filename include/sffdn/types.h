@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <numbers>
 #include <optional>
-#include <tuple>
 #include <variant>
 #include <vector>
 
@@ -152,10 +151,10 @@ struct ScalarFeedbackMatrixOptions
  */
 struct CascadedFeedbackMatrixOptions
 {
-    uint32_t matrix_size; /**< Size of the feedback matrix */
-    uint32_t stage_count; /**< Number of stages */
-    float sparsity{1.f};  /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
-                             values correspond to sparser matrices. */
+    uint32_t matrix_size{0}; /**< Size of the feedback matrix */
+    uint32_t stage_count{0}; /**< Number of stages */
+    float sparsity{1.f};     /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
+                                values correspond to sparser matrices. */
     ScalarMatrixType type{
         ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
     float gain_per_samples{1.f};   /**< Gain per sample. */
@@ -176,7 +175,7 @@ struct ParallelGainsOptions
     std::vector<float>
         gains; /**< Gain values for each channel. The size of the vector determines the number of channels. */
     std::vector<ModulationOptions>
-        time_varying_config{}; /**< Optional time-varying modulation configuration for each channel. The size of the
+        time_varying_config; /**< Optional time-varying modulation configuration for each channel. The size of the
                                   vector must match the size of `gains` if provided. */
 };
 
@@ -241,7 +240,7 @@ struct FilterCoefficients
     /** @brief Returns the filter coefficients normalized so that a0 is equal to 1. */
     FilterCoefficients Normalize() const
     {
-        return {b0 / a0, b1 / a0, b2 / a0, 1.0f, a1 / a0, a2 / a0};
+        return {.b0 = b0 / a0, .b1 = b1 / a0, .b2 = b2 / a0, .a0 = 1.0f, .a1 = a1 / a0, .a2 = a2 / a0};
     }
 };
 
@@ -270,6 +269,11 @@ struct FirOptions
     std::vector<float> coeffs{1.f};
 };
 
+struct MultichannelFirOptions
+{
+    std::vector<std::vector<float>> coeffs;
+};
+
 /** @brief Options for configuring a Schroeder allpass section consisting of `N` Schroeder allpass in series or in
  * parallel.*/
 struct SchroederAllpassSectionOptions
@@ -292,9 +296,9 @@ struct MultichannelSchroederAllpassSectionOptions
  * across all frequencies. */
 struct HomogenousFilterOptions
 {
-    float t60 = 1.f; /*< Target T60 value for the filter. */
-    float delay;     /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
-                        automatically when accessed from `CreateFDNFromConfig()`*/
+    float t60 = 1.f;  /*< Target T60 value for the filter. */
+    float delay{1.f}; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+                    automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
 };
@@ -308,7 +312,7 @@ struct HomogenousFilterOptions
 struct TwoBandFilterOptions
 {
     std::array<float, 2> t60s{1.f, 0.5f}; /**< Target T60 values for the low and high bands. */
-    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+    float delay{0.f}; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
                     automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
@@ -320,7 +324,7 @@ struct TwoBandFilterOptions
 struct ThreeBandFilterOptions
 {
     std::array<float, 3> t60s{1.f, 0.5f, 0.25f}; /*< Target T60 values for the low, mid and high bands. */
-    float delay; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
+    float delay{0.f}; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
                     automatically when accessed from `CreateFDNFromConfig()`*/
     std::array<float, 2> freqs{800.f, 8000.f};    /*< Frequency values for the low and high shelves. */
     float q = 1.f / std::numbers::sqrt2_v<float>; /*< Q-factor for the shelf filters. Q values higher than 0.707 may
@@ -343,7 +347,7 @@ struct TenBandFilterOptions
 
     //! Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated automatically when
     //! accessed from `CreateFDNFromConfig()`
-    float delay;
+    float delay{0.f};
 
     //! Sample rate in Hz. This is used to calculate the filter coefficients based on the specified T60 values.
     float sample_rate = kDefaultSampleRate;
@@ -366,7 +370,6 @@ struct AttenuationFilterBankOptions
 /** @brief Options for configuring a graphic equalizer. */
 struct GraphicEQOptions
 {
-
     //! Target gains for the ten bands in dB.
     std::array<float, 10> gains_db;
 
@@ -389,7 +392,7 @@ using single_channel_processor_variant_t =
 using multi_channel_processor_variant_t =
     std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
                  DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
-                 ScalarFeedbackMatrixOptions>;
+                 ScalarFeedbackMatrixOptions, MultichannelFirOptions>;
 
 /** @}*/
 
@@ -436,6 +439,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AllpassFilterOptions, coeff);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelFirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);

@@ -333,6 +333,17 @@ struct MultichannelProcessorVisitor
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelFirOptions& fir_config) const
+    {
+        auto bank = std::make_unique<sfFDN::FilterBank>();
+        for (const auto& coeffs : fir_config.coeffs)
+        {
+            auto fir = sfFDN::MakeFirFilter(sfFDN::FirOptions{coeffs});
+            bank->AddFilter(std::move(fir));
+        }
+        return bank;
+    }
 };
 
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)

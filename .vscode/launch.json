@@ -36,7 +36,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/ninja/tests/Debug/sfFDN.tests",
             "args": [
-                "PartitionedConvolver"
+                "Hadamard_Block"
             ],
             "MIMode": "lldb",
             "cwd": "${workspaceFolder}",
@@ -45,8 +45,10 @@
             "name": "Perf",
             "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/tests/sfFDN.perf",
-            "args": [],
+            "program": "${workspaceFolder}/build/ninja/tests/debug/sfFDN.perf",
+            "args": [
+                "Hadamard_Block"
+            ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "env": [],

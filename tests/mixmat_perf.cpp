@@ -21,7 +21,8 @@ TEST_CASE("MixMatPerf")
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kInputSize = kMatSize * kBlockSize;
 
-    sfFDN::ScalarFeedbackMatrix mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Householder});
+    sfFDN::ScalarFeedbackMatrix mix_mat =
+        sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Householder});
 
     std::array<float, kInputSize> input{};
     std::array<float, kInputSize> output{};
@@ -46,14 +47,15 @@ TEST_CASE("MixMatPerf")
         nanobench::doNotOptimizeAway(output);
     });
 
-    sfFDN::ScalarFeedbackMatrix random_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Random});
+    sfFDN::ScalarFeedbackMatrix random_mat =
+        sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Random});
 
     bench.run("Random", [&] {
         random_mat.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
     });
 
-    auto hadamard = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
+    auto hadamard = sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Hadamard});
     bench.run("Hadamard", [&] {
         hadamard.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);

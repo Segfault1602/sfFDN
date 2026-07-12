@@ -45,7 +45,7 @@ alignas(64) constexpr std::array<float, 16 * 16> kMatrix16x16 = {
 
 //clang-format on
 
-alignas(64) constexpr std::array<float, 16> kInput = {1.0f, 2.0f,  3.0f,  4.0f,  5.0f,  6.0f,  7.0f,  8.0f,
+constexpr std::array<float, 16> kInput = {1.0f, 2.0f,  3.0f,  4.0f,  5.0f,  6.0f,  7.0f,  8.0f,
                                                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f};
 
 } // namespace
@@ -130,16 +130,27 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     // bench.batch(2*kInputSize * kMatSize * kMatSize);
     bench.performanceCounters(true);
 
+    Eigen::Map<const Eigen::MatrixXf> mat(kMatrix16x16.data(), kMatSize, kMatSize);
+    Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, kMatSize);
     std::array<float, kInputSize> output{};
     bench.run("Eigen", [&]() {
-        Eigen::Map<const Eigen::MatrixXf> mat(kMatrix16x16.data(), kMatSize, kMatSize);
-        Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, kMatSize);
 
         Eigen::Map<Eigen::MatrixXf> output_eigen(output.data(), kBlockSize, kMatSize);
 
         output_eigen.noalias() = eigen_input * mat;
         nanobench::doNotOptimizeAway(output_eigen);
     });
+
+
+    Eigen::Matrix<float, kMatSize, kMatSize> eigen_mat_static = mat;
+    Eigen::Matrix<float, kBlockSize, kMatSize> eigen_input_static = eigen_input;
+    Eigen::Matrix<float, kBlockSize, kMatSize> eigen_output_static;
+
+    bench.run("EigenStatic", [&]() {
+        eigen_output_static.noalias() = eigen_input_static * eigen_mat_static;
+        nanobench::doNotOptimizeAway(eigen_output_static);
+    });
+
 
     #ifdef __APPLE__
     bench.minEpochIterations(200000);
@@ -171,9 +182,9 @@ TEST_CASE("Hadamard")
     bench.relative(true);
     bench.minEpochIterations(1000);
 
+    Eigen::Map<const Eigen::MatrixXf> eigen_mat(hadamard.data(), kMatSize, kMatSize);
+    Eigen::Map<const Eigen::RowVectorXf> eigen_input(input.data(), kMatSize);
     bench.run("Eigen", [&]() {
-        Eigen::Map<const Eigen::MatrixXf> eigen_mat(hadamard.data(), kMatSize, kMatSize);
-        Eigen::Map<const Eigen::RowVectorXf> eigen_input(input.data(), kMatSize);
 
         std::array<float, kMatSize> eigen_output_data{};
         Eigen::Map<Eigen::RowVectorXf> eigen_output(eigen_output_data.data(), kMatSize);
@@ -229,7 +240,7 @@ TEST_CASE("Hadamard")
 TEST_CASE("Hadamard_Block")
 {
     constexpr uint32_t kMatSize = 16;
-    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kBlockSize = 1;
     std::array<float, kMatSize * kBlockSize> input{};
     sfFDN::RNG rng;
     for (auto& i : input)
@@ -332,6 +343,61 @@ TEST_CASE("Hadamard_Block")
         }
         nanobench::doNotOptimizeAway(output);
         nanobench::doNotOptimizeAway(inout);
+    });
+
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+    }
+
+    bench.run("FWHT_withTranspose", [&]() {
+        // Transpose the (kBlockSize x kMatSize) input into a scratch buffer so that
+        // each block's kMatSize-vector becomes contiguous (kMatSize x kBlockSize).
+        std::array<float, kMatSize * kBlockSize> scratch{};
+        Eigen::Map<Eigen::MatrixXf> scratch_map(scratch.data(), kMatSize, kBlockSize);
+        scratch_map.noalias() = eigen_input.transpose();
+
+        for (auto i = 0u; i < kBlockSize; ++i)
+        {
+            std::span<float, kMatSize> inout(scratch.data() + i * kMatSize, kMatSize);
+            sfFDN::FWHT<kMatSize>(inout);
+        }
+
+        // Transpose back into the expected (kBlockSize x kMatSize) output layout.
+        Eigen::Map<Eigen::MatrixXf> output_map(output.data(), kBlockSize, kMatSize);
+        output_map.noalias() = scratch_map.transpose();
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    {
+        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+    }
+
+    bench.run("FWHT_Batched", [&]() {
+        // The input is (kBlockSize x kMatSize) column-major, so column n holds the
+        // n-th element of every block contiguously. The FWHT butterflies therefore
+        // operate column-vs-column across all blocks at once (vectorized), with no
+        // transpose required.
+        Eigen::Map<Eigen::Matrix<float, kBlockSize, kMatSize>> mat(output.data());
+        mat = eigen_input;
+
+        Eigen::Matrix<float, kBlockSize, 1> a;
+        for (auto h = 1u; h < kMatSize; h *= 2)
+        {
+            for (auto i = 0u; i < kMatSize; i += 2 * h)
+            {
+                for (auto j = 0u; j < h; ++j)
+                {
+                    a = mat.col(i + j);
+                    mat.col(i + j) = a + mat.col(i + j + h);
+                    mat.col(i + j + h) = a - mat.col(i + j + h);
+                }
+            }
+        }
+
+        mat *= 1.f / std::sqrt(static_cast<float>(kMatSize));
+        nanobench::doNotOptimizeAway(output);
     });
 
     for (auto i = 0u; i < kBlockSize * kMatSize; ++i)

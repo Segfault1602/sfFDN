@@ -1,7 +1,5 @@
 #include "sffdn/feedback_matrix.h"
 
-#include "json_helper.h"
-#include "matrix_multiplication.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/matrix_gallery.h"
@@ -14,7 +12,6 @@
 #include <memory>
 #include <print>
 #include <span>
-#include <utility>
 #include <vector>
 
 // #include <sanitizer/rtsan_interface.h>
@@ -74,13 +71,13 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     const uint32_t col = order_;
     const uint32_t row = input.SampleCount();
 
-    // Not using vDSP for now as it seems to be slower than Eigen
+// Not using vDSP for now as it seems to be slower than Eigen
 #if 0 // defined(SFFDN_USE_VDSP)
-        const float* A = matrix_data_.data();
-        const float* B = input.Data();
-        float* C = output.Data();
+    const float* A = matrix_data_.data();
+    const float* B = input.Data();
+    float* C = output.Data();
 
-        vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
+    vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
 #else
 
     const Eigen::Map<const Eigen::MatrixXf> matrix(matrix_data_.data(), col, col);

@@ -39,7 +39,8 @@ struct FDNConfig
         //! channels.
         std::vector<single_channel_processor_variant_t> single_channel_processors;
         //! Configuration for parallel gain processing applied to the input signal. Must always be in Split mode.
-        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Split, .gains = {}};
+        ParallelGainsOptions parallel_gains_config{
+            .mode = ParallelGainsMode::Split, .gains = {}, .time_varying_config = {}};
         //! A vector of multi-channel processors to apply to the input signal after the parallel gains.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
     } input_block_config;
@@ -57,7 +58,8 @@ struct FDNConfig
         //! channel.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
         //! Configuration for parallel gain processing applied to the output signal. Must always be in Merge mode.
-        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Merge, .gains = {}};
+        ParallelGainsOptions parallel_gains_config{
+            .mode = ParallelGainsMode::Merge, .gains = {}, .time_varying_config = {}};
         //! A vector of single-channel processors to apply to the output signal after it gets mixed down to a single
         //! channel.
         std::vector<single_channel_processor_variant_t> single_channel_processors;

@@ -1,16 +1,12 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
-#include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <random>
 #include <span>
 
 #include "sffdn/sffdn.h"
 
 #include "array_math.h"
-#include "filter_coeffs.h"
 #include "rng.h"
 
 #include "test_utils.h"
@@ -241,6 +237,7 @@ TEST_CASE("FDNPerf_BlockSize")
     bench.title("FDN Perf - Block Size");
     bench.relative(true);
     bench.warmup(10);
+    bench.timeUnit(1ms, "ms");
     // bench.batch(kInputSize);
     bench.minEpochIterations(100);
 
