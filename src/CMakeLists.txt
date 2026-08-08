@@ -98,7 +98,7 @@ target_link_libraries(
 
 target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
 
-target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
+target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_20)
 
 if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")

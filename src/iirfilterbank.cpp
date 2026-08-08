@@ -284,11 +284,16 @@ class IIRFilterBank::IIRFilterBankImpl
 
     void Clear()
     {
-        vDSP_biquadm_ResetState(biquad_setup_);
+        if (biquad_setup_ != nullptr)
+        {
+            vDSP_biquadm_DestroySetup(biquad_setup_);
+            biquad_setup_ = nullptr;
+        }
     }
 
     void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
     {
+        Clear();
         if (coeffs.size() % channel_count != 0)
         {
             throw std::runtime_error("Invalid coefficient size");
@@ -296,6 +301,7 @@ class IIRFilterBank::IIRFilterBankImpl
 
         const auto stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
 
+        coeffs_d_.clear();
         coeffs_d_.reserve(coeffs.size());
         for (auto j = 0u; j < stage_count; ++j)
         {

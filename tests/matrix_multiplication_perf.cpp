@@ -359,8 +359,8 @@ TEST_CASE("Hadamard_Block")
 
         for (auto i = 0u; i < kBlockSize; ++i)
         {
-            std::span<float, kMatSize> inout(scratch.data() + i * kMatSize, kMatSize);
-            sfFDN::FWHT<kMatSize>(inout);
+            auto inout = std::span(scratch).subspan(i * kMatSize, kMatSize);
+            sfFDN::FWHT<kMatSize>(std::span<float, kMatSize>(inout));
         }
 
         // Transpose back into the expected (kBlockSize x kMatSize) output layout.

@@ -24,7 +24,7 @@ class FDN : public AudioProcessor
      *
      * `block_size` is used to allocate internal buffers for processing.
      */
-    FDN(uint32_t order, uint32_t block_size = 0, bool transpose = false);
+    FDN(uint32_t order, uint32_t block_size, bool transpose = false);
 
     ~FDN() = default;
 

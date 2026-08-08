@@ -74,6 +74,11 @@ FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
     , tc_filter_(nullptr)
     , transpose_(transpose)
 {
+    // Block size needs to be stricly greater than 1
+    if (block_size < 1)
+    {
+        throw std::invalid_argument("Block size must be at least 1.");
+    }
 
     ParallelGainsOptions gains_options;
     gains_options.mode = ParallelGainsMode::Split;
