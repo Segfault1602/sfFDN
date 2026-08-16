@@ -19,8 +19,8 @@ constexpr float kSampleRate = 48000.f;
 
 std::unique_ptr<sfFDN::FDN> CreateFDN2(uint32_t block_size, uint32_t fdn_order)
 {
-    sfFDN::AttenuationFilterBankOptions loop_filter_config;
-    loop_filter_config.filter_configs.emplace_back(
+    sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_config;
+    attenuation_filter_bank_config.filter_configs.emplace_back(
         sfFDN::TwoBandFilterOptions{.t60s = {1.5f, 0.5f}, .delay = 0.f, .sample_rate = kSampleRate});
 
     auto config = sfFDN::FDNConfig{.fdn_size = fdn_order,
@@ -46,7 +46,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN2(uint32_t block_size, uint32_t fdn_order)
                                            .matrix_size = fdn_order,
                                            .type = sfFDN::ScalarMatrixType::Random,
                                        },
-                                   .loop_filter_configs = {loop_filter_config},
+                                   .attenuation_filter_bank_config = attenuation_filter_bank_config,
+                                   .loop_filter_configs = {},
                                    .output_block_config =
                                        {
                                            .multichannel_processors = {},

@@ -37,7 +37,7 @@ TEST_CASE("FDNConfig")
             .sample_rate = 48000.f,
         });
     }
-    config.loop_filter_configs.push_back(attenuation_filter_bank_config);
+    config.attenuation_filter_bank_config = attenuation_filter_bank_config;
 
     config.output_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Merge, {0.7f, 0.6f, 0.5f, 0.4f}, {}};
 

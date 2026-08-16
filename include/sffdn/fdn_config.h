@@ -4,6 +4,7 @@
 #include "sffdn/types.h"
 
 #include <cstdint>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -47,6 +48,9 @@ struct FDNConfig
 
     //! Feedback matrix block
     feedback_matrix_variant_t feedback_matrix_config;
+
+    //! Attenuation filter bank block
+    std::optional<AttenuationFilterBankOptions> attenuation_filter_bank_config;
 
     //! Loop filter block
     std::vector<multi_channel_processor_variant_t> loop_filter_configs;

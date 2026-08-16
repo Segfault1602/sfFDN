@@ -135,7 +135,7 @@ sfFDN::HomogenousFilterOptions homogenous_filter_options{
     .sample_rate = config.sample_rate};
 attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
 
-config.loop_filter_configs.push_back(attenuation_filter_bank_options);
+config.attenuation_filter_bank_config = attenuation_filter_bank_options;
 
 sfFDN::ParallelGainsOptions output_gains_options{
     .mode = sfFDN::ParallelGainsMode::Merge,
