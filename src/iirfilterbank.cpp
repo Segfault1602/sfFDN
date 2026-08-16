@@ -286,8 +286,7 @@ class IIRFilterBank::IIRFilterBankImpl
     {
         if (biquad_setup_ != nullptr)
         {
-            vDSP_biquadm_DestroySetup(biquad_setup_);
-            biquad_setup_ = nullptr;
+            vDSP_biquadm_ResetState(biquad_setup_);
         }
     }
 
