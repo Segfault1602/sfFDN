@@ -112,6 +112,8 @@ target_sources(
     sfFDN.perf
     PRIVATE fdn_perf.cpp
             fdn_perf2.cpp
+            production_perf.cpp
+            production_workloads.cpp
             filter_perf.cpp
             filter_design_perf.cpp
             delay_perf.cpp
@@ -141,6 +143,16 @@ endif()
 
 target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)
+
+add_executable(sfFDN.callback_latency fdn_callback_latency.cpp production_workloads.cpp)
+target_link_libraries(
+    sfFDN.callback_latency
+    PRIVATE sfFDN.sfFDN
+            sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
+)
+target_include_directories(sfFDN.callback_latency PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
+target_compile_features(sfFDN.callback_latency PRIVATE cxx_std_23)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(
