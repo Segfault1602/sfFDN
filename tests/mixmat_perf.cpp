@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <string_view>
 
 #include "matrix_multiplication.h"
 #include "rng.h"
@@ -14,6 +15,40 @@
 
 using namespace ankerl;
 using namespace std::chrono_literals;
+
+namespace
+{
+void BenchmarkStructuredMatrix(const sfFDN::ScalarMatrixType type, const std::string_view name, const uint32_t order,
+                               const uint32_t block_size, nanobench::Bench& bench)
+{
+    std::vector<float> input(order * block_size);
+    std::vector<float> structured_output(input.size());
+    std::vector<float> dense_output(input.size());
+
+    sfFDN::RNG generator;
+    for (float& sample : input)
+    {
+        sample = generator();
+    }
+
+    const auto matrix_data = sfFDN::GenerateMatrix(order, type);
+    sfFDN::ScalarFeedbackMatrix structured({.matrix_size = order, .type = type});
+    sfFDN::ScalarFeedbackMatrix dense({.matrix_size = order, .type = type, .custom_matrix = matrix_data});
+    sfFDN::AudioBuffer input_buffer(block_size, order, input);
+    sfFDN::AudioBuffer structured_buffer(block_size, order, structured_output);
+    sfFDN::AudioBuffer dense_buffer(block_size, order, dense_output);
+    const std::string suffix = " o" + std::to_string(order) + " b" + std::to_string(block_size);
+
+    bench.run(std::string(name) + " structured" + suffix, [&] {
+        structured.Process(input_buffer, structured_buffer);
+        nanobench::doNotOptimizeAway(structured_output);
+    });
+    bench.run(std::string(name) + " dense" + suffix, [&] {
+        dense.Process(input_buffer, dense_buffer);
+        nanobench::doNotOptimizeAway(dense_output);
+    });
+}
+} // namespace
 
 TEST_CASE("MixMatPerf")
 {
@@ -60,6 +95,24 @@ TEST_CASE("MixMatPerf")
         hadamard.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
     });
+}
+
+TEST_CASE("StructuredMixMatPerf")
+{
+    nanobench::Bench bench;
+    bench.title("Structured feedback matrix");
+    bench.timeUnit(1us, "us");
+    bench.relative(true);
+    bench.minEpochIterations(20000);
+
+    for (const uint32_t order : {4u, 8u, 16u, 32u})
+    {
+        for (const uint32_t block_size : {64u, 128u, 256u})
+        {
+            BenchmarkStructuredMatrix(sfFDN::ScalarMatrixType::Hadamard, "Hadamard", order, block_size, bench);
+            BenchmarkStructuredMatrix(sfFDN::ScalarMatrixType::Householder, "Householder", order, block_size, bench);
+        }
+    }
 }
 
 TEST_CASE("Matrix_Order")

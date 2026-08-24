@@ -1,5 +1,10 @@
 #include "matrix_multiplication.h"
 
+#include "sffdn/audio_buffer.h"
+
+#include <algorithm>
+#include <array>
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -138,6 +143,95 @@ void HadamardMultiply16(const std::span<const float> in, std::span<float> out)
 
 namespace sfFDN
 {
+
+void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
+{
+    const uint32_t matrix_size = input.ChannelCount();
+    assert(matrix_size != 0);
+    assert(std::has_single_bit(matrix_size));
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.SampleCount() == output.SampleCount());
+
+    if (input.Data() != output.Data())
+    {
+        for (uint32_t channel = 0; channel < matrix_size; ++channel)
+        {
+            const auto channel_input = input.GetChannelSpan(channel);
+            auto channel_output = output.GetChannelSpan(channel);
+            std::ranges::copy(channel_input, channel_output.begin());
+        }
+    }
+
+    for (uint32_t width = 1; width < matrix_size; width *= 2)
+    {
+        for (uint32_t channel = 0; channel < matrix_size; channel += 2 * width)
+        {
+            for (uint32_t offset = 0; offset < width; ++offset)
+            {
+                auto first = output.GetChannelSpan(channel + offset);
+                auto second = output.GetChannelSpan(channel + offset + width);
+                for (size_t sample = 0; sample < first.size(); ++sample)
+                {
+                    const float a = first[sample];
+                    const float b = second[sample];
+                    first[sample] = a + b;
+                    second[sample] = a - b;
+                }
+            }
+        }
+    }
+
+    const float normalization = 1.f / std::sqrt(static_cast<float>(matrix_size));
+    for (uint32_t channel = 0; channel < matrix_size; ++channel)
+    {
+        for (float& sample : output.GetChannelSpan(channel))
+        {
+            sample *= normalization;
+        }
+    }
+}
+
+void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
+{
+    const uint32_t matrix_size = input.ChannelCount();
+    assert(matrix_size != 0);
+    assert(input.ChannelCount() == output.ChannelCount());
+    assert(input.SampleCount() == output.SampleCount());
+
+    constexpr size_t kChunkSize = 128;
+    std::array<float, kChunkSize> sums;
+    const size_t sample_count = input.SampleCount();
+    const float scale = 2.f / static_cast<float>(matrix_size);
+
+    for (size_t block_start = 0; block_start < sample_count; block_start += kChunkSize)
+    {
+        const size_t block_size = std::min(kChunkSize, sample_count - block_start);
+        for (size_t sample = 0; sample < block_size; ++sample)
+        {
+            sums[sample] = 0.f;
+        }
+
+        for (uint32_t channel = 0; channel < matrix_size; ++channel)
+        {
+            const auto channel_input = input.GetChannelSpan(channel);
+            for (size_t sample = 0; sample < block_size; ++sample)
+            {
+                sums[sample] += channel_input[block_start + sample];
+            }
+        }
+
+        for (uint32_t channel = 0; channel < matrix_size; ++channel)
+        {
+            const auto channel_input = input.GetChannelSpan(channel);
+            auto channel_output = output.GetChannelSpan(channel);
+            for (size_t sample = 0; sample < block_size; ++sample)
+            {
+                const size_t index = block_start + sample;
+                channel_output[index] = channel_input[index] - (scale * sums[sample]);
+            }
+        }
+    }
+}
 
 void HadamardMultiply(const std::span<const float> input, std::span<float> output)
 {

@@ -85,6 +85,7 @@ class ScalarFeedbackMatrix : public AudioProcessor
 
   private:
     uint32_t order_;
+    ScalarMatrixType matrix_type_;
     std::vector<float> matrix_data_;
 };
 

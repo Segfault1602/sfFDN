@@ -4,7 +4,10 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/matrix_gallery.h"
 
+#include "matrix_multiplication.h"
+
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -27,6 +30,7 @@ namespace sfFDN
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config)
     : order_(config.matrix_size)
+    , matrix_type_(config.custom_matrix ? ScalarMatrixType::Count : config.type)
 {
     if (config.custom_matrix)
     {
@@ -49,6 +53,7 @@ bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
         return false;
     }
     matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
+    matrix_type_ = ScalarMatrixType::Count;
     return true;
 }
 
@@ -70,6 +75,18 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
 
     const uint32_t col = order_;
     const uint32_t row = input.SampleCount();
+
+    if (matrix_type_ == ScalarMatrixType::Hadamard && std::has_single_bit(order_))
+    {
+        HadamardMultiplyBlock(input, output);
+        return;
+    }
+
+    if (matrix_type_ == ScalarMatrixType::Householder)
+    {
+        HouseholderMultiplyBlock(input, output);
+        return;
+    }
 
 // Not using vDSP for now as it seems to be slower than Eigen
 #if 0 // defined(SFFDN_USE_VDSP)

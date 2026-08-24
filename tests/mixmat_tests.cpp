@@ -10,6 +10,7 @@
 #include "sffdn/matrix_gallery.h"
 #include "sffdn/sffdn.h"
 
+#include "allocation_counter.h"
 #include "matrix_multiplication.h"
 #include "test_utils.h"
 
@@ -156,9 +157,9 @@ TEST_CASE("Householder")
         -0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
     // clang-format on
 
-    for (auto i = 0u; i < input.size(); i += kMatSize)
+    for (auto i = 0u; i < input.size(); ++i)
     {
-        REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
+        REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], 2e-5f));
     }
 
     float energy_in = 0.f;
@@ -193,9 +194,9 @@ TEST_CASE("FeedbackMatrixHadamard")
 
         constexpr std::array<float, kMatSize> kExpected = {5, -1, -2, 0};
 
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
+            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], 2e-5f));
         }
     }
 
@@ -215,9 +216,9 @@ TEST_CASE("FeedbackMatrixHadamard")
         constexpr std::array<float, kMatSize> kExpected = {
             12.727922061357855f, -1.414213562373095f, -2.828427124746190f, 0.f, -5.656854249492380f, 0.f, 0.f, 0.f};
 
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
-            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
+            REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], 2e-5f));
         }
     }
 
@@ -428,4 +429,130 @@ TEST_CASE("FilterFeedbackMatrix")
     //     }
     //     std::print("\n");
     // }
+}
+
+TEST_CASE("Structured feedback matrices match dense processing without allocations")
+{
+    constexpr std::array kOrders = {8u, 16u};
+    constexpr std::array kBlockSizes = {64u, 128u};
+    constexpr std::array kTypes = {sfFDN::ScalarMatrixType::Hadamard, sfFDN::ScalarMatrixType::Householder};
+
+    for (const auto type : kTypes)
+    {
+        for (const auto order : kOrders)
+        {
+            for (const auto block_size : kBlockSizes)
+            {
+                std::vector<float> input(order * block_size);
+                for (auto i = 0u; i < input.size(); ++i)
+                {
+                    input[i] = static_cast<float>(static_cast<int>((i * 37u) % 101u) - 50) / 50.f;
+                }
+
+                const auto matrix_data = sfFDN::GenerateMatrix(order, type);
+                sfFDN::ScalarFeedbackMatrix structured({.matrix_size = order, .type = type});
+                sfFDN::ScalarFeedbackMatrix dense({.matrix_size = order, .type = type, .custom_matrix = matrix_data});
+
+                std::vector<float> expected(input.size());
+                std::vector<float> actual(input.size());
+                auto aliased = input;
+                sfFDN::AudioBuffer input_buffer(block_size, order, input);
+                sfFDN::AudioBuffer expected_buffer(block_size, order, expected);
+                sfFDN::AudioBuffer actual_buffer(block_size, order, actual);
+                sfFDN::AudioBuffer aliased_buffer(block_size, order, aliased);
+
+                dense.Process(input_buffer, expected_buffer);
+
+                std::size_t allocations = 0;
+                {
+                    sfFDNTest::ScopedAllocationCounter allocation_counter;
+                    structured.Process(input_buffer, actual_buffer);
+                    structured.Process(aliased_buffer, aliased_buffer);
+                    allocations = allocation_counter.Count();
+                }
+
+                INFO("type=" << static_cast<int>(type) << " order=" << order << " block=" << block_size);
+                REQUIRE(allocations == 0);
+                for (auto i = 0u; i < actual.size(); ++i)
+                {
+                    REQUIRE_THAT(actual[i], Catch::Matchers::WithinAbs(expected[i], 2e-5f));
+                    REQUIRE_THAT(aliased[i], Catch::Matchers::WithinAbs(expected[i], 2e-5f));
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("SetMatrix disables structured processing")
+{
+    constexpr uint32_t kOrder = 8;
+    constexpr uint32_t kBlockSize = 3;
+    const auto matrix_data = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::Random);
+    sfFDN::ScalarFeedbackMatrix updated({.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Hadamard});
+    sfFDN::ScalarFeedbackMatrix dense(
+        {.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Random, .custom_matrix = matrix_data});
+    REQUIRE(updated.SetMatrix(matrix_data));
+
+    std::array<float, kOrder * kBlockSize> input{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = static_cast<float>(i + 1);
+    }
+    std::array<float, kOrder * kBlockSize> expected{};
+    std::array<float, kOrder * kBlockSize> actual{};
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
+    sfFDN::AudioBuffer expected_buffer(kBlockSize, kOrder, expected);
+    sfFDN::AudioBuffer actual_buffer(kBlockSize, kOrder, actual);
+    dense.Process(input_buffer, expected_buffer);
+    updated.Process(input_buffer, actual_buffer);
+
+    for (auto i = 0u; i < actual.size(); ++i)
+    {
+        REQUIRE_THAT(actual[i], Catch::Matchers::WithinAbs(expected[i], 2e-5f));
+    }
+}
+
+TEST_CASE("FilterFeedbackMatrix uses structured stage-zero processing")
+{
+    constexpr uint32_t kOrder = 16;
+    constexpr uint32_t kBlockSize = 64;
+    constexpr std::array kTypes = {sfFDN::ScalarMatrixType::Hadamard, sfFDN::ScalarMatrixType::Householder};
+
+    for (const auto type : kTypes)
+    {
+        sfFDN::FilterFeedbackMatrix ffm({
+            .matrix_size = kOrder,
+            .stage_count = 0,
+            .sparsity = 1.f,
+            .type = type,
+            .gain_per_samples = 1.f,
+        });
+        const auto matrix_data = sfFDN::GenerateMatrix(kOrder, type);
+        sfFDN::ScalarFeedbackMatrix dense({.matrix_size = kOrder, .type = type, .custom_matrix = matrix_data});
+
+        std::array<float, kOrder * kBlockSize> input{};
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(static_cast<int>((i * 41u) % 113u) - 56) / 56.f;
+        }
+        std::array<float, kOrder * kBlockSize> expected{};
+        auto actual = input;
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
+        sfFDN::AudioBuffer expected_buffer(kBlockSize, kOrder, expected);
+        sfFDN::AudioBuffer actual_buffer(kBlockSize, kOrder, actual);
+        dense.Process(input_buffer, expected_buffer);
+
+        std::size_t allocations = 0;
+        {
+            sfFDNTest::ScopedAllocationCounter allocation_counter;
+            ffm.Process(actual_buffer, actual_buffer);
+            allocations = allocation_counter.Count();
+        }
+
+        REQUIRE(allocations == 0);
+        for (auto i = 0u; i < actual.size(); ++i)
+        {
+            REQUIRE_THAT(actual[i], Catch::Matchers::WithinAbs(expected[i], 2e-5f));
+        }
+    }
 }

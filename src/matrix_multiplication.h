@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sffdn/attributes.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -8,8 +10,13 @@
 namespace sfFDN
 {
 
+class AudioBuffer;
+
 void HadamardMultiply(const std::span<const float> input, std::span<float> output);
 void WalshHadamardTransform(std::span<float> inout);
+
+void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
 void MatrixMultiply_4(const std::span<const float, 4> input, std::span<float, 4> output,
                       const std::span<const float, 4 * 4> matrix);
