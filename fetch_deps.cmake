@@ -23,7 +23,7 @@ cpmaddpackage(
     NAME
     pffft
     GIT_TAG
-    master
+    09796885cd5b9da5692242de2df0d81e5e1f3d21
     GIT_REPOSITORY
     https://bitbucket.org/jpommier/pffft/src/master/
 )

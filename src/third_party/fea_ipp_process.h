@@ -15,6 +15,4 @@ extern "C"
     IPPAPI(IppStatus, ippsFIRSR_32f,
            (const Ipp32f* pSrc, Ipp32f* pDst, int numIters, IppsFIRSpec_32f* pSpec, const Ipp32f* pDlySrc,
             Ipp32f* pDlyDst, Ipp8u* pBuf)SFFDN_NONBLOCKING)
-    IPPAPI(IppStatus, ippsFIRSparse_32f,
-           (const Ipp32f* pSrc, Ipp32f* pDst, int len, IppsFIRSparseState_32f* pState)SFFDN_NONBLOCKING)
 }
