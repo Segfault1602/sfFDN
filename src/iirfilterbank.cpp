@@ -102,7 +102,64 @@ class BiquadMC
 namespace sfFDN
 {
 
-#ifndef SFFDN_USE_VDSP
+#if defined(__APPLE__) && defined(__aarch64__)
+class IIRFilterBank::IIRFilterBankImpl
+{
+  public:
+    IIRFilterBankImpl() = default;
+
+    void Clear()
+    {
+        for (auto& filter : filters_)
+        {
+            filter.Clear();
+        }
+    }
+
+    void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
+    {
+        if (channel_count == 0 || coeffs.size() % channel_count != 0)
+        {
+            throw std::runtime_error("Invalid coefficient size");
+        }
+
+        const auto stage_count = coeffs.size() / channel_count;
+        filters_.clear();
+        filters_.reserve(channel_count);
+        for (auto channel = 0u; channel < channel_count; ++channel)
+        {
+            filters_.emplace_back();
+            filters_.back().SetCoefficients(coeffs.subspan(channel * stage_count, stage_count));
+        }
+    }
+
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
+    {
+        assert(input.SampleCount() == output.SampleCount());
+        assert(input.ChannelCount() == output.ChannelCount());
+        assert(input.ChannelCount() == filters_.size());
+
+        for (auto channel = 0u; channel < filters_.size(); ++channel)
+        {
+            auto output_channel = output.GetChannelBuffer(channel);
+            filters_[channel].Process(input.GetChannelBuffer(channel), output_channel);
+        }
+    }
+
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
+    {
+        return static_cast<uint32_t>(filters_.size());
+    }
+
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
+    {
+        return static_cast<uint32_t>(filters_.size());
+    }
+
+  private:
+    std::vector<CascadedBiquads> filters_;
+};
+#elif !defined(SFFDN_USE_VDSP)
 class IIRFilterBank::IIRFilterBankImpl
 {
   public:
