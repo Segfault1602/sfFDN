@@ -101,6 +101,33 @@ TEST_CASE("IdentityMatrix")
     REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
 }
 
+TEST_CASE("ScalarFeedbackMatrix supports aliased processing")
+{
+    constexpr uint32_t kMatSize = 4;
+    constexpr uint32_t kBlockSize = 3;
+    constexpr std::array<float, kMatSize * kMatSize> kMatrix = {1.f, 0.f,   0.f, 0.f, 0.5f, 1.f, 0.f,   0.f,
+                                                                0.f, 0.25f, 1.f, 0.f, 0.f,  0.f, 0.75f, 1.f};
+
+    sfFDN::ScalarFeedbackMatrix matrix(
+        {.matrix_size = kMatSize, .custom_matrix = std::vector<float>(kMatrix.begin(), kMatrix.end())});
+
+    std::array<float, kMatSize * kBlockSize> input = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f, 10.f, 11.f, 12.f};
+    std::array<float, kMatSize * kBlockSize> expected{};
+    auto in_place = input;
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input);
+    sfFDN::AudioBuffer expected_buffer(kBlockSize, kMatSize, expected);
+    matrix.Process(input_buffer, expected_buffer);
+
+    sfFDN::AudioBuffer in_place_buffer(kBlockSize, kMatSize, in_place);
+    matrix.Process(in_place_buffer, in_place_buffer);
+
+    for (const auto [actual, expected_sample] : std::views::zip(in_place, expected))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected_sample, 1e-5f));
+    }
+}
+
 TEST_CASE("Householder")
 {
     constexpr uint32_t kMatSize = 4;

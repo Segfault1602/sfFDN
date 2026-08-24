@@ -285,6 +285,41 @@ TEST_CASE("DelayBlock")
     TestDelayBlock(20.34f, kBlockSize, 40, sfFDN::DelayInterpolationType::Lagrange);
 }
 
+TEST_CASE("DelayTimeVarying block processing matches Tick")
+{
+    constexpr uint32_t kBlockSize = 32;
+    const sfFDN::DelayOptions config{
+        .delay = 20.f,
+        .max_delay = 64,
+        .interp_type = sfFDN::DelayInterpolationType::Linear,
+        .lfo_config = sfFDN::ModulationOptions{.frequency = 0.003f, .amplitude = 2.f, .initial_phase = 0.125f},
+    };
+
+    std::array<float, kBlockSize> input{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = static_cast<float>(i) / static_cast<float>(input.size());
+    }
+
+    sfFDN::DelayTimeVarying tick_delay(config);
+    std::array<float, kBlockSize> expected{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        expected[i] = tick_delay.Tick(input[i]);
+    }
+
+    sfFDN::DelayTimeVarying block_delay(config);
+    std::array<float, kBlockSize> output{};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    block_delay.Process(input_buffer, output_buffer);
+
+    for (const auto [actual, expected_sample] : std::views::zip(output, expected))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected_sample, 1e-5f));
+    }
+}
+
 TEST_CASE("DelayBank")
 {
     constexpr uint32_t kNumDelay = 4;

@@ -45,3 +45,31 @@ TEST_CASE("AudioProcessorChain")
         REQUIRE_THAT(i, Catch::Matchers::WithinAbs(5.f, 0.0001));
     }
 }
+
+TEST_CASE("AudioProcessorChain empty and single processor paths")
+{
+    constexpr uint32_t kBlockSize = 4;
+
+    std::array<float, kBlockSize> input = {1.f, 2.f, 3.f, 4.f};
+    std::array<float, kBlockSize> output = {-1.f, -1.f, -1.f, -1.f};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+
+    SECTION("empty chain leaves output unchanged")
+    {
+        sfFDN::AudioProcessorChain chain(kBlockSize);
+        chain.Process(input_buffer, output_buffer);
+        REQUIRE(output == std::array{-1.f, -1.f, -1.f, -1.f});
+    }
+
+    SECTION("single processor writes directly to output")
+    {
+        sfFDN::AudioProcessorChain chain(kBlockSize);
+        auto gain = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel);
+        gain->SetGains(std::array{2.f});
+        REQUIRE(chain.AddProcessor(std::move(gain)));
+
+        chain.Process(input_buffer, output_buffer);
+        REQUIRE(output == std::array{2.f, 4.f, 6.f, 8.f});
+    }
+}

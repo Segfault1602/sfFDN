@@ -83,6 +83,13 @@ target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(
+    NAME RealtimeExceptionInventory
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSFFDN_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/check-realtime-exceptions.cmake
+)
 
 add_executable(sfFDN.perf)
 target_sources(
