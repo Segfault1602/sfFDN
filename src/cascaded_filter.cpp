@@ -15,7 +15,8 @@
 
 namespace
 {
-float ComputeSample(float x, const sfFDN::FilterCoefficients& coeffs, sfFDN::CascadedBiquads::IIRState& state)
+float ComputeSample(float x, const sfFDN::FilterCoefficients& coeffs,
+                    sfFDN::CascadedBiquads::IIRState& state) noexcept SFFDN_NONBLOCKING
 {
     const float y = (coeffs.b0 * x) + state.s0;
     state.s0 = (coeffs.b1 * x) + state.s1;
@@ -55,7 +56,7 @@ void CascadedBiquads::Clear()
     states_.resize(stage_, {.s0 = 0.0f, .s1 = 0.0f});
 }
 
-float CascadedBiquads::Tick(float in)
+float CascadedBiquads::Tick(float in) noexcept SFFDN_NONBLOCKING
 {
     float out = in;
     for (uint32_t i = 0; i < stage_; ++i)
@@ -70,7 +71,7 @@ float CascadedBiquads::Tick(float in)
     return out;
 }
 
-void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -124,12 +125,12 @@ void CascadedBiquads::Process(const AudioBuffer& input, AudioBuffer& output) noe
     }
 }
 
-uint32_t CascadedBiquads::InputChannelCount() const
+uint32_t CascadedBiquads::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }
 
-uint32_t CascadedBiquads::OutputChannelCount() const
+uint32_t CascadedBiquads::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }

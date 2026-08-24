@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sffdn/attributes.h"
+
 #include <complex>
 #include <cstddef>
 #include <cstdint>
@@ -32,10 +34,11 @@ class FFT
 
     bool Initialize(uint32_t fft_size);
 
-    void Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum);
-    void Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output);
+    void Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum) noexcept SFFDN_NONBLOCKING;
+    void Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output) noexcept SFFDN_NONBLOCKING;
 
-    void ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b, FFTComplexBuffer& dft_ab);
+    void ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b,
+                            FFTComplexBuffer& dft_ab) noexcept SFFDN_NONBLOCKING;
 
     [[nodiscard]] FFTRealBuffer AllocateRealBuffer() const;
     [[nodiscard]] FFTComplexBuffer AllocateComplexBuffer() const;
@@ -57,34 +60,34 @@ class FFTBuffer
     FFTBuffer(std::span<T> buffer);
     ~FFTBuffer();
 
-    std::span<T> Data();
-    std::span<const T> Data() const;
+    std::span<T> Data() noexcept SFFDN_NONBLOCKING;
+    std::span<const T> Data() const noexcept SFFDN_NONBLOCKING;
 
     FFTBuffer(const FFTBuffer&) = delete;
     FFTBuffer& operator=(const FFTBuffer&) = delete;
     FFTBuffer(FFTBuffer&&) noexcept;
     FFTBuffer& operator=(FFTBuffer&&) noexcept;
 
-    std::span<T>::iterator begin()
+    std::span<T>::iterator begin() noexcept SFFDN_NONBLOCKING
     {
         return buffer_.begin();
     }
-    std::span<T>::iterator end()
+    std::span<T>::iterator end() noexcept SFFDN_NONBLOCKING
     {
         return buffer_.end();
     }
 
-    constexpr std::span<T>::iterator begin() const
+    constexpr std::span<T>::iterator begin() const noexcept SFFDN_NONBLOCKING
     {
         return buffer_.begin();
     }
 
-    constexpr std::span<T>::iterator end() const
+    constexpr std::span<T>::iterator end() const noexcept SFFDN_NONBLOCKING
     {
         return buffer_.end();
     }
 
-    uint32_t size() const
+    uint32_t size() const noexcept SFFDN_NONBLOCKING
     {
         return buffer_.size();
     }

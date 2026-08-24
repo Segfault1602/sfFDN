@@ -17,6 +17,18 @@ option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
 option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
 option(SFFDN_USE_VDSP "Use vDSP for dsp operations" "${APPLE}")
 option(SFFDN_ENABLE_FUNCTION_EFFECTS "Enable Clang Function Effect Analysis" OFF)
+option(
+    SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS
+    "Treat Clang Function Effect Analysis diagnostics as errors"
+    OFF
+)
+
+if(SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS AND NOT SFFDN_ENABLE_FUNCTION_EFFECTS)
+    message(
+        FATAL_ERROR
+        "SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS requires SFFDN_ENABLE_FUNCTION_EFFECTS=ON"
+    )
+endif()
 
 include(./fetch_deps.cmake)
 

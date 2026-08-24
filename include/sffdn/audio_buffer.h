@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "attributes.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -18,10 +20,10 @@ class AudioBuffer
 {
   public:
     /** @brief Constructs an empty audio buffer. */
-    AudioBuffer();
+    AudioBuffer() noexcept SFFDN_NONBLOCKING;
 
     /** @brief Constructs a mono audio buffer. */
-    explicit AudioBuffer(std::span<float> buffer);
+    explicit AudioBuffer(std::span<float> buffer) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Constructs a multi-channel audio buffer.
@@ -30,55 +32,55 @@ class AudioBuffer
      * @param buffer A span representing the interleaved audio data. The span must be large enough to hold `frame_size
      * * channels` samples.
      */
-    AudioBuffer(uint32_t frame_size, uint32_t channels, std::span<float> buffer);
+    AudioBuffer(uint32_t frame_size, uint32_t channels, std::span<float> buffer) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Returns the number of samples in one channel of the audio buffer.
      * @return The number of samples in one channel.
      */
-    uint32_t SampleCount() const;
+    uint32_t SampleCount() const noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Returns the number of channels in the audio buffer.
      * @return The number of channels.
      */
-    uint32_t ChannelCount() const;
+    uint32_t ChannelCount() const noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Provides direct access to the audio data.
      * @return A pointer to the audio data.
      */
-    float* Data();
+    float* Data() noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Provides direct access to the audio data.
      * @return A pointer to the audio data.
      */
-    const float* Data() const;
+    const float* Data() const noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Returns a span representing the audio data for a specific channel.
      * @param channel The index of the channel to access.
      * @return A span containing the audio data for the specified channel.
      */
-    std::span<const float> GetChannelSpan(uint32_t channel) const;
+    std::span<const float> GetChannelSpan(uint32_t channel) const noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Returns a span representing the audio data for a specific channel.
      * @param channel The index of the channel to access.
      * @return A span containing the audio data for the specified channel.
      */
-    std::span<float> GetChannelSpan(uint32_t channel);
+    std::span<float> GetChannelSpan(uint32_t channel) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Returns an AudioBuffer object representing the audio data for a specific channel.
      * @param channel The index of the channel to access.
      * @return An AudioBuffer object containing the audio data for the specified channel.
      */
-    AudioBuffer GetChannelBuffer(uint32_t channel) const;
+    AudioBuffer GetChannelBuffer(uint32_t channel) const noexcept SFFDN_NONBLOCKING;
 
     /** @brief Returns a new AudioBuffer where every channel is offset by a certain number of samples */
-    AudioBuffer Offset(uint32_t offset, uint32_t frame_size) const;
+    AudioBuffer Offset(uint32_t offset, uint32_t frame_size) const noexcept SFFDN_NONBLOCKING;
 
   private:
     uint32_t frame_size_;

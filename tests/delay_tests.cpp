@@ -280,6 +280,9 @@ TEST_CASE("DelayBlock")
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, 21, 40, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, 22, 40, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, kBlockSize, 40, sfFDN::DelayInterpolationType::Lagrange);
 }
 
 TEST_CASE("DelayBank")

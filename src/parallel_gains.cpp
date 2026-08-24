@@ -60,7 +60,7 @@ void ParallelGains::GetGains(std::span<float> gains) const
     std::ranges::copy(gains_, gains.begin());
 }
 
-uint32_t ParallelGains::InputChannelCount() const
+uint32_t ParallelGains::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     switch (mode_)
     {
@@ -75,7 +75,7 @@ uint32_t ParallelGains::InputChannelCount() const
     }
 }
 
-uint32_t ParallelGains::OutputChannelCount() const
+uint32_t ParallelGains::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     switch (mode_)
     {
@@ -91,7 +91,7 @@ uint32_t ParallelGains::OutputChannelCount() const
     }
 }
 
-void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     if (mode_ == ParallelGainsMode::Split)
     {
@@ -111,7 +111,7 @@ void ParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     }
 }
 
-void ParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output)
+void ParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.ChannelCount() == 1);
     assert(output.ChannelCount() == gains_.size());
@@ -123,7 +123,7 @@ void ParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffe
     }
 }
 
-void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output)
+void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == gains_.size());
@@ -135,7 +135,7 @@ void ParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuf
     }
 }
 
-void ParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output)
+void ParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == gains_.size());

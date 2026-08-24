@@ -34,12 +34,13 @@
         {
             "name": "llvm-fea",
             "displayName": "LLVM - Function Effect Analysis",
-            "description": "Capture the Clang Function Effect Analysis warning baseline",
+            "description": "Build with strict Clang Function Effect Analysis diagnostics",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/llvm-fea",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
             "cacheVariables": {
                 "SFFDN_ENABLE_FUNCTION_EFFECTS": "ON",
+                "SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS": "ON",
                 "SFFDN_USE_SANITIZER": "OFF"
             }
         },

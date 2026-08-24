@@ -31,7 +31,7 @@ void SchroederAllpass::SetG(float g)
     g_ = g;
 }
 
-float SchroederAllpass::Tick(float input)
+float SchroederAllpass::Tick(float input) noexcept SFFDN_NONBLOCKING
 {
     const float out = delay_.NextOut();
     const float v_n = input + (g_ * out);
@@ -39,7 +39,7 @@ float SchroederAllpass::Tick(float input)
     return out - (g_ * v_n);
 }
 
-void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> out)
+void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(in.size() == out.size());
 
@@ -77,7 +77,8 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
     }
 }
 
-void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in, std::span<float> out)
+void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in,
+                                              std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(in.size() == out.size());
 
@@ -183,7 +184,7 @@ std::vector<float> SchroederAllpassSection::GetGains() const
     return gains;
 }
 
-void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -212,12 +213,12 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
     }
 }
 
-uint32_t SchroederAllpassSection::InputChannelCount() const
+uint32_t SchroederAllpassSection::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }
 
-uint32_t SchroederAllpassSection::OutputChannelCount() const
+uint32_t SchroederAllpassSection::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }

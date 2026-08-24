@@ -71,21 +71,21 @@ class SchroederAllpass
      * @param input The input sample.
      * @return The output sample.
      */
-    float Tick(float input);
+    float Tick(float input) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of samples through the filter.
      * @param in The input samples.
      * @param out The output samples.
      * The input and output spans must have the same size.
      */
-    void ProcessBlock(std::span<const float> in, std::span<float> out);
+    void ProcessBlock(std::span<const float> in, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of samples through the filter and accumulates the output.
      * @param in The input samples.
      * @param out The output samples.
      * The input and output spans must have the same size.
      */
-    void ProcessBlockAccumulate(std::span<const float> in, std::span<float> out);
+    void ProcessBlockAccumulate(std::span<const float> in, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Clears the filter state.
      * This sets the internal delay buffer to zero.
@@ -96,7 +96,7 @@ class SchroederAllpass
     Delay delay_;
     float g_{};
 
-    void Tick8(std::span<const float, 8> in, std::span<float, 8> out);
+    void Tick8(std::span<const float, 8> in, std::span<float, 8> out) noexcept SFFDN_NONBLOCKING;
 };
 
 /** @brief A section of Schroeder allpass filters in series */
@@ -168,17 +168,17 @@ class SchroederAllpassSection : public AudioProcessor
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of samples and channels equal to 1.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of input channels supported.
      * This is always 1, as SchroederAllpassSection processes one channel at a time.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of output channels supported.
      * This is always 1, as SchroederAllpassSection processes one channel at a time.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of all allpass filters in the section.

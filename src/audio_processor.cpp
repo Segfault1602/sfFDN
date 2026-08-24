@@ -69,7 +69,7 @@ AudioProcessor* AudioProcessorChain::GetProcessor(uint32_t index) const
     return processors_[index].get();
 }
 
-void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     if (processors_.empty())
     {
@@ -102,7 +102,7 @@ void AudioProcessorChain::Process(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
-void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept
+void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() <= block_size_);
 
@@ -140,7 +140,7 @@ void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer&
     processors_.back()->Process(buffer_in, output);
 }
 
-uint32_t AudioProcessorChain::InputChannelCount() const
+uint32_t AudioProcessorChain::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     if (processors_.empty())
     {
@@ -149,7 +149,7 @@ uint32_t AudioProcessorChain::InputChannelCount() const
     return processors_.front()->InputChannelCount();
 }
 
-uint32_t AudioProcessorChain::OutputChannelCount() const
+uint32_t AudioProcessorChain::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     if (processors_.empty())
     {

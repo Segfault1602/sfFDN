@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "sffdn/attributes.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -22,20 +24,20 @@ class CircularBuffer
 
     /// @brief Advance the write pointer by the specified number of samples.
     /// @param count the number of samples to advance
-    void Advance(uint32_t count);
+    void Advance(uint32_t count) noexcept SFFDN_NONBLOCKING;
 
     /// @brief Clear (set to zero) the specified number of samples in the buffer.
     /// @param count the number of samples to clear
     /// @param offset the offset from the write pointer to start clearing
-    void Clear(uint32_t count, uint32_t offset = 0);
+    void Clear(uint32_t count, uint32_t offset = 0) noexcept SFFDN_NONBLOCKING;
 
     /// @brief Clear the whole buffer.
-    void Clear();
+    void Clear() noexcept SFFDN_NONBLOCKING;
 
     /// @brief Write the specified number of samples to the buffer.
     /// @param data the data to write
     /// @note If the buffer is full, the oldest samples will be overwritten.
-    void Write(std::span<const float> data);
+    void Write(std::span<const float> data) noexcept SFFDN_NONBLOCKING;
 
     /// @brief Accumulate the specified number of samples into the buffer.
     /// @param data the data to accumulate
@@ -43,17 +45,17 @@ class CircularBuffer
     /// @note buffer[i] += data[i]
     /// @note The offset is added to the current write pointer, so it can be used to accumulate at a specific "future"
     /// position in the buffer.
-    void Accumulate(std::span<const float> data, uint32_t offset = 0);
+    void Accumulate(std::span<const float> data, uint32_t offset = 0) noexcept SFFDN_NONBLOCKING;
 
     /// @brief Read the specified number of samples from the buffer.
     /// @param data the buffer to read into
     /// @param clear_after_read if true, the read samples will be cleared (set to zero) in the buffer
     /// @note The `data.size()` most recently written samples will be read.
-    void Read(std::span<float> data, bool clear_after_read = false);
+    void Read(std::span<float> data, bool clear_after_read = false) noexcept SFFDN_NONBLOCKING;
 
     /// @brief The total size, in samples, of the buffer.
     /// @return the size of the buffer
-    uint32_t Size() const;
+    uint32_t Size() const noexcept SFFDN_NONBLOCKING;
 
   private:
     std::vector<float> buffer_;

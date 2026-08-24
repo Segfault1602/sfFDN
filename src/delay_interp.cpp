@@ -62,7 +62,7 @@ uint32_t DelayInterp::GetMaximumDelay() const
     return delayline_.GetMaximumDelay();
 }
 
-void DelayInterp::SetDelay(float delay)
+void DelayInterp::SetDelay(float delay) noexcept SFFDN_NONBLOCKING
 {
     delay_ = delay;
     int_delay_ = static_cast<uint32_t>(delay);
@@ -107,10 +107,8 @@ void DelayInterp::SetDelay(float delay)
             frac_delay_ += 1.0f;
         }
         delayline_.SetDelay(int_delay_);
-        std::array<float, 4> coeffs = GetLagrangeCoefficients<3>(frac_delay_);
-        lagrange_coeffs_.resize(coeffs.size());
+        const auto coeffs = GetLagrangeCoefficients<kLagrangeOrder>(frac_delay_);
         std::ranges::copy(coeffs, lagrange_coeffs_.begin());
-        lagrange_filter_.SetCoefficients(coeffs);
         break;
     }
     default:
@@ -123,7 +121,7 @@ float DelayInterp::GetDelay() const
     return delay_;
 }
 
-float DelayInterp::Tick(float input)
+float DelayInterp::Tick(float input) noexcept SFFDN_NONBLOCKING
 {
     if (type_ == DelayInterpolationType::None)
     {
@@ -161,7 +159,7 @@ float DelayInterp::Tick(float input)
     return 0.0f;
 }
 
-void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -192,17 +190,37 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcep
     }
     else if (type_ == DelayInterpolationType::Lagrange)
     {
-        delayline_.Process(input, output);
-        lagrange_filter_.Process(output, output);
+        const auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
+        const size_t required_history = input_span.size() + int_delay_ + kLagrangeOrder;
+
+        if (!delayline_.CanAddNextInputs(input_span.size()) || required_history > delayline_.GetMaximumDelay())
+        {
+            for (size_t i = 0; i < input_span.size(); ++i)
+            {
+                output_span[i] = Tick(input_span[i]);
+            }
+            return;
+        }
+
+        if (!delayline_.AddNextInputs(input_span))
+        {
+            assert(false);
+            return;
+        }
+        std::ranges::fill(output_span, 0.f);
+        std::array<uint32_t, kLagrangeTapCount> taps = {int_delay_, int_delay_ + 1, int_delay_ + 2, int_delay_ + 3};
+        delayline_.GetNextOutputsAt(taps, output_span, lagrange_coeffs_);
+        delayline_.AdvanceRead(input_span.size());
     }
 }
 
-bool DelayInterp::AddNextInputs(std::span<const float> input)
+bool DelayInterp::AddNextInputs(std::span<const float> input) noexcept SFFDN_NONBLOCKING
 {
     return delayline_.AddNextInputs(input);
 }
 
-void DelayInterp::GetNextOutputs(std::span<float> output)
+void DelayInterp::GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     if (type_ == DelayInterpolationType::None)
     {
@@ -229,9 +247,10 @@ void DelayInterp::GetNextOutputs(std::span<float> output)
     }
     else if (type_ == DelayInterpolationType::Lagrange)
     {
-        delayline_.GetNextOutputs(output);
-        AudioBuffer output_buffer(output);
-        lagrange_filter_.Process(output_buffer, output_buffer);
+        std::ranges::fill(output, 0.f);
+        std::array<uint32_t, kLagrangeTapCount> taps = {int_delay_, int_delay_ + 1, int_delay_ + 2, int_delay_ + 3};
+        delayline_.GetNextOutputsAt(taps, output, lagrange_coeffs_);
+        delayline_.AdvanceRead(output.size());
     }
 }
 

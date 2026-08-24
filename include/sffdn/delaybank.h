@@ -53,14 +53,14 @@ class DelayBank : public AudioProcessor
      * @return The number of input channels.
      * @note This is equal to the number of delay lines in the bank.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Returns the number of output channels this processor produces.
      * @return The number of output channels.
      * @note This is equal to the number of delay lines in the bank.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Clears the internal delay buffers.
@@ -75,21 +75,21 @@ class DelayBank : public AudioProcessor
      * @note The input and output buffers must have the same sample count and a channel count equal to the number of
      * delay lines in the bank.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Adds the next input samples to each delay line in the bank.
      * @param input The input audio buffer containing samples for each channel.
      * @note The input buffer must have a channel count equal to the number of delay lines in the bank.
      */
-    void AddNextInputs(const AudioBuffer& input);
+    void AddNextInputs(const AudioBuffer& input) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Retrieves the next output samples from each delay line in the bank.
      * @param output The output audio buffer to fill with the next samples.
      * @note The output buffer must have a channel count equal to the number of delay lines in the bank.
      */
-    void GetNextOutputs(AudioBuffer& output);
+    void GetNextOutputs(AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Creates a copy of the delay bank.
      * @return A unique pointer to the cloned delay bank.

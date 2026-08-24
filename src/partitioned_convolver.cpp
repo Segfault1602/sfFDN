@@ -25,7 +25,7 @@ class PartitionedConvolverSegment
                                 std::span<const float> fir);
 
     uint32_t GetDelay() const;
-    void Process(std::span<const float> input, sfFDN::CircularBuffer& output_buffer);
+    void Process(std::span<const float> input, sfFDN::CircularBuffer& output_buffer) noexcept SFFDN_NONBLOCKING;
 
     void PrintPartition() const;
     std::string GetShortInfo() const;
@@ -61,7 +61,8 @@ uint32_t PartitionedConvolverSegment::GetDelay() const
     return delay_;
 }
 
-void PartitionedConvolverSegment::Process(std::span<const float> input, sfFDN::CircularBuffer& output_buffer)
+void PartitionedConvolverSegment::Process(std::span<const float> input,
+                                          sfFDN::CircularBuffer& output_buffer) noexcept SFFDN_NONBLOCKING
 {
     upols_.AddSamples(input);
 
@@ -138,7 +139,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
         }
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output)
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.SampleCount() == block_size_);
         assert(output.SampleCount() == block_size_);
@@ -250,7 +251,7 @@ PartitionedConvolver& PartitionedConvolver::operator=(PartitionedConvolver&& oth
     return *this;
 }
 
-void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void PartitionedConvolver::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     impl_->Process(input, output);
 }

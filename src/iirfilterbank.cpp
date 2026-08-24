@@ -69,13 +69,13 @@ class BiquadMC
     }
 
     template <typename Derived>
-    void Process(const Eigen::ArrayBase<Derived>& x)
+    void Process(const Eigen::ArrayBase<Derived>& x) noexcept SFFDN_NONBLOCKING
     {
-        temp_ = b0_ * x + state0_;
-        state0_ = b1_ * x + state1_ - a1_ * temp_;
-        state1_ = b2_ * x - a2_ * temp_;
+        SFFDN_FEA_UNSAFE(temp_ = b0_ * x + state0_;)
+        SFFDN_FEA_UNSAFE(state0_ = b1_ * x + state1_ - a1_ * temp_;)
+        SFFDN_FEA_UNSAFE(state1_ = b2_ * x - a2_ * temp_;)
 
-        const_cast<Eigen::ArrayBase<Derived>&>(x) = temp_;
+        SFFDN_FEA_UNSAFE(const_cast<Eigen::ArrayBase<Derived>&>(x) = temp_;)
     }
 
     void Clear()
@@ -155,7 +155,7 @@ class IIRFilterBank::IIRFilterBankImpl
 #endif
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
@@ -175,7 +175,7 @@ class IIRFilterBank::IIRFilterBankImpl
 
         for (auto i = 0u; i < input.SampleCount(); ++i)
         {
-            temp_ = in.row(i);
+            SFFDN_FEA_UNSAFE(temp_ = in.row(i);)
 
             for (auto& filter : filters_)
             {
@@ -187,7 +187,7 @@ class IIRFilterBank::IIRFilterBankImpl
 #endif
     }
 
-    uint32_t InputChannelCount() const
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
 #ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
@@ -196,7 +196,7 @@ class IIRFilterBank::IIRFilterBankImpl
 #endif
     }
 
-    uint32_t OutputChannelCount() const
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
 #ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
@@ -332,7 +332,7 @@ class IIRFilterBank::IIRFilterBankImpl
         output_ptrs_.resize(channel_count_);
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
@@ -347,15 +347,16 @@ class IIRFilterBank::IIRFilterBankImpl
             output_ptrs_[i] = output.GetChannelSpan(i).data();
         }
 
-        vDSP_biquadm(biquad_setup_, input_ptrs_.data(), 1, output_ptrs_.data(), 1, input.SampleCount());
+        SFFDN_FEA_UNSAFE(
+            vDSP_biquadm(biquad_setup_, input_ptrs_.data(), 1, output_ptrs_.data(), 1, input.SampleCount());)
     }
 
-    uint32_t InputChannelCount() const
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return channel_count_;
     }
 
-    uint32_t OutputChannelCount() const
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return channel_count_;
     }
@@ -403,17 +404,17 @@ void IIRFilterBank::SetFilter(std::span<const FilterCoefficients> coeffs, uint32
     impl_->SetFilter(coeffs, channel_count);
 }
 
-void IIRFilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void IIRFilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     impl_->Process(input, output);
 }
 
-uint32_t IIRFilterBank::InputChannelCount() const
+uint32_t IIRFilterBank::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->InputChannelCount();
 }
 
-uint32_t IIRFilterBank::OutputChannelCount() const
+uint32_t IIRFilterBank::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->OutputChannelCount();
 }

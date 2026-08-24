@@ -44,14 +44,14 @@ class DelayBankTimeVarying : public AudioProcessor
      * @return The number of input channels.
      * @note This is equal to the number of delay lines in the bank.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Returns the number of output channels this processor produces.
      * @return The number of output channels.
      * @note This is equal to the number of delay lines in the bank.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Clears the internal delay buffers.
@@ -66,7 +66,7 @@ class DelayBankTimeVarying : public AudioProcessor
      * @note The input and output buffers must have the same sample count and a channel count equal to the number of
      * delay lines in the bank.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Creates a copy of the delay bank.
      * @return A unique pointer to the cloned delay bank.

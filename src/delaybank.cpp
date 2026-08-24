@@ -37,12 +37,12 @@ void DelayBank::Clear()
     }
 }
 
-uint32_t DelayBank::InputChannelCount() const
+uint32_t DelayBank::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delays_.size();
 }
 
-uint32_t DelayBank::OutputChannelCount() const
+uint32_t DelayBank::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delays_.size();
 }
@@ -69,7 +69,7 @@ std::vector<float> DelayBank::GetDelays() const
     return delays;
 }
 
-void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -82,7 +82,7 @@ void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
     }
 }
 
-void DelayBank::AddNextInputs(const AudioBuffer& input)
+void DelayBank::AddNextInputs(const AudioBuffer& input) noexcept SFFDN_NONBLOCKING
 {
     assert(input.ChannelCount() == delays_.size());
     for (uint32_t i = 0; i < delays_.size(); i++)
@@ -91,7 +91,7 @@ void DelayBank::AddNextInputs(const AudioBuffer& input)
     }
 }
 
-void DelayBank::GetNextOutputs(AudioBuffer& output)
+void DelayBank::GetNextOutputs(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(output.ChannelCount() == delays_.size());
 

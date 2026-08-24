@@ -65,7 +65,7 @@ bool UPOLS::Initialize(uint32_t block_size, std::span<const float> fir)
     return true;
 }
 
-void UPOLS::Process(std::span<const float> input, std::span<float> output)
+void UPOLS::Process(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.size() == block_size_);
     assert(work_buffer_.Data().size() == 2 * block_size_);
@@ -101,14 +101,14 @@ void UPOLS::Process(std::span<const float> input, std::span<float> output)
     std::copy(result_buffer_.end() - block_size_, result_buffer_.end(), output.begin());
 }
 
-std::span<float> UPOLS::PrepareWorkBuffer()
+std::span<float> UPOLS::PrepareWorkBuffer() noexcept SFFDN_NONBLOCKING
 {
     // Prepare the input buffer for FFT
     std::copy(work_buffer_.begin() + block_size_, work_buffer_.end(), work_buffer_.begin());
     return work_buffer_.Data().subspan(block_size_, block_size_);
 }
 
-void UPOLS::AddSamples(std::span<const float> input)
+void UPOLS::AddSamples(std::span<const float> input) noexcept SFFDN_NONBLOCKING
 {
     assert(samples_needed_ >= input.size());
 
@@ -116,12 +116,12 @@ void UPOLS::AddSamples(std::span<const float> input)
     samples_needed_ -= input.size();
 }
 
-bool UPOLS::IsReady() const
+bool UPOLS::IsReady() const noexcept SFFDN_NONBLOCKING
 {
     return samples_needed_ == 0;
 }
 
-void UPOLS::Process(std::span<float> output)
+void UPOLS::Process(std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     assert(output.size() == block_size_);
     assert(work_buffer_.Data().size() == 2 * block_size_);

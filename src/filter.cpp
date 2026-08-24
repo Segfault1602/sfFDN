@@ -57,14 +57,14 @@ void OnePoleFilter::SetLowpass(float cutoff)
     SetPole(1 - p);
 }
 
-float OnePoleFilter::Tick(float in)
+float OnePoleFilter::Tick(float in) noexcept SFFDN_NONBLOCKING
 {
     state_[0] = in * b0_ - state_[1] * a1_;
     state_[1] = state_[0];
     return state_[0];
 }
 
-void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -99,12 +99,12 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
         out[sample] = Tick(in[sample]);
     }
 }
-uint32_t OnePoleFilter::InputChannelCount() const
+uint32_t OnePoleFilter::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1; // OnePoleFilter only supports single channel input
 }
 
-uint32_t OnePoleFilter::OutputChannelCount() const
+uint32_t OnePoleFilter::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1; // OnePoleFilter only supports single channel output
 }
@@ -128,14 +128,14 @@ AllpassFilter::AllpassFilter(const AllpassFilterOptions& config)
 {
 }
 
-float AllpassFilter::Tick(float in)
+float AllpassFilter::Tick(float in) noexcept SFFDN_NONBLOCKING
 {
     last_out_ = coeff_ * (in - last_out_) + last_in_;
     last_in_ = in;
     return last_out_;
 }
 
-void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -171,12 +171,12 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     }
 }
 
-uint32_t AllpassFilter::InputChannelCount() const
+uint32_t AllpassFilter::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1; // AllpassFilter only supports single channel input
 }
 
-uint32_t AllpassFilter::OutputChannelCount() const
+uint32_t AllpassFilter::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1; // AllpassFilter only supports single channel output
 }

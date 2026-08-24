@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "attributes.h"
 #include "audio_buffer.h"
 
 #include <nlohmann/json.hpp>
@@ -29,13 +30,13 @@ class AudioProcessor
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      */
-    virtual void Process(const AudioBuffer& input, AudioBuffer& output) noexcept = 0;
+    virtual void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING = 0;
 
     /** @brief Returns the number of input channels this processor expects. */
-    virtual uint32_t InputChannelCount() const = 0;
+    virtual uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING = 0;
 
     /** @brief Returns the number of output channels this processor produces. */
-    virtual uint32_t OutputChannelCount() const = 0;
+    virtual uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING = 0;
 
     /** @brief Clears the internal state of the processor.
      * This function should reset any internal buffers or states used by the processor without changing its
@@ -88,13 +89,13 @@ class AudioProcessorChain : public AudioProcessor
      * and the output buffer's channel count must match the last processor's output channel count.
      * @note The sample count of the input and output buffers must match the block size specified during construction.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels this processor expects. */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels this processor produces. */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of all processors in the chain. */
     void Clear() override;
@@ -112,6 +113,6 @@ class AudioProcessorChain : public AudioProcessor
     std::vector<float> work_buffer_b_;
     uint32_t max_work_buffer_size_ = 0;
 
-    void ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept;
+    void ProcessInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 };
 } // namespace sfFDN

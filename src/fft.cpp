@@ -11,12 +11,12 @@
 
 namespace
 {
-float* AsFloatPtr(sfFDN::FFTComplexBuffer& buffer)
+float* AsFloatPtr(sfFDN::FFTComplexBuffer& buffer) noexcept SFFDN_NONBLOCKING
 {
     return reinterpret_cast<float*>(buffer.Data().data());
 }
 
-const float* AsFloatPtr(const sfFDN::FFTComplexBuffer& buffer)
+const float* AsFloatPtr(const sfFDN::FFTComplexBuffer& buffer) noexcept SFFDN_NONBLOCKING
 {
     return reinterpret_cast<const float*>(buffer.Data().data());
 }
@@ -69,14 +69,14 @@ FFTBuffer<T>& FFTBuffer<T>::operator=(FFTBuffer&& other) noexcept
 }
 
 template <typename T>
-std::span<T> FFTBuffer<T>::Data()
+std::span<T> FFTBuffer<T>::Data() noexcept SFFDN_NONBLOCKING
 {
     assert(buffer_.data() != nullptr);
     return buffer_;
 }
 
 template <typename T>
-std::span<const T> FFTBuffer<T>::Data() const
+std::span<const T> FFTBuffer<T>::Data() const noexcept SFFDN_NONBLOCKING
 {
     assert(buffer_.data() != nullptr);
     return buffer_;
@@ -160,30 +160,31 @@ bool FFT::Initialize(uint32_t fft_size)
     return true;
 }
 
-void FFT::Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum)
+void FFT::Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum) noexcept SFFDN_NONBLOCKING
 {
     assert(input.Data().size() == fft_size_);
     assert(spectrum.Data().size() == complex_sample_count_);
 
-    pffft_transform(setup_, input.Data().data(), AsFloatPtr(spectrum), work_buffer_, PFFFT_FORWARD);
+    SFFDN_FEA_UNSAFE(pffft_transform(setup_, input.Data().data(), AsFloatPtr(spectrum), work_buffer_, PFFFT_FORWARD);)
 }
 
-void FFT::Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output)
+void FFT::Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(spectrum.Data().size() == complex_sample_count_);
     assert(output.Data().size() == fft_size_);
 
-    pffft_transform(setup_, AsFloatPtr(spectrum), output.Data().data(), work_buffer_, PFFFT_BACKWARD);
+    SFFDN_FEA_UNSAFE(pffft_transform(setup_, AsFloatPtr(spectrum), output.Data().data(), work_buffer_, PFFFT_BACKWARD);)
 }
 
-void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b, FFTComplexBuffer& dft_ab)
+void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b,
+                             FFTComplexBuffer& dft_ab) noexcept SFFDN_NONBLOCKING
 {
     assert(dft_a.Data().size() == complex_sample_count_);
     assert(dft_b.Data().size() == complex_sample_count_);
     assert(dft_ab.Data().size() == complex_sample_count_);
 
-    pffft_zconvolve_accumulate(setup_, AsFloatPtr(dft_a), AsFloatPtr(dft_b), AsFloatPtr(dft_ab),
-                               1.0f / static_cast<float>(fft_size_));
+    SFFDN_FEA_UNSAFE(pffft_zconvolve_accumulate(setup_, AsFloatPtr(dft_a), AsFloatPtr(dft_b), AsFloatPtr(dft_ab),
+                                                1.0f / static_cast<float>(fft_size_));)
 }
 
 FFTRealBuffer FFT::AllocateRealBuffer() const

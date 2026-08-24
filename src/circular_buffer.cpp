@@ -16,12 +16,12 @@ CircularBuffer::CircularBuffer(uint32_t size)
 
 CircularBuffer::~CircularBuffer() = default;
 
-void CircularBuffer::Advance(uint32_t count)
+void CircularBuffer::Advance(uint32_t count) noexcept SFFDN_NONBLOCKING
 {
     write_ptr_ = (write_ptr_ + count) % buffer_.size();
 }
 
-void CircularBuffer::Clear(uint32_t count, uint32_t offset)
+void CircularBuffer::Clear(uint32_t count, uint32_t offset) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t start = (write_ptr_ + offset) % buffer_.size();
     const uint32_t end = (start + count) % buffer_.size();
@@ -37,13 +37,13 @@ void CircularBuffer::Clear(uint32_t count, uint32_t offset)
     }
 }
 
-void CircularBuffer::Clear()
+void CircularBuffer::Clear() noexcept SFFDN_NONBLOCKING
 {
     std::ranges::fill(buffer_, 0.f);
     write_ptr_ = 0;
 }
 
-void CircularBuffer::Write(std::span<const float> data)
+void CircularBuffer::Write(std::span<const float> data) noexcept SFFDN_NONBLOCKING
 {
     assert(data.size() <= buffer_.size());
     const uint32_t start = write_ptr_;
@@ -61,7 +61,7 @@ void CircularBuffer::Write(std::span<const float> data)
     }
 }
 
-void CircularBuffer::Accumulate(std::span<const float> data, uint32_t offset)
+void CircularBuffer::Accumulate(std::span<const float> data, uint32_t offset) noexcept SFFDN_NONBLOCKING
 {
     assert(data.size() <= buffer_.size());
     const uint32_t start = (write_ptr_ + offset) % buffer_.size();
@@ -89,7 +89,7 @@ void CircularBuffer::Accumulate(std::span<const float> data, uint32_t offset)
     }
 }
 
-void CircularBuffer::Read(std::span<float> data, bool clear_after_read)
+void CircularBuffer::Read(std::span<float> data, bool clear_after_read) noexcept SFFDN_NONBLOCKING
 {
     assert(data.size() <= buffer_.size());
 
@@ -118,7 +118,7 @@ void CircularBuffer::Read(std::span<float> data, bool clear_after_read)
     }
 }
 
-uint32_t CircularBuffer::Size() const
+uint32_t CircularBuffer::Size() const noexcept SFFDN_NONBLOCKING
 {
     return buffer_.size();
 }

@@ -71,7 +71,7 @@ enum class DelayInterpolationType : uint8_t
     //! Allpass interpolation.
     Allpass = 2,
 
-    // Lagrange interpolation.
+    //! Third-order Lagrange interpolation.
     Lagrange = 3,
     Count = 4,
 };

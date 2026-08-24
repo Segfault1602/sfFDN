@@ -6,14 +6,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <iostream>
 #include <ranges>
 #include <span>
 #include <vector>
 
 namespace
 {
-uint32_t FastMod(uint32_t input, uint32_t ceil)
+uint32_t FastMod(uint32_t input, uint32_t ceil) noexcept SFFDN_NONBLOCKING
 {
     return input >= ceil ? input % ceil : input;
 }
@@ -30,7 +29,6 @@ Delay::Delay(uint32_t delay, uint32_t max_delay)
 {
     if (delay > max_delay)
     {
-        std::cerr << "Delay::Delay: max_delay must be > than delay argument!\n";
         assert(false);
     }
 
@@ -58,12 +56,12 @@ void Delay::SetMaximumDelay(uint32_t delay)
     buffer_.resize(delay + 1, 0.0);
 }
 
-uint32_t Delay::GetMaximumDelay() const
+uint32_t Delay::GetMaximumDelay() const noexcept SFFDN_NONBLOCKING
 {
     return buffer_.size() - 1;
 }
 
-void Delay::SetDelay(uint32_t delay)
+void Delay::SetDelay(uint32_t delay) noexcept SFFDN_NONBLOCKING
 {
     if (delay == delay_)
     {
@@ -81,17 +79,17 @@ void Delay::SetDelay(uint32_t delay)
     delay_ = delay;
 }
 
-float Delay::LastOut() const
+float Delay::LastOut() const noexcept SFFDN_NONBLOCKING
 {
     return last_frame_;
 }
 
-float Delay::NextOut() const
+float Delay::NextOut() const noexcept SFFDN_NONBLOCKING
 {
     return buffer_[out_point_];
 }
 
-float Delay::Tick(float input)
+float Delay::Tick(float input) noexcept SFFDN_NONBLOCKING
 {
     buffer_[in_point_] = input;
     in_point_ = (in_point_ + 1) % buffer_.size();
@@ -103,11 +101,10 @@ float Delay::Tick(float input)
     return last_frame_;
 }
 
-float Delay::TapOut(uint32_t tap) const
+float Delay::TapOut(uint32_t tap) const noexcept SFFDN_NONBLOCKING
 {
     if (tap >= buffer_.size())
     {
-        std::cerr << "Delay::TapOut: Tap point exceeds buffer size!\n";
         assert(false);
         return 0.0f;
     }
@@ -116,14 +113,20 @@ float Delay::TapOut(uint32_t tap) const
     return buffer_[tap_point];
 }
 
-void Delay::Process(const AudioBuffer input, AudioBuffer& output)
+void Delay::Process(const AudioBuffer input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // Delay only supports mono input
 
-    if (AddNextInputs(input.GetChannelSpan(0)))
+    const auto input_span = input.GetChannelSpan(0);
+    if (CanAddNextInputs(input_span.size()))
     {
+        if (!AddNextInputs(input_span))
+        {
+            assert(false);
+            return;
+        }
         GetNextOutputs(output.GetChannelSpan(0));
     }
     else
@@ -138,8 +141,21 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output)
     }
 }
 
-bool Delay::AddNextInputs(std::span<const float> input)
+bool Delay::CanAddNextInputs(size_t sample_count) const noexcept SFFDN_NONBLOCKING
 {
+    const size_t available_space =
+        out_point_ > in_point_ ? out_point_ - in_point_ : buffer_.size() - in_point_ + out_point_;
+    return sample_count < available_space;
+}
+
+bool Delay::AddNextInputs(std::span<const float> input) noexcept SFFDN_NONBLOCKING
+{
+    if (!CanAddNextInputs(input.size()))
+    {
+        assert(false);
+        return false;
+    }
+
     const std::span<float> buffer_span = buffer_;
 
     std::span<float> write_buffer = GetNextInputBuffers(input.size());
@@ -156,18 +172,11 @@ bool Delay::AddNextInputs(std::span<const float> input)
         write_buffer = GetNextInputBuffers(input.size() - samples_written);
     }
 
-    if (samples_written != input.size())
-    {
-        // Not enough space in buffer to write all input samples
-        std::cerr << "Delay::AddNextInputs: Not enough space in buffer to write input data!\n";
-        assert(false);
-        return false;
-    }
-
+    assert(samples_written == input.size());
     return true;
 }
 
-std::span<float> Delay::GetNextOutputBuffers(uint32_t output_size)
+std::span<float> Delay::GetNextOutputBuffers(uint32_t output_size) noexcept SFFDN_NONBLOCKING
 {
     const std::span<float> buffer_span = buffer_;
 
@@ -196,7 +205,7 @@ std::span<float> Delay::GetNextOutputBuffers(uint32_t output_size)
     return out_buffer;
 }
 
-std::span<float> Delay::GetNextInputBuffers(uint32_t size)
+std::span<float> Delay::GetNextInputBuffers(uint32_t size) noexcept SFFDN_NONBLOCKING
 {
     const std::span<float> buffer_span = buffer_;
 
@@ -225,7 +234,8 @@ std::span<float> Delay::GetNextInputBuffers(uint32_t size)
     return out_buffer;
 }
 
-void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<float>& write_buffer, uint32_t size)
+void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<float>& write_buffer,
+                                       uint32_t size) noexcept SFFDN_NONBLOCKING
 {
     read_buffer = GetNextOutputBuffers(size);
     write_buffer = GetNextInputBuffers(size);
@@ -235,7 +245,7 @@ void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<
     write_buffer = write_buffer.first(min_size);
 }
 
-void Delay::GetNextOutputs(std::span<float> output)
+void Delay::GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     std::span<float> buffer = GetNextOutputBuffers(output.size());
 
@@ -253,14 +263,14 @@ void Delay::GetNextOutputs(std::span<float> output)
 
     if (sample_written != output.size())
     {
-        std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
         assert(false);
     }
 
     last_frame_ = output.back();
 }
 
-void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, std::span<float> coeffs)
+void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output,
+                             std::span<float> coeffs) noexcept SFFDN_NONBLOCKING
 {
     const std::span<float> buffer_span = buffer_;
 
@@ -293,7 +303,6 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, 
         const uint32_t available_space = buffer_1.size() + buffer_2.size();
         if (available_space < output.size())
         {
-            std::cerr << "Delay::GetNextOutputs: Not enough data in buffer to read output data!\n";
             assert(false);
             return;
         }
@@ -311,12 +320,12 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output, 
     }
 }
 
-void Delay::AdvanceRead(uint32_t sample_count)
+void Delay::AdvanceRead(uint32_t sample_count) noexcept SFFDN_NONBLOCKING
 {
     out_point_ = FastMod(out_point_ + sample_count, buffer_.size());
 }
 
-void Delay::AdvanceWrite(uint32_t sample_count)
+void Delay::AdvanceWrite(uint32_t sample_count) noexcept SFFDN_NONBLOCKING
 {
     in_point_ = FastMod(in_point_ + sample_count, buffer_.size());
 }

@@ -51,7 +51,7 @@ class ScalarFeedbackMatrix : public AudioProcessor
      * @param output AudioBuffer to fill with the processed audio data. The number of channels must match the matrix
      * order.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the size of the square matrix (number of rows/columns).
      * @return The size of the matrix.
@@ -68,10 +68,10 @@ class ScalarFeedbackMatrix : public AudioProcessor
     float GetCoefficient(uint32_t row, uint32_t col) const;
 
     /** @brief Returns the number of input channels supported by the processor. */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by the processor. */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This is a no-op for ScalarFeedbackMatrix as it has no internal state.

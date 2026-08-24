@@ -105,7 +105,7 @@ void TimeVaryingParallelGains::SetLfoPhaseOffset(std::span<const float> phase_of
     }
 }
 
-uint32_t TimeVaryingParallelGains::InputChannelCount() const
+uint32_t TimeVaryingParallelGains::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     switch (mode_)
     {
@@ -120,7 +120,7 @@ uint32_t TimeVaryingParallelGains::InputChannelCount() const
     }
 }
 
-uint32_t TimeVaryingParallelGains::OutputChannelCount() const
+uint32_t TimeVaryingParallelGains::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     switch (mode_)
     {
@@ -136,7 +136,7 @@ uint32_t TimeVaryingParallelGains::OutputChannelCount() const
     }
 }
 
-void TimeVaryingParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void TimeVaryingParallelGains::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     if (mode_ == ParallelGainsMode::Split)
     {
@@ -156,7 +156,8 @@ void TimeVaryingParallelGains::Process(const AudioBuffer& input, AudioBuffer& ou
     }
 }
 
-void TimeVaryingParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output)
+void TimeVaryingParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input,
+                                                       AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.ChannelCount() == 1);
     assert(output.ChannelCount() == lfos_.size());
@@ -168,7 +169,8 @@ void TimeVaryingParallelGains::ProcessBlockMultiplexed(const AudioBuffer& input,
     }
 }
 
-void TimeVaryingParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output)
+void TimeVaryingParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& input,
+                                                         AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == lfos_.size());
@@ -180,7 +182,8 @@ void TimeVaryingParallelGains::ProcessBlockDeMultiplexed(const AudioBuffer& inpu
     }
 }
 
-void TimeVaryingParallelGains::ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output)
+void TimeVaryingParallelGains::ProcessBlockParallel(const AudioBuffer& input,
+                                                    AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == lfos_.size());

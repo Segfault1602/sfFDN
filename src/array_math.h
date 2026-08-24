@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sffdn/attributes.h"
+
 #include <span>
 
 namespace sfFDN
@@ -9,24 +11,25 @@ namespace ArrayMath
 
 // Add two arrays element-wise, store the result in the first array
 // a[i] += b[i]
-void Accumulate(std::span<float> a, std::span<const float> b);
+void Accumulate(std::span<float> a, std::span<const float> b) noexcept SFFDN_NONBLOCKING;
 
 // Adds two arrays element-wise
 // out[i] = a[i] + b[i]
-void Add(std::span<const float> a, std::span<const float> b, std::span<float> out);
+void Add(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // Scales an array by a constant
 // out[i] = a[i] * b
-void Scale(std::span<const float> a, const float b, std::span<float> out);
+void Scale(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // out[i] += a[i] * b
-void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out);
+void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // out[i] = a[i] * b[i]
-void Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out);
+void Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // out[i] = a[i]*b + c[i]
-void MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out);
+void MultiplyAdd(std::span<const float> a, float b, std::span<const float> c,
+                 std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 } // namespace ArrayMath
 

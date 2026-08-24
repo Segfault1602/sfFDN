@@ -47,13 +47,13 @@ class DelayMatrix : public AudioProcessor
      * @param input the input audio buffer
      * @param output the output audio buffer
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels this processor expects. */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels this processor produces. */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal delay buffers.
      * This sets all delay buffers to zero without changing the delay values or mixing matrix.

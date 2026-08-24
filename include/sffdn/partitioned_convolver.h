@@ -46,7 +46,7 @@ class PartitionedConvolver : public AudioProcessor
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of samples equal to the block size.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the block size used for processing.
      * @returns The block size used for processing.
@@ -66,7 +66,7 @@ class PartitionedConvolver : public AudioProcessor
      * This is always 1, as PartitionedConvolver processes one channel at a time.
      * @returns The number of input channels supported.
      */
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1; // PartitionedConvolver processes one channel at a time
     }
@@ -75,7 +75,7 @@ class PartitionedConvolver : public AudioProcessor
      * This is always 1, as PartitionedConvolver processes one channel at a time.
      * @returns The number of output channels supported.
      */
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1; // PartitionedConvolver processes one channel at a time
     }

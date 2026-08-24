@@ -74,17 +74,17 @@ class ParallelGains : public AudioProcessor
      * have 1 channels. For ParallelGainsMode::Parallel, the input and output buffers must have the same number of
      * channels equal to InputChannelCount() and OutputChannelCount().
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of input channels supported.
      * @note For ParallelGainsMode::Split, this is always 1.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of output channels supported.
      * @note For ParallelGainsMode::Merge, this is always 1.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function does nothing as there is no internal state to clear.
@@ -97,9 +97,9 @@ class ParallelGains : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);
-    void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output);
-    void ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output);
+    void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     std::vector<float> gains_;
     ParallelGainsMode mode_;
@@ -181,13 +181,13 @@ class TimeVaryingParallelGains : public AudioProcessor
      * have 1 channels. For ParallelGainsMode::Parallel, the input and output buffers must have the same number of
      * channels equal to InputChannelCount() and OutputChannelCount().
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of input channels. */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the number of output channels. */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the phase of all LFOs to zero.
@@ -200,9 +200,9 @@ class TimeVaryingParallelGains : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
-    void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output);
-    void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output);
-    void ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output);
+    void ProcessBlockMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void ProcessBlockDeMultiplexed(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void ProcessBlockParallel(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     ParallelGainsMode mode_;
     std::vector<SineWave> lfos_;

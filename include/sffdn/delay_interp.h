@@ -8,8 +8,9 @@
 #include "sffdn/filter.h"
 #include "sffdn/types.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <vector>
 
 namespace sfFDN
 {
@@ -43,7 +44,7 @@ class DelayInterp : public AudioProcessor
      * @brief Sets the delay for the delay line.
      * @param delay The delay in samples.
      */
-    void SetDelay(float delay);
+    void SetDelay(float delay) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Returns the current delay in samples. */
     float GetDelay() const;
@@ -53,14 +54,14 @@ class DelayInterp : public AudioProcessor
      * @param input The input sample to process.
      * @return The processed output sample.
      */
-    float Tick(float input);
+    float Tick(float input) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Processes a block of input samples.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Adds the next input samples to the delay line.
@@ -70,20 +71,20 @@ class DelayInterp : public AudioProcessor
      * input samples. In this case, the internal state remains unchanged. When processing audio in blocks, the delay
      * line maximum delay should be set to a value that is larger than the block size.
      */
-    bool AddNextInputs(std::span<const float> input);
+    bool AddNextInputs(std::span<const float> input) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Gets the next output samples from the delay line.
      * @param output The output samples to fill.
      */
-    void GetNextOutputs(std::span<float> output);
+    void GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
 
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
@@ -91,6 +92,9 @@ class DelayInterp : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
+    static constexpr std::size_t kLagrangeOrder = 3;
+    static constexpr std::size_t kLagrangeTapCount = kLagrangeOrder + 1;
+
     Delay delayline_;
 
     float delay_;
@@ -100,8 +104,7 @@ class DelayInterp : public AudioProcessor
 
     AllpassFilter allpass_;
 
-    std::vector<float> lagrange_coeffs_;
-    Fir lagrange_filter_;
+    std::array<float, kLagrangeTapCount> lagrange_coeffs_{};
     float linear_last_out_;
 };
 

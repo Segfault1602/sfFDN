@@ -35,7 +35,7 @@ class Fir::FirImpl
         delay_index_ = 0;
     }
 
-    float Tick(float in)
+    float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         delay_line_[delay_index_] = in;
         delay_line_[delay_index_ + coeffs_.size()] = in;
@@ -52,7 +52,7 @@ class Fir::FirImpl
         return y;
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         const uint32_t sample_count = input.SampleCount();
         assert(input.ChannelCount() == output.ChannelCount());
@@ -64,12 +64,12 @@ class Fir::FirImpl
         }
     }
 
-    constexpr uint32_t InputChannelCount() const
+    constexpr uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
 
-    constexpr uint32_t OutputChannelCount() const
+    constexpr uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
@@ -169,31 +169,31 @@ class Fir::FirImpl
         }
     }
 
-    float Tick(float in)
+    float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         float out = 0.f;
-        ippsFIRSR_32f(&in, &out, 1, spec_, source_delay_, delay_line_, buffer_);
+        SFFDN_FEA_UNSAFE(ippsFIRSR_32f(&in, &out, 1, spec_, source_delay_, delay_line_, buffer_);)
         std::swap(source_delay_, delay_line_);
         return out;
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         const uint32_t sample_count = input.SampleCount();
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
-        ippsFIRSR_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(), static_cast<int>(sample_count),
-                      spec_, source_delay_, delay_line_, buffer_);
+        SFFDN_FEA_UNSAFE(ippsFIRSR_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(),
+                                       static_cast<int>(sample_count), spec_, source_delay_, delay_line_, buffer_);)
         std::swap(source_delay_, delay_line_);
     }
 
-    uint32_t InputChannelCount() const
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
 
-    uint32_t OutputChannelCount() const
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
@@ -268,22 +268,22 @@ void Fir::SetCoefficients(std::span<const float> coeffs)
     impl_->SetCoefficients(coeffs);
 }
 
-float Fir::Tick(float in)
+float Fir::Tick(float in) noexcept SFFDN_NONBLOCKING
 {
     return impl_->Tick(in);
 }
 
-void Fir::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void Fir::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     impl_->Process(input, output);
 }
 
-uint32_t Fir::InputChannelCount() const
+uint32_t Fir::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->InputChannelCount();
 }
 
-uint32_t Fir::OutputChannelCount() const
+uint32_t Fir::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->OutputChannelCount();
 }

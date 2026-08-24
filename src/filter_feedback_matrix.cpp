@@ -158,7 +158,7 @@ void FilterFeedbackMatrix::Clear()
     }
 }
 
-void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == channel_count_);

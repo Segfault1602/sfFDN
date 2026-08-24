@@ -62,7 +62,7 @@ bool ScalarFeedbackMatrix::GetMatrix(std::span<float> matrix) const
     return true;
 }
 
-void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -85,18 +85,16 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     const Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
     Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
 
-    // The input and output buffers must not overlap
-    // This is a requirement to avoid memory allocation in Eigen by using noalias()
+    // noalias() avoids an alias-protection result temporary; Eigen may still use internal GEMM scratch storage.
     if (input.Data() != output.Data())
     {
-        output_map.noalias() = input_map * matrix;
+        SFFDN_FEA_UNSAFE(output_map.noalias() = input_map * matrix;)
     }
     else
     {
-        // __rtsan::ScopedDisabler d;
-        // I think this path is only used for the FilterFeedbackMatrix, but could be fixed by using a temporary
-        // buffer
-        output_map = input_map * matrix;
+        SFFDN_RTSAN_SCOPED_DISABLER(rtsan_disabler);
+        // TODO(Phase 2): use preallocated scratch storage for aliased matrix multiplication.
+        SFFDN_FEA_UNSAFE(output_map = input_map * matrix;)
     }
 #endif
 }
@@ -111,12 +109,12 @@ float ScalarFeedbackMatrix::GetCoefficient(uint32_t row, uint32_t col) const
     return matrix_data_[(row * order_) + col];
 }
 
-uint32_t ScalarFeedbackMatrix::InputChannelCount() const
+uint32_t ScalarFeedbackMatrix::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return order_;
 }
 
-uint32_t ScalarFeedbackMatrix::OutputChannelCount() const
+uint32_t ScalarFeedbackMatrix::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return order_;
 }

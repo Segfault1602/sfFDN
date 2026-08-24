@@ -206,7 +206,7 @@ class FDN : public AudioProcessor
     /** @brief Returns the number of input channels this processor expects.
      * @return 1
      */
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
@@ -214,7 +214,7 @@ class FDN : public AudioProcessor
     /** @brief Returns the number of output channels this processor produces.
      * @return 1
      */
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
@@ -235,10 +235,10 @@ class FDN : public AudioProcessor
     std::unique_ptr<FDN> CloneFDN() const;
 
   private:
-    void TickInternal(const AudioBuffer& input, AudioBuffer& output);
-    void Tick(const AudioBuffer& input, AudioBuffer& output);
-    void TickTranspose(const AudioBuffer& input, AudioBuffer& output);
-    void TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output);
+    void TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void TickTranspose(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     DelayBank delay_bank_;
     std::unique_ptr<AudioProcessor> filter_bank_;

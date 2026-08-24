@@ -403,7 +403,7 @@ void FDN::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_
     }
 }
 
-void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output)
+void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() * input.ChannelCount() <= temp_buffer_.size());
 
@@ -439,7 +439,7 @@ void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output)
     ArrayMath::ScaleAccumulate(input.GetChannelSpan(0), direct_gain_, output.GetChannelSpan(0));
 }
 
-void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
+void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t block_size = input.SampleCount();
 
@@ -473,7 +473,7 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output)
     ArrayMath::ScaleAccumulate(input.GetChannelSpan(0), direct_gain_, output.GetChannelSpan(0));
 }
 
-void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
+void FDN::Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t block_count = input.SampleCount() / block_size_;
 
@@ -497,7 +497,7 @@ void FDN::Tick(const AudioBuffer& input, AudioBuffer& output)
     }
 }
 
-void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output)
+void FDN::TickTranspose(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t block_count = input.SampleCount() / block_size_;
 
