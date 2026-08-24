@@ -23,11 +23,12 @@ class PartitionedConvolver : public AudioProcessor
      *
      * @param block_size The block size to use for processing.
      * @param fir The FIR filter coefficients.
-     * @param rep_count The number of times to repeat each block in the partitioned convolution.
+     * @param rep_count The number of times to repeat each block in the partitioned convolution. A value of zero
+     * automatically selects a schedule based on the FIR length.
      * The PartitionedConvolver only works if the block size stays constant during use.
      * Process() expects the input and output buffers to have a sample count equal to the block size.
      */
-    PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 8);
+    PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 0);
     ~PartitionedConvolver();
 
     PartitionedConvolver(const PartitionedConvolver&) = delete;

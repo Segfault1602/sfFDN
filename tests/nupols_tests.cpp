@@ -10,6 +10,7 @@
 
 #include "sffdn/sffdn.h"
 
+#include "allocation_counter.h"
 #include "filter_coeffs.h"
 #include "test_utils.h"
 
@@ -119,4 +120,38 @@ TEST_CASE("PartitionedConvolver_Noise")
 
     float snr = 10.f * log10(signal_energy / signal_error);
     std::cout << "PartitionedConvolver SNR: " << snr << " dB, Max Error: " << max_error << "\n";
+}
+
+TEST_CASE("PartitionedConvolver automatically selects a production partition schedule")
+{
+    constexpr uint32_t kBlockSize = 1024;
+    std::vector<float> short_rir(48000, 0.f);
+    std::vector<float> long_rir(96000, 0.f);
+    short_rir[0] = 1.f;
+    long_rir[0] = 1.f;
+
+    sfFDN::PartitionedConvolver automatic_short(kBlockSize, short_rir);
+    sfFDN::PartitionedConvolver explicit_short(kBlockSize, short_rir, 8);
+    sfFDN::PartitionedConvolver automatic_long(kBlockSize, long_rir);
+#if defined(__APPLE__) && defined(__aarch64__)
+    sfFDN::PartitionedConvolver explicit_long(kBlockSize, long_rir, 16);
+#else
+    sfFDN::PartitionedConvolver explicit_long(kBlockSize, long_rir, 8);
+#endif
+
+    REQUIRE(automatic_short.GetShortInfo() == explicit_short.GetShortInfo());
+    REQUIRE(automatic_long.GetShortInfo() == explicit_long.GetShortInfo());
+
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize, 0.f);
+    input[0] = 1.f;
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        automatic_long.Process(input_buffer, output_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
 }

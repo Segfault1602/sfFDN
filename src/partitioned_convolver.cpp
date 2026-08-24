@@ -18,6 +18,19 @@
 
 namespace
 {
+uint32_t ResolveRepCount(uint32_t block_size, size_t fir_size, uint32_t requested_rep_count)
+{
+    if (requested_rep_count != 0)
+    {
+        return requested_rep_count;
+    }
+#if defined(__APPLE__) && defined(__aarch64__)
+    return fir_size > 48u * static_cast<size_t>(block_size) ? 16u : 8u;
+#else
+    return 8u;
+#endif
+}
+
 class PartitionedConvolverSegment
 {
   public:
@@ -103,7 +116,7 @@ class PartitionedConvolver::PartitionedConvolverImpl
   public:
     PartitionedConvolverImpl(uint32_t block_size, std::span<const float> fir, uint32_t rep_count)
         : block_size_(block_size)
-        , rep_count_(rep_count)
+        , rep_count_(ResolveRepCount(block_size, fir.size(), rep_count))
         , fir_(fir.begin(), fir.end())
     {
         uint32_t circ_buffer_size = fir.size();
@@ -130,11 +143,11 @@ class PartitionedConvolver::PartitionedConvolverImpl
             else
             {
                 const uint32_t segment_size =
-                    std::min(segment_block_size * rep_count, static_cast<uint32_t>(fir.size()) - fir_offset);
+                    std::min(segment_block_size * rep_count_, static_cast<uint32_t>(fir.size()) - fir_offset);
                 segments_.emplace_back(block_size, segment_block_size, fir_offset,
                                        fir.subspan(fir_offset, segment_size));
                 fir_offset += segment_size;
-                segment_block_size *= rep_count;
+                segment_block_size *= rep_count_;
             }
         }
     }
