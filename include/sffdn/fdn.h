@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "attributes.h"
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delaybank.h"
@@ -200,7 +201,7 @@ class FDN : public AudioProcessor
      * The input and output buffers must have the same sample count.
      * input.SampleCount() does not have to be equal to block_size but it is recommended for optimal performance.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels this processor expects.
      * @return 1

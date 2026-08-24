@@ -372,7 +372,7 @@ AudioProcessor* FDN::GetTCFilter() const
     return tc_filter_.get();
 }
 
-void FDN::Process(const AudioBuffer& input, AudioBuffer& output) noexcept [[clang::nonblocking]]
+void FDN::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == 1);

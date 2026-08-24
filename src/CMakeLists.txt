@@ -61,6 +61,7 @@ target_sources(
            BASE_DIRS
            ${SFFDN_INCLUDE_DIRS}
            FILES
+           ${SFFDN_INCLUDE_DIRS}/sffdn/attributes.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_buffer.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_processor.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_matrix.h

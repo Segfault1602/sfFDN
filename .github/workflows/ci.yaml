@@ -68,3 +68,54 @@ jobs:
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
+
+  clang-fea-baseline:
+    name: Clang Function Effect Analysis baseline
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Clang 22 and Ninja
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends ninja-build wget
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 22
+
+    - name: Configure, build, and test
+      shell: bash
+      run: |
+        set -o pipefail
+        clang++-22 --version | tee fea-warnings.txt
+        cmake --preset llvm-fea \
+          -DCMAKE_C_COMPILER=clang-22 \
+          -DCMAKE_CXX_COMPILER=clang++-22 2>&1 | tee -a fea-warnings.txt
+        cmake --build build/llvm-fea --config Release 2>&1 | tee -a fea-warnings.txt
+        ctest --test-dir build/llvm-fea -C Release --output-on-failure 2>&1 \
+          | tee -a fea-warnings.txt
+
+    - name: Summarize baseline
+      shell: bash
+      run: |
+        warning_count=$(grep -c -- '\[-Wfunction-effects\]' fea-warnings.txt || true)
+        {
+          echo "### Clang Function Effect Analysis"
+          echo
+          echo "Warnings: ${warning_count}"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "${warning_count}" -eq 0 ]; then
+          echo "Expected at least one -Wfunction-effects diagnostic" >&2
+          exit 1
+        fi
+
+    - name: Upload baseline
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fea-warnings-baseline
+        path: fea-warnings.txt
+        retention-days: 90

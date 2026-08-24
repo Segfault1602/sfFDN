@@ -32,6 +32,18 @@
             }
         },
         {
+            "name": "llvm-fea",
+            "displayName": "LLVM - Function Effect Analysis",
+            "description": "Capture the Clang Function Effect Analysis warning baseline",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/llvm-fea",
+            "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
+            "cacheVariables": {
+                "SFFDN_ENABLE_FUNCTION_EFFECTS": "ON",
+                "SFFDN_USE_SANITIZER": "OFF"
+            }
+        },
+        {
             "name": "windows",
             "displayName": "Windows",
             "description": "Build for Windows",
@@ -53,6 +65,10 @@
         {
             "name": "llvm-tidy",
             "configurePreset": "llvm-tidy"
+        },
+        {
+            "name": "llvm-fea",
+            "configurePreset": "llvm-fea"
         },
         {
             "name": "windows",

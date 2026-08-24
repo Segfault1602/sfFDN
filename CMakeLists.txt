@@ -12,10 +12,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(SFFDN_BUILD_TESTS "Enable building tests. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF}."
        ${PROJECT_IS_TOP_LEVEL}
 )
-option(SFFDN_USE_SANITIZER "Use AddressSanitizer" OFF)
+option(SFFDN_USE_SANITIZER "Use AddressSanitizer" ON)
 option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
 option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
 option(SFFDN_USE_VDSP "Use vDSP for dsp operations" "${APPLE}")
+option(SFFDN_ENABLE_FUNCTION_EFFECTS "Enable Clang Function Effect Analysis" OFF)
 
 include(./fetch_deps.cmake)
 
