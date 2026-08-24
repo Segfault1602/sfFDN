@@ -5,6 +5,7 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -16,85 +17,83 @@
 #include <vector>
 
 #ifdef SFFDN_USE_VDSP
-#include <Accelerate/Accelerate.h>
-#endif
-
-#define IIRFILTERBANK_USE_EIGEN
-#ifdef IIRFILTERBANK_USE_EIGEN
-#include <Eigen/Core>
+#include "third_party/fea_vdsp_process.h"
 #endif
 
 namespace
 {
-#ifdef IIRFILTERBANK_USE_EIGEN
+#ifndef SFFDN_USE_VDSP
 class BiquadMC
 {
-  public:
-    BiquadMC()
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+#endif
+    static void ProcessChannels(float* __restrict samples, const float* __restrict b0, const float* __restrict b1,
+                                const float* __restrict b2, const float* __restrict a1, const float* __restrict a2,
+                                float* __restrict state0, float* __restrict state1,
+                                size_t channel_count) noexcept SFFDN_NONBLOCKING
     {
-        b0_ = Eigen::ArrayXf::Zero(1);
-        b1_ = Eigen::ArrayXf::Zero(1);
-        b2_ = Eigen::ArrayXf::Zero(1);
-        a1_ = Eigen::ArrayXf::Zero(1);
-        a2_ = Eigen::ArrayXf::Zero(1);
-
-        state0_ = Eigen::ArrayXf::Zero(1);
-        state1_ = Eigen::ArrayXf::Zero(1);
+        for (auto ch = 0u; ch < channel_count; ++ch)
+        {
+            const float input = samples[ch];
+            const float output = (b0[ch] * input) + state0[ch];
+            state0[ch] = (b1[ch] * input) + state1[ch] - (a1[ch] * output);
+            state1[ch] = (b2[ch] * input) - (a2[ch] * output);
+            samples[ch] = output;
+        }
     }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
+  public:
     void SetCoefficients(uint32_t channel_count, std::span<const float> coeffs)
     {
         constexpr uint32_t kCoeffPerStage = 5;
-        assert(coeffs.size() == channel_count * 5);
-        b0_ = Eigen::ArrayXf::Zero(channel_count);
-        b1_ = Eigen::ArrayXf::Zero(channel_count);
-        b2_ = Eigen::ArrayXf::Zero(channel_count);
-        a1_ = Eigen::ArrayXf::Zero(channel_count);
-        a2_ = Eigen::ArrayXf::Zero(channel_count);
+        assert(coeffs.size() == channel_count * kCoeffPerStage);
+        b0_.assign(channel_count, 0.f);
+        b1_.assign(channel_count, 0.f);
+        b2_.assign(channel_count, 0.f);
+        a1_.assign(channel_count, 0.f);
+        a2_.assign(channel_count, 0.f);
 
-        state0_ = Eigen::ArrayXf::Zero(channel_count);
-        state1_ = Eigen::ArrayXf::Zero(channel_count);
+        state0_.assign(channel_count, 0.f);
+        state1_.assign(channel_count, 0.f);
 
         for (auto ch = 0u; ch < channel_count; ++ch)
         {
             auto coeffs_span = coeffs.subspan(ch * kCoeffPerStage, kCoeffPerStage);
-            b0_(ch) = coeffs_span[0];
-            b1_(ch) = coeffs_span[1];
-            b2_(ch) = coeffs_span[2];
-            a1_(ch) = coeffs_span[3];
-            a2_(ch) = coeffs_span[4];
+            b0_[ch] = coeffs_span[0];
+            b1_[ch] = coeffs_span[1];
+            b2_[ch] = coeffs_span[2];
+            a1_[ch] = coeffs_span[3];
+            a2_[ch] = coeffs_span[4];
         }
-
-        temp_ = Eigen::ArrayXf::Zero(channel_count);
     }
 
-    template <typename Derived>
-    void Process(const Eigen::ArrayBase<Derived>& x) noexcept SFFDN_NONBLOCKING
+    void Process(std::span<float> x) noexcept SFFDN_NONBLOCKING
     {
-        SFFDN_FEA_UNSAFE(temp_ = b0_ * x + state0_;)
-        SFFDN_FEA_UNSAFE(state0_ = b1_ * x + state1_ - a1_ * temp_;)
-        SFFDN_FEA_UNSAFE(state1_ = b2_ * x - a2_ * temp_;)
-
-        SFFDN_FEA_UNSAFE(const_cast<Eigen::ArrayBase<Derived>&>(x) = temp_;)
+        assert(x.size() == b0_.size());
+        ProcessChannels(x.data(), b0_.data(), b1_.data(), b2_.data(), a1_.data(), a2_.data(), state0_.data(),
+                        state1_.data(), x.size());
     }
 
     void Clear()
     {
-        state0_.setZero();
-        state1_.setZero();
+        std::ranges::fill(state0_, 0.f);
+        std::ranges::fill(state1_, 0.f);
     }
 
   private:
-    Eigen::ArrayXf b0_;
-    Eigen::ArrayXf b1_;
-    Eigen::ArrayXf b2_;
-    Eigen::ArrayXf a1_;
-    Eigen::ArrayXf a2_;
+    std::vector<float> b0_;
+    std::vector<float> b1_;
+    std::vector<float> b2_;
+    std::vector<float> a1_;
+    std::vector<float> a2_;
 
-    Eigen::ArrayXf state0_;
-    Eigen::ArrayXf state1_;
-
-    Eigen::ArrayXf temp_;
+    std::vector<float> state0_;
+    std::vector<float> state1_;
 };
 #endif
 } // namespace
@@ -124,10 +123,12 @@ class IIRFilterBank::IIRFilterBankImpl
         }
 
         const auto stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
-#ifdef IIRFILTERBANK_USE_EIGEN
         filters_.clear();
+        filters_.reserve(stage_count);
         channel_count_ = channel_count;
-        temp_ = Eigen::ArrayXf::Zero(channel_count);
+        temp_.assign(channel_count, 0.f);
+        input_channels_.resize(channel_count);
+        output_channels_.resize(channel_count);
         for (auto j = 0u; j < stage_count; ++j)
         {
             std::vector<float> biquads_coeffs(5 * channel_count);
@@ -145,74 +146,56 @@ class IIRFilterBank::IIRFilterBankImpl
             filters_.emplace_back();
             filters_.back().SetCoefficients(channel_count, biquads_coeffs);
         }
-#else
-        filters_.resize(channel_count);
-        for (auto i = 0u; i < channel_count; ++i)
-        {
-            auto coeffs_span = coeffs.subspan(i * stage_count, stage_count);
-            filters_[i].SetCoefficients(coeffs_span);
-        }
-#endif
     }
 
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
-
-#ifndef IIRFILTERBANK_USE_EIGEN
-        assert(input.ChannelCount() == filters_.size());
-        for (auto i = 0u; i < filters_.size(); ++i)
-        {
-            auto input_buf = input.GetChannelBuffer(i);
-            auto output_buf = output.GetChannelBuffer(i);
-            filters_[i].Process(input_buf, output_buf);
-        }
-#else
         assert(input.ChannelCount() == channel_count_);
-        Eigen::Map<const Eigen::ArrayXXf> in(input.Data(), input.SampleCount(), input.ChannelCount());
-        Eigen::Map<Eigen::ArrayXXf> out(output.Data(), output.SampleCount(), output.ChannelCount());
+        assert(temp_.size() == channel_count_);
+        assert(input_channels_.size() == channel_count_);
+        assert(output_channels_.size() == channel_count_);
 
-        for (auto i = 0u; i < input.SampleCount(); ++i)
+        for (auto ch = 0u; ch < channel_count_; ++ch)
         {
-            SFFDN_FEA_UNSAFE(temp_ = in.row(i);)
+            input_channels_[ch] = input.GetChannelSpan(ch);
+            output_channels_[ch] = output.GetChannelSpan(ch);
+        }
 
+        for (auto sample = 0u; sample < input.SampleCount(); ++sample)
+        {
+            for (auto ch = 0u; ch < channel_count_; ++ch)
+            {
+                temp_[ch] = input_channels_[ch][sample];
+            }
             for (auto& filter : filters_)
             {
                 filter.Process(temp_);
             }
-
-            out.row(i) = temp_;
+            for (auto ch = 0u; ch < channel_count_; ++ch)
+            {
+                output_channels_[ch][sample] = temp_[ch];
+            }
         }
-#endif
     }
 
     uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
-#ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
-#else
-        return filters_.size();
-#endif
     }
 
     uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
-#ifdef IIRFILTERBANK_USE_EIGEN
         return channel_count_;
-#else
-        return filters_.size();
-#endif
     }
 
   private:
-#ifdef IIRFILTERBANK_USE_EIGEN
     std::vector<BiquadMC> filters_;
     uint32_t channel_count_{0};
-    Eigen::ArrayXf temp_;
-#else
-    std::vector<CascadedBiquads> filters_;
-#endif
+    std::vector<float> temp_;
+    std::vector<std::span<const float>> input_channels_;
+    std::vector<std::span<float>> output_channels_;
 };
 #else
 class IIRFilterBank::IIRFilterBankImpl
@@ -347,8 +330,7 @@ class IIRFilterBank::IIRFilterBankImpl
             output_ptrs_[i] = output.GetChannelSpan(i).data();
         }
 
-        SFFDN_FEA_UNSAFE(
-            vDSP_biquadm(biquad_setup_, input_ptrs_.data(), 1, output_ptrs_.data(), 1, input.SampleCount());)
+        vDSP_biquadm(biquad_setup_, input_ptrs_.data(), 1, output_ptrs_.data(), 1, input.SampleCount());
     }
 
     uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING

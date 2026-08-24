@@ -45,6 +45,20 @@
             }
         },
         {
+            "name": "llvm-rtsan",
+            "displayName": "LLVM - RealtimeSanitizer",
+            "description": "Build with RealtimeSanitizer and strict Clang Function Effect Analysis",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/llvm-rtsan",
+            "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
+            "cacheVariables": {
+                "SFFDN_USE_RTSAN": "ON",
+                "SFFDN_USE_SANITIZER": "OFF",
+                "SFFDN_ENABLE_FUNCTION_EFFECTS": "ON",
+                "SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS": "ON"
+            }
+        },
+        {
             "name": "windows",
             "displayName": "Windows",
             "description": "Build for Windows",
@@ -70,6 +84,10 @@
         {
             "name": "llvm-fea",
             "configurePreset": "llvm-fea"
+        },
+        {
+            "name": "llvm-rtsan",
+            "configurePreset": "llvm-rtsan"
         },
         {
             "name": "windows",

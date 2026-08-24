@@ -45,3 +45,31 @@ TEST_CASE("FFT")
         }
     }
 }
+
+TEST_CASE("FFT convolution accumulation")
+{
+    constexpr uint32_t kFFTSize = 64;
+    sfFDN::FFT fft;
+    REQUIRE(fft.Initialize(kFFTSize));
+
+    auto input_a = fft.AllocateRealBuffer();
+    auto input_b = fft.AllocateRealBuffer();
+    auto output = fft.AllocateRealBuffer();
+    auto dft_a = fft.AllocateComplexBuffer();
+    auto dft_b = fft.AllocateComplexBuffer();
+    auto dft_ab = fft.AllocateComplexBuffer();
+
+    input_a.Data()[0] = 2.f;
+    input_b.Data()[0] = 3.f;
+
+    fft.Forward(input_a, dft_a);
+    fft.Forward(input_b, dft_b);
+    fft.ConvolveAccumulate(dft_a, dft_b, dft_ab);
+    fft.Inverse(dft_ab, output);
+
+    REQUIRE_THAT(output.Data()[0], Catch::Matchers::WithinAbs(6.f, 1e-5f));
+    for (size_t i = 1; i < output.Data().size(); ++i)
+    {
+        REQUIRE_THAT(output.Data()[i], Catch::Matchers::WithinAbs(0.f, 1e-5f));
+    }
+}

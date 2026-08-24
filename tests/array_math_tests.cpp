@@ -67,3 +67,31 @@ TEST_CASE("ScaleAccumulate")
         REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
     }
 }
+
+TEST_CASE("Multiply")
+{
+    constexpr uint32_t kSize = 1024;
+    std::vector<float> a(kSize, 2.f);
+    std::vector<float> b(kSize, 3.f);
+    std::vector<float> out(kSize, 0.f);
+
+    sfFDN::ArrayMath::Multiply(a, b, out);
+    for (const float value : out)
+    {
+        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(6.f, 0.0001));
+    }
+}
+
+TEST_CASE("MultiplyAdd")
+{
+    constexpr uint32_t kSize = 1024;
+    std::vector<float> a(kSize, 2.f);
+    std::vector<float> c(kSize, 3.f);
+    std::vector<float> out(kSize, 0.f);
+
+    sfFDN::ArrayMath::MultiplyAdd(a, 4.f, c, out);
+    for (const float value : out)
+    {
+        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(11.f, 0.0001));
+    }
+}

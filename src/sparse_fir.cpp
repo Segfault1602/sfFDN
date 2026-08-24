@@ -14,7 +14,7 @@
 #include <stdexcept>
 
 #ifdef SFFDN_USE_IPP
-#include <ipp.h>
+#include "third_party/fea_ipp_process.h"
 #endif
 
 // The non-IPP implementation seems to be faster for now...
@@ -169,7 +169,7 @@ class SparseFir::SparseFirImpl
     float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         float out = 0.f;
-        SFFDN_FEA_UNSAFE(ippsFIRSparse_32f(&in, &out, 1, state_);)
+        ippsFIRSparse_32f(&in, &out, 1, state_);
         return out;
     }
 
@@ -178,8 +178,8 @@ class SparseFir::SparseFirImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
-        SFFDN_FEA_UNSAFE(ippsFIRSparse_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(),
-                                           static_cast<int>(input.SampleCount()), state_);)
+        ippsFIRSparse_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(),
+                          static_cast<int>(input.SampleCount()), state_);
     }
 
     uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING

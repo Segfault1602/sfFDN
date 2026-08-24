@@ -9,6 +9,7 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/sffdn.h"
 
+#include "allocation_counter.h"
 #include "rng.h"
 
 namespace
@@ -105,6 +106,13 @@ TEST_CASE("FirFilter")
     for (auto i = kFirSize; i < kSize; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
+    }
+
+    sfFDN::Fir tick_filter;
+    tick_filter.SetCoefficients(ir);
+    for (auto i = 0u; i < kFirSize; ++i)
+    {
+        REQUIRE_THAT(tick_filter.Tick(i == 0 ? 1.f : 0.f), Catch::Matchers::WithinAbs(ir[i], 1e-5));
     }
 }
 
@@ -428,7 +436,13 @@ TEST_CASE("IIRFilterBank")
         input_buffer.GetChannelSpan(i)[0] = 1.f;
     }
 
-    filter_bank.Process(input_buffer, output_buffer);
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        filter_bank.Process(input_buffer, output_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
 
     for (auto i = 0u; i < kBlockSize; ++i)
     {
@@ -437,5 +451,55 @@ TEST_CASE("IIRFilterBank")
             REQUIRE_THAT(output_buffer.GetChannelSpan(n)[i],
                          Catch::Matchers::WithinAbs(kTestSOSExpectedOutput[i], 0.0001));
         }
+    }
+
+    auto clone = filter_bank.Clone();
+    auto clone_input = input;
+    std::vector<float> clone_output(output.size(), 0.f);
+    sfFDN::AudioBuffer clone_input_buffer(kBlockSize, kChannelCount, clone_input);
+    sfFDN::AudioBuffer clone_output_buffer(kBlockSize, kChannelCount, clone_output);
+    clone->Process(clone_input_buffer, clone_output_buffer);
+    for (auto i = 0u; i < output.size(); ++i)
+    {
+        REQUIRE_THAT(clone_output[i], Catch::Matchers::WithinAbs(output[i], 0.0001));
+    }
+
+    filter_bank.Clear();
+    auto in_place = input;
+    sfFDN::AudioBuffer in_place_buffer(kBlockSize, kChannelCount, in_place);
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        filter_bank.Process(in_place_buffer, in_place_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
+
+    for (auto i = 0u; i < output.size(); ++i)
+    {
+        REQUIRE_THAT(in_place[i], Catch::Matchers::WithinAbs(output[i], 0.0001));
+    }
+}
+
+TEST_CASE("IIRFilterBank preserves channel coefficient layout")
+{
+    constexpr uint32_t kChannelCount = 2;
+    constexpr uint32_t kBlockSize = 4;
+    constexpr std::array<sfFDN::FilterCoefficients, 4> kCoefficients = {{{2.f, 0.f, 0.f, 1.f, 0.f, 0.f},
+                                                                         {3.f, 0.f, 0.f, 1.f, 0.f, 0.f},
+                                                                         {-1.f, 0.f, 0.f, 1.f, 0.f, 0.f},
+                                                                         {0.5f, 0.f, 0.f, 1.f, 0.f, 0.f}}};
+    std::array<float, kChannelCount * kBlockSize> samples = {1.f, 2.f, 3.f, 4.f, 1.f, 2.f, 3.f, 4.f};
+
+    sfFDN::IIRFilterBank filter_bank;
+    filter_bank.SetFilter(kCoefficients, kChannelCount);
+
+    sfFDN::AudioBuffer buffer(kBlockSize, kChannelCount, samples);
+    filter_bank.Process(buffer, buffer);
+
+    constexpr std::array<float, kChannelCount * kBlockSize> kExpected = {6.f,   12.f, 18.f,  24.f,
+                                                                         -0.5f, -1.f, -1.5f, -2.f};
+    for (auto i = 0u; i < samples.size(); ++i)
+    {
+        REQUIRE_THAT(samples[i], Catch::Matchers::WithinAbs(kExpected[i], std::numeric_limits<float>::epsilon()));
     }
 }

@@ -12,12 +12,8 @@
 #include <span>
 #include <vector>
 
-#ifdef SFFDN_USE_VDSP
-#include <Accelerate/Accelerate.h>
-#endif
-
 #ifdef SFFDN_USE_IPP
-#include <ipp.h>
+#include "third_party/fea_ipp_process.h"
 #endif
 
 namespace sfFDN
@@ -172,7 +168,7 @@ class Fir::FirImpl
     float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         float out = 0.f;
-        SFFDN_FEA_UNSAFE(ippsFIRSR_32f(&in, &out, 1, spec_, source_delay_, delay_line_, buffer_);)
+        ippsFIRSR_32f(&in, &out, 1, spec_, source_delay_, delay_line_, buffer_);
         std::swap(source_delay_, delay_line_);
         return out;
     }
@@ -183,8 +179,8 @@ class Fir::FirImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
-        SFFDN_FEA_UNSAFE(ippsFIRSR_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(),
-                                       static_cast<int>(sample_count), spec_, source_delay_, delay_line_, buffer_);)
+        ippsFIRSR_32f(input.GetChannelSpan(0).data(), output.GetChannelSpan(0).data(), static_cast<int>(sample_count),
+                      spec_, source_delay_, delay_line_, buffer_);
         std::swap(source_delay_, delay_line_);
     }
 

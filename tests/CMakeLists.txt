@@ -47,7 +47,8 @@ target_include_directories(nanobench SYSTEM INTERFACE ${_nanobench_inc})
 add_executable(sfFDN.tests)
 target_sources(
     sfFDN.tests
-    PRIVATE audio_buffer_tests.cpp
+    PRIVATE allocation_counter.cpp
+            audio_buffer_tests.cpp
             audio_processor_chain_tests.cpp
             array_math_tests.cpp
             delay_tests.cpp

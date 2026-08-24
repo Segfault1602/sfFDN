@@ -92,9 +92,11 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     }
     else
     {
-        SFFDN_RTSAN_SCOPED_DISABLER(rtsan_disabler);
         // TODO(Phase 2): use preallocated scratch storage for aliased matrix multiplication.
-        SFFDN_FEA_UNSAFE(output_map = input_map * matrix;)
+        SFFDN_FEA_UNSAFE({
+            SFFDN_RTSAN_SCOPED_DISABLER(rtsan_disabler);
+            output_map = input_map * matrix;
+        })
     }
 #endif
 }

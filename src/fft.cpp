@@ -1,6 +1,6 @@
 #include "fft.h"
 
-#include <pffft.h>
+#include "third_party/fea_pffft_process.h"
 
 #include <algorithm>
 #include <cassert>
@@ -165,7 +165,7 @@ void FFT::Forward(const FFTRealBuffer& input, FFTComplexBuffer& spectrum) noexce
     assert(input.Data().size() == fft_size_);
     assert(spectrum.Data().size() == complex_sample_count_);
 
-    SFFDN_FEA_UNSAFE(pffft_transform(setup_, input.Data().data(), AsFloatPtr(spectrum), work_buffer_, PFFFT_FORWARD);)
+    pffft_transform(setup_, input.Data().data(), AsFloatPtr(spectrum), work_buffer_, PFFFT_FORWARD);
 }
 
 void FFT::Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output) noexcept SFFDN_NONBLOCKING
@@ -173,7 +173,7 @@ void FFT::Inverse(const FFTComplexBuffer& spectrum, FFTRealBuffer& output) noexc
     assert(spectrum.Data().size() == complex_sample_count_);
     assert(output.Data().size() == fft_size_);
 
-    SFFDN_FEA_UNSAFE(pffft_transform(setup_, AsFloatPtr(spectrum), output.Data().data(), work_buffer_, PFFFT_BACKWARD);)
+    pffft_transform(setup_, AsFloatPtr(spectrum), output.Data().data(), work_buffer_, PFFFT_BACKWARD);
 }
 
 void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuffer& dft_b,
@@ -183,8 +183,8 @@ void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuff
     assert(dft_b.Data().size() == complex_sample_count_);
     assert(dft_ab.Data().size() == complex_sample_count_);
 
-    SFFDN_FEA_UNSAFE(pffft_zconvolve_accumulate(setup_, AsFloatPtr(dft_a), AsFloatPtr(dft_b), AsFloatPtr(dft_ab),
-                                                1.0f / static_cast<float>(fft_size_));)
+    pffft_zconvolve_accumulate(setup_, AsFloatPtr(dft_a), AsFloatPtr(dft_b), AsFloatPtr(dft_ab),
+                               1.0f / static_cast<float>(fft_size_));
 }
 
 FFTRealBuffer FFT::AllocateRealBuffer() const
