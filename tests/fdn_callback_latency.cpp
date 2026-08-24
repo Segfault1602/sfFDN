@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -51,12 +52,18 @@ double Percentile(const std::vector<uint64_t>& sorted_durations, double percenti
     return TicksToNanoseconds(sorted_durations[index]) / 1000.0;
 }
 
-uint32_t ParseIterations(int argc, char** argv)
+struct Options
+{
+    uint32_t iterations;
+    std::string workload_filter;
+};
+
+Options ParseOptions(int argc, char** argv)
 {
     constexpr uint32_t kDefaultIterations = 20000;
     if (argc < 2)
     {
-        return kDefaultIterations;
+        return {.iterations = kDefaultIterations, .workload_filter = {}};
     }
 
     uint32_t iterations = 0;
@@ -64,17 +71,17 @@ uint32_t ParseIterations(int argc, char** argv)
     const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), iterations);
     if (error != std::errc{} || end != value.data() + value.size() || iterations == 0)
     {
-        std::fprintf(stderr, "Usage: %s [positive iteration count]\n", argv[0]);
-        return 0;
+        std::fprintf(stderr, "Usage: %s [positive iteration count] [workload name substring]\n", argv[0]);
+        return {};
     }
-    return iterations;
+    return {.iterations = iterations, .workload_filter = argc >= 3 ? argv[2] : ""};
 }
 } // namespace
 
 int main(int argc, char** argv)
 {
-    const uint32_t iterations = ParseIterations(argc, argv);
-    if (iterations == 0)
+    const Options options = ParseOptions(argc, argv);
+    if (options.iterations == 0)
     {
         return 2;
     }
@@ -84,6 +91,11 @@ int main(int argc, char** argv)
 
     for (auto& workload : CreateProductionFDNWorkloads())
     {
+        if (!options.workload_filter.empty() && workload.name.find(options.workload_filter) == std::string::npos)
+        {
+            continue;
+        }
+
         std::vector<float> input(workload.callback_size);
         std::vector<float> output(workload.callback_size);
         sfFDN::RNG generator;
@@ -99,7 +111,7 @@ int main(int argc, char** argv)
             workload.fdn->Process(input_buffer, output_buffer);
         }
 
-        std::vector<uint64_t> durations(iterations);
+        std::vector<uint64_t> durations(options.iterations);
         for (uint64_t& duration : durations)
         {
             const uint64_t start = ReadTimestamp();
@@ -115,7 +127,7 @@ int main(int argc, char** argv)
         const auto deadline_misses =
             std::ranges::count_if(durations, [deadline_ticks](uint64_t duration) { return duration > deadline_ticks; });
 
-        std::printf("\"%s\",%u,%u,%.3f,%.3f,%.3f,%.3f,%.3f,%lld\n", workload.name.c_str(), iterations,
+        std::printf("\"%s\",%u,%u,%.3f,%.3f,%.3f,%.3f,%.3f,%lld\n", workload.name.c_str(), options.iterations,
                     workload.callback_size, Percentile(durations, 0.50), Percentile(durations, 0.95),
                     Percentile(durations, 0.99), TicksToNanoseconds(durations.back()) / 1000.0, deadline_us,
                     static_cast<long long>(deadline_misses));

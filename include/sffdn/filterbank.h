@@ -60,8 +60,9 @@ class FilterBank : public AudioProcessor
 };
 
 /** @brief Implements a bank of IIR filters.
- * On Apple Silicon, this uses channel-major CascadedBiquads processing. On Intel macOS, it uses the Accelerate
- * framework when enabled. Other platforms use a portable multichannel implementation.
+ * On Apple Silicon, short cascades use single-channel Accelerate filters and longer cascades use channel-major
+ * CascadedBiquads processing. On Intel macOS, it uses the Accelerate framework when enabled. Other platforms use a
+ * portable multichannel implementation.
  * @ingroup AudioProcessors
  */
 class IIRFilterBank : public AudioProcessor

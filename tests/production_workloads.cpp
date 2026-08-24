@@ -105,6 +105,18 @@ std::vector<ProductionFDNWorkload> CreateProductionFDNWorkloads()
         .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, ten_band),
     });
     workloads.push_back({
+        .name = "FDN N8 block=128 three-band Hadamard",
+        .callback_size = 128,
+        .sample_rate = kSampleRate,
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, three_band),
+    });
+    workloads.push_back({
+        .name = "FDN N8 block=128 three-band Random",
+        .callback_size = 128,
+        .sample_rate = kSampleRate,
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, three_band),
+    });
+    workloads.push_back({
         .name = "FDN N16 block=128 ten-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,

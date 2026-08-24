@@ -105,12 +105,92 @@ namespace sfFDN
 #if defined(__APPLE__) && defined(__aarch64__)
 class IIRFilterBank::IIRFilterBankImpl
 {
+#ifdef SFFDN_USE_VDSP
+    class ChannelFilter
+    {
+      public:
+        ChannelFilter() = default;
+
+        ~ChannelFilter()
+        {
+            vDSP_biquad_DestroySetup(setup_);
+        }
+
+        ChannelFilter(const ChannelFilter&) = delete;
+        ChannelFilter& operator=(const ChannelFilter&) = delete;
+
+        ChannelFilter(ChannelFilter&& other) noexcept
+            : setup_(other.setup_)
+            , delay_(std::move(other.delay_))
+        {
+            other.setup_ = nullptr;
+        }
+
+        ChannelFilter& operator=(ChannelFilter&& other) noexcept
+        {
+            if (this != &other)
+            {
+                vDSP_biquad_DestroySetup(setup_);
+                setup_ = other.setup_;
+                delay_ = std::move(other.delay_);
+                other.setup_ = nullptr;
+            }
+            return *this;
+        }
+
+        void SetCoefficients(std::span<const FilterCoefficients> coefficients)
+        {
+            vDSP_biquad_DestroySetup(setup_);
+            setup_ = nullptr;
+
+            std::vector<double> normalized;
+            normalized.reserve(coefficients.size() * 5);
+            for (const auto& coefficient : coefficients)
+            {
+                const auto value = coefficient.Normalize();
+                normalized.push_back(value.b0);
+                normalized.push_back(value.b1);
+                normalized.push_back(value.b2);
+                normalized.push_back(value.a1);
+                normalized.push_back(value.a2);
+            }
+
+            setup_ = vDSP_biquad_CreateSetup(normalized.data(), coefficients.size());
+            if (setup_ == nullptr)
+            {
+                throw std::runtime_error("Failed to create vDSP biquad setup");
+            }
+            delay_.assign(2 * (coefficients.size() + 1), 0.f);
+        }
+
+        void Process(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING
+        {
+            vDSP_biquad(setup_, delay_.data(), input.data(), 1, output.data(), 1, input.size());
+        }
+
+        void Clear()
+        {
+            std::ranges::fill(delay_, 0.f);
+        }
+
+      private:
+        vDSP_biquad_Setup setup_{nullptr};
+        std::vector<float> delay_;
+    };
+#endif
+
   public:
     IIRFilterBankImpl() = default;
 
     void Clear()
     {
-        for (auto& filter : filters_)
+#ifdef SFFDN_USE_VDSP
+        for (auto& filter : vdsp_filters_)
+        {
+            filter.Clear();
+        }
+#endif
+        for (auto& filter : scalar_filters_)
         {
             filter.Clear();
         }
@@ -124,12 +204,31 @@ class IIRFilterBank::IIRFilterBankImpl
         }
 
         const auto stage_count = coeffs.size() / channel_count;
-        filters_.clear();
-        filters_.reserve(channel_count);
-        for (auto channel = 0u; channel < channel_count; ++channel)
+        channel_count_ = channel_count;
+#ifdef SFFDN_USE_VDSP
+        vdsp_filters_.clear();
+#endif
+        scalar_filters_.clear();
+
+#ifdef SFFDN_USE_VDSP
+        if (stage_count != 0 && stage_count <= 2)
         {
-            filters_.emplace_back();
-            filters_.back().SetCoefficients(coeffs.subspan(channel * stage_count, stage_count));
+            vdsp_filters_.reserve(channel_count);
+            for (auto channel = 0u; channel < channel_count; ++channel)
+            {
+                vdsp_filters_.emplace_back();
+                vdsp_filters_.back().SetCoefficients(coeffs.subspan(channel * stage_count, stage_count));
+            }
+        }
+        else
+#endif
+        {
+            scalar_filters_.reserve(channel_count);
+            for (auto channel = 0u; channel < channel_count; ++channel)
+            {
+                scalar_filters_.emplace_back();
+                scalar_filters_.back().SetCoefficients(coeffs.subspan(channel * stage_count, stage_count));
+            }
         }
     }
 
@@ -137,27 +236,43 @@ class IIRFilterBank::IIRFilterBankImpl
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
-        assert(input.ChannelCount() == filters_.size());
+        assert(input.ChannelCount() == channel_count_);
 
-        for (auto channel = 0u; channel < filters_.size(); ++channel)
+#ifdef SFFDN_USE_VDSP
+        if (!vdsp_filters_.empty())
         {
-            auto output_channel = output.GetChannelBuffer(channel);
-            filters_[channel].Process(input.GetChannelBuffer(channel), output_channel);
+            for (auto channel = 0u; channel < vdsp_filters_.size(); ++channel)
+            {
+                vdsp_filters_[channel].Process(input.GetChannelSpan(channel), output.GetChannelSpan(channel));
+            }
+        }
+        else
+#endif
+        {
+            for (auto channel = 0u; channel < scalar_filters_.size(); ++channel)
+            {
+                auto output_channel = output.GetChannelBuffer(channel);
+                scalar_filters_[channel].Process(input.GetChannelBuffer(channel), output_channel);
+            }
         }
     }
 
     uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
-        return static_cast<uint32_t>(filters_.size());
+        return channel_count_;
     }
 
     uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
-        return static_cast<uint32_t>(filters_.size());
+        return channel_count_;
     }
 
   private:
-    std::vector<CascadedBiquads> filters_;
+    uint32_t channel_count_{0};
+#ifdef SFFDN_USE_VDSP
+    std::vector<ChannelFilter> vdsp_filters_;
+#endif
+    std::vector<CascadedBiquads> scalar_filters_;
 };
 #elif !defined(SFFDN_USE_VDSP)
 class IIRFilterBank::IIRFilterBankImpl
