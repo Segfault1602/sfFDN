@@ -120,6 +120,7 @@ target_sources(
             array_math_perf.cpp
             mixmat_perf.cpp
             matrix_multiplication_perf.cpp
+            processor_perf.cpp
             parallel_gains_perf.cpp
             upols_perf.cpp
             nupols_perf.cpp

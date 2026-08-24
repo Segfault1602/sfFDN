@@ -134,6 +134,7 @@ TEST_CASE("SparseFirFilter")
             sparse_ir.push_back(s);
             sparse_fir_config.coeffs.push_back({i, s});
         }
+
     }
 
     sfFDN::FirOptions fir_config;
@@ -173,6 +174,139 @@ TEST_CASE("SparseFirFilter")
     }
 }
 
+TEST_CASE("SparseFir supports default construction and coefficient updates")
+{
+    sfFDN::SparseFir filter;
+
+    constexpr uint32_t kBlockSize = 32;
+    std::array<float, kBlockSize> input{};
+    std::array<float, kBlockSize> empty_output{};
+    input[0] = 1.f;
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer empty_output_buffer(empty_output);
+    filter.Process(input_buffer, empty_output_buffer);
+    REQUIRE(std::ranges::all_of(empty_output, [](float sample) { return sample == 0.f; }));
+
+    sfFDN::SparseFirOptions options;
+    options.coeffs = {{0, 0.5f}, {3, -0.25f}, {11, 0.125f}};
+    filter.SetCoefficients(options);
+    auto clone = filter.Clone();
+
+    std::array<float, kBlockSize> output{};
+    std::array<float, kBlockSize> clone_output{};
+    sfFDN::AudioBuffer output_buffer(output);
+    sfFDN::AudioBuffer clone_output_buffer(clone_output);
+    filter.Process(input_buffer, output_buffer);
+    clone->Process(input_buffer, clone_output_buffer);
+
+    REQUIRE(output == clone_output);
+    REQUIRE_THAT(output[0], Catch::Matchers::WithinAbs(0.5f, 1e-6f));
+    REQUIRE_THAT(output[3], Catch::Matchers::WithinAbs(-0.25f, 1e-6f));
+    REQUIRE_THAT(output[11], Catch::Matchers::WithinAbs(0.125f, 1e-6f));
+}
+
+TEST_CASE("SparseFir continuously consumes streaming blocks")
+{
+    constexpr uint32_t kFirSize = 64;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kBlockCount = 40;
+    std::vector<float> coefficients(kFirSize, 0.f);
+    sfFDN::SparseFirOptions sparse_options;
+    for (auto tap = 0u; tap < kFirSize; tap += 4)
+    {
+        const float coefficient = static_cast<float>(static_cast<int>(tap) - 24) / 64.f;
+        coefficients[tap] = coefficient;
+        sparse_options.coeffs.emplace_back(tap, coefficient);
+    }
+
+    sfFDN::Fir reference({.coeffs = coefficients});
+    sfFDN::SparseFir sparse(sparse_options);
+    std::array<float, kBlockSize> input{};
+    std::array<float, kBlockSize> reference_output{};
+    std::array<float, kBlockSize> sparse_output{};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer reference_output_buffer(reference_output);
+    sfFDN::AudioBuffer sparse_output_buffer(sparse_output);
+
+    for (auto block = 0u; block < kBlockCount; ++block)
+    {
+        std::ranges::fill(input, 0.f);
+        input[0] = static_cast<float>(block + 1);
+        reference.Process(input_buffer, reference_output_buffer);
+        sparse.Process(input_buffer, sparse_output_buffer);
+        for (auto sample = 0u; sample < kBlockSize; ++sample)
+        {
+            REQUIRE_THAT(sparse_output[sample], Catch::Matchers::WithinAbs(reference_output[sample], 1e-5f));
+        }
+    }
+
+    constexpr uint32_t kOversizedBlockSize = 5000;
+    sfFDN::Fir oversized_reference({.coeffs = coefficients});
+    sfFDN::SparseFir oversized_sparse(sparse_options);
+    std::vector<float> oversized_input(kOversizedBlockSize, 0.f);
+    std::vector<float> oversized_reference_output(kOversizedBlockSize, 0.f);
+    std::vector<float> oversized_sparse_output(kOversizedBlockSize, 0.f);
+    for (auto sample = 0u; sample < kOversizedBlockSize; sample += 257)
+    {
+        oversized_input[sample] = static_cast<float>(sample + 1) / static_cast<float>(kOversizedBlockSize);
+    }
+    sfFDN::AudioBuffer oversized_input_buffer(oversized_input);
+    sfFDN::AudioBuffer oversized_reference_buffer(oversized_reference_output);
+    sfFDN::AudioBuffer oversized_sparse_buffer(oversized_sparse_output);
+    oversized_reference.Process(oversized_input_buffer, oversized_reference_buffer);
+
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        oversized_sparse.Process(oversized_input_buffer, oversized_sparse_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
+    for (auto sample = 0u; sample < kOversizedBlockSize; ++sample)
+    {
+        REQUIRE_THAT(oversized_sparse_output[sample],
+                     Catch::Matchers::WithinAbs(oversized_reference_output[sample], 1e-5f));
+    }
+}
+
+TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom")
+{
+    constexpr uint32_t kFilterOrder = 4000;
+    constexpr uint32_t kBlockSize = 256;
+    constexpr uint32_t kBlockCount = 20;
+    sfFDN::SparseFirOptions options;
+    options.coeffs = {{0, 0.5f}, {127, -0.25f}, {kFilterOrder - 1, 0.125f}};
+    sfFDN::SparseFir tick_filter(options);
+    sfFDN::SparseFir block_filter(options);
+
+    std::array<float, kBlockSize> input{};
+    std::array<float, kBlockSize> expected{};
+    std::array<float, kBlockSize> output{};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+
+    for (auto block = 0u; block < kBlockCount; ++block)
+    {
+        for (auto sample = 0u; sample < kBlockSize; ++sample)
+        {
+            input[sample] = static_cast<float>(block * kBlockSize + sample + 1) / 1000.f;
+            expected[sample] = tick_filter.Tick(input[sample]);
+        }
+
+        size_t allocations = 0;
+        {
+            sfFDNTest::ScopedAllocationCounter allocation_counter;
+            block_filter.Process(input_buffer, output_buffer);
+            allocations = allocation_counter.Count();
+        }
+        REQUIRE(allocations == 0);
+        for (auto sample = 0u; sample < kBlockSize; ++sample)
+        {
+            REQUIRE_THAT(output[sample], Catch::Matchers::WithinAbs(expected[sample], 1e-5f));
+        }
+    }
+}
+
 TEST_CASE("SchroederAllpass")
 {
     sfFDN::SchroederAllpass filter(5, -0.9);
@@ -196,6 +330,51 @@ TEST_CASE("SchroederAllpass")
     for (auto i = 0u; i < kSize; ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(kExpectedOutput[i], 0.0001));
+    }
+}
+
+TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move")
+{
+    const sfFDN::SchroederAllpassSectionOptions options{
+        .delays = {5, 7, 11},
+        .gains = {0.5f, -0.4f, 0.3f},
+        .parallel = true,
+    };
+    sfFDN::SchroederAllpassSection original(options);
+    auto clone = original.Clone();
+    sfFDN::SchroederAllpassSection moved(std::move(original));
+
+    constexpr uint32_t kBlockSize = 64;
+    std::array<float, kBlockSize> input{};
+    input[0] = 1.f;
+    std::array<float, kBlockSize> clone_output{};
+    std::array<float, kBlockSize> moved_output{};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer clone_output_buffer(clone_output);
+    sfFDN::AudioBuffer moved_output_buffer(moved_output);
+
+    clone->Process(input_buffer, clone_output_buffer);
+    moved.Process(input_buffer, moved_output_buffer);
+    REQUIRE(clone_output == moved_output);
+
+    sfFDN::SchroederAllpassSection reference(options);
+    sfFDN::SchroederAllpassSection in_place(options);
+    auto aliased = input;
+    std::array<float, kBlockSize> reference_output{};
+    sfFDN::AudioBuffer reference_output_buffer(reference_output);
+    sfFDN::AudioBuffer aliased_buffer(aliased);
+    reference.Process(input_buffer, reference_output_buffer);
+
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        in_place.Process(aliased_buffer, aliased_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
+    for (auto sample = 0u; sample < kBlockSize; ++sample)
+    {
+        REQUIRE_THAT(aliased[sample], Catch::Matchers::WithinAbs(reference_output[sample], 1e-5f));
     }
 }
 

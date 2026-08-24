@@ -44,6 +44,13 @@ class SparseFir::SparseFirImpl
             sparse_index_.push_back(index);
         }
 
+        if (sparse_index_.empty())
+        {
+            filter_order_ = 0;
+            delay_line_.Clear();
+            return;
+        }
+
         filter_order_ = *std::ranges::max_element(sparse_index_) + 1;
 
         delay_line_.SetMaximumDelay(filter_order_ + kDefaultBlockSize);
@@ -68,10 +75,22 @@ class SparseFir::SparseFirImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
-        delay_line_.AddNextInputs(input.GetChannelSpan(0));
+        const auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
+        const size_t buffer_size = delay_line_.GetMaximumDelay() + 1;
+        const bool has_tap_headroom = input_span.size() + filter_order_ <= buffer_size;
+        if (!has_tap_headroom || !delay_line_.AddNextInputs(input_span))
+        {
+            for (auto sample = 0u; sample < input_span.size(); ++sample)
+            {
+                output_span[sample] = Tick(input_span[sample]);
+            }
+            return;
+        }
 
-        std::fill(output.GetChannelSpan(0).begin(), output.GetChannelSpan(0).end(), 0.f);
-        delay_line_.GetNextOutputsAt(sparse_index_, output.GetChannelSpan(0), coeffs_);
+        std::ranges::fill(output_span, 0.f);
+        delay_line_.GetNextOutputsAt(sparse_index_, output_span, coeffs_);
+        delay_line_.AdvanceRead(input_span.size());
     }
 
     constexpr uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
@@ -225,6 +244,7 @@ SparseFir::~SparseFir() = default;
 void SparseFir::SetCoefficients(const SparseFirOptions& config)
 {
     impl_->SetCoefficients(config);
+    config_ = config;
 }
 
 float SparseFir::Tick(float in) noexcept SFFDN_NONBLOCKING

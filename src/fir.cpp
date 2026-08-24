@@ -54,9 +54,11 @@ class Fir::FirImpl
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
+        const auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
         for (uint32_t n = 0; n < sample_count; ++n)
         {
-            output.GetChannelSpan(0)[n] = Tick(input.GetChannelSpan(0)[n]);
+            output_span[n] = Tick(input_span[n]);
         }
     }
 

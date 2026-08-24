@@ -122,6 +122,7 @@ SchroederAllpassSection& SchroederAllpassSection::operator=(SchroederAllpassSect
     if (this != &other)
     {
         allpasses_ = std::move(other.allpasses_);
+        parallel_ = other.parallel_;
     }
     return *this;
 }
@@ -194,7 +195,23 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 
     if (parallel_)
     {
-        assert(input.Data() != output.Data());
+        if (input.Data() == output.Data())
+        {
+            const auto input_span = input.GetChannelSpan(0);
+            auto output_span = output.GetChannelSpan(0);
+            for (auto sample = 0u; sample < input_span.size(); ++sample)
+            {
+                const float input_sample = input_span[sample];
+                float output_sample = 0.f;
+                for (auto& allpass : allpasses_)
+                {
+                    output_sample += allpass.Tick(input_sample);
+                }
+                output_span[sample] = output_sample;
+            }
+            return;
+        }
+
         allpasses_[0].ProcessBlock(input.GetChannelSpan(0), output.GetChannelSpan(0));
 
         for (auto i = 1u; i < allpasses_.size(); ++i)
@@ -240,6 +257,7 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
         clone->allpasses_[i].SetDelay(allpasses_[i].GetDelay());
         clone->allpasses_[i].SetG(allpasses_[i].GetG());
     }
+    clone->parallel_ = parallel_;
     return clone;
 }
 

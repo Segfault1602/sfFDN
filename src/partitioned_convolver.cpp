@@ -27,6 +27,8 @@ uint32_t ResolveRepCount(uint32_t block_size, size_t fir_size, uint32_t requeste
 #if defined(__APPLE__) && defined(__aarch64__)
     return fir_size > 48u * static_cast<size_t>(block_size) ? 16u : 8u;
 #else
+    static_cast<void>(block_size);
+    static_cast<void>(fir_size);
     return 8u;
 #endif
 }

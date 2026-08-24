@@ -473,6 +473,30 @@ static std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<co
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& options)
 {
+#if defined(__APPLE__) && defined(__aarch64__) && defined(SFFDN_USE_VDSP)
+    std::vector<FilterCoefficients> one_pole_coefficients;
+    one_pole_coefficients.reserve(options.filter_configs.size());
+    for (const auto& config : options.filter_configs)
+    {
+        const auto* two_band = std::get_if<TwoBandFilterOptions>(&config);
+        if (two_band == nullptr)
+        {
+            one_pole_coefficients.clear();
+            break;
+        }
+
+        const auto [b0, a1] = DesignTwoBandAbsorption(*two_band);
+        one_pole_coefficients.push_back({.b0 = b0, .b1 = 0.f, .b2 = 0.f, .a0 = 1.f, .a1 = a1, .a2 = 0.f});
+    }
+
+    if (!one_pole_coefficients.empty())
+    {
+        auto filter_bank = std::make_unique<IIRFilterBank>();
+        filter_bank->SetFilter(one_pole_coefficients, static_cast<uint32_t>(one_pole_coefficients.size()));
+        return filter_bank;
+    }
+#endif
+
     std::vector<CascadedBiquadsOptions> cascaded_configs;
     cascaded_configs.reserve(options.filter_configs.size());
     for (const auto& config : options.filter_configs)
