@@ -32,6 +32,10 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
     : order_(config.matrix_size)
     , matrix_type_(config.custom_matrix ? ScalarMatrixType::Count : config.type)
 {
+    // Eigen lazily queries CPU cache sizes on the first dense product. Initialize that state during setup, not in the
+    // audio callback.
+    static_cast<void>(Eigen::l1CacheSize());
+
     if (config.custom_matrix)
     {
         matrix_data_ = *config.custom_matrix;
