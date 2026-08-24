@@ -43,6 +43,7 @@ class BiquadMC
             samples[ch] = output;
         }
     }
+
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
@@ -117,7 +118,7 @@ class IIRFilterBank::IIRFilterBankImpl
 
     void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
     {
-        if (coeffs.size() % channel_count != 0)
+        if (channel_count == 0 || coeffs.size() % channel_count != 0)
         {
             throw std::runtime_error("Invalid coefficient size");
         }
@@ -156,7 +157,6 @@ class IIRFilterBank::IIRFilterBankImpl
         assert(temp_.size() == channel_count_);
         assert(input_channels_.size() == channel_count_);
         assert(output_channels_.size() == channel_count_);
-
         for (auto ch = 0u; ch < channel_count_; ++ch)
         {
             input_channels_[ch] = input.GetChannelSpan(ch);
@@ -275,14 +275,20 @@ class IIRFilterBank::IIRFilterBankImpl
 
     void SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
     {
-        Clear();
-        if (coeffs.size() % channel_count != 0)
+        if (channel_count == 0 || coeffs.size() % channel_count != 0)
         {
             throw std::runtime_error("Invalid coefficient size");
         }
 
         const auto stage_count = static_cast<uint32_t>(coeffs.size() / channel_count);
 
+        if (biquad_setup_ != nullptr)
+        {
+            vDSP_biquadm_DestroySetup(biquad_setup_);
+            biquad_setup_ = nullptr;
+        }
+
+        channel_count_ = channel_count;
         coeffs_d_.clear();
         coeffs_d_.reserve(coeffs.size());
         for (auto j = 0u; j < stage_count; ++j)
@@ -310,7 +316,6 @@ class IIRFilterBank::IIRFilterBankImpl
 
         vDSP_biquadm_SetCoefficientsDouble(biquad_setup_, coeffs_d_.data(), 0, 0, stage_count, channel_count_);
 
-        channel_count_ = channel_count;
         input_ptrs_.resize(channel_count_);
         output_ptrs_.resize(channel_count_);
     }
@@ -362,6 +367,7 @@ IIRFilterBank::IIRFilterBank()
 
 IIRFilterBank::IIRFilterBank(IIRFilterBank&& other) noexcept
     : impl_(std::move(other.impl_))
+    , coeffs_(std::move(other.coeffs_))
 {
 }
 
@@ -370,6 +376,7 @@ IIRFilterBank& IIRFilterBank::operator=(IIRFilterBank&& other) noexcept
     if (this != &other)
     {
         impl_ = std::move(other.impl_);
+        coeffs_ = std::move(other.coeffs_);
     }
     return *this;
 }
@@ -384,6 +391,7 @@ void IIRFilterBank::Clear()
 void IIRFilterBank::SetFilter(std::span<const FilterCoefficients> coeffs, uint32_t channel_count)
 {
     impl_->SetFilter(coeffs, channel_count);
+    coeffs_.assign(coeffs.begin(), coeffs.end());
 }
 
 void IIRFilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
@@ -404,10 +412,10 @@ uint32_t IIRFilterBank::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 std::unique_ptr<AudioProcessor> IIRFilterBank::Clone() const
 {
     auto clone = std::make_unique<IIRFilterBank>();
-
-    clone->impl_ = std::make_unique<IIRFilterBank::IIRFilterBankImpl>(*impl_);
-    clone->impl_->Clear();
-
+    if (InputChannelCount() != 0)
+    {
+        clone->SetFilter(coeffs_, InputChannelCount());
+    }
     return clone;
 }
 

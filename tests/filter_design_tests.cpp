@@ -177,3 +177,60 @@ TEST_CASE("ThreeBandFilter")
                   << std::setprecision(3) << sos[i].a1 << ", " << std::setprecision(3) << sos[i].a2 << "\n";
     }
 }
+
+TEST_CASE("Attenuation filter bank selects multichannel cascades only when supported")
+{
+    sfFDN::AttenuationFilterBankOptions ten_band_options;
+    ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
+        .t60s = {2.f, 2.f, 1.8f, 1.6f, 1.4f, 1.2f, 1.f, 0.8f, 0.6f, 0.5f},
+        .delay = 1000.f,
+        .sample_rate = 48000.f,
+        .shelf_cutoff = 8000.f,
+    });
+    ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
+        .t60s = {1.8f, 1.7f, 1.6f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1.f, 0.9f},
+        .delay = 1200.f,
+        .sample_rate = 48000.f,
+        .shelf_cutoff = 8000.f,
+    });
+
+    auto optimized = sfFDN::CreateAttenuationFilterBank(ten_band_options);
+    REQUIRE(dynamic_cast<sfFDN::IIRFilterBank*>(optimized.get()) != nullptr);
+
+    auto reference = std::make_unique<sfFDN::FilterBank>();
+    for (const auto& config : ten_band_options.filter_configs)
+    {
+        reference->AddFilter(sfFDN::CreateAttenuationFilter(config));
+    }
+
+    constexpr uint32_t kSampleCount = 64;
+    std::array<float, 2 * kSampleCount> optimized_output{};
+    for (auto i = 0u; i < optimized_output.size(); ++i)
+    {
+        optimized_output[i] = static_cast<float>(static_cast<int>((i * 29u) % 79u) - 39) / 39.f;
+    }
+    auto reference_output = optimized_output;
+    sfFDN::AudioBuffer optimized_buffer(kSampleCount, 2, optimized_output);
+    sfFDN::AudioBuffer reference_buffer(kSampleCount, 2, reference_output);
+    optimized->Process(optimized_buffer, optimized_buffer);
+    reference->Process(reference_buffer, reference_buffer);
+    for (auto i = 0u; i < optimized_output.size(); ++i)
+    {
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 1e-5f));
+    }
+
+    auto clone = optimized->Clone();
+    optimized->Clear();
+    optimized_output = reference_output;
+    auto clone_output = reference_output;
+    sfFDN::AudioBuffer clone_buffer(kSampleCount, 2, clone_output);
+    optimized->Process(optimized_buffer, optimized_buffer);
+    clone->Process(clone_buffer, clone_buffer);
+    REQUIRE(optimized_output == clone_output);
+
+    auto heterogeneous_options = ten_band_options;
+    heterogeneous_options.filter_configs[1] =
+        sfFDN::TwoBandFilterOptions{.t60s = {1.5f, 0.7f}, .delay = 1200.f, .sample_rate = 48000.f};
+    auto fallback = sfFDN::CreateAttenuationFilterBank(heterogeneous_options);
+    REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fallback.get()) != nullptr);
+}
