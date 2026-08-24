@@ -109,7 +109,12 @@ float Delay::TapOut(uint32_t tap) const noexcept SFFDN_NONBLOCKING
         return 0.0f;
     }
 
-    const uint32_t tap_point = (in_point_ + buffer_.size() - tap - 1) % buffer_.size();
+    const uint32_t buffer_size = buffer_.size();
+    uint32_t tap_point = buffer_size + in_point_ - tap - 1;
+    if (tap_point >= buffer_size)
+    {
+        tap_point -= buffer_size;
+    }
     return buffer_[tap_point];
 }
 
@@ -120,13 +125,8 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output) noexcept SFFDN
     assert(input.ChannelCount() == 1); // Delay only supports mono input
 
     const auto input_span = input.GetChannelSpan(0);
-    if (CanAddNextInputs(input_span.size()))
+    if (AddNextInputs(input_span))
     {
-        if (!AddNextInputs(input_span))
-        {
-            assert(false);
-            return;
-        }
         GetNextOutputs(output.GetChannelSpan(0));
     }
     else
@@ -143,36 +143,27 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output) noexcept SFFDN
 
 bool Delay::CanAddNextInputs(size_t sample_count) const noexcept SFFDN_NONBLOCKING
 {
-    const size_t available_space =
-        out_point_ > in_point_ ? out_point_ - in_point_ : buffer_.size() - in_point_ + out_point_;
-    return sample_count < available_space;
+    return sample_count <= GetAvailableWriteCount();
 }
 
 bool Delay::AddNextInputs(std::span<const float> input) noexcept SFFDN_NONBLOCKING
 {
     if (!CanAddNextInputs(input.size()))
     {
-        assert(false);
         return false;
     }
 
-    const std::span<float> buffer_span = buffer_;
+    const std::span<float> first_buffer = GetNextInputBuffers(input.size());
+    std::ranges::copy(input.first(first_buffer.size()), first_buffer.begin());
 
-    std::span<float> write_buffer = GetNextInputBuffers(input.size());
-
-    int samples_written = 0;
-
-    while (samples_written < input.size() && !write_buffer.empty())
+    const size_t remaining = input.size() - first_buffer.size();
+    if (remaining != 0)
     {
-        assert(write_buffer.size() <= input.size());
-        std::ranges::copy(input.subspan(samples_written, write_buffer.size()), write_buffer.begin());
-        samples_written += write_buffer.size();
-
-        AdvanceWrite(write_buffer.size());
-        write_buffer = GetNextInputBuffers(input.size() - samples_written);
+        assert(in_point_ + first_buffer.size() == buffer_.size());
+        std::ranges::copy(input.last(remaining), buffer_.begin());
     }
 
-    assert(samples_written == input.size());
+    AdvanceWrite(input.size());
     return true;
 }
 
@@ -247,26 +238,38 @@ void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<
 
 void Delay::GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
-    std::span<float> buffer = GetNextOutputBuffers(output.size());
-
-    int sample_written = 0;
-
-    while (sample_written < output.size() && !buffer.empty())
+    if (output.empty() || output.size() > GetAvailableReadCount())
     {
-        assert(buffer.size() <= output.size());
-        std::ranges::copy(buffer, output.subspan(sample_written).begin());
-        sample_written += buffer.size();
-
-        AdvanceRead(buffer.size());
-        buffer = GetNextOutputBuffers(output.size() - sample_written);
+        return;
     }
 
-    if (sample_written != output.size())
+    const std::span<float> first_buffer = GetNextOutputBuffers(output.size());
+    std::ranges::copy(first_buffer, output.begin());
+
+    const size_t remaining = output.size() - first_buffer.size();
+    if (remaining != 0)
     {
-        assert(false);
+        assert(out_point_ + first_buffer.size() == buffer_.size());
+        if (remaining > in_point_)
+        {
+            assert(false);
+            return;
+        }
+        std::ranges::copy(std::span(buffer_).first(remaining), output.subspan(first_buffer.size()).begin());
     }
 
+    AdvanceRead(output.size());
     last_frame_ = output.back();
+}
+
+size_t Delay::GetAvailableReadCount() const noexcept SFFDN_NONBLOCKING
+{
+    return out_point_ <= in_point_ ? in_point_ - out_point_ : buffer_.size() - out_point_ + in_point_;
+}
+
+size_t Delay::GetAvailableWriteCount() const noexcept SFFDN_NONBLOCKING
+{
+    return buffer_.size() - GetAvailableReadCount() - 1;
 }
 
 void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output,

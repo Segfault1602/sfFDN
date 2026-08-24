@@ -103,6 +103,8 @@ class Delay
     /**
      * @brief Gets the next output samples from the delay line.
      * @param output The output samples to fill.
+     * @note If fewer than `output.size()` samples are currently buffered, the output and internal state remain
+     * unchanged.
      */
     void GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
@@ -159,6 +161,9 @@ class Delay
     void AdvanceRead(uint32_t sample_count) noexcept SFFDN_NONBLOCKING;
 
   private:
+    size_t GetAvailableReadCount() const noexcept SFFDN_NONBLOCKING;
+    size_t GetAvailableWriteCount() const noexcept SFFDN_NONBLOCKING;
+
     uint32_t in_point_;
     uint32_t out_point_;
     uint32_t delay_;
