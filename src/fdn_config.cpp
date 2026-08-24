@@ -2,7 +2,18 @@
 
 #include "json_helper.h"
 #include "math_utils.h"
-#include "sffdn/sffdn.h"
+
+#include "sffdn/delay.h"
+#include "sffdn/delay_time_varying.h"
+#include "sffdn/delaybank.h"
+#include "sffdn/delaybank_time_varying.h"
+#include "sffdn/feedback_matrix.h"
+#include "sffdn/filter.h"
+#include "sffdn/filter_design.h"
+#include "sffdn/filter_feedback_matrix.h"
+#include "sffdn/filterbank.h"
+#include "sffdn/parallel_gains.h"
+#include "sffdn/schroeder_allpass.h"
 
 #include <algorithm>
 #include <cassert>

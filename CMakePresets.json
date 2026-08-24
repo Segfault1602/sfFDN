@@ -7,8 +7,16 @@
     },
     "configurePresets": [
         {
+            "name": "pch-default",
+            "hidden": true,
+            "cacheVariables": {
+                "SFFDN_ENABLE_PCH": "ON"
+            }
+        },
+        {
             "name": "gcc-ninja",
             "displayName": "GCC-Ninja",
+            "inherits": "pch-default",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/gcc",
             "cacheVariables": {}
@@ -17,6 +25,7 @@
             "name": "llvm-ninja",
             "displayName": "LLVM - Ninja",
             "description": "Build for LLVM",
+            "inherits": "pch-default",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/ninja",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake"
@@ -25,6 +34,7 @@
             "name": "llvm-tidy",
             "displayName": "LLVM - Ninja with Static Analysis",
             "description": "Build for LLVM with clang-tidy static analysis",
+            "inherits": "pch-default",
             "binaryDir": "${sourceDir}/build/llvm-tidy",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
             "cacheVariables": {
@@ -35,6 +45,7 @@
             "name": "llvm-fea",
             "displayName": "LLVM - Function Effect Analysis",
             "description": "Build with strict Clang Function Effect Analysis diagnostics",
+            "inherits": "pch-default",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/llvm-fea",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
@@ -48,6 +59,7 @@
             "name": "llvm-rtsan",
             "displayName": "LLVM - RealtimeSanitizer",
             "description": "Build with RealtimeSanitizer and strict Clang Function Effect Analysis",
+            "inherits": "pch-default",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/llvm-rtsan",
             "toolchainFile": "${sourceDir}/cmake/llvm-toolchain.cmake",
@@ -62,6 +74,7 @@
             "name": "windows",
             "displayName": "Windows",
             "description": "Build for Windows",
+            "inherits": "pch-default",
             "generator": "Visual Studio 18 2026",
             "binaryDir": "${sourceDir}/build/windows",
             "toolchainFile": "${sourceDir}/cmake/msvc-toolchain.cmake",

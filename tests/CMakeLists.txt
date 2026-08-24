@@ -80,6 +80,22 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
 
+if(SFFDN_ENABLE_PCH)
+    target_precompile_headers(
+        sfFDN.tests
+        PRIVATE
+            <catch2/catch_test_macros.hpp>
+            <catch2/matchers/catch_matchers_floating_point.hpp>
+            <sffdn/sffdn.h>
+            <algorithm>
+            <array>
+            <iostream>
+            <memory>
+            <span>
+            <vector>
+    )
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
@@ -125,3 +141,19 @@ endif()
 
 target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)
+
+if(SFFDN_ENABLE_PCH)
+    target_precompile_headers(
+        sfFDN.perf
+        PRIVATE
+            <catch2/catch_test_macros.hpp>
+            <nanobench.h>
+            <sffdn/sffdn.h>
+            <algorithm>
+            <array>
+            <iostream>
+            <memory>
+            <span>
+            <vector>
+    )
+endif()
