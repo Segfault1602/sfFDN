@@ -16,6 +16,24 @@ uint32_t FastMod(uint32_t input, uint32_t ceil) noexcept SFFDN_NONBLOCKING
 {
     return input >= ceil ? input % ceil : input;
 }
+
+void ScaleAccumulate(std::span<const float> input, float scale,
+                     std::span<float> output) noexcept SFFDN_NONBLOCKING
+{
+    assert(input.size() == output.size());
+#if defined(__APPLE__) && defined(__aarch64__)
+    if (input.size() <= 64)
+    {
+        // Avoid per-tap vDSP call overhead for the short blocks used by velvet-noise decorrelators.
+        for (auto sample = 0u; sample < input.size(); ++sample)
+        {
+            output[sample] += input[sample] * scale;
+        }
+        return;
+    }
+#endif
+    sfFDN::ArrayMath::ScaleAccumulate(input, scale, output);
+}
 } // namespace
 
 namespace sfFDN
@@ -312,13 +330,12 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output,
 
         if (buffer_1.size() >= output.size())
         {
-            ArrayMath::ScaleAccumulate(buffer_1.first(output.size()), coeff, output);
+            ScaleAccumulate(buffer_1.first(output.size()), coeff, output);
         }
         else
         {
-            ArrayMath::ScaleAccumulate(buffer_1, coeff, output.first(buffer_1.size()));
-            ArrayMath::ScaleAccumulate(buffer_2.first(output.size() - buffer_1.size()), coeff,
-                                       output.subspan(buffer_1.size()));
+            ScaleAccumulate(buffer_1, coeff, output.first(buffer_1.size()));
+            ScaleAccumulate(buffer_2.first(output.size() - buffer_1.size()), coeff, output.subspan(buffer_1.size()));
         }
     }
 }
