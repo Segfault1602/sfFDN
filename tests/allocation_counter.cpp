@@ -3,6 +3,10 @@
 #include <cstdlib>
 #include <new>
 
+#if defined(_MSC_VER)
+#include <malloc.h>
+#endif
+
 namespace
 {
 thread_local bool count_allocations = false;
@@ -30,11 +34,24 @@ void* AllocateAligned(size_t size, size_t alignment)
 {
     RecordAllocation();
     const size_t aligned_size = ((size == 0 ? 1 : size) + alignment - 1) / alignment * alignment;
+#if defined(_MSC_VER)
+    if (void* allocation = _aligned_malloc(aligned_size, alignment))
+#else
     if (void* allocation = std::aligned_alloc(alignment, aligned_size))
+#endif
     {
         return allocation;
     }
     throw std::bad_alloc();
+}
+
+void FreeAligned(void* allocation) noexcept
+{
+#if defined(_MSC_VER)
+    _aligned_free(allocation);
+#else
+    std::free(allocation);
+#endif
 }
 } // namespace
 
@@ -80,22 +97,22 @@ void* operator new[](size_t size, std::align_val_t alignment)
 
 void operator delete(void* allocation, std::align_val_t) noexcept
 {
-    std::free(allocation);
+    FreeAligned(allocation);
 }
 
 void operator delete[](void* allocation, std::align_val_t) noexcept
 {
-    std::free(allocation);
+    FreeAligned(allocation);
 }
 
 void operator delete(void* allocation, size_t, std::align_val_t) noexcept
 {
-    std::free(allocation);
+    FreeAligned(allocation);
 }
 
 void operator delete[](void* allocation, size_t, std::align_val_t) noexcept
 {
-    std::free(allocation);
+    FreeAligned(allocation);
 }
 
 namespace sfFDNTest
