@@ -17,6 +17,7 @@ option(SFFDN_USE_RTSAN "Use Clang RealtimeSanitizer" OFF)
 option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
 option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
 option(SFFDN_ENABLE_PCH "Enable precompiled headers for sfFDN targets" OFF)
+option(SFFDN_USE_AVX2 "Compile sfFDN with AVX2/FMA; the binary requires a compatible x86 CPU." OFF)
 option(SFFDN_USE_VDSP "Use vDSP for dsp operations" "${APPLE}")
 option(SFFDN_ENABLE_FUNCTION_EFFECTS "Enable Clang Function Effect Analysis" OFF)
 option(

@@ -159,6 +159,12 @@ cmake --preset llvm-ninja
 cmake --build --preset llvm --config Release
 ```
 
+`SFFDN_USE_AVX2=ON` compiles sfFDN with AVX2:
+
+```bash
+cmake --preset llvm-ninja -DSFFDN_USE_AVX2=ON
+```
+
 ## Use sfFDN in your project
 
 **sfFDN** can be included in your project using CPM (or CMake's FetchContent directly)
@@ -196,5 +202,3 @@ target_link_libraries(your_target PRIVATE sfFDN::sfFDN)
 [^6]: S. J. Schlecht, “Allpass Feedback Delay Networks,” IEEE Trans. Signal Process., vol. 69, pp. 1028–1038, 2021, doi: 10.1109/TSP.2021.3053507.
 
 [^7]: S. J. Schlecht and E. A. P. Habets, “Scattering in Feedback Delay Networks,” IEEE/ACM Trans. Audio, Speech, Lang. Process., vol. 28, Jun. 2020.
-
-

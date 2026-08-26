@@ -35,10 +35,9 @@ namespace sfFDN
  * chunk, before the result is written back out. Working on a fixed-size chunk bounds the scratch
  * buffer so it can be allocated once in SetCoefficients() and never on the audio thread.
  *
- * Terminology: a *group* is one SIMD vector's worth of channels, so exactly `simd::kWidth` (4)
- * channels. A *pass* evaluates several groups side by side; `kGroups` counts vectors, not lanes,
- * so a pass of 8 groups covers 8 * 4 = 32 channels held in 8 separate registers. A *chunk* is the
- * number of samples processed between state reloads.
+ * Terminology: a *group* is one SIMD vector's worth of channels, so exactly `simd::kWidth`
+ * channels. A *pass* evaluates several groups side by side; `kGroups` counts vectors, not lanes.
+ * A *chunk* is the number of samples processed between state reloads.
  *
  * The arithmetic matches the scalar CascadedBiquads kernel stage for stage:
  *     y  = b0 * x + s0
@@ -195,15 +194,15 @@ class SimdBiquadBank
     // Up to kMaxGroups groups still run as a single pass, because avoiding a second pass entirely
     // beats the slightly worse per-group rate. Once a split is unavoidable, passes are sized at
     // kPreferredGroups, which is the most efficient width measured.
-    static constexpr uint32_t kMaxGroups = 8;
-    static constexpr uint32_t kPreferredGroups = 6;
+    static constexpr uint32_t kMaxGroups = simd::kWidth == 8 ? 4 : 8;
+    static constexpr uint32_t kPreferredGroups = simd::kWidth == 8 ? 3 : 6;
 
     /**
      * @brief Gathers a pass's channels from the caller's channel-major buffer into the frame-major
      * scratch layout the SIMD kernel reads.
      *
-     * AudioBuffer keeps each channel contiguous, so one sample of four channels is spread across
-     * four distant addresses. The kernel instead needs those four values adjacent, so it can load
+     * AudioBuffer keeps each channel contiguous, so one sample from a group of channels is spread
+     * across distant addresses. The kernel instead needs those values adjacent, so it can load
      * them as a single vector. This transposes one chunk into that form:
      *
      * @verbatim

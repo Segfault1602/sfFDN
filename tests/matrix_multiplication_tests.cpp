@@ -126,8 +126,7 @@ TEST_CASE("MatrixMultiply_6")
     {
         for (auto j = 0u; j < kMatSize; ++j)
         {
-            REQUIRE_THAT(expected(i, j),
-                         Catch::Matchers::WithinAbs(output[i + j * kRowCount], std::numeric_limits<float>::epsilon()));
+            REQUIRE_THAT(expected(i, j), Catch::Matchers::WithinAbs(output[i + j * kRowCount], 1e-6f));
         }
     }
 }

@@ -14,13 +14,16 @@
 #if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(_M_ARM64)
 #include <arm_neon.h>
 #define SFFDN_SIMD_NEON 1
+#elif defined(__AVX__)
+#include <immintrin.h>
+#define SFFDN_SIMD_AVX 1
 #elif defined(__SSE__) || defined(HAVE_XMMINTRIN_H) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1)
 #include <xmmintrin.h>
 #define SFFDN_SIMD_SSE 1
 #endif
 #endif
 
-#if defined(SFFDN_SIMD_NEON) || defined(SFFDN_SIMD_SSE)
+#if defined(SFFDN_SIMD_NEON) || defined(SFFDN_SIMD_AVX) || defined(SFFDN_SIMD_SSE)
 #define SFFDN_HAS_SIMD 1
 #endif
 
@@ -28,7 +31,7 @@ namespace sfFDN::simd
 {
 
 /**
- * @brief A four-wide single-precision vector backed by NEON, SSE, or a scalar fallback.
+ * @brief A single-precision vector backed by NEON, AVX, SSE, or a scalar fallback.
  *
  * The abstraction is intentionally minimal: only the operations required by the DSP kernels in
  * this library are provided. Every operation is branch-free and allocation-free so that callers
@@ -84,6 +87,64 @@ inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 {
     return vfmsq_f32(c, a, b);
+}
+
+#elif defined(SFFDN_SIMD_AVX)
+
+inline constexpr size_t kWidth = 8;
+using Vec = __m256;
+
+inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_loadu_ps(p);
+}
+
+inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
+{
+    _mm256_storeu_ps(p, v);
+}
+
+inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_set1_ps(x);
+}
+
+inline Vec Zero() noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_setzero_ps();
+}
+
+inline Vec Add(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_add_ps(a, b);
+}
+
+inline Vec Sub(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_sub_ps(a, b);
+}
+
+inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
+{
+    return _mm256_mul_ps(a, b);
+}
+
+inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
+{
+#if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__))
+    return _mm256_fmadd_ps(a, b, c);
+#else
+    return _mm256_add_ps(_mm256_mul_ps(a, b), c);
+#endif
+}
+
+inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
+{
+#if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__))
+    return _mm256_fnmadd_ps(a, b, c);
+#else
+    return _mm256_sub_ps(c, _mm256_mul_ps(a, b));
+#endif
 }
 
 #elif defined(SFFDN_SIMD_SSE)

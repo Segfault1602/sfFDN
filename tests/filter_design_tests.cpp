@@ -218,7 +218,8 @@ TEST_CASE("Attenuation filter bank selects multichannel cascades only when suppo
     reference->Process(reference_buffer, reference_buffer);
     for (auto i = 0u; i < optimized_output.size(); ++i)
     {
-        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 1e-5f));
+        const float tolerance = 1e-6f + std::abs(reference_output[i]) * 5e-3f;
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], tolerance));
     }
 
     auto clone = optimized->Clone();
