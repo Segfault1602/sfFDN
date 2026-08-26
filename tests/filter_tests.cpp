@@ -682,3 +682,65 @@ TEST_CASE("IIRFilterBank preserves channel coefficient layout")
         REQUIRE_THAT(samples[i], Catch::Matchers::WithinAbs(kExpected[i], std::numeric_limits<float>::epsilon()));
     }
 }
+
+TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count")
+{
+    // The bank vectorizes across channels in groups of four and splits wide banks into several
+    // passes. This walks every channel count across those boundaries, including counts that are
+    // not a multiple of the SIMD width, so padding lanes and uneven passes stay covered.
+    constexpr uint32_t kBlockSize = 150;
+    constexpr uint32_t kStageCount = 5;
+
+    sfFDN::RNG rng;
+
+    for (uint32_t channel_count = 1; channel_count <= 34; ++channel_count)
+    {
+        std::vector<sfFDN::FilterCoefficients> coeffs;
+        coeffs.reserve(channel_count * kStageCount);
+        for (uint32_t channel = 0; channel < channel_count; ++channel)
+        {
+            for (uint32_t stage = 0; stage < kStageCount; ++stage)
+            {
+                coeffs.push_back({.b0 = 0.6f + (0.2f * rng()),
+                                  .b1 = 0.2f * rng(),
+                                  .b2 = 0.2f * rng(),
+                                  .a0 = 1.f,
+                                  .a1 = 0.3f * rng(),
+                                  .a2 = 0.2f * rng()});
+            }
+        }
+
+        std::vector<float> input(channel_count * kBlockSize);
+        for (auto& sample : input)
+        {
+            sample = rng();
+        }
+
+        std::vector<float> bank_output(input.size(), 0.f);
+        std::vector<float> reference(input.size(), 0.f);
+
+        const sfFDN::AudioBuffer input_buffer(kBlockSize, channel_count, input);
+        sfFDN::AudioBuffer bank_buffer(kBlockSize, channel_count, bank_output);
+        sfFDN::AudioBuffer reference_buffer(kBlockSize, channel_count, reference);
+
+        sfFDN::IIRFilterBank filter_bank;
+        filter_bank.SetFilter(coeffs, channel_count);
+        filter_bank.Process(input_buffer, bank_buffer);
+
+        for (uint32_t channel = 0; channel < channel_count; ++channel)
+        {
+            sfFDN::CascadedBiquads cascade;
+            cascade.SetCoefficients(
+                std::span<const sfFDN::FilterCoefficients>(coeffs).subspan(channel * kStageCount, kStageCount));
+
+            auto channel_output = reference_buffer.GetChannelBuffer(channel);
+            cascade.Process(input_buffer.GetChannelBuffer(channel), channel_output);
+        }
+
+        for (size_t i = 0; i < reference.size(); ++i)
+        {
+            INFO("channel_count = " << channel_count << ", sample " << i);
+            REQUIRE_THAT(bank_output[i], Catch::Matchers::WithinAbs(reference[i], 1e-5f));
+        }
+    }
+}
