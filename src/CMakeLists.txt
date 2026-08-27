@@ -1,4 +1,4 @@
-find_package(IPP)
+find_package(IPP QUIET)
 
 if(SFFDN_ENABLE_STATIC_ANALYSIS)
     message(STATUS "Enabling static analysis with clang-tidy")

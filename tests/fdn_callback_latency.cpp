@@ -7,6 +7,7 @@
 #include <charconv>
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
 #include <span>
 #include <string>
 #include <string_view>
@@ -58,29 +59,37 @@ struct Options
     std::string workload_filter;
 };
 
-Options ParseOptions(int argc, char** argv)
+Options ParseOptions(std::span<char*> arguments)
 {
     constexpr uint32_t kDefaultIterations = 20000;
-    if (argc < 2)
+    if (arguments.size() < 2)
     {
         return {.iterations = kDefaultIterations, .workload_filter = {}};
     }
 
     uint32_t iterations = 0;
-    const std::string_view value(argv[1]);
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), iterations);
-    if (error != std::errc{} || end != value.data() + value.size() || iterations == 0)
+    const std::string_view value(arguments[1]);
+    const auto [end, error] = std::from_chars(value.begin(), value.end(), iterations);
+    if (error != std::errc{} || end != value.end() || iterations == 0)
     {
-        std::fprintf(stderr, "Usage: %s [positive iteration count] [workload name substring]\n", argv[0]);
+        std::cerr << "Usage: sfFDN.callback_latency [positive iteration count] [workload name substring]\n";
         return {};
     }
-    return {.iterations = iterations, .workload_filter = argc >= 3 ? argv[2] : ""};
+    return {.iterations = iterations, .workload_filter = arguments.size() >= 3 ? arguments[2] : ""};
 }
 } // namespace
 
 int main(int argc, char** argv)
 {
-    const Options options = ParseOptions(argc, argv);
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage-in-container"
+#endif
+    const std::span arguments(argv, static_cast<size_t>(argc));
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+    const Options options = ParseOptions(arguments);
     if (options.iterations == 0)
     {
         return 2;

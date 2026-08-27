@@ -5,6 +5,11 @@ FetchContent_MakeAvailable(CPM)
 include(${cpm_SOURCE_DIR}/cmake/CPM.cmake)
 
 # Eigen is used for feedback matrix operations
+if(DEFINED CMAKE_WARN_DEPRECATED)
+    set(_SFFDN_CMAKE_WARN_DEPRECATED_DEFINED TRUE)
+    set(_SFFDN_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+endif()
+set(CMAKE_WARN_DEPRECATED OFF)
 cpmaddpackage(
     NAME
     Eigen
@@ -13,6 +18,13 @@ cpmaddpackage(
     GIT_REPOSITORY
     https://gitlab.com/libeigen/eigen
 )
+if(_SFFDN_CMAKE_WARN_DEPRECATED_DEFINED)
+    set(CMAKE_WARN_DEPRECATED ${_SFFDN_CMAKE_WARN_DEPRECATED})
+else()
+    unset(CMAKE_WARN_DEPRECATED)
+endif()
+unset(_SFFDN_CMAKE_WARN_DEPRECATED)
+unset(_SFFDN_CMAKE_WARN_DEPRECATED_DEFINED)
 
 if(Eigen_ADDED)
     get_target_property(_eigen_inc eigen INTERFACE_INCLUDE_DIRECTORIES)
@@ -48,5 +60,9 @@ cpmaddpackage(
     "KISSFFT_TEST OFF"
     "KISSFFT_TOOLS OFF"
 )
+
+if(TARGET kissfft AND CMAKE_C_COMPILER_ID MATCHES ".*Clang")
+    target_compile_options(kissfft PRIVATE -Wno-cast-align)
+endif()
 
 cpmaddpackage("gh:nlohmann/json@3.12.0")
