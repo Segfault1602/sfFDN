@@ -4,6 +4,12 @@
 
 #include "sffdn/attributes.h"
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+#pragma clang diagnostic ignored "-Wnullability-extension"
+#endif
+
 extern "C"
 {
     extern void vDSP_vadd(const float* __A, vDSP_Stride __IA, const float* __B, vDSP_Stride __IB, float* __C,
@@ -18,3 +24,7 @@ extern "C"
                             const float* __nonnull __X, vDSP_Stride __IX, float* __nonnull __Y, vDSP_Stride __IY,
                             vDSP_Length __N) SFFDN_NONBLOCKING;
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
