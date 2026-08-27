@@ -14,7 +14,7 @@
 #include <stdexcept>
 
 #ifdef SFFDN_USE_IPP
-#include <ipp.h>
+#include "third_party/fea_ipp_process.h"
 #endif
 
 // The non-IPP implementation seems to be faster for now...
@@ -44,12 +44,19 @@ class SparseFir::SparseFirImpl
             sparse_index_.push_back(index);
         }
 
+        if (sparse_index_.empty())
+        {
+            filter_order_ = 0;
+            delay_line_.Clear();
+            return;
+        }
+
         filter_order_ = *std::ranges::max_element(sparse_index_) + 1;
 
         delay_line_.SetMaximumDelay(filter_order_ + kDefaultBlockSize);
     }
 
-    float Tick(float in)
+    float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         delay_line_.Tick(in);
 
@@ -63,23 +70,35 @@ class SparseFir::SparseFirImpl
         return y;
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
 
-        delay_line_.AddNextInputs(input.GetChannelSpan(0));
+        const auto input_span = input.GetChannelSpan(0);
+        auto output_span = output.GetChannelSpan(0);
+        const size_t buffer_size = delay_line_.GetMaximumDelay() + 1;
+        const bool has_tap_headroom = input_span.size() + filter_order_ <= buffer_size;
+        if (!has_tap_headroom || !delay_line_.AddNextInputs(input_span))
+        {
+            for (auto sample = 0u; sample < input_span.size(); ++sample)
+            {
+                output_span[sample] = Tick(input_span[sample]);
+            }
+            return;
+        }
 
-        std::fill(output.GetChannelSpan(0).begin(), output.GetChannelSpan(0).end(), 0.f);
-        delay_line_.GetNextOutputsAt(sparse_index_, output.GetChannelSpan(0), coeffs_);
+        std::ranges::fill(output_span, 0.f);
+        delay_line_.GetNextOutputsAt(sparse_index_, output_span, coeffs_);
+        delay_line_.AdvanceRead(input_span.size());
     }
 
-    constexpr uint32_t InputChannelCount()
+    constexpr uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
 
-    constexpr uint32_t OutputChannelCount()
+    constexpr uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
@@ -166,14 +185,14 @@ class SparseFir::SparseFirImpl
         }
     }
 
-    float Tick(float in)
+    float Tick(float in) noexcept SFFDN_NONBLOCKING
     {
         float out = 0.f;
         ippsFIRSparse_32f(&in, &out, 1, state_);
         return out;
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.ChannelCount() == output.ChannelCount());
         assert(input.ChannelCount() == 1);
@@ -182,12 +201,12 @@ class SparseFir::SparseFirImpl
                           static_cast<int>(input.SampleCount()), state_);
     }
 
-    uint32_t InputChannelCount() const
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
 
-    uint32_t OutputChannelCount() const
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return 1;
     }
@@ -225,24 +244,25 @@ SparseFir::~SparseFir() = default;
 void SparseFir::SetCoefficients(const SparseFirOptions& config)
 {
     impl_->SetCoefficients(config);
+    config_ = config;
 }
 
-float SparseFir::Tick(float in)
+float SparseFir::Tick(float in) noexcept SFFDN_NONBLOCKING
 {
     return impl_->Tick(in);
 }
 
-void SparseFir::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void SparseFir::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     impl_->Process(input, output);
 }
 
-uint32_t SparseFir::InputChannelCount() const
+uint32_t SparseFir::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->InputChannelCount();
 }
 
-uint32_t SparseFir::OutputChannelCount() const
+uint32_t SparseFir::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->OutputChannelCount();
 }

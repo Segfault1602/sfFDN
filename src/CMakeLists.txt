@@ -61,6 +61,7 @@ target_sources(
            BASE_DIRS
            ${SFFDN_INCLUDE_DIRS}
            FILES
+           ${SFFDN_INCLUDE_DIRS}/sffdn/attributes.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_buffer.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_processor.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_matrix.h
@@ -98,7 +99,28 @@ target_link_libraries(
 
 target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
 
-target_compile_features(sfFDN.sfFDN PRIVATE cxx_std_23)
+target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_20)
+
+if(SFFDN_ENABLE_PCH)
+    target_precompile_headers(
+        sfFDN.sfFDN
+        PRIVATE
+            <Eigen/Core>
+            <nlohmann/json.hpp>
+            <algorithm>
+            <array>
+            <cassert>
+            <cmath>
+            <cstdint>
+            <memory>
+            <optional>
+            <span>
+            <string>
+            <utility>
+            <variant>
+            <vector>
+    )
+endif()
 
 if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")

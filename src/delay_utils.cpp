@@ -46,6 +46,12 @@ namespace sfFDN
 std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float max_delay, DelayLengthType type,
                                    uint32_t seed)
 {
+
+    if (min_delay >= max_delay)
+    {
+        throw std::invalid_argument("min_delay must be less than max_delay.");
+    }
+
     std::vector<float> delays(delay_count, min_delay);
     switch (type)
     {

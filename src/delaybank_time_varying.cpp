@@ -47,12 +47,12 @@ std::vector<float> DelayBankTimeVarying::GetDelays() const
     return config_.delays;
 }
 
-uint32_t DelayBankTimeVarying::InputChannelCount() const
+uint32_t DelayBankTimeVarying::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delay_bank_.InputChannelCount();
 }
 
-uint32_t DelayBankTimeVarying::OutputChannelCount() const
+uint32_t DelayBankTimeVarying::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delay_bank_.OutputChannelCount();
 }
@@ -62,7 +62,7 @@ void DelayBankTimeVarying::Clear()
     delay_bank_.Clear();
 }
 
-void DelayBankTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayBankTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());

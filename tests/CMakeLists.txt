@@ -47,7 +47,8 @@ target_include_directories(nanobench SYSTEM INTERFACE ${_nanobench_inc})
 add_executable(sfFDN.tests)
 target_sources(
     sfFDN.tests
-    PRIVATE audio_buffer_tests.cpp
+    PRIVATE allocation_counter.cpp
+            audio_buffer_tests.cpp
             audio_processor_chain_tests.cpp
             array_math_tests.cpp
             delay_tests.cpp
@@ -79,20 +80,47 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
 
+if(SFFDN_ENABLE_PCH)
+    target_precompile_headers(
+        sfFDN.tests
+        PRIVATE
+            <catch2/catch_test_macros.hpp>
+            <catch2/matchers/catch_matchers_floating_point.hpp>
+            <sffdn/sffdn.h>
+            <algorithm>
+            <array>
+            <iostream>
+            <memory>
+            <span>
+            <vector>
+    )
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(
+    NAME RealtimeExceptionInventory
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSFFDN_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/check-realtime-exceptions.cmake
+)
 
 add_executable(sfFDN.perf)
 target_sources(
     sfFDN.perf
     PRIVATE fdn_perf.cpp
+            fdn_perf2.cpp
+            production_perf.cpp
+            production_workloads.cpp
             filter_perf.cpp
             filter_design_perf.cpp
             delay_perf.cpp
             array_math_perf.cpp
             mixmat_perf.cpp
             matrix_multiplication_perf.cpp
+            processor_perf.cpp
             parallel_gains_perf.cpp
             upols_perf.cpp
             nupols_perf.cpp
@@ -116,3 +144,29 @@ endif()
 
 target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)
+
+add_executable(sfFDN.callback_latency fdn_callback_latency.cpp production_workloads.cpp)
+target_link_libraries(
+    sfFDN.callback_latency
+    PRIVATE sfFDN.sfFDN
+            sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
+)
+target_include_directories(sfFDN.callback_latency PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
+target_compile_features(sfFDN.callback_latency PRIVATE cxx_std_23)
+
+if(SFFDN_ENABLE_PCH)
+    target_precompile_headers(
+        sfFDN.perf
+        PRIVATE
+            <catch2/catch_test_macros.hpp>
+            <nanobench.h>
+            <sffdn/sffdn.h>
+            <algorithm>
+            <array>
+            <iostream>
+            <memory>
+            <span>
+            <vector>
+    )
+endif()

@@ -36,19 +36,19 @@ class FilterBank : public AudioProcessor
      * The input and output buffers must have the same number of channels and sample count.
      * The number of channels must be equal to the number of filters in the filter bank.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      * This is equal to the number of filters in the filter bank.
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      * This is equal to the number of filters in the filter bank.
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Creates a copy of the filter bank.
      * @return A unique pointer to the cloned filter bank.
@@ -60,8 +60,9 @@ class FilterBank : public AudioProcessor
 };
 
 /** @brief Implements a bank of IIR filters.
- * On MacOS, this uses the Accelerate framework for optimized processing.
- * On other platforms, this is equivalent to using a FilterBank with CascadedBiquads filters.
+ * On Apple Silicon, short cascades use single-channel Accelerate filters and longer cascades use channel-major
+ * CascadedBiquads processing. On Intel macOS, it uses the Accelerate framework when enabled. Other platforms use a
+ * portable multichannel implementation.
  * @ingroup AudioProcessors
  */
 class IIRFilterBank : public AudioProcessor
@@ -99,19 +100,19 @@ class IIRFilterBank : public AudioProcessor
      * The input and output buffers must have the same number of channels and sample count.
      * The number of channels must be equal to the number of filters in the filter bank.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      * This is equal to the number of filters in the filter bank.
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      * This is equal to the number of filters in the filter bank.
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Creates a copy of the filter bank.
      * @return A unique pointer to the cloned filter bank.

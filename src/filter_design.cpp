@@ -456,8 +456,84 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter
                       options);
 }
 
+static std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<const CascadedBiquadsOptions> configs)
+{
+    const auto stage_count = configs.front().coeffs.size();
+    std::vector<FilterCoefficients> coeffs;
+    coeffs.reserve(configs.size() * stage_count);
+    for (const auto& config : configs)
+    {
+        coeffs.insert(coeffs.end(), config.coeffs.begin(), config.coeffs.end());
+    }
+
+    auto filter_bank = std::make_unique<IIRFilterBank>();
+    filter_bank->SetFilter(coeffs, static_cast<uint32_t>(configs.size()));
+    return filter_bank;
+}
+
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& options)
 {
+#if defined(__APPLE__) && defined(__aarch64__) && defined(SFFDN_USE_VDSP)
+    std::vector<FilterCoefficients> one_pole_coefficients;
+    one_pole_coefficients.reserve(options.filter_configs.size());
+    for (const auto& config : options.filter_configs)
+    {
+        const auto* two_band = std::get_if<TwoBandFilterOptions>(&config);
+        if (two_band == nullptr)
+        {
+            one_pole_coefficients.clear();
+            break;
+        }
+
+        const auto [b0, a1] = DesignTwoBandAbsorption(*two_band);
+        one_pole_coefficients.push_back({.b0 = b0, .b1 = 0.f, .b2 = 0.f, .a0 = 1.f, .a1 = a1, .a2 = 0.f});
+    }
+
+    if (!one_pole_coefficients.empty())
+    {
+        auto filter_bank = std::make_unique<IIRFilterBank>();
+        filter_bank->SetFilter(one_pole_coefficients, static_cast<uint32_t>(one_pole_coefficients.size()));
+        return filter_bank;
+    }
+#endif
+
+    std::vector<CascadedBiquadsOptions> cascaded_configs;
+    cascaded_configs.reserve(options.filter_configs.size());
+    for (const auto& config : options.filter_configs)
+    {
+        if (const auto* three_band = std::get_if<ThreeBandFilterOptions>(&config))
+        {
+            const auto coeffs = DesignThreeBandAbsorption(*three_band);
+            cascaded_configs.push_back({std::vector<FilterCoefficients>(coeffs.begin(), coeffs.end())});
+        }
+        else if (const auto* ten_band = std::get_if<TenBandFilterOptions>(&config))
+        {
+            const auto coeffs = DesignTenBandAbsorption(*ten_band);
+            cascaded_configs.push_back({std::vector<FilterCoefficients>(coeffs.begin(), coeffs.end())});
+        }
+        else
+        {
+            cascaded_configs.clear();
+            break;
+        }
+    }
+
+    if (cascaded_configs.size() > 1)
+    {
+        const auto stage_count = cascaded_configs.front().coeffs.size();
+        const bool uniform_stage_count =
+            stage_count != 0 && std::ranges::all_of(cascaded_configs, [stage_count](const auto& config) {
+                return config.coeffs.size() == stage_count;
+            });
+        // If all filters are either 3-band or 10-band, we can use a more efficient implementation that processes all
+        // channels in parallel. Otherwise, we fall back to a more general implementation that can handle mixed filter
+        // types.
+        if (uniform_stage_count)
+        {
+            return MakeCascadedBiquadFilterBank(cascaded_configs);
+        }
+    }
+
     auto filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (const auto& config : options.filter_configs)
     {

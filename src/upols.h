@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fft.h"
+#include "sffdn/attributes.h"
 
 #include <cstddef>
 #include <span>
@@ -19,14 +20,14 @@ class UPOLS
 
     bool Initialize(uint32_t block_size, std::span<const float> fir);
 
-    void Process(std::span<const float> input, std::span<float> output);
+    void Process(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
-    std::span<float> PrepareWorkBuffer();
+    std::span<float> PrepareWorkBuffer() noexcept SFFDN_NONBLOCKING;
 
-    void AddSamples(std::span<const float> input);
-    bool IsReady() const;
+    void AddSamples(std::span<const float> input) noexcept SFFDN_NONBLOCKING;
+    bool IsReady() const noexcept SFFDN_NONBLOCKING;
 
-    void Process(std::span<float> output);
+    void Process(std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
     void Clear();
 

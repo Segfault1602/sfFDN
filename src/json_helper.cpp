@@ -3,7 +3,6 @@
 #include "sffdn/types.h"
 
 #include <cstdint>
-#include <map>
 
 namespace sfFDN
 {
@@ -213,6 +212,11 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                                      nlohmann::json proc;
                                      proc["ScalarFeedbackMatrixOptions"] = config;
                                      return proc;
+                                 },
+                                 [](const MultichannelFirOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelFirOptions"] = config;
+                                     return proc;
                                  }},
                       processor_config);
 }
@@ -279,6 +283,11 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
     if (j.contains("DelayBankTimeVaryingOptions"))
     {
         return j["DelayBankTimeVaryingOptions"].get<DelayBankTimeVaryingOptions>();
+    }
+
+    if (j.contains("MultichannelFirOptions"))
+    {
+        return j["MultichannelFirOptions"].get<MultichannelFirOptions>();
     }
 
     throw std::invalid_argument("Unknown multichannel processor config type");

@@ -65,29 +65,29 @@ void DelayTimeVarying::SetMod(const ModulationOptions& options)
     }
 }
 
-void DelayTimeVarying::UpdateDelay()
+void DelayTimeVarying::UpdateDelay() noexcept SFFDN_NONBLOCKING
 {
     delay_.SetDelay(base_delay_ + lfo_.Tick());
 }
 
-float DelayTimeVarying::Tick(float input)
+float DelayTimeVarying::Tick(float input) noexcept SFFDN_NONBLOCKING
 {
     UpdateDelay();
 
     return delay_.Tick(input);
 }
 
-uint32_t DelayTimeVarying::InputChannelCount() const
+uint32_t DelayTimeVarying::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }
 
-uint32_t DelayTimeVarying::OutputChannelCount() const
+uint32_t DelayTimeVarying::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return 1;
 }
 
-void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == 1);

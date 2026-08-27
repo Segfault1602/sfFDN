@@ -55,14 +55,14 @@ class FilterFeedbackMatrix : public AudioProcessor
      * @param input AudioBuffer containing the input audio data. The number of channels must match the channel count.
      * @param output AudioBuffer containing the output audio data. The number of channels must match the channel count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return channel_count_;
     }
@@ -72,7 +72,7 @@ class FilterFeedbackMatrix : public AudioProcessor
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return channel_count_;
     }

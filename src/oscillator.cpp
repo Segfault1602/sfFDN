@@ -17,7 +17,7 @@
 
 namespace
 {
-float Sine(float phase)
+float Sine(float phase) noexcept SFFDN_NONBLOCKING
 {
     assert(phase >= 0.f);
 
@@ -82,12 +82,12 @@ void SineWave::SetPhaseOffset(float phase_offset)
     phase_offset_ = phase_offset;
 }
 
-float SineWave::NextOut() const
+float SineWave::NextOut() const noexcept SFFDN_NONBLOCKING
 {
     return (Sine(phase_ + phase_offset_) * amplitude_) + offset_;
 }
 
-float SineWave::Tick()
+float SineWave::Tick() noexcept SFFDN_NONBLOCKING
 {
     const float out = (Sine(phase_ + phase_offset_) * amplitude_) + offset_;
     phase_ += phase_increment_;
@@ -95,7 +95,7 @@ float SineWave::Tick()
     return out;
 }
 
-void SineWave::Generate(std::span<float> output)
+void SineWave::Generate(std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     // For small block sizes, the overhead of calling vDSP is too much. Disabled for now.
 #ifdef SFFDN_USE_VDSP_DISABLED
@@ -121,7 +121,7 @@ void SineWave::Generate(std::span<float> output)
 #endif
 }
 
-void SineWave::Multiply(std::span<const float> input, std::span<float> output)
+void SineWave::Multiply(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.size() == output.size());
 
@@ -135,7 +135,7 @@ void SineWave::Multiply(std::span<const float> input, std::span<float> output)
     phase_ -= std::floor(phase_);
 }
 
-void SineWave::MultiplyAccumulate(std::span<const float> input, std::span<float> output)
+void SineWave::MultiplyAccumulate(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.size() == output.size());
 

@@ -59,6 +59,11 @@ sfFDN::ScalarFeedbackMatrixOptions EigenToMatrixOptions(const Eigen::MatrixXf& m
                                               .custom_matrix = flat_matrix};
 }
 
+bool HasStructuredKernel(sfFDN::ScalarMatrixType type)
+{
+    return type == sfFDN::ScalarMatrixType::Hadamard || type == sfFDN::ScalarMatrixType::Householder;
+}
+
 } // namespace
 
 namespace sfFDN
@@ -73,8 +78,20 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
         sparsity = 1.f;
     }
 
-    Eigen::MatrixXf r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
-    matrix_.emplace_back(EigenToMatrixOptions(r0));
+    Eigen::MatrixXf r0;
+
+    // For Hadamard and Householder matrices we can use the faster implementation but ScalarFeedbackMatrix needs to be
+    // constructed with the correct type. For other types, we need to generate the matrix and pass it in.
+    const bool has_structured_kernel = HasStructuredKernel(options.type);
+    if (has_structured_kernel)
+    {
+        matrix_.emplace_back(ScalarFeedbackMatrixOptions{.matrix_size = options.matrix_size, .type = options.type});
+    }
+    else
+    {
+        r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
+        matrix_.emplace_back(EigenToMatrixOptions(r0));
+    }
 
     float pulse_size = 1.f;
 
@@ -105,7 +122,14 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
         delaybank_options.interpolation_type = DelayInterpolationType::None;
         delaybanks_.emplace_back(delaybank_options);
 
-        matrix_.emplace_back(EigenToMatrixOptions(r1));
+        if (has_structured_kernel && options.gain_per_samples == 1.f)
+        {
+            matrix_.emplace_back(ScalarFeedbackMatrixOptions{.matrix_size = options.matrix_size, .type = options.type});
+        }
+        else
+        {
+            matrix_.emplace_back(EigenToMatrixOptions(r1));
+        }
     }
 }
 
@@ -158,7 +182,7 @@ void FilterFeedbackMatrix::Clear()
     }
 }
 
-void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void FilterFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == channel_count_);

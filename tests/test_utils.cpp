@@ -23,18 +23,18 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32
 
 std::unique_ptr<sfFDN::AudioProcessor> GetLoopFilter(uint32_t channel_count, uint32_t order)
 {
-    auto filter_bank = std::make_unique<sfFDN::FilterBank>();
-
+    auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    std::vector<sfFDN::FilterCoefficients> coeffs;
+    coeffs.reserve(channel_count * order);
     for (uint32_t i = 0; i < channel_count; i++)
     {
         // Just use the first filter for now
-        auto sos = k_h001_AbsorbtionSOS[0];
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-
-        filter->SetCoefficients(std::span(sos).subspan(0, order));
-        filter_bank->AddFilter(std::move(filter));
+        const auto& sos = k_h001_AbsorbtionSOS[0];
+        const auto channel_coeffs = std::span(sos).subspan(0, order);
+        coeffs.insert(coeffs.end(), channel_coeffs.begin(), channel_coeffs.end());
     }
 
+    filter_bank->SetFilter(coeffs, channel_count);
     return filter_bank;
 }
 

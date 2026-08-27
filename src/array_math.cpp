@@ -5,24 +5,24 @@
 #include <span>
 
 #ifdef SFFDN_USE_IPP
-#include <ipp.h>
+#include "third_party/fea_ipp_process.h"
 #endif
 
 #ifdef SFFDN_USE_VDSP
-#include <Accelerate/Accelerate.h>
+#include "third_party/fea_vdsp_process.h"
 #endif
 
 namespace sfFDN
 {
 #ifdef SFFDN_USE_IPP
-void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
+void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == b.size());
 
     ippsAdd_32f_I(b.data(), a.data(), static_cast<int>(a.size()));
 }
 
-void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out)
+void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == b.size());
     assert(a.size() == out.size());
@@ -30,21 +30,23 @@ void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::spa
     ippsAdd_32f(a.data(), b.data(), out.data(), static_cast<int>(a.size()));
 }
 
-void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out)
+void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == out.size());
 
     ippsMulC_32f(a.data(), b, out.data(), static_cast<int>(a.size()));
 }
 
-void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out)
+void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b,
+                                std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == out.size());
 
     ippsAddProductC_32f(a.data(), b, out.data(), static_cast<int>(a.size()));
 }
 
-void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out)
+void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b,
+                         std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == b.size());
     assert(a.size() == out.size());
@@ -52,7 +54,8 @@ void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std
     ippsMul_32f(a.data(), b.data(), out.data(), static_cast<int>(a.size()));
 }
 
-void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c,
+                            std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == c.size());
     assert(a.size() == out.size());
@@ -62,73 +65,29 @@ void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const f
 }
 
 #elifdef SFFDN_USE_VDSP
-void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
+void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b) noexcept SFFDN_NONBLOCKING
 {
     vDSP_vadd(a.data(), 1, b.data(), 1, a.data(), 1, a.size());
 }
 
-void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out)
+void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     vDSP_vadd(a.data(), 1, b.data(), 1, out.data(), 1, a.size());
 }
 
-void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out)
+void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     vDSP_vsmul(a.data(), 1, &b, out.data(), 1, a.size());
 }
 
-void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out)
+void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b,
+                                std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     vDSP_vsma(a.data(), 1, &b, out.data(), 1, out.data(), 1, a.size());
 }
 
-void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
-{
-    vDSP_vsma(a.data(), 1, &b, c.data(), 1, out.data(), 1, a.size());
-}
-#else
-void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b)
-{
-    assert(a.size() == b.size());
-
-    for (auto [x, y] : std::views::zip(a, b))
-    {
-        x += y;
-    }
-}
-
-void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out)
-{
-    assert(a.size() == b.size());
-    assert(a.size() == out.size());
-
-    for (auto [x, y, z] : std::views::zip(a, b, out))
-    {
-        z = x + y;
-    }
-}
-
-void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out)
-{
-    assert(a.size() == out.size());
-
-    for (auto [x, y] : std::views::zip(a, out))
-    {
-        y = x * b;
-    }
-}
-
-void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out)
-{
-    assert(a.size() == out.size());
-
-    for (auto [x, y] : std::views::zip(a, out))
-    {
-        y += x * b;
-    }
-}
-
-void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out)
+void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b,
+                         std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == b.size());
     assert(a.size() == out.size());
@@ -139,7 +98,68 @@ void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b, std
     }
 }
 
-void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c, std::span<float> out)
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c,
+                            std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    vDSP_vsma(a.data(), 1, &b, c.data(), 1, out.data(), 1, a.size());
+}
+#else
+void ArrayMath::Accumulate(std::span<float> a, std::span<const float> b) noexcept SFFDN_NONBLOCKING
+{
+    assert(a.size() == b.size());
+
+    for (auto [x, y] : std::views::zip(a, b))
+    {
+        x += y;
+    }
+}
+
+void ArrayMath::Add(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(a.size() == b.size());
+    assert(a.size() == out.size());
+
+    for (auto [x, y, z] : std::views::zip(a, b, out))
+    {
+        z = x + y;
+    }
+}
+
+void ArrayMath::Scale(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(a.size() == out.size());
+
+    for (auto [x, y] : std::views::zip(a, out))
+    {
+        y = x * b;
+    }
+}
+
+void ArrayMath::ScaleAccumulate(std::span<const float> a, const float b,
+                                std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(a.size() == out.size());
+
+    for (auto [x, y] : std::views::zip(a, out))
+    {
+        y += x * b;
+    }
+}
+
+void ArrayMath::Multiply(std::span<const float> a, std::span<const float> b,
+                         std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(a.size() == b.size());
+    assert(a.size() == out.size());
+
+    for (auto [a_val, b_val, out_val] : std::views::zip(a, b, out))
+    {
+        out_val = a_val * b_val;
+    }
+}
+
+void ArrayMath::MultiplyAdd(std::span<const float> a, float b, std::span<const float> c,
+                            std::span<float> out) noexcept SFFDN_NONBLOCKING
 {
     assert(a.size() == c.size());
     assert(a.size() == out.size());

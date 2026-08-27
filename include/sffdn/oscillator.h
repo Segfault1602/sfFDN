@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "attributes.h"
 #include "audio_buffer.h"
 
 namespace sfFDN
@@ -14,7 +15,7 @@ class Generator
     virtual ~Generator() = default;
 
     /** @brief Fills the output span with generated samples. */
-    virtual void Generate(std::span<float> output) = 0;
+    virtual void Generate(std::span<float> output) noexcept SFFDN_NONBLOCKING = 0;
 };
 
 /** @brief A sine wave oscillator.
@@ -67,27 +68,27 @@ class SineWave : public Generator
     void SetPhaseOffset(float phase_offset);
 
     /** @brief Returns the next output sample without advancing the phase. */
-    float NextOut() const;
+    float NextOut() const noexcept SFFDN_NONBLOCKING;
 
     /** @brief Advances the phase and returns the next output sample. */
-    float Tick();
+    float Tick() noexcept SFFDN_NONBLOCKING;
 
     /** @brief Fills the output span with generated samples. */
-    void Generate(std::span<float> output) override;
+    void Generate(std::span<float> output) noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Multiply `input` by the sine wave and store the result in `output`.
      * @param input The input signal to modulate.
      * @param output The output signal to store the result.
      */
-    void Multiply(std::span<const float> input, std::span<float> output);
+    void Multiply(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Multiply `input` by the sine wave and accumulate the result in `output`.
      * @param input The input signal to modulate.
      * @param output The output signal to store the result.
      */
-    void MultiplyAccumulate(std::span<const float> input, std::span<float> output);
+    void MultiplyAccumulate(std::span<const float> input, std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
   private:
     float phase_;

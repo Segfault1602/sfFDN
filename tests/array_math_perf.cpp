@@ -51,6 +51,13 @@ TEST_CASE("ArrayMath")
         nanobench::doNotOptimizeAway(b);
     });
 
+    bench.run("Multiply", [&] {
+        sfFDN::ArrayMath::Multiply(a, b, out);
+        nanobench::doNotOptimizeAway(a);
+        nanobench::doNotOptimizeAway(b);
+        nanobench::doNotOptimizeAway(out);
+    });
+
     bench.run("MultiplyAdd", [&] {
         sfFDN::ArrayMath::MultiplyAdd(a, 2.f, b, out);
         nanobench::doNotOptimizeAway(a);

@@ -62,7 +62,7 @@ class DelayMatrix::DelayMatrixImpl
         }
     }
 
-    void Process(const AudioBuffer& input, AudioBuffer& output)
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
     {
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == output.ChannelCount());
@@ -94,12 +94,12 @@ class DelayMatrix::DelayMatrixImpl
         }
     }
 
-    uint32_t InputChannelCount() const
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return order_;
     }
 
-    uint32_t OutputChannelCount() const
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING
     {
         return order_;
     }
@@ -187,17 +187,17 @@ void DelayMatrix::Clear()
     impl_->Clear();
 }
 
-void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     impl_->Process(input, output);
 }
 
-uint32_t DelayMatrix::InputChannelCount() const
+uint32_t DelayMatrix::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->InputChannelCount();
 }
 
-uint32_t DelayMatrix::OutputChannelCount() const
+uint32_t DelayMatrix::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return impl_->OutputChannelCount();
 }

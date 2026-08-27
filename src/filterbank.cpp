@@ -27,7 +27,7 @@ void FilterBank::AddFilter(std::unique_ptr<AudioProcessor> filter)
     filters_.push_back(std::move(filter));
 }
 
-void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
@@ -41,12 +41,12 @@ void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
     }
 }
 
-uint32_t FilterBank::InputChannelCount() const
+uint32_t FilterBank::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return filters_.size();
 }
 
-uint32_t FilterBank::OutputChannelCount() const
+uint32_t FilterBank::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return filters_.size();
 }

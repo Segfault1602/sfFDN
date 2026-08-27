@@ -23,11 +23,12 @@ class PartitionedConvolver : public AudioProcessor
      *
      * @param block_size The block size to use for processing.
      * @param fir The FIR filter coefficients.
-     * @param rep_count The number of times to repeat each block in the partitioned convolution.
+     * @param rep_count The number of times to repeat each block in the partitioned convolution. A value of zero
+     * automatically selects a schedule based on the FIR length.
      * The PartitionedConvolver only works if the block size stays constant during use.
      * Process() expects the input and output buffers to have a sample count equal to the block size.
      */
-    PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 8);
+    PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 0);
     ~PartitionedConvolver();
 
     PartitionedConvolver(const PartitionedConvolver&) = delete;
@@ -46,7 +47,7 @@ class PartitionedConvolver : public AudioProcessor
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of samples equal to the block size.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Gets the block size used for processing.
      * @returns The block size used for processing.
@@ -66,7 +67,7 @@ class PartitionedConvolver : public AudioProcessor
      * This is always 1, as PartitionedConvolver processes one channel at a time.
      * @returns The number of input channels supported.
      */
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1; // PartitionedConvolver processes one channel at a time
     }
@@ -75,7 +76,7 @@ class PartitionedConvolver : public AudioProcessor
      * This is always 1, as PartitionedConvolver processes one channel at a time.
      * @returns The number of output channels supported.
      */
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1; // PartitionedConvolver processes one channel at a time
     }

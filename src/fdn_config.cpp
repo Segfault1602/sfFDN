@@ -2,7 +2,18 @@
 
 #include "json_helper.h"
 #include "math_utils.h"
-#include "sffdn/sffdn.h"
+
+#include "sffdn/delay.h"
+#include "sffdn/delay_time_varying.h"
+#include "sffdn/delaybank.h"
+#include "sffdn/delaybank_time_varying.h"
+#include "sffdn/feedback_matrix.h"
+#include "sffdn/filter.h"
+#include "sffdn/filter_design.h"
+#include "sffdn/filter_feedback_matrix.h"
+#include "sffdn/filterbank.h"
+#include "sffdn/parallel_gains.h"
+#include "sffdn/schroeder_allpass.h"
 
 #include <algorithm>
 #include <cassert>
@@ -233,6 +244,12 @@ bool ValidateConfig(const sfFDN::FDNConfig& config)
         return false;
     }
 
+    if (config.attenuation_filter_bank_config.has_value() &&
+        !ValidateConfig(config.attenuation_filter_bank_config.value(), config))
+    {
+        return false;
+    }
+
     if (std::ranges::any_of(config.loop_filter_configs, [&config](const auto& processor_config) {
             return !ValidateConfig(processor_config, config);
         }))
@@ -333,6 +350,17 @@ struct MultichannelProcessorVisitor
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelFirOptions& fir_config) const
+    {
+        auto bank = std::make_unique<sfFDN::FilterBank>();
+        for (const auto& coeffs : fir_config.coeffs)
+        {
+            auto fir = sfFDN::MakeFirFilter(sfFDN::FirOptions{coeffs});
+            bank->AddFilter(std::move(fir));
+        }
+        return bank;
+    }
 };
 
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
@@ -432,11 +460,12 @@ sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
         {
             auto filter_config = attenuation_config.filter_configs.back();
             std::visit(sfFDN::overloaded{[&](auto& arg) { arg.delay = 0.f; }}, filter_config);
+            updated_config.filter_configs.clear();
 
             // Copy the last filter config to match the number of channels in the FDN
-            for (size_t i = attenuation_config.filter_configs.size(); i < config.fdn_size; ++i)
+            for (size_t i = 0; i < config.fdn_size; ++i)
             {
-                updated_config.filter_configs.push_back(filter_config);
+                updated_config.filter_configs.emplace_back(filter_config);
             }
         }
 
@@ -480,12 +509,32 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     // Feedback matrix block
     fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config));
 
+    std::unique_ptr<AudioProcessor> attenuation_filter_bank = nullptr;
+    if (config.attenuation_filter_bank_config.has_value())
+    {
+        attenuation_filter_bank =
+            std::visit(MultichannelProcessorVisitor{},
+                       UpdateAttenuationFilterBank(config.attenuation_filter_bank_config.value(), config));
+    }
+
     // Loop filter block
     if (!config.loop_filter_configs.empty())
     {
-        if (config.loop_filter_configs.size() > 1)
+        if (config.loop_filter_configs.size() == 1 && attenuation_filter_bank == nullptr)
+        {
+            auto updated_config = UpdateAttenuationFilterBank(config.loop_filter_configs[0], config);
+            auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
+            fdn->SetLoopFilter(std::move(processor));
+        }
+        else if (config.loop_filter_configs.size() >= 1)
         {
             auto loop_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
+
+            if (attenuation_filter_bank != nullptr)
+            {
+                loop_filter_chain->AddProcessor(std::move(attenuation_filter_bank));
+            }
+
             for (const auto& processor_config : config.loop_filter_configs)
             {
                 auto updated_config = UpdateAttenuationFilterBank(processor_config, config);
@@ -494,12 +543,37 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             }
             fdn->SetLoopFilter(std::move(loop_filter_chain));
         }
+    }
+    else
+    {
+        fdn->SetLoopFilter(std::move(attenuation_filter_bank));
+    }
+
+    // TC filters
+    if (!config.tone_correction_filters.empty())
+    {
+        if (config.tone_correction_filters.size() == 1)
+        {
+            auto processor = std::visit(SingleChannelProcessorVisitor{}, config.tone_correction_filters[0]);
+            fdn->SetTCFilter(std::move(processor));
+        }
         else
         {
-            auto updated_config = UpdateAttenuationFilterBank(config.loop_filter_configs[0], config);
-            auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
-            fdn->SetLoopFilter(std::move(processor));
+            auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
+            for (const auto& processor_config : config.tone_correction_filters)
+            {
+                auto processor = std::visit(SingleChannelProcessorVisitor{}, processor_config);
+                tc_filter_chain->AddProcessor(std::move(processor));
+            }
+            fdn->SetTCFilter(std::move(tc_filter_chain));
         }
+        auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
+        for (const auto& processor_config : config.tone_correction_filters)
+        {
+            auto processor = std::visit(SingleChannelProcessorVisitor{}, processor_config);
+            tc_filter_chain->AddProcessor(std::move(processor));
+        }
+        fdn->SetTCFilter(std::move(tc_filter_chain));
     }
 
     // Output gain block
@@ -539,6 +613,9 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
     json["input_block_config"] = input_block_json;
 
     json["feedback_matrix_config"] = ToJson(p.feedback_matrix_config);
+
+    json["attenuation_filter_bank_config"] =
+        p.attenuation_filter_bank_config.has_value() ? ToJson(p.attenuation_filter_bank_config.value()) : nullptr;
 
     nlohmann::json loop_filter_configs_json = nlohmann::json::array();
     for (const auto& processor_config : p.loop_filter_configs)
@@ -598,6 +675,17 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
     }
 
     p.feedback_matrix_config = FeedbackMatrixFromJson(j.at("feedback_matrix_config"));
+
+    if (!j.at("attenuation_filter_bank_config").is_null())
+    {
+        p.attenuation_filter_bank_config = j.at("attenuation_filter_bank_config")
+                                               .at("AttenuationFilterBankOptions")
+                                               .get<AttenuationFilterBankOptions>();
+    }
+    else
+    {
+        p.attenuation_filter_bank_config.reset();
+    }
 
     p.loop_filter_configs.clear();
     for (const auto& processor_json : j.at("loop_filter_configs"))

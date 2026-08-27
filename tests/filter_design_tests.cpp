@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <complex>
 #include <iomanip>
 #include <iostream>
@@ -11,6 +12,7 @@
 
 #include <sffdn/sffdn.h>
 
+#include "allocation_counter.h"
 #include "filter_design_internal.h"
 
 TEST_CASE("TwoFilter")
@@ -176,4 +178,251 @@ TEST_CASE("ThreeBandFilter")
                   << std::setprecision(3) << sos[i].b2 << ", " << std::setprecision(3) << sos[i].a0 << ", "
                   << std::setprecision(3) << sos[i].a1 << ", " << std::setprecision(3) << sos[i].a2 << "\n";
     }
+}
+
+TEST_CASE("Attenuation filter bank selects multichannel cascades only when supported")
+{
+    sfFDN::AttenuationFilterBankOptions ten_band_options;
+    ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
+        .t60s = {2.f, 2.f, 1.8f, 1.6f, 1.4f, 1.2f, 1.f, 0.8f, 0.6f, 0.5f},
+        .delay = 1000.f,
+        .sample_rate = 48000.f,
+        .shelf_cutoff = 8000.f,
+    });
+    ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
+        .t60s = {1.8f, 1.7f, 1.6f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1.f, 0.9f},
+        .delay = 1200.f,
+        .sample_rate = 48000.f,
+        .shelf_cutoff = 8000.f,
+    });
+
+    auto optimized = sfFDN::CreateAttenuationFilterBank(ten_band_options);
+    REQUIRE(dynamic_cast<sfFDN::IIRFilterBank*>(optimized.get()) != nullptr);
+
+    auto reference = std::make_unique<sfFDN::FilterBank>();
+    for (const auto& config : ten_band_options.filter_configs)
+    {
+        reference->AddFilter(sfFDN::CreateAttenuationFilter(config));
+    }
+
+    constexpr uint32_t kSampleCount = 64;
+    std::array<float, 2 * kSampleCount> optimized_output{};
+    for (auto i = 0u; i < optimized_output.size(); ++i)
+    {
+        optimized_output[i] = static_cast<float>(static_cast<int>((i * 29u) % 79u) - 39) / 39.f;
+    }
+    auto reference_output = optimized_output;
+    sfFDN::AudioBuffer optimized_buffer(kSampleCount, 2, optimized_output);
+    sfFDN::AudioBuffer reference_buffer(kSampleCount, 2, reference_output);
+    optimized->Process(optimized_buffer, optimized_buffer);
+    reference->Process(reference_buffer, reference_buffer);
+    for (auto i = 0u; i < optimized_output.size(); ++i)
+    {
+        const float tolerance = 1e-6f + std::abs(reference_output[i]) * 5e-3f;
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], tolerance));
+    }
+
+    auto clone = optimized->Clone();
+    optimized->Clear();
+    optimized_output = reference_output;
+    auto clone_output = reference_output;
+    sfFDN::AudioBuffer clone_buffer(kSampleCount, 2, clone_output);
+    optimized->Process(optimized_buffer, optimized_buffer);
+    clone->Process(clone_buffer, clone_buffer);
+    REQUIRE(optimized_output == clone_output);
+
+    auto heterogeneous_options = ten_band_options;
+    heterogeneous_options.filter_configs[1] =
+        sfFDN::TwoBandFilterOptions{.t60s = {1.5f, 0.7f}, .delay = 1200.f, .sample_rate = 48000.f};
+    auto fallback = sfFDN::CreateAttenuationFilterBank(heterogeneous_options);
+    REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fallback.get()) != nullptr);
+}
+
+TEST_CASE("Three-band attenuation filter bank matches channel filters")
+{
+    sfFDN::AttenuationFilterBankOptions options;
+    options.filter_configs.emplace_back(sfFDN::ThreeBandFilterOptions{
+        .t60s = {1.5f, 1.f, 0.5f},
+        .delay = 1000.f,
+        .freqs = {800.f, 8000.f},
+        .sample_rate = 48000.f,
+    });
+    options.filter_configs.emplace_back(sfFDN::ThreeBandFilterOptions{
+        .t60s = {1.8f, 1.2f, 0.7f},
+        .delay = 1200.f,
+        .freqs = {600.f, 6000.f},
+        .sample_rate = 48000.f,
+    });
+
+    auto optimized = sfFDN::CreateAttenuationFilterBank(options);
+    REQUIRE(dynamic_cast<sfFDN::IIRFilterBank*>(optimized.get()) != nullptr);
+    auto clone = optimized->Clone();
+
+    auto reference = std::make_unique<sfFDN::FilterBank>();
+    for (const auto& config : options.filter_configs)
+    {
+        reference->AddFilter(sfFDN::CreateAttenuationFilter(config));
+    }
+
+    constexpr uint32_t kSampleCount = 128;
+    std::array<float, 2 * kSampleCount> input{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = static_cast<float>(static_cast<int>((i * 31u) % 83u) - 41) / 41.f;
+    }
+
+    auto optimized_output = input;
+    auto clone_output = input;
+    auto reference_output = input;
+    sfFDN::AudioBuffer optimized_buffer(kSampleCount, 2, optimized_output);
+    sfFDN::AudioBuffer clone_buffer(kSampleCount, 2, clone_output);
+    sfFDN::AudioBuffer reference_buffer(kSampleCount, 2, reference_output);
+
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        optimized->Process(optimized_buffer, optimized_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
+    clone->Process(clone_buffer, clone_buffer);
+    reference->Process(reference_buffer, reference_buffer);
+
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+        REQUIRE_THAT(clone_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+    }
+
+    optimized->Clear();
+    optimized_output = input;
+    optimized->Process(optimized_buffer, optimized_buffer);
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+    }
+
+    optimized->Clear();
+    reference->Clear();
+    double signal_energy = 0.0;
+    double error_energy = 0.0;
+    float max_error = 0.f;
+    for (auto block = 0u; block < 375; ++block)
+    {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(static_cast<int>(((block * input.size() + i) * 31u) % 83u) - 41) / 41.f;
+        }
+        optimized_output = input;
+        reference_output = input;
+        optimized->Process(optimized_buffer, optimized_buffer);
+        reference->Process(reference_buffer, reference_buffer);
+
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            const double reference_sample = reference_output[i];
+            const double error = static_cast<double>(optimized_output[i]) - reference_sample;
+            signal_energy += reference_sample * reference_sample;
+            error_energy += error * error;
+            max_error = std::max(max_error, static_cast<float>(std::abs(error)));
+        }
+    }
+
+    const double snr = 10.0 * std::log10(signal_energy / error_energy);
+    INFO("max error: " << max_error);
+    INFO("SNR: " << snr << " dB");
+    REQUIRE(max_error < 3e-5f);
+    REQUIRE(snr > 90.0);
+}
+
+TEST_CASE("Two-band attenuation filter bank matches channel filters")
+{
+    sfFDN::AttenuationFilterBankOptions options;
+    options.filter_configs.emplace_back(
+        sfFDN::TwoBandFilterOptions{.t60s = {1.5f, 0.5f}, .delay = 1000.f, .sample_rate = 48000.f});
+    options.filter_configs.emplace_back(
+        sfFDN::TwoBandFilterOptions{.t60s = {1.8f, 0.7f}, .delay = 1200.f, .sample_rate = 48000.f});
+
+    auto optimized = sfFDN::CreateAttenuationFilterBank(options);
+#if defined(__APPLE__) && defined(__aarch64__) && defined(SFFDN_USE_VDSP)
+    REQUIRE(dynamic_cast<sfFDN::IIRFilterBank*>(optimized.get()) != nullptr);
+#else
+    REQUIRE(dynamic_cast<sfFDN::FilterBank*>(optimized.get()) != nullptr);
+#endif
+    auto clone = optimized->Clone();
+
+    auto reference = std::make_unique<sfFDN::FilterBank>();
+    for (const auto& config : options.filter_configs)
+    {
+        reference->AddFilter(sfFDN::CreateAttenuationFilter(config));
+    }
+
+    constexpr uint32_t kSampleCount = 128;
+    std::array<float, 2 * kSampleCount> input{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = static_cast<float>(static_cast<int>((i * 43u) % 97u) - 48) / 48.f;
+    }
+    auto optimized_output = input;
+    auto clone_output = input;
+    auto reference_output = input;
+    sfFDN::AudioBuffer optimized_buffer(kSampleCount, 2, optimized_output);
+    sfFDN::AudioBuffer clone_buffer(kSampleCount, 2, clone_output);
+    sfFDN::AudioBuffer reference_buffer(kSampleCount, 2, reference_output);
+
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        optimized->Process(optimized_buffer, optimized_buffer);
+        allocations = allocation_counter.Count();
+    }
+    REQUIRE(allocations == 0);
+    clone->Process(clone_buffer, clone_buffer);
+    reference->Process(reference_buffer, reference_buffer);
+
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+        REQUIRE_THAT(clone_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+    }
+
+    optimized->Clear();
+    optimized_output = input;
+    optimized->Process(optimized_buffer, optimized_buffer);
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        REQUIRE_THAT(optimized_output[i], Catch::Matchers::WithinAbs(reference_output[i], 2e-5f));
+    }
+
+    optimized->Clear();
+    reference->Clear();
+    double signal_energy = 0.0;
+    double error_energy = 0.0;
+    float max_error = 0.f;
+    for (auto block = 0u; block < 375; ++block)
+    {
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(static_cast<int>(((block * input.size() + i) * 43u) % 97u) - 48) / 48.f;
+        }
+        optimized_output = input;
+        reference_output = input;
+        optimized->Process(optimized_buffer, optimized_buffer);
+        reference->Process(reference_buffer, reference_buffer);
+
+        for (auto i = 0u; i < input.size(); ++i)
+        {
+            const double reference_sample = reference_output[i];
+            const double error = static_cast<double>(optimized_output[i]) - reference_sample;
+            signal_energy += reference_sample * reference_sample;
+            error_energy += error * error;
+            max_error = std::max(max_error, static_cast<float>(std::abs(error)));
+        }
+    }
+
+    const double snr = 10.0 * std::log10(signal_energy / error_energy);
+    INFO("max error: " << max_error);
+    INFO("SNR: " << snr << " dB");
+    REQUIRE(max_error < 3e-5f);
+    REQUIRE(snr > 90.0);
 }

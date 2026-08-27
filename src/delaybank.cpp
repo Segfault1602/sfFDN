@@ -37,12 +37,12 @@ void DelayBank::Clear()
     }
 }
 
-uint32_t DelayBank::InputChannelCount() const
+uint32_t DelayBank::InputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delays_.size();
 }
 
-uint32_t DelayBank::OutputChannelCount() const
+uint32_t DelayBank::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return delays_.size();
 }
@@ -69,35 +69,41 @@ std::vector<float> DelayBank::GetDelays() const
     return delays;
 }
 
-void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
+void DelayBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == delays_.size());
 
-    for (uint32_t i = 0; i < delays_.size(); i++)
+    uint32_t channel = 0;
+    for (auto& delay : delays_)
     {
-        auto output_buffer = output.GetChannelBuffer(i);
-        delays_[i].Process(input.GetChannelBuffer(i), output_buffer);
+        auto output_buffer = output.GetChannelBuffer(channel);
+        delay.Process(input.GetChannelBuffer(channel), output_buffer);
+        ++channel;
     }
 }
 
-void DelayBank::AddNextInputs(const AudioBuffer& input)
+void DelayBank::AddNextInputs(const AudioBuffer& input) noexcept SFFDN_NONBLOCKING
 {
     assert(input.ChannelCount() == delays_.size());
-    for (uint32_t i = 0; i < delays_.size(); i++)
+    uint32_t channel = 0;
+    for (auto& delay : delays_)
     {
-        delays_[i].AddNextInputs(input.GetChannelSpan(i));
+        delay.AddNextInputs(input.GetChannelSpan(channel));
+        ++channel;
     }
 }
 
-void DelayBank::GetNextOutputs(AudioBuffer& output)
+void DelayBank::GetNextOutputs(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     assert(output.ChannelCount() == delays_.size());
 
-    for (uint32_t i = 0; i < delays_.size(); i++)
+    uint32_t channel = 0;
+    for (auto& delay : delays_)
     {
-        delays_[i].GetNextOutputs(output.GetChannelSpan(i));
+        delay.GetNextOutputs(output.GetChannelSpan(channel));
+        ++channel;
     }
 }
 

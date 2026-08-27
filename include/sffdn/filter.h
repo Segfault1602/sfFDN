@@ -57,26 +57,26 @@ class OnePoleFilter : public AudioProcessor
      * @param in The input sample
      * @return The next output sample
      */
-    float Tick(float in);
+    float Tick(float in) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of input samples through the filter.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of channels and sample count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of the filter to zero.
@@ -105,7 +105,7 @@ class AllpassFilter : public AudioProcessor
     /** @brief Sets the allpass coefficient.
      * @param coeff The allpass coefficient.
      */
-    void SetCoefficients(float coeff)
+    void SetCoefficients(float coeff) noexcept SFFDN_NONBLOCKING
     {
         coeff_ = coeff;
     }
@@ -115,26 +115,26 @@ class AllpassFilter : public AudioProcessor
      * @param in The input sample
      * @return The next output sample
      */
-    float Tick(float in);
+    float Tick(float in) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of input samples through the filter.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of channels and sample count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of the filter to zero.
@@ -171,26 +171,26 @@ class CascadedBiquads : public AudioProcessor
      * @param in The input sample.
      * @return The output sample.
      */
-    float Tick(float in);
+    float Tick(float in) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of input samples through the filter.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of channels and sample count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of all biquad stages to zero.
@@ -253,26 +253,26 @@ class Fir : public AudioProcessor
      * @param in The input sample
      * @return The next output sample
      */
-    float Tick(float in);
+    float Tick(float in) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of input samples through the filter.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of channels and sample count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of the filter to zero.
@@ -309,26 +309,26 @@ class SparseFir : public AudioProcessor
      * @param in The input sample
      * @return The next output sample
      */
-    float Tick(float in);
+    float Tick(float in) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Processes a block of input samples through the filter.
      * @param input The input audio buffer.
      * @param output The output audio buffer.
      * The input and output buffers must have the same number of channels and sample count.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels supported by this processor.
      *
      * @return The number of input channels.
      */
-    uint32_t InputChannelCount() const override;
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of output channels produced by this processor.
      *
      * @return The number of output channels.
      */
-    uint32_t OutputChannelCount() const override;
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the processor.
      * This function resets the internal state of the filter to zero.

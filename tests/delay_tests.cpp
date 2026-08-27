@@ -6,6 +6,7 @@
 #include "sffdn/delay_utils.h"
 #include "sffdn/sffdn.h"
 
+#include "allocation_counter.h"
 #include "rng.h"
 #include "test_utils.h"
 
@@ -280,6 +281,44 @@ TEST_CASE("DelayBlock")
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Linear);
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Allpass);
     TestDelayBlock(5.34f, kBlockSize, kMaxDelay, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, 21, 40, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, 22, 40, sfFDN::DelayInterpolationType::Lagrange);
+    TestDelayBlock(20.34f, kBlockSize, 40, sfFDN::DelayInterpolationType::Lagrange);
+}
+
+TEST_CASE("DelayTimeVarying block processing matches Tick")
+{
+    constexpr uint32_t kBlockSize = 32;
+    const sfFDN::DelayOptions config{
+        .delay = 20.f,
+        .max_delay = 64,
+        .interp_type = sfFDN::DelayInterpolationType::Linear,
+        .lfo_config = sfFDN::ModulationOptions{.frequency = 0.003f, .amplitude = 2.f, .initial_phase = 0.125f},
+    };
+
+    std::array<float, kBlockSize> input{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        input[i] = static_cast<float>(i) / static_cast<float>(input.size());
+    }
+
+    sfFDN::DelayTimeVarying tick_delay(config);
+    std::array<float, kBlockSize> expected{};
+    for (auto i = 0u; i < input.size(); ++i)
+    {
+        expected[i] = tick_delay.Tick(input[i]);
+    }
+
+    sfFDN::DelayTimeVarying block_delay(config);
+    std::array<float, kBlockSize> output{};
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    block_delay.Process(input_buffer, output_buffer);
+
+    for (const auto [actual, expected_sample] : std::views::zip(output, expected))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected_sample, 1e-5f));
+    }
 }
 
 TEST_CASE("DelayBank")
@@ -416,6 +455,198 @@ TEST_CASE("DelayBankProcess")
         REQUIRE_THAT(buffer_audio.GetChannelSpan(3)[i],
                      Catch::Matchers::WithinAbs(kDelay3Expected.at(i), std::numeric_limits<float>::epsilon()));
     }
+}
+
+TEST_CASE("Delay block processing preserves wrap and remainder samples")
+{
+    constexpr uint32_t kDelay = 11;
+    constexpr uint32_t kMaximumDelay = 19;
+    constexpr std::array<uint32_t, 4> kBlockSizes = {7, 7, 3, 5};
+
+    sfFDN::Delay tick_delay(kDelay, kMaximumDelay);
+    sfFDN::Delay block_delay(kDelay, kMaximumDelay);
+
+    uint32_t sample_index = 0;
+    for (uint32_t iteration = 0; iteration < 12; ++iteration)
+    {
+        const uint32_t block_size = kBlockSizes[iteration % kBlockSizes.size()];
+        std::vector<float> input(block_size);
+        std::vector<float> expected(block_size);
+        std::vector<float> output(block_size);
+
+        for (uint32_t sample = 0; sample < block_size; ++sample)
+        {
+            input[sample] = static_cast<float>(++sample_index);
+            expected[sample] = tick_delay.Tick(input[sample]);
+        }
+
+        sfFDN::AudioBuffer input_buffer(input);
+        sfFDN::AudioBuffer output_buffer(output);
+        block_delay.Process(input_buffer, output_buffer);
+
+        REQUIRE(output == expected);
+    }
+}
+
+TEST_CASE("Delay split block processing preserves two-segment wraps")
+{
+    constexpr uint32_t kDelay = 4;
+    constexpr uint32_t kMaximumDelay = 7;
+    constexpr uint32_t kBlockSize = 3;
+
+    sfFDN::Delay tick_delay(kDelay, kMaximumDelay);
+    sfFDN::Delay block_delay(kDelay, kMaximumDelay);
+
+    uint32_t sample_index = 0;
+    for (uint32_t iteration = 0; iteration < 10; ++iteration)
+    {
+        std::array<float, kBlockSize> input{};
+        std::array<float, kBlockSize> expected{};
+        std::array<float, kBlockSize> output{};
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            input[sample] = static_cast<float>(++sample_index);
+            expected[sample] = tick_delay.Tick(input[sample]);
+        }
+
+        REQUIRE(block_delay.AddNextInputs(input));
+        block_delay.GetNextOutputs(output);
+        REQUIRE(output == expected);
+    }
+}
+
+TEST_CASE("Delay GetNextOutputs under-run leaves output and read state unchanged")
+{
+    sfFDN::Delay delay(3, 7);
+    constexpr std::array<float, 4> kInput = {1.f, 2.f, 3.f, 4.f};
+    REQUIRE(delay.AddNextInputs(kInput));
+
+    std::array<float, 6> initial_output{};
+    delay.GetNextOutputs(initial_output);
+    REQUIRE(initial_output == std::array<float, 6>{0.f, 0.f, 0.f, 1.f, 2.f, 3.f});
+    REQUIRE(delay.NextOut() == 4.f);
+    REQUIRE(delay.LastOut() == 3.f);
+
+    std::array<float, 2> under_run_output = {-1.f, -2.f};
+    delay.GetNextOutputs(under_run_output);
+    REQUIRE(under_run_output == std::array<float, 2>{-1.f, -2.f});
+    REQUIRE(delay.NextOut() == 4.f);
+    REQUIRE(delay.LastOut() == 3.f);
+
+    std::array<float, 1> remaining_output{};
+    delay.GetNextOutputs(remaining_output);
+    REQUIRE(remaining_output == std::array<float, 1>{4.f});
+}
+
+TEST_CASE("Delay Process exhaustively matches Tick for small delays and block sizes")
+{
+    constexpr uint32_t kMaximumDelay = 12;
+    constexpr uint32_t kIterationCount = 6;
+
+    for (uint32_t delay = 0; delay <= kMaximumDelay; ++delay)
+    {
+        for (uint32_t block_size = 1; block_size <= kMaximumDelay + 3; ++block_size)
+        {
+            sfFDN::Delay tick_delay(delay, kMaximumDelay);
+            sfFDN::Delay block_delay(delay, kMaximumDelay);
+            uint32_t sample_index = 0;
+
+            for (uint32_t iteration = 0; iteration < kIterationCount; ++iteration)
+            {
+                CAPTURE(delay, block_size, iteration);
+                std::vector<float> input(block_size);
+                std::vector<float> expected(block_size);
+                std::vector<float> output(block_size);
+
+                for (uint32_t sample = 0; sample < block_size; ++sample)
+                {
+                    input[sample] = static_cast<float>(++sample_index);
+                    expected[sample] = tick_delay.Tick(input[sample]);
+                }
+
+                sfFDN::AudioBuffer input_buffer(input);
+                sfFDN::AudioBuffer output_buffer(output);
+                block_delay.Process(input_buffer, output_buffer);
+                REQUIRE(output == expected);
+            }
+        }
+    }
+}
+
+TEST_CASE("DelayBank non-native remainder blocks match per-sample delays")
+{
+    constexpr uint32_t kChannelCount = 3;
+    constexpr uint32_t kConfiguredBlockSize = 8;
+    constexpr uint32_t kSampleCount = 13;
+    constexpr std::array<float, kChannelCount> kDelays = {17.f, 23.f, 31.f};
+
+    sfFDN::DelayBank delay_bank({.delays = {17.f, 23.f, 31.f}, .block_size = kConfiguredBlockSize});
+    std::array<sfFDN::DelayInterp, kChannelCount> references = {
+        sfFDN::DelayInterp({kDelays[0], 64, sfFDN::DelayInterpolationType::None}),
+        sfFDN::DelayInterp({kDelays[1], 64, sfFDN::DelayInterpolationType::None}),
+        sfFDN::DelayInterp({kDelays[2], 64, sfFDN::DelayInterpolationType::None}),
+    };
+
+    std::array<float, kChannelCount * kSampleCount> input{};
+    std::array<float, kChannelCount * kSampleCount> output{};
+    uint32_t sample_index = 0;
+
+    for (uint32_t iteration = 0; iteration < 12; ++iteration)
+    {
+        for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+        {
+            for (uint32_t sample = 0; sample < kSampleCount; ++sample)
+            {
+                input[channel * kSampleCount + sample] = static_cast<float>(++sample_index);
+            }
+        }
+
+        sfFDN::AudioBuffer input_buffer(kSampleCount, kChannelCount, input);
+        sfFDN::AudioBuffer output_buffer(kSampleCount, kChannelCount, output);
+        delay_bank.Process(input_buffer, output_buffer);
+
+        for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+        {
+            for (uint32_t sample = 0; sample < kSampleCount; ++sample)
+            {
+                const float expected = references[channel].Tick(input[channel * kSampleCount + sample]);
+                REQUIRE(output[channel * kSampleCount + sample] == expected);
+            }
+        }
+    }
+}
+
+TEST_CASE("Delay and DelayBank wrapped steady-state processing does not allocate")
+{
+    constexpr uint32_t kBlockSize = 7;
+    constexpr uint32_t kChannelCount = 3;
+    std::array<float, kBlockSize> mono_input{};
+    std::array<float, kBlockSize> mono_output{};
+    std::array<float, kChannelCount * kBlockSize> bank_input{};
+    std::array<float, kChannelCount * kBlockSize> bank_output{};
+
+    sfFDN::Delay delay(11, 19);
+    sfFDN::DelayBank delay_bank({.delays = {17.f, 23.f, 31.f}, .block_size = kBlockSize});
+    sfFDN::AudioBuffer mono_input_buffer(mono_input);
+    sfFDN::AudioBuffer mono_output_buffer(mono_output);
+    sfFDN::AudioBuffer bank_input_buffer(kBlockSize, kChannelCount, bank_input);
+    sfFDN::AudioBuffer bank_output_buffer(kBlockSize, kChannelCount, bank_output);
+
+    for (uint32_t iteration = 0; iteration < 4; ++iteration)
+    {
+        delay.Process(mono_input_buffer, mono_output_buffer);
+        delay_bank.GetNextOutputs(bank_output_buffer);
+        delay_bank.AddNextInputs(bank_input_buffer);
+    }
+
+    sfFDNTest::ScopedAllocationCounter allocation_counter;
+    for (uint32_t iteration = 0; iteration < 16; ++iteration)
+    {
+        delay.Process(mono_input_buffer, mono_output_buffer);
+        delay_bank.GetNextOutputs(bank_output_buffer);
+        delay_bank.AddNextInputs(bank_input_buffer);
+    }
+    REQUIRE(allocation_counter.Count() == 0);
 }
 
 TEST_CASE("DelayInterp_Linear")

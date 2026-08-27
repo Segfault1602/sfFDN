@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "attributes.h"
 #include "audio_buffer.h"
 #include "audio_processor.h"
 #include "delaybank.h"
@@ -24,7 +25,7 @@ class FDN : public AudioProcessor
      *
      * `block_size` is used to allocate internal buffers for processing.
      */
-    FDN(uint32_t order, uint32_t block_size = 0, bool transpose = false);
+    FDN(uint32_t order, uint32_t block_size, bool transpose = false);
 
     ~FDN() = default;
 
@@ -200,12 +201,12 @@ class FDN : public AudioProcessor
      * The input and output buffers must have the same sample count.
      * input.SampleCount() does not have to be equal to block_size but it is recommended for optimal performance.
      */
-    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept override;
+    void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Returns the number of input channels this processor expects.
      * @return 1
      */
-    uint32_t InputChannelCount() const override
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
@@ -213,7 +214,7 @@ class FDN : public AudioProcessor
     /** @brief Returns the number of output channels this processor produces.
      * @return 1
      */
-    uint32_t OutputChannelCount() const override
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
     {
         return 1;
     }
@@ -234,10 +235,10 @@ class FDN : public AudioProcessor
     std::unique_ptr<FDN> CloneFDN() const;
 
   private:
-    void TickInternal(const AudioBuffer& input, AudioBuffer& output);
-    void Tick(const AudioBuffer& input, AudioBuffer& output);
-    void TickTranspose(const AudioBuffer& input, AudioBuffer& output);
-    void TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output);
+    void TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void TickTranspose(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     DelayBank delay_bank_;
     std::unique_ptr<AudioProcessor> filter_bank_;

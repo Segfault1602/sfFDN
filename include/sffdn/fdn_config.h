@@ -4,6 +4,7 @@
 #include "sffdn/types.h"
 
 #include <cstdint>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -39,13 +40,17 @@ struct FDNConfig
         //! channels.
         std::vector<single_channel_processor_variant_t> single_channel_processors;
         //! Configuration for parallel gain processing applied to the input signal. Must always be in Split mode.
-        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Split, .gains = {}};
+        ParallelGainsOptions parallel_gains_config{
+            .mode = ParallelGainsMode::Split, .gains = {}, .time_varying_config = {}};
         //! A vector of multi-channel processors to apply to the input signal after the parallel gains.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
     } input_block_config;
 
     //! Feedback matrix block
     feedback_matrix_variant_t feedback_matrix_config;
+
+    //! Attenuation filter bank block
+    std::optional<AttenuationFilterBankOptions> attenuation_filter_bank_config;
 
     //! Loop filter block
     std::vector<multi_channel_processor_variant_t> loop_filter_configs;
@@ -57,7 +62,8 @@ struct FDNConfig
         //! channel.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
         //! Configuration for parallel gain processing applied to the output signal. Must always be in Merge mode.
-        ParallelGainsOptions parallel_gains_config{.mode = ParallelGainsMode::Merge, .gains = {}};
+        ParallelGainsOptions parallel_gains_config{
+            .mode = ParallelGainsMode::Merge, .gains = {}, .time_varying_config = {}};
         //! A vector of single-channel processors to apply to the output signal after it gets mixed down to a single
         //! channel.
         std::vector<single_channel_processor_variant_t> single_channel_processors;

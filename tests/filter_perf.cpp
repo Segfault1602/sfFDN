@@ -9,6 +9,7 @@
 #include "test_utils.h"
 
 #include <iostream>
+#include <format>
 #include <random>
 
 #ifdef __APPLE__
@@ -431,3 +432,53 @@ TEST_CASE("VDSP_FilterBank")
     }
 }
 #endif
+TEST_CASE("IIRFilterBankChannelCountPerf")
+{
+    // The bank vectorizes across channels in groups of four and splits wide banks into passes.
+    // This sweeps channel counts across those boundaries, including counts that are not a
+    // multiple of the SIMD width, so a regression in the padding or pass-splitting policy shows
+    // up as a discontinuity between neighbouring channel counts.
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr std::array<float, 10> kRT60s = {2.f, 2.1f, 2.5f, 2.f, 1.5f, 1.f, 0.8f, 0.5f, 0.3f, 0.21f};
+
+    nanobench::Bench bench;
+    bench.title("IIRFilterBank vs channel count (ten-band, block 128)");
+    bench.minEpochIterations(5000);
+    bench.timeUnit(1us, "us");
+
+    for (uint32_t channel_count : {4u, 5u, 6u, 7u, 8u, 12u, 15u, 16u, 17u, 20u, 24u, 28u, 31u, 32u, 33u})
+    {
+        const auto delays = sfFDN::GetDelayLengths(channel_count, 500, 5000, sfFDN::DelayLengthType::Uniform);
+
+        sfFDN::TenBandFilterOptions config;
+        config.t60s = kRT60s;
+        config.sample_rate = kSampleRate;
+        config.shelf_cutoff = 8000.0f;
+
+        std::vector<sfFDN::FilterCoefficients> coeffs;
+        for (auto i = 0u; i < channel_count; i++)
+        {
+            config.delay = delays[i];
+            const auto filter_coeffs = sfFDN::DesignTenBandAbsorption(config);
+            coeffs.insert(coeffs.end(), filter_coeffs.begin(), filter_coeffs.end());
+        }
+
+        sfFDN::IIRFilterBank filter_bank;
+        filter_bank.SetFilter(coeffs, channel_count);
+
+        std::vector<float> input(channel_count * kBlockSize, 0.f);
+        std::vector<float> output(channel_count * kBlockSize, 0.f);
+        sfFDN::RNG rng;
+        for (auto& sample : input)
+        {
+            sample = rng();
+        }
+
+        const sfFDN::AudioBuffer input_buffer(kBlockSize, channel_count, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, channel_count, output);
+
+        bench.run(std::format("IIRFilterBank N={}", channel_count),
+                  [&] { filter_bank.Process(input_buffer, output_buffer); });
+    }
+}

@@ -136,7 +136,7 @@ sfFDN::HomogenousFilterOptions homogenous_filter_options{
     .sample_rate = config.sample_rate};
 attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
 
-config.loop_filter_configs.push_back(attenuation_filter_bank_options);
+config.attenuation_filter_bank_config = attenuation_filter_bank_options;
 
 sfFDN::ParallelGainsOptions output_gains_options{
     .mode = sfFDN::ParallelGainsMode::Merge,
@@ -157,6 +157,12 @@ cmake --preset llvm-ninja
 
 # build
 cmake --build --preset llvm --config Release
+```
+
+`SFFDN_USE_AVX2=ON` compiles sfFDN with AVX2:
+
+```bash
+cmake --preset llvm-ninja -DSFFDN_USE_AVX2=ON
 ```
 
 ## Use sfFDN in your project
@@ -196,5 +202,3 @@ target_link_libraries(your_target PRIVATE sfFDN::sfFDN)
 [^6]: S. J. Schlecht, “Allpass Feedback Delay Networks,” IEEE Trans. Signal Process., vol. 69, pp. 1028–1038, 2021, doi: 10.1109/TSP.2021.3053507.
 
 [^7]: S. J. Schlecht and E. A. P. Habets, “Scattering in Feedback Delay Networks,” IEEE/ACM Trans. Audio, Speech, Lang. Process., vol. 28, Jun. 2020.
-
-

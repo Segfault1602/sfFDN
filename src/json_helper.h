@@ -2,7 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include <sffdn/sffdn.h>
+#include <sffdn/types.h>
 
 namespace sfFDN
 {
