@@ -12,6 +12,7 @@ endif()
 
 add_library(sfFDN.sfFDN)
 add_library(sfFDN::sfFDN ALIAS sfFDN.sfFDN)
+sffdn_enable_lto(sfFDN.sfFDN)
 
 set(SFFDN_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
@@ -51,6 +52,7 @@ target_sources(
             rng.cpp
             schroeder_allpass.cpp
             sparse_fir.cpp
+            time_varying_feedback_matrix.cpp
             time_varying_parallel_gains.cpp
             upols.cpp
 )
@@ -86,6 +88,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/partitioned_convolver.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/schroeder_allpass.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/sffdn.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/time_varying_feedback_matrix.h
 )
 
 target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})

@@ -26,3 +26,4 @@
 #include "parallel_gains.h"
 #include "partitioned_convolver.h"
 #include "schroeder_allpass.h"
+#include "time_varying_feedback_matrix.h"

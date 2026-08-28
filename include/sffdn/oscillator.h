@@ -50,6 +50,18 @@ class SineWave : public Generator
      */
     float GetAmplitude() const;
 
+    /** @brief Returns the amplitude for use from a nonblocking processing path. */
+    float GetAmplitudeNonBlocking() const noexcept SFFDN_NONBLOCKING
+    {
+        return amplitude_;
+    }
+
+    /** @brief Returns the normalized frequency in cycles per sample. */
+    float GetFrequency() const noexcept SFFDN_NONBLOCKING
+    {
+        return phase_increment_;
+    }
+
     /** @brief Sets the DC offset of the sine wave oscillator.
      * @param offset The offset of the sine wave.
      *
@@ -66,6 +78,12 @@ class SineWave : public Generator
      * @param phase_offset The phase offset, normalized [0, 1].
      */
     void SetPhaseOffset(float phase_offset);
+
+    /** @brief Returns the normalized phase offset in cycles. */
+    float GetPhaseOffset() const noexcept SFFDN_NONBLOCKING
+    {
+        return phase_offset_;
+    }
 
     /** @brief Returns the next output sample without advancing the phase. */
     float NextOut() const noexcept SFFDN_NONBLOCKING;
