@@ -18,8 +18,10 @@
 #include <cstddef>
 #include <limits>
 #include <numbers>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -112,6 +114,30 @@ void DenseMatVecBlock(std::span<const float> matrix, bool transpose, const sfFDN
                     output_channel_data[sample] += coefficient * input_channel_data[sample];
                 }
             }
+        }
+    }
+}
+
+// Applies one fixed 2x2 rotation per block, holding each angle constant across the whole buffer. Process uses
+// per-sample angles instead; this variant exists so GetMatrix can materialize a single snapshot of the matrix.
+void ApplyFixedRotationsBlock(sfFDN::AudioBuffer& buffer, std::span<const uint32_t> rotation_starts,
+                              std::span<const float> angles, size_t block_size)
+{
+    for (size_t rotation = 0; rotation < rotation_starts.size(); ++rotation)
+    {
+        float sine = 0.0F;
+        float cosine = 0.0F;
+        sfFDN::SinCosUnit(angles[rotation], sine, cosine);
+
+        const uint32_t first_channel = rotation_starts[rotation];
+        auto first_channel_data = buffer.GetChannelSpan(first_channel).first(block_size);
+        auto second_channel_data = buffer.GetChannelSpan(first_channel + 1U).first(block_size);
+        for (size_t sample = 0; sample < block_size; ++sample)
+        {
+            const float first = first_channel_data[sample];
+            const float second = second_channel_data[sample];
+            first_channel_data[sample] = (cosine * first) - (sine * second);
+            second_channel_data[sample] = (sine * first) + (cosine * second);
         }
     }
 }
@@ -480,6 +506,79 @@ uint32_t TimeVaryingFeedbackMatrix::OutputChannelCount() const noexcept SFFDN_NO
 uint32_t TimeVaryingFeedbackMatrix::RotationBlockCount() const noexcept SFFDN_NONBLOCKING
 {
     return static_cast<uint32_t>(rotation_starts_.size());
+}
+
+bool TimeVaryingFeedbackMatrix::GetMatrix(std::span<float> matrix, uint64_t sample_index) const
+{
+    const size_t element_count = static_cast<size_t>(order_) * static_cast<size_t>(order_);
+    if (matrix.size() != element_count)
+    {
+        return false;
+    }
+
+    std::vector<float> angles(base_angles_.size(), 0.0F);
+    for (size_t rotation = 0; rotation < angles.size(); ++rotation)
+    {
+        // Process advances each LFO before it uses it, so the sample at index n sees phase (n + 1) * increment.
+        // Accumulate in double before wrapping: a normalized increment near 1e-5 multiplied by a large sample index
+        // loses every meaningful fractional bit in float32.
+        const double advanced =
+            static_cast<double>(lfos_[rotation].GetFrequency()) * (static_cast<double>(sample_index) + 1.0);
+        const auto phase = static_cast<float>(advanced - std::floor(advanced));
+        const float modulation =
+            SineTableLookup(phase + lfos_[rotation].GetPhaseOffset()) * lfos_[rotation].GetAmplitudeNonBlocking();
+        angles[rotation] = base_angles_[rotation] + (std::numbers::pi_v<float> * modulation);
+    }
+
+    // Column j of the matrix is A * e_j, so pushing an order x order identity through the same transform chain
+    // Process uses, with the angles held fixed, materializes every column in a single pass.
+    std::vector<float> ping(element_count, 0.0F);
+    std::vector<float> pong(element_count, 0.0F);
+    AudioBuffer ping_buffer(order_, order_, ping);
+    AudioBuffer pong_buffer(order_, order_, pong);
+    for (uint32_t channel = 0; channel < order_; ++channel)
+    {
+        ping_buffer.GetChannelSpan(channel)[channel] = 1.0F;
+    }
+
+    const AudioBuffer* result = nullptr;
+    if (mode_ == TimeVaryingMatrixMode::Hadamard)
+    {
+        HadamardMultiplyBlock(ping_buffer, pong_buffer);
+        ApplyFixedRotationsBlock(pong_buffer, rotation_starts_, angles, order_);
+        HadamardMultiplyBlock(pong_buffer, pong_buffer);
+        result = &pong_buffer;
+    }
+    else
+    {
+        // DenseMatVecBlock accumulates into its destination, so the two calls must not alias.
+        DenseMatVecBlock(schur_basis_, true, ping_buffer, pong_buffer, order_, order_);
+        ApplyFixedRotationsBlock(pong_buffer, rotation_starts_, angles, order_);
+        for (uint32_t channel = 0; channel < order_; ++channel)
+        {
+            if (scalar_signs_[channel] < 0.0F)
+            {
+                auto channel_data = pong_buffer.GetChannelSpan(channel);
+                for (uint32_t sample = 0; sample < order_; ++sample)
+                {
+                    channel_data[sample] = -channel_data[sample];
+                }
+            }
+        }
+        DenseMatVecBlock(schur_basis_, false, pong_buffer, ping_buffer, order_, order_);
+        result = &ping_buffer;
+    }
+
+    for (uint32_t row = 0; row < order_; ++row)
+    {
+        const auto row_data = result->GetChannelSpan(row);
+        for (uint32_t column = 0; column < order_; ++column)
+        {
+            matrix[(static_cast<size_t>(column) * order_) + row] = row_data[column];
+        }
+    }
+
+    return true;
 }
 
 void TimeVaryingFeedbackMatrix::Clear()

@@ -124,6 +124,19 @@ class TimeVaryingFeedbackMatrix : public AudioProcessor
      */
     uint32_t RotationBlockCount() const noexcept SFFDN_NONBLOCKING;
 
+    /** @brief Materializes the feedback matrix that Process applies at a given sample index.
+     * @param matrix Destination for `matrix_size * matrix_size` values in column-major order, matching
+     * ScalarFeedbackMatrix::GetMatrix.
+     * @param sample_index The index, counted from the start of an unprocessed stream, of the sample whose matrix is
+     * wanted. Zero yields the matrix applied to the very first sample.
+     * @return False if the span does not contain exactly `matrix_size * matrix_size` values.
+     *
+     * This is a pure query: it neither reads nor mutates the running LFO phases, so its result depends only on the
+     * configuration and `sample_index`. It allocates and is not realtime-safe; call it from a control or UI thread.
+     * Because it ignores the processing state, it is safe to call concurrently with Process.
+     */
+    bool GetMatrix(std::span<float> matrix, uint64_t sample_index = 0) const;
+
     /** @brief Resets the phase of all LFOs to their configured phase offsets. */
     void Clear() override;
 
