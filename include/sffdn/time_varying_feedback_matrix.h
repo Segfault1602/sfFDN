@@ -41,22 +41,10 @@ class TimeVaryingFeedbackMatrixTestAccess;
  * patterns and detuning, although up to 4 Hz can still sound smooth and natural. Do not modulate every block
  * synchronously: the papers report easily perceivable beating.
  *
- * @warning Never implement this matrix by interpolating or cross-fading between orthogonal matrices. The interpolated
- * matrix is not orthogonal; the source paper reports considerably faster energy decay and long ringing modes.
- * `tests/time_varying_fdn_signal_tests.cpp` deliberately regresses this failure mode and measures a 29.5% shorter T60.
- *
  * @par Limitations
  * Hadamard mode requires a power-of-two `matrix_size`; RealSchur mode accepts any even size. Both reject odd sizes
  * because an odd-dimensional orthogonal matrix necessarily has a static real eigenvalue. Modulation is full-band.
  *
- * @par Future work and open question
- * The source papers apply modulation only above approximately 400 Hz because low tonal signals are more vulnerable to
- * emerging sidebands and are easily perceived as detuned; modulation also distorts spatial impression, producing an
- * unnatural sense of sound drifting in the lower range. Supporting this requires band-split parallel FDNs or a
- * frequency-dependent feedback matrix. In the current whole-IR measurement, spectral flatness decreased from 0.325 to
- * 0.276 with modulation, while echo density at 1 s increased from 0.065 to 0.972, as the papers suggest. This is
- * unresolved rather than a defect: whole-IR scalar spectral flatness likely measures the fine-grained sideband
- * structure, whereas the papers discuss smoothed modal peaks. A better estimator is warranted.
  * @ingroup AudioProcessors
  */
 class TimeVaryingFeedbackMatrix : public AudioProcessor
