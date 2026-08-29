@@ -103,3 +103,38 @@ if(SFFDN_USE_VDSP)
     message(STATUS "Enabling vDSP support")
     target_compile_definitions(sfFDN_options INTERFACE -DSFFDN_USE_VDSP)
 endif()
+
+# Link-time optimization. Debug is deliberately excluded: it would slow the build down for no
+# benefit, and it would defeat the sanitizers and the symbolization the Debug configuration exists
+# for. `sffdn_enable_lto()` is applied per target rather than through the global
+# CMAKE_INTERPROCEDURAL_OPTIMIZATION_<CONFIG> variables, so that the third-party dependencies
+# fetched by fetch_deps.cmake keep building the way they always have.
+set(SFFDN_LTO_CONFIGS Release RelWithDebInfo MinSizeRel)
+set(SFFDN_LTO_ENABLED OFF)
+
+if(SFFDN_ENABLE_LTO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT SFFDN_HAS_IPO OUTPUT SFFDN_IPO_ERROR LANGUAGES CXX)
+
+    if(SFFDN_HAS_IPO)
+        set(SFFDN_LTO_ENABLED ON)
+        message(STATUS "Enabling link-time optimization for ${SFFDN_LTO_CONFIGS}")
+    else()
+        message(
+            WARNING
+            "SFFDN_ENABLE_LTO is ON but the toolchain does not support it; continuing without LTO: ${SFFDN_IPO_ERROR}"
+        )
+    endif()
+endif()
+
+# Enables link-time optimization on a target for every non-Debug configuration.
+function(sffdn_enable_lto target)
+    if(NOT SFFDN_LTO_ENABLED)
+        return()
+    endif()
+
+    foreach(config IN LISTS SFFDN_LTO_CONFIGS)
+        string(TOUPPER "${config}" config_upper)
+        set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_${config_upper} ON)
+    endforeach()
+endfunction()

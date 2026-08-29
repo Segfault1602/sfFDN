@@ -1,9 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <span>
+#include <stdexcept>
+#include <vector>
 
 #include <sndfile.h>
 
@@ -371,4 +374,98 @@ TEST_CASE("FDNConfig_Example")
     {
         REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
     }
+}
+TEST_CASE("FDNConfig_MultichannelDattorroDelay")
+{
+    constexpr uint32_t kFdnSize = 8;
+    constexpr float kSampleRate = 48000.f;
+
+    sfFDN::FDNConfig config;
+    config.fdn_size = kFdnSize;
+    config.direct_gain = 0.f;
+    config.block_size = 128;
+    config.sample_rate = kSampleRate;
+
+    config.delay_bank_config = sfFDN::DelayBankOptions{
+        .delays = sfFDN::GetDelayLengths(config.fdn_size, 500, 3000, sfFDN::DelayLengthType::Random),
+        .block_size = config.block_size,
+        .interpolation_type = sfFDN::DelayInterpolationType::None};
+
+    config.input_block_config.parallel_gains_config = {
+        .mode = sfFDN::ParallelGainsMode::Split,
+        .gains = std::vector<float>(config.fdn_size, 0.5f),
+        .time_varying_config = {}};
+
+    config.feedback_matrix_config =
+        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = config.fdn_size, .type = sfFDN::ScalarMatrixType::Hadamard};
+
+    sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
+    attenuation_filter_bank_options.filter_configs.emplace_back(
+        sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = config.sample_rate});
+    config.loop_filter_configs.emplace_back(attenuation_filter_bank_options);
+
+    // A decorrelated vibrato per channel, sitting in the feedback loop after the static delay bank. Vibrato is the
+    // only modulated preset with a gain of exactly 1 at every frequency: it has no feedback and no blend, so it is a
+    // pure modulated delay. The presets that carry feedback (WhiteChorus, Flanger) reach roughly +15 dB once
+    // modulated and make the network diverge; see MakeMultichannelDattorroDelayOptions() and the
+    // "DattorroDelay preset gain in a feedback loop" test case.
+    config.loop_filter_configs.emplace_back(
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Vibrato, kSampleRate, kFdnSize));
+
+    config.output_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Merge,
+                                                        .gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                        .time_varying_config = {}};
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(fdn != nullptr);
+
+    std::vector<float> input(static_cast<size_t>(kSampleRate), 0.f);
+    input[0] = 1.f;
+    std::vector<float> output(input.size(), 0.f);
+
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    fdn->Process(input_buffer, output_buffer);
+
+    // The bank adds a modulated delay to every branch of the loop, so the first thing to check is that the whole
+    // thing is still stable.
+    float peak = 0.f;
+    for (const float sample : output)
+    {
+        REQUIRE(std::isfinite(sample));
+        peak = std::max(peak, std::abs(sample));
+    }
+    REQUIRE(peak > 0.f);
+
+    // The tail must still be decaying a second in, rather than sustaining or growing.
+    const auto energy = [&output](size_t begin, size_t end) {
+        double sum = 0.0;
+        for (size_t i = begin; i < end; ++i)
+        {
+            sum += static_cast<double>(output[i]) * output[i];
+        }
+        return sum;
+    };
+    const double early = energy(4800, 9600);
+    const double late = energy(38400, 43200);
+    REQUIRE(late < early);
+
+    // The whole config, including the Dattorro bank, must survive a JSON round trip and rebuild identically.
+    nlohmann::json json_config = config;
+    auto deserialized_fdn = sfFDN::CreateFDNFromConfig(json_config.get<sfFDN::FDNConfig>());
+
+    std::vector<float> deserialized_output(output.size(), 0.f);
+    sfFDN::AudioBuffer deserialized_output_buffer(deserialized_output);
+    deserialized_fdn->Process(input_buffer, deserialized_output_buffer);
+
+    for (size_t i = 0; i < output.size(); ++i)
+    {
+        REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
+    }
+
+    // A bank whose channel count does not match the FDN size must be rejected.
+    sfFDN::FDNConfig bad_config = config;
+    bad_config.loop_filter_configs[1] =
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, kFdnSize - 1);
+    REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }

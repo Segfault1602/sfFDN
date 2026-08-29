@@ -169,6 +169,11 @@ nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config
                                      proc["DelayOptions"] = config;
                                      return proc;
                                  },
+                                 [](const DattorroDelayOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["DattorroDelayOptions"] = config;
+                                     return proc;
+                                 },
                                  [](const GraphicEQOptions& config) {
                                      nlohmann::json proc;
                                      proc["GraphicEQOptions"] = config;
@@ -187,6 +192,11 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                                  [](const MultichannelSchroederAllpassSectionOptions& config) {
                                      nlohmann::json proc;
                                      proc["MultichannelSchroederAllpassSectionOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const MultichannelDattorroDelayOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelDattorroDelayOptions"] = config;
                                      return proc;
                                  },
                                  [](const AttenuationFilterBankOptions& config) {
@@ -253,6 +263,11 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
         return j["GraphicEQOptions"].get<GraphicEQOptions>();
     }
 
+    if (j.contains("DattorroDelayOptions"))
+    {
+        return j["DattorroDelayOptions"].get<DattorroDelayOptions>();
+    }
+
     throw std::invalid_argument("Unknown single channel processor config type" + j.dump());
 }
 
@@ -267,6 +282,11 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
     if (j.contains("MultichannelSchroederAllpassSectionOptions"))
     {
         return j["MultichannelSchroederAllpassSectionOptions"].get<MultichannelSchroederAllpassSectionOptions>();
+    }
+
+    if (j.contains("MultichannelDattorroDelayOptions"))
+    {
+        return j["MultichannelDattorroDelayOptions"].get<MultichannelDattorroDelayOptions>();
     }
 
     if (j.contains("AttenuationFilterBankOptions"))

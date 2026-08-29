@@ -17,8 +17,7 @@ uint32_t FastMod(uint32_t input, uint32_t ceil) noexcept SFFDN_NONBLOCKING
     return input >= ceil ? input % ceil : input;
 }
 
-void ScaleAccumulate(std::span<const float> input, float scale,
-                     std::span<float> output) noexcept SFFDN_NONBLOCKING
+void ScaleAccumulate(std::span<const float> input, float scale, std::span<float> output) noexcept SFFDN_NONBLOCKING
 {
     assert(input.size() == output.size());
 #if defined(__APPLE__) && defined(__aarch64__)
@@ -63,6 +62,7 @@ Delay::Delay(uint32_t delay, uint32_t max_delay)
 void Delay::Clear()
 {
     std::ranges::fill(buffer_, 0.0f);
+    last_frame_ = 0.0f;
 }
 
 void Delay::SetMaximumDelay(uint32_t delay)
@@ -109,12 +109,19 @@ float Delay::NextOut() const noexcept SFFDN_NONBLOCKING
 
 float Delay::Tick(float input) noexcept SFFDN_NONBLOCKING
 {
+    // Both pointers are always smaller than the buffer size, so incrementing them by one can wrap with a comparison
+    // instead of a modulo. The modulo compiles to an integer division, which is several times more expensive than
+    // everything else in this function put together.
+    const uint32_t buffer_size = buffer_.size();
+
     buffer_[in_point_] = input;
-    in_point_ = (in_point_ + 1) % buffer_.size();
+    ++in_point_;
+    in_point_ = (in_point_ >= buffer_size) ? 0 : in_point_;
 
     // Read out next value
     last_frame_ = buffer_[out_point_];
-    out_point_ = (out_point_ + 1) % buffer_.size();
+    ++out_point_;
+    out_point_ = (out_point_ >= buffer_size) ? 0 : out_point_;
 
     return last_frame_;
 }

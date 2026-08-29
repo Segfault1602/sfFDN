@@ -43,6 +43,8 @@ class DelayInterp : public AudioProcessor
     /**
      * @brief Sets the delay for the delay line.
      * @param delay The delay in samples.
+     * @note The smallest delay that can be realised depends on the interpolation type: 0.5 samples for Allpass and
+     * 1 sample for Lagrange. Smaller values are clamped.
      */
     void SetDelay(float delay) noexcept SFFDN_NONBLOCKING;
 
@@ -55,6 +57,36 @@ class DelayInterp : public AudioProcessor
      * @return The processed output sample.
      */
     float Tick(float input) noexcept SFFDN_NONBLOCKING;
+
+    /**
+     * @brief Returns the next output sample without writing a new input sample.
+     * @return The interpolated output sample for the current delay.
+     * @note This is the read-before-write counterpart of Tick(). Calling NextOut() followed by
+     * Advance(input) returns the same output sample as Tick(input), but allows the output sample to be used to
+     * compute the input sample, which is required to close a feedback loop around the delay line.
+     * @note The current delay must be at least one sample. For the Lagrange interpolation type, the current delay must
+     * be at least two samples.
+     * @note The returned value is cached until the next call to Advance(), Tick(), SetDelay() or Clear(), so calling
+     * NextOut() several times in a row is safe and returns the same value.
+     */
+    float NextOut() noexcept SFFDN_NONBLOCKING;
+
+    /**
+     * @brief Writes the next input sample into the delay line and advances it.
+     * @param input The input sample to write.
+     * @note This is the read-before-write counterpart of Tick(). See NextOut().
+     */
+    void Advance(float input) noexcept SFFDN_NONBLOCKING;
+
+    /**
+     * @brief Taps the delay line at a fixed integer delay, without interpolation.
+     * @param tap The tap point in samples.
+     * @return The sample stored at the tap point.
+     * @note The tap is counted from the write pointer, so TapOut(0) returns the most recently written sample. After
+     * Advance(x[n]), TapOut(tap) returns x[n - tap]; before the write, it returns x[n - 1 - tap].
+     * @note The tap is independent of the current delay and of the interpolation type.
+     */
+    float TapOut(uint32_t tap) const noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Processes a block of input samples.
@@ -76,6 +108,10 @@ class DelayInterp : public AudioProcessor
     /**
      * @brief Gets the next output samples from the delay line.
      * @param output The output samples to fill.
+     * @note This is the read-before-write counterpart of Process(): the block is read out first and written in
+     * afterwards with AddNextInputs(). The current delay must therefore be at least as large as the block size, and
+     * at least one sample larger than that for the Lagrange interpolation type, whose kernel straddles the
+     * fractional delay.
      */
     void GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOCKING;
 
@@ -106,6 +142,9 @@ class DelayInterp : public AudioProcessor
 
     std::array<float, kLagrangeTapCount> lagrange_coeffs_{};
     float linear_last_out_;
+
+    float next_out_ = 0.f;
+    bool has_next_out_ = false;
 };
 
 } // namespace sfFDN

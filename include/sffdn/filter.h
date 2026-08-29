@@ -110,6 +110,26 @@ class AllpassFilter : public AudioProcessor
         coeff_ = coeff;
     }
 
+    /** @brief Re-seeds the filter state and sets a new coefficient in one step.
+     *
+     * The filter is a Direct Form I first order allpass, so its state is the previous input sample and the previous
+     * output sample. When the filter is used as a fractional delay and the signal feeding it is switched to a
+     * different tap of a delay line, the stored previous input belongs to the old tap and is no longer the sample
+     * that precedes the next input. Feeding that stale sample back into Tick() injects a step into the output; this
+     * is the source of the clicks heard when an allpass interpolated delay line crosses an integer sample boundary.
+     *
+     * @param last_in The sample that precedes the next input, i.e. the previous output of the new tap.
+     * @param coeff The new allpass coefficient.
+     *
+     * @note The previous output is deliberately left untouched: it is a genuine continuation of the output signal,
+     * and the remaining discontinuity decays at a rate set by the coefficient.
+     */
+    void WarpState(float last_in, float coeff) noexcept SFFDN_NONBLOCKING
+    {
+        last_in_ = last_in;
+        coeff_ = coeff;
+    }
+
     /**
      * @brief Input a sample in the filter and return the next output
      * @param in The input sample
