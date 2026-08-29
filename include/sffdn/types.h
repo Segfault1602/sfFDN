@@ -292,6 +292,50 @@ struct MultichannelSchroederAllpassSectionOptions
     std::vector<SchroederAllpassSectionOptions> sections;
 };
 
+/** @brief Classic delay-line effects, as described in Table 1 of Jon Dattorro, "Effect Design Part 2: Delay-Line
+ * Modulation and Chorus", J. Audio Eng. Soc., Vol. 45, No. 10, 1997. */
+enum class DattorroEffectType : uint8_t
+{
+    Vibrato,     /**< Fully wet, modulated delay. */
+    Flanger,     /**< Short modulated delay with negative feedback. */
+    WhiteChorus, /**< Medium modulated delay with positive feedback. */
+    Doubling,    /**< Long modulated delay without feedback. */
+    Echo,        /**< Long unmodulated delay with feedback. */
+};
+
+/** @brief Options for configuring a Dattorro delay-line effect.
+ *
+ * `blend`, `feedforward` and `feedback` are the three knobs of the effect. See DattorroDelay for the topology and
+ * MakeDattorroDelayOptions() for the settings of the classic effects.
+ */
+struct DattorroDelayOptions
+{
+    /** @brief Configuration of the delay line. `delay` is the nominal delay, which sets the position of the fixed
+     * feedback tap and the center of the modulated feedforward tap. `lfo_config`, if present, modulates the
+     * feedforward tap only.
+     * @note The default interpolation type suits a static delay. `DelayInterpolationType::Linear` is the cheaper
+     * choice for a modulated insert effect and `DelayInterpolationType::Allpass` the correct one inside a feedback
+     * loop; see DattorroDelay for why. */
+    DelayOptions delay_config{
+        .delay = 256.f, .max_delay = 512, .interp_type = DelayInterpolationType::Allpass, .lfo_config = std::nullopt};
+    float blend{0.7071f};    /*< Gain applied to the input of the delay line. */
+    float feedforward{1.f};  /*< Gain applied to the modulated output of the delay line. */
+    float feedback{0.7071f}; /*< Gain applied to the fixed output of the delay line before it is fed back into the
+                                delay line. The feedback is subtracted at the summing junction, so a positive value
+                                recirculates with inverted polarity. Must be in the range (-1, 1) to be stable. */
+};
+
+/** @brief Options for configuring a multichannel bank of Dattorro delay-line effects. Each entry processes one channel
+ * of audio.
+ *
+ * See MakeMultichannelDattorroDelayOptions() for a decorrelated preset, and MakeMultichannelDattorroDelay() to build
+ * the processor.
+ */
+struct MultichannelDattorroDelayOptions
+{
+    std::vector<DattorroDelayOptions> delays;
+};
+
 /** @brief Options for configuring a homogenous filter. The homogenous filter has the same attenuation characteristics
  * across all frequencies. */
 struct HomogenousFilterOptions
@@ -386,13 +430,13 @@ using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixOptions, Sc
 /** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
     std::variant<SchroederAllpassSectionOptions, AllpassFilterOptions, CascadedBiquadsOptions, FirOptions, DelayOptions,
-                 GraphicEQOptions>;
+                 GraphicEQOptions, DattorroDelayOptions>;
 
 /** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
-    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, AttenuationFilterBankOptions,
-                 DelayBankOptions, DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions,
-                 ScalarFeedbackMatrixOptions, MultichannelFirOptions>;
+    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
+                 AttenuationFilterBankOptions, DelayBankOptions, DelayBankTimeVaryingOptions,
+                 CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions>;
 
 /** @}*/
 
@@ -441,7 +485,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelFirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DattorroDelayOptions, delay_config, blend, feedforward, feedback);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelDattorroDelayOptions, delays);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);

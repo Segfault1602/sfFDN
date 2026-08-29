@@ -3,6 +3,7 @@
 #include "json_helper.h"
 #include "math_utils.h"
 
+#include "sffdn/dattorro_delay.h"
 #include "sffdn/delay.h"
 #include "sffdn/delay_time_varying.h"
 #include "sffdn/delaybank.h"
@@ -35,6 +36,10 @@ std::string VariantTypeName()
     {
         return "MultichannelSchroederAllpassSectionOptions";
     }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelDattorroDelayOptions>)
+    {
+        return "MultichannelDattorroDelayOptions";
+    }
     else if constexpr (std::is_same_v<T, sfFDN::AttenuationFilterBankOptions>)
     {
         return "AttenuationFilterBankOptions";
@@ -58,6 +63,10 @@ std::string VariantTypeName()
     else if constexpr (std::is_same_v<T, sfFDN::DelayOptions>)
     {
         return "DelayOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::DattorroDelayOptions>)
+    {
+        return "DattorroDelayOptions";
     }
     else if constexpr (std::is_same_v<T, sfFDN::DelayBankOptions>)
     {
@@ -162,6 +171,14 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 if (schroeder_config.sections.size() != config.fdn_size)
                 {
                     std::cerr << "Number of sections in multichannel Schroeder allpass config must match FDN size\n";
+                    return false;
+                }
+                return true;
+            },
+            [&config](const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) {
+                if (dattorro_config.delays.size() != config.fdn_size)
+                {
+                    std::cerr << "Number of delays in multichannel Dattorro delay config must match FDN size\n";
                     return false;
                 }
                 return true;
@@ -304,6 +321,11 @@ struct SingleChannelProcessorVisitor
         filter->SetCoefficients(sos);
         return filter;
     }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DattorroDelayOptions& config) const
+    {
+        return std::make_unique<sfFDN::DattorroDelay>(config);
+    }
 };
 
 struct MultichannelProcessorVisitor
@@ -323,6 +345,12 @@ struct MultichannelProcessorVisitor
             bank->AddFilter(std::move(schroeder));
         }
         return bank;
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) const
+    {
+        return sfFDN::MakeMultichannelDattorroDelay(dattorro_config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(

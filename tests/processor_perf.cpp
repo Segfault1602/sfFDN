@@ -7,6 +7,7 @@
 #include <array>
 #include <chrono>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using namespace ankerl;
@@ -108,4 +109,136 @@ TEST_CASE("DelayBankTimeVaryingPerf")
             nanobench::doNotOptimizeAway(output);
         });
     }
+}
+
+TEST_CASE("DattorroDelayPerf")
+{
+    constexpr uint32_t kBlockSize = 128;
+    constexpr float kSampleRate = 48000.f;
+
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize, 0.f);
+    sfFDN::RNG generator;
+    for (float& sample : input)
+    {
+        sample = generator();
+    }
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("DattorroDelay Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochTime(50ms);
+
+    constexpr std::array<std::pair<sfFDN::DattorroEffectType, const char*>, 3> kPresets = {{
+        {sfFDN::DattorroEffectType::Flanger, "Flanger"},
+        {sfFDN::DattorroEffectType::WhiteChorus, "WhiteChorus"},
+        {sfFDN::DattorroEffectType::Echo, "Echo"},
+    }};
+
+    for (const auto& [type, name] : kPresets)
+    {
+        sfFDN::DattorroDelay delay(sfFDN::MakeDattorroDelayOptions(type, kSampleRate));
+        bench.run(name, [&] {
+            delay.Process(input_buffer, output_buffer);
+            nanobench::doNotOptimizeAway(output);
+        });
+    }
+}
+
+TEST_CASE("MultichannelDattorroDelayPerf")
+{
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kChannelCount = 8;
+    constexpr float kSampleRate = 48000.f;
+
+    // The cost of putting one chorus per channel in an FDN feedback loop.
+    auto bank = sfFDN::MakeMultichannelDattorroDelay(
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate,
+                                                    kChannelCount));
+
+    std::vector<float> input(static_cast<size_t>(kBlockSize) * kChannelCount, 0.f);
+    std::vector<float> output(input.size(), 0.f);
+    sfFDN::RNG generator;
+    for (float& sample : input)
+    {
+        sample = generator();
+    }
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+
+    nanobench::Bench bench;
+    bench.title("MultichannelDattorroDelay Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochTime(50ms);
+
+    bench.run("WhiteChorus x8", [&] {
+        bank->Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
+}
+
+TEST_CASE("DattorroDelayVsTimeVaryingPerf")
+{
+    constexpr uint32_t kBlockSize = 128;
+
+    // Both processors get the exact same delay line, modulation and interpolation, so the benchmark only measures the
+    // cost of the comb filter built around the delay line.
+    const sfFDN::DelayOptions kDelayConfig{
+        .delay = 480.f,
+        .max_delay = 1024,
+        .interp_type = sfFDN::DelayInterpolationType::Allpass,
+        .lfo_config = sfFDN::ModulationOptions{.frequency = 0.15f / 48000.f, .amplitude = 240.f, .initial_phase = 0.f},
+    };
+
+    std::vector<float> input(kBlockSize, 0.f);
+    std::vector<float> output(kBlockSize, 0.f);
+    sfFDN::RNG generator;
+    for (float& sample : input)
+    {
+        sample = generator();
+    }
+
+    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
+
+    nanobench::Bench bench;
+    bench.title("DattorroDelay vs DelayTimeVarying");
+    bench.timeUnit(1us, "us");
+    bench.minEpochTime(50ms);
+    bench.relative(true);
+
+    sfFDN::DelayTimeVarying time_varying(kDelayConfig);
+    bench.run("DelayTimeVarying", [&] {
+        time_varying.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    // Without feedback, the extra work over a plain time-varying delay is the fixed tap read and the two gains.
+    sfFDN::DattorroDelay feedforward_only(sfFDN::DattorroDelayOptions{
+        .delay_config = kDelayConfig,
+        .blend = 0.7071f,
+        .feedforward = 0.7071f,
+        .feedback = 0.f,
+    });
+    bench.run("DattorroDelay (no feedback)", [&] {
+        feedforward_only.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    // With feedback the delay line cannot be read a block at a time, since every input sample depends on the previous
+    // output of the delay line.
+    sfFDN::DattorroDelay with_feedback(sfFDN::DattorroDelayOptions{
+        .delay_config = kDelayConfig,
+        .blend = 0.7071f,
+        .feedforward = 1.f,
+        .feedback = 0.7071f,
+    });
+    bench.run("DattorroDelay (feedback)", [&] {
+        with_feedback.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
 }

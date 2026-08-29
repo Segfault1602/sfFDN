@@ -22,6 +22,7 @@ target_sources(
             array_math.cpp
             cascaded_filter.cpp
             circular_buffer.cpp
+            dattorro_delay.cpp
             delay.cpp
             delaybank.cpp
             delaybank_time_varying.cpp
@@ -64,6 +65,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/attributes.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_buffer.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_processor.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/dattorro_delay.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_utils.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay.h
@@ -100,6 +102,8 @@ target_link_libraries(
 target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
 
 target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_20)
+
+sffdn_enable_lto(sfFDN.sfFDN)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(

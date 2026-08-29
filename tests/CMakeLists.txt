@@ -51,6 +51,7 @@ target_sources(
             audio_buffer_tests.cpp
             audio_processor_chain_tests.cpp
             array_math_tests.cpp
+            dattorro_delay_tests.cpp
             delay_tests.cpp
             filter_tests.cpp
             mixmat_tests.cpp
@@ -154,6 +155,10 @@ target_link_libraries(
 )
 target_include_directories(sfFDN.callback_latency PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.callback_latency PRIVATE cxx_std_23)
+
+sffdn_enable_lto(sfFDN.tests)
+sffdn_enable_lto(sfFDN.perf)
+sffdn_enable_lto(sfFDN.callback_latency)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(

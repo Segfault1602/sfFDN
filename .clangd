@@ -1,0 +1,20 @@
+# clangd configuration for sfFDN.
+#
+# CMake writes compile_commands.json into the build directory, not the repository
+# root, so clangd cannot discover it on its own -- without this file it reports
+# "Failed to find compilation database" and every sfFDN/Eigen include fails to
+# resolve. `build/ninja` is the output of the default `llvm-ninja` preset.
+#
+# If you build with a different preset, override this with an uncommitted
+# `.clangd` in a subdirectory or with ~/.config/clangd/config.yaml.
+CompileFlags:
+  CompilationDatabase: build/ninja
+  Remove:
+    # The presets use Ninja Multi-Config and clangd picks the first matching
+    # entry, which is Debug and therefore carries ASan/UBSan instrumentation.
+    # None of it affects parsing; dropping it keeps the preamble cheap.
+    - -fsanitize=*
+    - -fsanitize-*
+
+Index:
+  StandardLibrary: Yes

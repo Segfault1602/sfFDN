@@ -5,6 +5,7 @@ This section describes the single-channel processors provided by sfFDN. These ar
 ## Processors
 
 - [Delay](@ref sfFDN::DelayInterp): A simple delay line that supports interpolation for fractional delay lengths.
+- [Dattorro Delay](@ref sfFDN::DattorroDelay): A modulated delay line with blend, feedforward and feedback controls, as described by Jon Dattorro in "Effect Design Part 2: Delay-Line Modulation and Chorus". Vibrato, flanging, chorus, doubling and echo are all obtained from this one processor; see [MakeDattorroDelayOptions](@ref sfFDN::MakeDattorroDelayOptions).
 - [Schroeder Allpass](@ref sfFDN::SchroederAllpass): An allpass filter consisting of a delay line and a feedback and feedforward path. See also [SchroederAllpassSection](@ref sfFDN::SchroederAllpassSection), which implements a group of Schroeder allpass filters placed in series or in parallel.
 - [FIR](@ref sfFDN::Fir): A finite impulse response filter.
 - [Sparse FIR](@ref sfFDN::SparseFir): A sparse finite impulse response filter that allows for non-uniformly spaced coefficients.
