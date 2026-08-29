@@ -15,9 +15,11 @@
 #include "sffdn/filterbank.h"
 #include "sffdn/parallel_gains.h"
 #include "sffdn/schroeder_allpass.h"
+#include "sffdn/time_varying_feedback_matrix.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <optional>
@@ -143,6 +145,47 @@ bool ValidateMatrix(const sfFDN::feedback_matrix_variant_t& matrix_options, cons
                               {
                                   std::cerr << "Hadamard feedback matrix requires FDN size to be a power of two\n";
                                   return false;
+                              }
+
+                              return true;
+                          },
+                          [&config](const sfFDN::TimeVaryingFeedbackMatrixOptions& options) {
+                              if (options.matrix_size != config.fdn_size)
+                              {
+                                  std::cerr << "Time-varying feedback matrix size must match FDN size\n";
+                                  return false;
+                              }
+
+                              if (options.matrix_size < 2U || (options.matrix_size % 2U) != 0U ||
+                                  (options.mode != sfFDN::TimeVaryingMatrixMode::Hadamard &&
+                                   options.mode != sfFDN::TimeVaryingMatrixMode::RealSchur) ||
+                                  (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard &&
+                                   !sfFDN::Math::IsPowerOfTwo(options.matrix_size)))
+                              {
+                                  std::cerr << "Time-varying feedback matrix size must be even and, for Hadamard mode, "
+                                               "a power of two\n";
+                                  return false;
+                              }
+
+                              if (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard &&
+                                  !options.time_varying_config.empty() &&
+                                  options.time_varying_config.size() != options.matrix_size / 2U)
+                              {
+                                  std::cerr << "Hadamard time-varying feedback matrix requires one modulation option "
+                                               "per rotation block\n";
+                                  return false;
+                              }
+
+                              for (const auto& modulation : options.time_varying_config)
+                              {
+                                  if (!std::isfinite(modulation.frequency) ||
+                                      !(std::abs(modulation.amplitude) <= 1.0F) ||
+                                      !std::isfinite(modulation.initial_phase) || modulation.initial_phase < 0.0F ||
+                                      modulation.initial_phase > 1.0F)
+                                  {
+                                      std::cerr << "Time-varying feedback matrix modulation parameters are invalid\n";
+                                      return false;
+                                  }
                               }
 
                               return true;
@@ -460,6 +503,12 @@ struct FeedbackMatrixVisitor
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
 
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::TimeVaryingFeedbackMatrixOptions& matrix_config) const
+    {
+        return std::make_unique<sfFDN::TimeVaryingFeedbackMatrix>(matrix_config);
+    }
+
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const std::vector<float>& matrix_config) const
     {
         const auto matrix_size = static_cast<uint32_t>(std::sqrt(matrix_config.size()));
@@ -535,7 +584,14 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     fdn->SetInputGains(CreateInputGainsFromConfig(config));
 
     // Feedback matrix block
-    fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config));
+    try
+    {
+        fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config));
+    }
+    catch (const std::exception& error)
+    {
+        throw std::runtime_error(std::string("Invalid feedback matrix configuration: ") + error.what());
+    }
 
     std::unique_ptr<AudioProcessor> attenuation_filter_bank = nullptr;
     if (config.attenuation_filter_bank_config.has_value())

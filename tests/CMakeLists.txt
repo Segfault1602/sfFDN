@@ -45,6 +45,7 @@ target_include_directories(nanobench SYSTEM INTERFACE ${_nanobench_inc})
 # ====================
 
 add_executable(sfFDN.tests)
+sffdn_enable_lto(sfFDN.tests)
 target_sources(
     sfFDN.tests
     PRIVATE allocation_counter.cpp
@@ -64,6 +65,9 @@ target_sources(
             nupols_tests.cpp
             serialization_tests.cpp
             parallel_gains_tests.cpp
+            sincos_tests.cpp
+            time_varying_feedback_matrix_tests.cpp
+            time_varying_fdn_signal_tests.cpp
             test_utils.cpp
 )
 target_link_libraries(
@@ -109,6 +113,7 @@ add_test(
 )
 
 add_executable(sfFDN.perf)
+sffdn_enable_lto(sfFDN.perf)
 target_sources(
     sfFDN.perf
     PRIVATE fdn_perf.cpp
@@ -126,6 +131,7 @@ target_sources(
             upols_perf.cpp
             nupols_perf.cpp
             oscillator_perf.cpp
+            time_varying_feedback_matrix_perf.cpp
             test_utils.cpp
 )
 target_link_libraries(
@@ -147,6 +153,7 @@ target_include_directories(sfFDN.perf PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.perf PRIVATE cxx_std_23)
 
 add_executable(sfFDN.callback_latency fdn_callback_latency.cpp production_workloads.cpp)
+sffdn_enable_lto(sfFDN.callback_latency)
 target_link_libraries(
     sfFDN.callback_latency
     PRIVATE sfFDN.sfFDN

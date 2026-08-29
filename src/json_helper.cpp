@@ -138,6 +138,11 @@ nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
                                      nlohmann::json mat;
                                      mat["ScalarFeedbackMatrixOptions"] = config;
                                      return mat;
+                                 },
+                                 [](const TimeVaryingFeedbackMatrixOptions& config) {
+                                     nlohmann::json mat;
+                                     mat["TimeVaryingFeedbackMatrixOptions"] = config;
+                                     return mat;
                                  }},
                       matrix_config);
 }
@@ -325,8 +330,12 @@ feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
     {
         ScalarFeedbackMatrixOptions config;
         from_json(j["ScalarFeedbackMatrixOptions"], config);
-        // auto config = j["ScalarFeedbackMatrixOptions"].get<ScalarFeedbackMatrixOptions>();
         return config;
+    }
+
+    if (j.contains("TimeVaryingFeedbackMatrixOptions"))
+    {
+        return j["TimeVaryingFeedbackMatrixOptions"].get<TimeVaryingFeedbackMatrixOptions>();
     }
 
     throw std::invalid_argument("Unknown feedback matrix config type");

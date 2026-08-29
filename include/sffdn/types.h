@@ -116,6 +116,17 @@ enum class ParallelGainsMode : uint8_t
     Parallel
 };
 
+/** @brief Construction modes for a TimeVaryingFeedbackMatrix.
+ *
+ * Both modes construct an orthogonal matrix at every sample by modulating independent 2x2 rotation blocks.
+ */
+enum class TimeVaryingMatrixMode : uint8_t
+{
+    Hadamard = 0,  /**< Uses H^T * blockdiag(R(theta)) * H. Requires a power-of-two matrix_size. */
+    RealSchur = 1, /**< Uses V * blockdiag(R(theta)) * V^T. Accepts any even matrix_size. */
+    Count = 2      /**< Number of time-varying matrix modes. */
+};
+
 // STRUCTS
 
 /** @brief Options for configuring a scalar feedback matrix.
@@ -163,9 +174,29 @@ struct CascadedFeedbackMatrixOptions
 /** @brief Options for configuring signal modulation. */
 struct ModulationOptions
 {
-    float frequency{0.f};     /*< Frequency of the modulation, normalized to [0, 1] by the sampling rate. */
-    float amplitude{0.f};     /*< Amplitude of the modulation. */
-    float initial_phase{0.f}; /*< Initial phase of the modulation, normalized to [0, 1]. */
+    float frequency{0.f}; /**< Finite LFO frequency in cycles per sample, normalized by the sample rate. For example,
+                              1 Hz at 48 kHz is `1.0f / 48000.0f`. */
+    float amplitude{0.f}; /**< For TimeVaryingFeedbackMatrix, normalized peak angular deviation with
+                              `|amplitude| <= 1`. It follows the AES paper's normalized `μ_A` convention and is
+                              multiplied by π exactly once internally: `amplitude = 0.7` means `0.7π`, approximately
+                              2.2 radians, not 0.7 radians. The JASA paper instead expresses `μ_A` in radians, with
+                              `μ_A <= π`. */
+    float initial_phase{0.f}; /**< Finite initial phase of the modulation, normalized to [0, 1]. */
+};
+
+/** @brief Options for configuring a TimeVaryingFeedbackMatrix.
+ *
+ * Supply either no modulation configurations to disable modulation, or exactly one configuration for each 2x2
+ * rotation block (`matrix_size / 2`). `matrix_size` must be even; Hadamard mode additionally requires a power of two.
+ */
+struct TimeVaryingFeedbackMatrixOptions
+{
+    uint32_t matrix_size; /**< Dimension of the square feedback matrix. Must be even and at least two. */
+    TimeVaryingMatrixMode mode{TimeVaryingMatrixMode::Hadamard}; /**< Construction mode for the orthogonal matrix. */
+    std::vector<ModulationOptions>
+        time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
+    uint32_t rng_seed{0};    /**< Seed for the RealSchur random orthogonal basis. In RealSchur mode, zero selects a
+                                fixed seed so configurations are reproducible; Hadamard mode ignores it. */
 };
 
 /** @brief Options for configuring parallel gain processing. */
@@ -425,7 +456,8 @@ struct GraphicEQOptions
 };
 
 /** @brief Variant type for holding different feedback matrix options. */
-using feedback_matrix_variant_t = std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
+using feedback_matrix_variant_t =
+    std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, TimeVaryingFeedbackMatrixOptions>;
 
 /** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
@@ -467,11 +499,16 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {{ParallelGainsMode::Split, "Spl
                                                  {ParallelGainsMode::Merge, "Merge"},
                                                  {ParallelGainsMode::Parallel, "Parallel"}});
 
+NLOHMANN_JSON_SERIALIZE_ENUM(TimeVaryingMatrixMode, {{TimeVaryingMatrixMode::Hadamard, "Hadamard"},
+                                                     {TimeVaryingMatrixMode::RealSchur, "RealSchur"},
+                                                     {TimeVaryingMatrixMode::Count, "Count"}});
+
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, sparsity, type,
                                    gain_per_samples);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationOptions, frequency, amplitude, initial_phase);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TimeVaryingFeedbackMatrixOptions, matrix_size, mode, time_varying_config, rng_seed);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsOptions, mode, gains, time_varying_config);
 void to_json(nlohmann::json& j, const DelayOptions& config);
 void from_json(const nlohmann::json& j, DelayOptions& config);
