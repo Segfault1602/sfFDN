@@ -610,7 +610,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
             fdn->SetLoopFilter(std::move(processor));
         }
-        else if (config.loop_filter_configs.size() >= 1)
+        else if (!config.loop_filter_configs.empty())
         {
             auto loop_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
 

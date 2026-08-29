@@ -31,8 +31,6 @@ class DelayBankTimeVarying : public AudioProcessor
      */
     DelayBankTimeVarying(const DelayBankTimeVaryingOptions& config);
 
-    ~DelayBankTimeVarying() = default;
-
     /**
      * @brief Returns the current delays for each delay line in the bank.
      * @return A vector of delay values for each channel.

@@ -121,14 +121,14 @@ class SchroederAllpassSection : public AudioProcessor
 
     /** @brief Move constructor for the SchroederAllpassSection.
      */
-    SchroederAllpassSection(SchroederAllpassSection&&) noexcept;
+    SchroederAllpassSection(SchroederAllpassSection&& other) noexcept;
 
     /** @brief Move assignment operator for the SchroederAllpassSection.
      * @return A reference to the assigned SchroederAllpassSection.
      */
-    SchroederAllpassSection& operator=(SchroederAllpassSection&&) noexcept;
+    SchroederAllpassSection& operator=(SchroederAllpassSection&& other) noexcept;
 
-    ~SchroederAllpassSection() = default;
+    ~SchroederAllpassSection() override = default;
 
     /** @brief Sets the number of allpass filters in the section.
      * @param filter_count The number of allpass filters.

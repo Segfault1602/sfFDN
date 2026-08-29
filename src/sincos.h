@@ -22,7 +22,7 @@ inline float SineTableLookup(float phase) noexcept SFFDN_NONBLOCKING
 {
     phase -= std::floor(phase);
     const float index = phase * static_cast<float>(kSineTableSize);
-    const uint32_t table_index = static_cast<uint32_t>(index);
+    const auto table_index = static_cast<uint32_t>(index);
     const float fraction = index - static_cast<float>(table_index);
     const float a = kSineTable[table_index];
     const float b = kSineTable[table_index + 1U];
@@ -44,7 +44,7 @@ inline void SinCosUnit(float radians, float& sin_out, float& cos_out) noexcept S
     const float cycles = radians * kRadiansToCycles;
     const float phase = cycles - std::floor(cycles);
     const float index = phase * static_cast<float>(kSineTableSize);
-    const uint32_t unmasked_index = static_cast<uint32_t>(index);
+    const auto unmasked_index = static_cast<uint32_t>(index);
     const uint32_t sine_index = unmasked_index & kTableMask;
     const uint32_t cosine_index = (sine_index + kQuarterCycleOffset) & kTableMask;
     const float fraction = index - static_cast<float>(unmasked_index);

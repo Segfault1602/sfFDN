@@ -49,6 +49,16 @@ class AudioProcessor
      * @return A unique pointer to the cloned audio processor.
      */
     virtual std::unique_ptr<AudioProcessor> Clone() const = 0;
+
+  protected:
+    // Polymorphic copying goes through Clone(). These are protected rather than public so that a
+    // derived class still gets its implicit copy and move operations, while slicing an
+    // AudioProcessor out of a derived object stays impossible. Declaring them here also stops the
+    // destructor above from suppressing the implicit move operations of derived classes.
+    AudioProcessor(const AudioProcessor&) = default;
+    AudioProcessor& operator=(const AudioProcessor&) = default;
+    AudioProcessor(AudioProcessor&&) noexcept = default;
+    AudioProcessor& operator=(AudioProcessor&&) noexcept = default;
 };
 
 /** @brief A chain of audio processors that processes audio sequentially.

@@ -40,7 +40,7 @@ class DelayBank : public AudioProcessor
      * buffers for each delay line and can affect performance.
      * @note block_size is used to determine the optimal size of the internal buffers for each delay line.
      */
-    void SetDelays(const std::span<const float> delays, uint32_t block_size = 512);
+    void SetDelays(std::span<const float> delays, uint32_t block_size = 512);
 
     /**
      * @brief Returns the current delays for each delay line in the bank.

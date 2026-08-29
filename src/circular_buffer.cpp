@@ -14,8 +14,6 @@ CircularBuffer::CircularBuffer(uint32_t size)
 {
 }
 
-CircularBuffer::~CircularBuffer() = default;
-
 void CircularBuffer::Advance(uint32_t count) noexcept SFFDN_NONBLOCKING
 {
     write_ptr_ = (write_ptr_ + count) % buffer_.size();

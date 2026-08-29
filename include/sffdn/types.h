@@ -13,7 +13,10 @@ namespace sfFDN
 {
 
 // helper type for the visitor #4
+// The overload-set idiom inherits from a pack of lambdas so that std::visit can dispatch on it. The multiple
+// inheritance is the whole point, so misc-multiple-inheritance does not apply.
 template <class... Ts>
+// NOLINTNEXTLINE(misc-multiple-inheritance)
 struct overloaded : Ts...
 {
     using Ts::operator()...;
@@ -136,7 +139,7 @@ enum class TimeVaryingMatrixMode : uint8_t
 struct ScalarFeedbackMatrixOptions
 {
     //! Size of the feedback matrix
-    uint32_t matrix_size;
+    uint32_t matrix_size{0};
 
     //! Type of the feedback matrix
     ScalarMatrixType type{ScalarMatrixType::Random};
@@ -191,7 +194,7 @@ struct ModulationOptions
  */
 struct TimeVaryingFeedbackMatrixOptions
 {
-    uint32_t matrix_size; /**< Dimension of the square feedback matrix. Must be even and at least two. */
+    uint32_t matrix_size{0}; /**< Dimension of the square feedback matrix. Must be even and at least two. */
     TimeVaryingMatrixMode mode{TimeVaryingMatrixMode::Hadamard}; /**< Construction mode for the orthogonal matrix. */
     std::vector<ModulationOptions>
         time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
@@ -240,9 +243,10 @@ struct DelayBankTimeVaryingOptions
 {
     std::vector<float> delays; /*< Initial delay values for each channel in samples. These can be fractional values if
               interpolation is used. The size of the vector determines the number of channels in the delay bank. */
-    uint32_t max_delay;        /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
+    uint32_t max_delay{0};     /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                                     must be greater than or equal to the initial delays. */
-    DelayInterpolationType interpolation_type;          /*< Interpolation type for fractional delays. */
+    DelayInterpolationType interpolation_type{
+        DelayInterpolationType::None};                  /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
 };
@@ -446,10 +450,10 @@ struct AttenuationFilterBankOptions
 struct GraphicEQOptions
 {
     //! Target gains for the ten bands in dB.
-    std::array<float, 10> gains_db;
+    std::array<float, 10> gains_db{};
 
     //! Frequency values for the ten bands in Hz.
-    std::array<float, 10> freqs;
+    std::array<float, 10> freqs{};
 
     //! Sample rate in Hz.
     float sample_rate = kDefaultSampleRate;

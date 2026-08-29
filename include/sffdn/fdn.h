@@ -27,19 +27,19 @@ class FDN : public AudioProcessor
      */
     FDN(uint32_t order, uint32_t block_size, bool transpose = false);
 
-    ~FDN() = default;
+    ~FDN() override = default;
 
     FDN(const FDN&) = delete;
     FDN& operator=(const FDN&) = delete;
 
     /** @brief Move constructor for the FDN.
      */
-    FDN(FDN&&) noexcept;
+    FDN(FDN&& other) noexcept;
 
     /** @brief Move assignment operator for the FDN.
      * @return A reference to the assigned FDN.
      */
-    FDN& operator=(FDN&&) noexcept;
+    FDN& operator=(FDN&& other) noexcept;
 
     /**
      * @brief Set the number of channels of the FDN
@@ -157,7 +157,7 @@ class FDN : public AudioProcessor
      * @return false if the delays could not be set. Happens if the size of the span does not match GetOrder() or if any
      * of the delay lengths are smaller than the block_size set in the constructor.
      */
-    bool SetDelays(const std::span<const float> delays,
+    bool SetDelays(std::span<const float> delays,
                    DelayInterpolationType interpolation_type = DelayInterpolationType::None);
 
     /** @brief Get the Delay Bank.

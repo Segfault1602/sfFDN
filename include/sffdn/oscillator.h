@@ -16,6 +16,14 @@ class Generator
 
     /** @brief Fills the output span with generated samples. */
     virtual void Generate(std::span<float> output) noexcept SFFDN_NONBLOCKING = 0;
+
+  protected:
+    // Protected so derived generators keep their implicit copy and move operations while slicing a
+    // Generator out of a derived object stays impossible.
+    Generator(const Generator&) = default;
+    Generator& operator=(const Generator&) = default;
+    Generator(Generator&&) noexcept = default;
+    Generator& operator=(Generator&&) noexcept = default;
 };
 
 /** @brief A sine wave oscillator.

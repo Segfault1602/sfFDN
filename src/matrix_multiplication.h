@@ -12,18 +12,18 @@ namespace sfFDN
 
 class AudioBuffer;
 
-void HadamardMultiply(const std::span<const float> input, std::span<float> output);
+void HadamardMultiply(std::span<const float> input, std::span<float> output);
 void WalshHadamardTransform(std::span<float> inout);
 
 void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
-void MatrixMultiply_4(const std::span<const float, 4> input, std::span<float, 4> output,
-                      const std::span<const float, 4 * 4> matrix);
-void MatrixMultiply_8(const std::span<const float, 8> input, std::span<float, 8> output,
-                      const std::span<const float, 8 * 8> matrix);
-void MatrixMultiply_16(const std::span<const float, 16> input, std::span<float, 16> output,
-                       const std::span<const float, 16 * 16> matrix);
+void MatrixMultiply_4(std::span<const float, 4> input, std::span<float, 4> output,
+                      std::span<const float, 4 * 4> matrix);
+void MatrixMultiply_8(std::span<const float, 8> input, std::span<float, 8> output,
+                      std::span<const float, 8 * 8> matrix);
+void MatrixMultiply_16(std::span<const float, 16> input, std::span<float, 16> output,
+                       std::span<const float, 16 * 16> matrix);
 
 /// @brief Matrix multiplication
 /// @param in k x mat_size input matrix in column-major order

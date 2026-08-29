@@ -216,7 +216,7 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
         std::vector<uint32_t> block_indices(order_);
         for (uint32_t index = 0; index < order_;)
         {
-            const Eigen::Index eigen_index = static_cast<Eigen::Index>(index);
+            const auto eigen_index = static_cast<Eigen::Index>(index);
             const bool is_rotation = (index + 1U) < order_ &&
                                      std::abs(schur_form(eigen_index + 1, eigen_index)) > kSchurSubDiagonalTolerance;
             if (is_rotation)

@@ -47,7 +47,7 @@ class Delay
     void SetDelay(uint32_t delay) noexcept SFFDN_NONBLOCKING;
 
     /** @brief Returns the current delay in samples. */
-    uint32_t GetDelay(void) const noexcept SFFDN_NONBLOCKING
+    uint32_t GetDelay() const noexcept SFFDN_NONBLOCKING
     {
         return delay_;
     };
@@ -85,7 +85,7 @@ class Delay
      * @note The input and output buffers must have the same sample count and a channel count of 1 (mono).
      * @note The input samples are added to the delay line, and the output samples are read from the delay line.
      */
-    void Process(const AudioBuffer input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    void Process(AudioBuffer input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
     /**
      * @brief Adds the next input samples to the delay line.

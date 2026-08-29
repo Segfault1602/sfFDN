@@ -456,7 +456,9 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter
                       options);
 }
 
-static std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<const CascadedBiquadsOptions> configs)
+namespace
+{
+std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<const CascadedBiquadsOptions> configs)
 {
     const auto stage_count = configs.front().coeffs.size();
     std::vector<FilterCoefficients> coeffs;
@@ -470,6 +472,7 @@ static std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<co
     filter_bank->SetFilter(coeffs, static_cast<uint32_t>(configs.size()));
     return filter_bank;
 }
+} // namespace
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& options)
 {

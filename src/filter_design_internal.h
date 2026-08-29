@@ -25,7 +25,7 @@ template <typename T>
 std::array<T, 6> Pareq(T g, T gb, T w0, T b);
 
 template <typename T>
-void Polyval(const std::span<const T> p, const std::span<std::complex<T>> x, std::span<std::complex<T>> result);
+void Polyval(std::span<const T> p, std::span<std::complex<T>> x, std::span<std::complex<T>> result);
 
 std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, double sr, double shelf_cutoff = 8000.0);
 
@@ -114,7 +114,7 @@ std::array<T, 6> sfFDN::Pareq(T g, T gb, T w0, T b)
 template <typename T>
 void sfFDN::Polyval(const std::span<const T> p, const std::span<std::complex<T>> x, std::span<std::complex<T>> result)
 {
-    if (p.size() < 1)
+    if (p.empty())
     {
         return;
     }
