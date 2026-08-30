@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ranges>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace
@@ -49,9 +50,15 @@ Delay::Delay(uint32_t delay, uint32_t max_delay)
         assert(false);
     }
 
-    if ((max_delay + 1) > buffer_.size())
+    const uintmax_t required_size = static_cast<uintmax_t>(max_delay) + 1U;
+    if (required_size > buffer_.max_size())
     {
-        buffer_.resize(max_delay + 1, 0.0);
+        throw std::length_error("Delay: maximum delay exceeds the addressable buffer size");
+    }
+
+    if (required_size > buffer_.size())
+    {
+        buffer_.resize(static_cast<size_t>(required_size), 0.0);
     }
 
     in_point_ = 0;
@@ -67,11 +74,17 @@ void Delay::Clear()
 
 void Delay::SetMaximumDelay(uint32_t delay)
 {
-    if (delay < buffer_.size())
+    const uintmax_t required_size = static_cast<uintmax_t>(delay) + 1U;
+    if (required_size > buffer_.max_size())
+    {
+        throw std::length_error("Delay: maximum delay exceeds the addressable buffer size");
+    }
+
+    if (required_size <= buffer_.size())
     {
         return;
     }
-    buffer_.resize(delay + 1, 0.0);
+    buffer_.resize(static_cast<size_t>(required_size), 0.0);
 }
 
 uint32_t Delay::GetMaximumDelay() const noexcept SFFDN_NONBLOCKING

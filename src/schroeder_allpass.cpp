@@ -4,12 +4,54 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
+#include <array>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <utility>
 #include <vector>
+
+namespace
+{
+void ValidateDelay(uint32_t delay)
+{
+    if (delay == 0)
+    {
+        throw std::invalid_argument("TimeVaryingSchroederAllpass: delay must be positive");
+    }
+}
+
+void ValidateGain(float gain, float amplitude)
+{
+    if (!std::isfinite(gain) || !std::isfinite(amplitude) || std::abs(gain) + std::abs(amplitude) >= 1.f)
+    {
+        throw std::invalid_argument(
+            "TimeVaryingSchroederAllpass: abs(base gain) + abs(modulation amplitude) must be less than one");
+    }
+}
+
+void ValidateModulation(const sfFDN::ModulationOptions& modulation)
+{
+    if (!std::isfinite(modulation.frequency) || !std::isfinite(modulation.initial_phase) ||
+        modulation.frequency <= 0.f || modulation.amplitude == 0.f || modulation.initial_phase < 0.f ||
+        modulation.initial_phase > 1.f)
+    {
+        throw std::invalid_argument(
+            "TimeVaryingSchroederAllpass: modulation frequency and amplitude must be non-zero and phase must be in "
+            "[0, 1]");
+    }
+}
+
+sfFDN::Delay MakeDelay(uint32_t delay)
+{
+    ValidateDelay(delay);
+    return {delay, delay};
+}
+} // namespace
 
 namespace sfFDN
 {
@@ -91,6 +133,102 @@ void SchroederAllpass::ProcessBlockAccumulate(std::span<const float> in,
 void SchroederAllpass::Clear()
 {
     delay_.Clear();
+}
+
+TimeVaryingSchroederAllpass::TimeVaryingSchroederAllpass(uint32_t delay, float gain,
+                                                         const ModulationOptions& modulation)
+    : delay_(MakeDelay(delay))
+    , gain_(gain)
+{
+    ValidateGain(gain, modulation.amplitude);
+    ValidateModulation(modulation);
+
+    lfo_.SetFrequency(modulation.frequency);
+    lfo_.SetAmplitude(modulation.amplitude);
+    lfo_.SetPhaseOffset(modulation.initial_phase);
+}
+
+void TimeVaryingSchroederAllpass::SetDelay(uint32_t delay)
+{
+    ValidateDelay(delay);
+    if (delay > delay_.GetMaximumDelay())
+    {
+        delay_.SetMaximumDelay(delay);
+    }
+    delay_.SetDelay(delay);
+}
+
+float TimeVaryingSchroederAllpass::Tick(float input, float gain) noexcept SFFDN_NONBLOCKING
+{
+    assert(gain > -1.f && gain < 1.f);
+
+    const float complementary_gain = std::sqrt(1.f - (gain * gain));
+    const float delayed = delay_.NextOut();
+    delay_.Tick((complementary_gain * input) + (gain * delayed));
+    return (complementary_gain * delayed) - (gain * input);
+}
+
+float TimeVaryingSchroederAllpass::Tick(float input) noexcept SFFDN_NONBLOCKING
+{
+    return Tick(input, gain_ + lfo_.Tick());
+}
+
+void TimeVaryingSchroederAllpass::ProcessBlock(std::span<const float> in,
+                                               std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(in.size() == out.size());
+
+    constexpr uint32_t kUnrollFactor = 16;
+    const uint32_t size = in.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1U);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
+    {
+        std::array<float, kUnrollFactor> modulation{};
+        lfo_.Generate(modulation);
+        for (uint32_t index = 0; index < kUnrollFactor; ++index)
+        {
+            out[sample + index] = Tick(in[sample + index], gain_ + modulation[index]);
+        }
+    }
+
+    for (; sample < size; ++sample)
+    {
+        out[sample] = Tick(in[sample]);
+    }
+}
+
+void TimeVaryingSchroederAllpass::ProcessBlockAccumulate(std::span<const float> in,
+                                                         std::span<float> out) noexcept SFFDN_NONBLOCKING
+{
+    assert(in.size() == out.size());
+
+    constexpr uint32_t kUnrollFactor = 16;
+    const uint32_t size = in.size();
+    const uint32_t unroll_size = size & ~(kUnrollFactor - 1U);
+
+    uint32_t sample = 0;
+    for (; sample < unroll_size; sample += kUnrollFactor)
+    {
+        std::array<float, kUnrollFactor> modulation{};
+        lfo_.Generate(modulation);
+        for (uint32_t index = 0; index < kUnrollFactor; ++index)
+        {
+            out[sample + index] += Tick(in[sample + index], gain_ + modulation[index]);
+        }
+    }
+
+    for (; sample < size; ++sample)
+    {
+        out[sample] += Tick(in[sample]);
+    }
+}
+
+void TimeVaryingSchroederAllpass::Clear()
+{
+    delay_.Clear();
+    lfo_.ResetPhase();
 }
 
 SchroederAllpassSection::SchroederAllpassSection(const SchroederAllpassSectionOptions& config)
@@ -269,6 +407,108 @@ std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
     {
         auto schroeder = std::make_unique<sfFDN::SchroederAllpassSection>(section_config);
         bank->AddFilter(std::move(schroeder));
+    }
+    return bank;
+}
+
+TimeVaryingSchroederAllpassSection::TimeVaryingSchroederAllpassSection(
+    const TimeVaryingSchroederAllpassSectionOptions& config)
+    : parallel_(config.parallel)
+{
+    if (config.delays.empty() || config.gains.size() != config.delays.size() ||
+        config.time_varying_config.size() != config.delays.size())
+    {
+        throw std::invalid_argument(
+            "TimeVaryingSchroederAllpassSection: delays, gains, and modulation must have equal non-zero sizes");
+    }
+
+    allpasses_.reserve(config.delays.size());
+    for (size_t stage = 0; stage < config.delays.size(); ++stage)
+    {
+        const float delay = config.delays[stage];
+        if (!std::isfinite(delay) || delay < 1.f || std::trunc(delay) != delay ||
+            delay >= static_cast<float>(std::numeric_limits<uint32_t>::max()))
+        {
+            throw std::invalid_argument("TimeVaryingSchroederAllpassSection: delays must be positive integers");
+        }
+
+        const auto integer_delay = static_cast<uint32_t>(delay);
+        allpasses_.emplace_back(integer_delay, config.gains[stage], config.time_varying_config[stage]);
+    }
+}
+
+void TimeVaryingSchroederAllpassSection::Process(const AudioBuffer& input,
+                                                 AudioBuffer& output) noexcept SFFDN_NONBLOCKING
+{
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == 1);
+    assert(output.ChannelCount() == 1);
+    assert(!allpasses_.empty());
+
+    const auto input_span = input.GetChannelSpan(0);
+    auto output_span = output.GetChannelSpan(0);
+    if (parallel_)
+    {
+        if (input.Data() == output.Data())
+        {
+            for (uint32_t sample = 0; sample < input_span.size(); ++sample)
+            {
+                const float input_sample = input_span[sample];
+                float output_sample = 0.f;
+                for (auto& allpass : allpasses_)
+                {
+                    output_sample += allpass.Tick(input_sample);
+                }
+                output_span[sample] = output_sample;
+            }
+            return;
+        }
+
+        allpasses_.front().ProcessBlock(input_span, output_span);
+        for (size_t stage = 1; stage < allpasses_.size(); ++stage)
+        {
+            allpasses_[stage].ProcessBlockAccumulate(input_span, output_span);
+        }
+        return;
+    }
+
+    allpasses_.front().ProcessBlock(input_span, output_span);
+    for (size_t stage = 1; stage < allpasses_.size(); ++stage)
+    {
+        allpasses_[stage].ProcessBlock(output_span, output_span);
+    }
+}
+
+uint32_t TimeVaryingSchroederAllpassSection::InputChannelCount() const noexcept SFFDN_NONBLOCKING
+{
+    return 1;
+}
+
+uint32_t TimeVaryingSchroederAllpassSection::OutputChannelCount() const noexcept SFFDN_NONBLOCKING
+{
+    return 1;
+}
+
+void TimeVaryingSchroederAllpassSection::Clear()
+{
+    for (auto& allpass : allpasses_)
+    {
+        allpass.Clear();
+    }
+}
+
+std::unique_ptr<AudioProcessor> TimeVaryingSchroederAllpassSection::Clone() const
+{
+    return std::make_unique<TimeVaryingSchroederAllpassSection>(*this);
+}
+
+std::unique_ptr<FilterBank> MakeMultichannelTimeVaryingSchroederAllpassSection(
+    const MultichannelTimeVaryingSchroederAllpassSectionOptions& options)
+{
+    auto bank = std::make_unique<FilterBank>();
+    for (const auto& section_config : options.sections)
+    {
+        bank->AddFilter(std::make_unique<TimeVaryingSchroederAllpassSection>(section_config));
     }
     return bank;
 }
