@@ -46,8 +46,6 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
     }
 }
 
-ScalarFeedbackMatrix::~ScalarFeedbackMatrix() = default;
-
 bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
 {
     auto order = static_cast<uint32_t>(std::sqrt(matrix.size()));

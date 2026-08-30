@@ -10,11 +10,11 @@
 
 // Define SFFDN_SIMD_FORCE_SCALAR to compile the portable fallback on any target. This exists so
 // the scalar kernels stay testable against the vector kernels on a single machine.
-#if !defined(SFFDN_SIMD_FORCE_SCALAR)
+#ifndef SFFDN_SIMD_FORCE_SCALAR
 #if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(_M_ARM64)
 #include <arm_neon.h>
 #define SFFDN_SIMD_NEON 1
-#elif defined(__AVX__)
+#elifdef __AVX__
 #include <immintrin.h>
 #define SFFDN_SIMD_AVX 1
 #elif defined(__SSE__) || defined(HAVE_XMMINTRIN_H) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1)
@@ -37,7 +37,7 @@ namespace sfFDN::simd
  * this library are provided. Every operation is branch-free and allocation-free so that callers
  * remain real-time safe.
  */
-#if defined(SFFDN_SIMD_NEON)
+#ifdef SFFDN_SIMD_NEON
 
 inline constexpr size_t kWidth = 4;
 using Vec = float32x4_t;
@@ -89,7 +89,7 @@ inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
     return vfmsq_f32(c, a, b);
 }
 
-#elif defined(SFFDN_SIMD_AVX)
+#elifdef SFFDN_SIMD_AVX
 
 inline constexpr size_t kWidth = 8;
 using Vec = __m256;
@@ -263,7 +263,7 @@ inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 #endif
 
 /** @brief Rounds @p count up to a whole number of vector lanes. */
-inline constexpr size_t PadToWidth(size_t count) noexcept
+constexpr size_t PadToWidth(size_t count) noexcept
 {
     return ((count + kWidth - 1) / kWidth) * kWidth;
 }

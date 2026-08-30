@@ -180,7 +180,6 @@ class CascadedBiquads : public AudioProcessor
   public:
     /** @brief Constructs a cascaded biquad filter. */
     CascadedBiquads(const CascadedBiquadsOptions& config = {});
-    ~CascadedBiquads() = default;
 
     /** @brief Sets the biquad coefficients for each stage.
      * @param coeffs A span of FilterCoefficients, one for each biquad stage.
@@ -243,25 +242,25 @@ class Fir : public AudioProcessor
   public:
     /** @brief Constructs a FIR filter. */
     Fir(const FirOptions& config = {});
-    ~Fir();
+    ~Fir() override;
 
     /** @brief Copy constructor for the FIR filter.
      */
-    Fir(const Fir&);
+    Fir(const Fir& other);
 
     /** @brief Copy assignment operator for the FIR filter.
      * @return A reference to the assigned FIR filter.
      */
-    Fir& operator=(const Fir&);
+    Fir& operator=(const Fir& other);
 
     /** @brief Move constructor for the FIR filter.
      */
-    Fir(Fir&&) noexcept;
+    Fir(Fir&& other) noexcept;
 
     /** @brief Move assignment operator for the FIR filter.
      * @return A reference to the assigned FIR filter.
      */
-    Fir& operator=(Fir&&) noexcept;
+    Fir& operator=(Fir&& other) noexcept;
 
     /** @brief Sets the FIR coefficients.
      * @param coeffs The FIR coefficients.
@@ -317,7 +316,15 @@ class SparseFir : public AudioProcessor
   public:
     /** @brief Constructs a sparse FIR filter. */
     SparseFir(const SparseFirOptions& config = {});
-    ~SparseFir();
+    ~SparseFir() override;
+
+    // impl_ is a unique_ptr to an incomplete type, so the destructor must be defined out of line,
+    // which suppresses the implicit move operations. Declare them explicitly so a SparseFir can be
+    // moved instead of silently failing to compile. The pimpl cannot be copied; use Clone().
+    SparseFir(const SparseFir&) = delete;
+    SparseFir& operator=(const SparseFir&) = delete;
+    SparseFir(SparseFir&& other) noexcept;
+    SparseFir& operator=(SparseFir&& other) noexcept;
 
     /** @brief Sets the FIR coefficients.
      * @param config The FIR coefficients.

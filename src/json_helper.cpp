@@ -154,6 +154,11 @@ nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config
                                      proc["SchroederAllpassSectionOptions"] = config;
                                      return proc;
                                  },
+                                 [](const TimeVaryingSchroederAllpassSectionOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["TimeVaryingSchroederAllpassSectionOptions"] = config;
+                                     return proc;
+                                 },
                                  [](const AllpassFilterOptions& config) {
                                      nlohmann::json proc;
                                      proc["AllpassFilterOptions"] = config;
@@ -197,6 +202,11 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                                  [](const MultichannelSchroederAllpassSectionOptions& config) {
                                      nlohmann::json proc;
                                      proc["MultichannelSchroederAllpassSectionOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const MultichannelTimeVaryingSchroederAllpassSectionOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelTimeVaryingSchroederAllpassSectionOptions"] = config;
                                      return proc;
                                  },
                                  [](const MultichannelDattorroDelayOptions& config) {
@@ -243,6 +253,11 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
         return j["SchroederAllpassSectionOptions"].get<SchroederAllpassSectionOptions>();
     }
 
+    if (j.contains("TimeVaryingSchroederAllpassSectionOptions"))
+    {
+        return j["TimeVaryingSchroederAllpassSectionOptions"].get<TimeVaryingSchroederAllpassSectionOptions>();
+    }
+
     if (j.contains("AllpassFilterOptions"))
     {
         return j["AllpassFilterOptions"].get<AllpassFilterOptions>();
@@ -287,6 +302,12 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
     if (j.contains("MultichannelSchroederAllpassSectionOptions"))
     {
         return j["MultichannelSchroederAllpassSectionOptions"].get<MultichannelSchroederAllpassSectionOptions>();
+    }
+
+    if (j.contains("MultichannelTimeVaryingSchroederAllpassSectionOptions"))
+    {
+        return j["MultichannelTimeVaryingSchroederAllpassSectionOptions"]
+            .get<MultichannelTimeVaryingSchroederAllpassSectionOptions>();
     }
 
     if (j.contains("MultichannelDattorroDelayOptions"))

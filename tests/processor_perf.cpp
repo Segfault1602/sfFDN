@@ -155,9 +155,8 @@ TEST_CASE("MultichannelDattorroDelayPerf")
     constexpr float kSampleRate = 48000.f;
 
     // The cost of putting one chorus per channel in an FDN feedback loop.
-    auto bank = sfFDN::MakeMultichannelDattorroDelay(
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate,
-                                                    kChannelCount));
+    auto bank = sfFDN::MakeMultichannelDattorroDelay(sfFDN::MakeMultichannelDattorroDelayOptions(
+        sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, kChannelCount));
 
     std::vector<float> input(static_cast<size_t>(kBlockSize) * kChannelCount, 0.f);
     std::vector<float> output(input.size(), 0.f);
@@ -239,6 +238,51 @@ TEST_CASE("DattorroDelayVsTimeVaryingPerf")
     });
     bench.run("DattorroDelay (feedback)", [&] {
         with_feedback.Process(input_buffer, output_buffer);
+        nanobench::doNotOptimizeAway(output);
+    });
+}
+
+TEST_CASE("SchroederAllpassComparisonPerf")
+{
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kDelay = 479;
+    constexpr float kGain = 0.55f;
+    constexpr float kSampleRate = 48000.f;
+
+    std::vector<float> input(kBlockSize);
+    std::vector<float> output(kBlockSize);
+    sfFDN::RNG generator;
+    for (float& sample : input)
+    {
+        sample = generator();
+    }
+
+    nanobench::Bench bench;
+    bench.title("SchroederAllpass vs TimeVaryingSchroederAllpass");
+    bench.timeUnit(1us, "us");
+    bench.minEpochTime(50ms);
+    bench.relative(true);
+
+    sfFDN::SchroederAllpass static_allpass(kDelay, kGain);
+    bench.run("SchroederAllpass", [&] {
+        static_allpass.ProcessBlock(input, output);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    sfFDN::TimeVaryingSchroederAllpass modulated_allpass(
+        kDelay, kGain,
+        sfFDN::ModulationOptions{.frequency = 0.7f / kSampleRate, .amplitude = 0.3f, .initial_phase = 0.125f});
+    bench.run("TimeVaryingSchroederAllpass (modulated gain)", [&] {
+        modulated_allpass.ProcessBlock(input, output);
+        nanobench::doNotOptimizeAway(output);
+    });
+
+    sfFDN::DattorroDelay modulated_delay(
+        sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate));
+    sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    bench.run("Dattorro modulated delay context", [&] {
+        modulated_delay.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
     });
 }

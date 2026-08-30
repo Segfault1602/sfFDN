@@ -4,9 +4,7 @@
 
 #include <span>
 
-namespace sfFDN
-{
-namespace ArrayMath
+namespace sfFDN::ArrayMath
 {
 
 // Add two arrays element-wise, store the result in the first array
@@ -19,10 +17,10 @@ void Add(std::span<const float> a, std::span<const float> b, std::span<float> ou
 
 // Scales an array by a constant
 // out[i] = a[i] * b
-void Scale(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
+void Scale(std::span<const float> a, float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // out[i] += a[i] * b
-void ScaleAccumulate(std::span<const float> a, const float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
+void ScaleAccumulate(std::span<const float> a, float b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
 // out[i] = a[i] * b[i]
 void Multiply(std::span<const float> a, std::span<const float> b, std::span<float> out) noexcept SFFDN_NONBLOCKING;
@@ -31,6 +29,4 @@ void Multiply(std::span<const float> a, std::span<const float> b, std::span<floa
 void MultiplyAdd(std::span<const float> a, float b, std::span<const float> c,
                  std::span<float> out) noexcept SFFDN_NONBLOCKING;
 
-} // namespace ArrayMath
-
-} // namespace sfFDN
+} // namespace sfFDN::ArrayMath

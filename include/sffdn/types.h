@@ -13,7 +13,10 @@ namespace sfFDN
 {
 
 // helper type for the visitor #4
+// The overload-set idiom inherits from a pack of lambdas so that std::visit can dispatch on it. The multiple
+// inheritance is the whole point, so misc-multiple-inheritance does not apply.
 template <class... Ts>
+// NOLINTNEXTLINE(misc-multiple-inheritance)
 struct overloaded : Ts...
 {
     using Ts::operator()...;
@@ -136,7 +139,7 @@ enum class TimeVaryingMatrixMode : uint8_t
 struct ScalarFeedbackMatrixOptions
 {
     //! Size of the feedback matrix
-    uint32_t matrix_size;
+    uint32_t matrix_size{0};
 
     //! Type of the feedback matrix
     ScalarMatrixType type{ScalarMatrixType::Random};
@@ -191,7 +194,7 @@ struct ModulationOptions
  */
 struct TimeVaryingFeedbackMatrixOptions
 {
-    uint32_t matrix_size; /**< Dimension of the square feedback matrix. Must be even and at least two. */
+    uint32_t matrix_size{0}; /**< Dimension of the square feedback matrix. Must be even and at least two. */
     TimeVaryingMatrixMode mode{TimeVaryingMatrixMode::Hadamard}; /**< Construction mode for the orthogonal matrix. */
     std::vector<ModulationOptions>
         time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
@@ -240,9 +243,10 @@ struct DelayBankTimeVaryingOptions
 {
     std::vector<float> delays; /*< Initial delay values for each channel in samples. These can be fractional values if
               interpolation is used. The size of the vector determines the number of channels in the delay bank. */
-    uint32_t max_delay;        /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
+    uint32_t max_delay{0};     /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                                     must be greater than or equal to the initial delays. */
-    DelayInterpolationType interpolation_type;          /*< Interpolation type for fractional delays. */
+    DelayInterpolationType interpolation_type{
+        DelayInterpolationType::None};                  /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
 };
@@ -321,6 +325,26 @@ struct SchroederAllpassSectionOptions
 struct MultichannelSchroederAllpassSectionOptions
 {
     std::vector<SchroederAllpassSectionOptions> sections;
+};
+
+/** @brief Options for configuring an energy-preserving time-varying Schroeder allpass section.
+ *
+ * Each stage uses a fixed integer delay and modulates its gain coefficient. `time_varying_config` must contain one
+ * non-zero modulation entry per stage. The complete gain range must remain strictly inside (-1, 1).
+ */
+struct TimeVaryingSchroederAllpassSectionOptions
+{
+    std::vector<float> delays; /**< Fixed delay values in samples. Every value must be a positive integer. */
+    std::vector<float> gains;  /**< Base gain values. The size must match `delays`. */
+    std::vector<ModulationOptions>
+        time_varying_config; /**< Gain modulation per stage. `amplitude` is the non-zero peak gain deviation. */
+    bool parallel{false};    /**< If true, process stages in parallel. Otherwise, process them in series. */
+};
+
+/** @brief Options for configuring a multichannel bank of time-varying Schroeder allpass sections. */
+struct MultichannelTimeVaryingSchroederAllpassSectionOptions
+{
+    std::vector<TimeVaryingSchroederAllpassSectionOptions> sections;
 };
 
 /** @brief Classic delay-line effects, as described in Table 1 of Jon Dattorro, "Effect Design Part 2: Delay-Line
@@ -446,10 +470,10 @@ struct AttenuationFilterBankOptions
 struct GraphicEQOptions
 {
     //! Target gains for the ten bands in dB.
-    std::array<float, 10> gains_db;
+    std::array<float, 10> gains_db{};
 
     //! Frequency values for the ten bands in Hz.
-    std::array<float, 10> freqs;
+    std::array<float, 10> freqs{};
 
     //! Sample rate in Hz.
     float sample_rate = kDefaultSampleRate;
@@ -461,12 +485,13 @@ using feedback_matrix_variant_t =
 
 /** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
-    std::variant<SchroederAllpassSectionOptions, AllpassFilterOptions, CascadedBiquadsOptions, FirOptions, DelayOptions,
-                 GraphicEQOptions, DattorroDelayOptions>;
+    std::variant<SchroederAllpassSectionOptions, TimeVaryingSchroederAllpassSectionOptions, AllpassFilterOptions,
+                 CascadedBiquadsOptions, FirOptions, DelayOptions, GraphicEQOptions, DattorroDelayOptions>;
 
 /** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
-    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
+    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions,
+                 MultichannelTimeVaryingSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
                  AttenuationFilterBankOptions, DelayBankOptions, DelayBankTimeVaryingOptions,
                  CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions>;
 
@@ -522,8 +547,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelFirOptions, coeffs);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TimeVaryingSchroederAllpassSectionOptions, delays, gains, time_varying_config,
+                                   parallel);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DattorroDelayOptions, delay_config, blend, feedforward, feedback);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelTimeVaryingSchroederAllpassSectionOptions, sections);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelDattorroDelayOptions, delays);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);

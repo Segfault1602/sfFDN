@@ -76,13 +76,13 @@ class IIRFilterBank : public AudioProcessor
 
     /** @brief Move constructor for the IIR filter bank.
      */
-    IIRFilterBank(IIRFilterBank&&) noexcept;
+    IIRFilterBank(IIRFilterBank&& other) noexcept;
     /** @brief Move assignment operator for the IIR filter bank.
      * @return A reference to the assigned IIR filter bank.
      */
-    IIRFilterBank& operator=(IIRFilterBank&&) noexcept;
+    IIRFilterBank& operator=(IIRFilterBank&& other) noexcept;
 
-    ~IIRFilterBank();
+    ~IIRFilterBank() override;
 
     /** @brief Clears the internal state of the processor. */
     void Clear() override;

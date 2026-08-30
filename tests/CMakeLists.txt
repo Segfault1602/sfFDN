@@ -68,6 +68,7 @@ target_sources(
             sincos_tests.cpp
             time_varying_feedback_matrix_tests.cpp
             time_varying_fdn_signal_tests.cpp
+            time_varying_schroeder_allpass_tests.cpp
             test_utils.cpp
 )
 target_link_libraries(

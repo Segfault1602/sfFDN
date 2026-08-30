@@ -289,12 +289,12 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcep
         delayline_.Process(input, output);
         const std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
         auto out_span = output.GetChannelSpan(0);
-        for (uint32_t n = 0; n < out_span.size(); ++n)
+        for (float& sample : out_span)
         {
             // linear_last_out_ holds the *raw* delay line output of the previous sample, so it has to be saved
             // before the interpolated value overwrites it.
-            const float raw = out_span[n];
-            out_span[n] = (raw * coeffs[0]) + (linear_last_out_ * coeffs[1]);
+            const float raw = sample;
+            sample = (raw * coeffs[0]) + (linear_last_out_ * coeffs[1]);
             linear_last_out_ = raw;
         }
     }
@@ -348,10 +348,10 @@ void DelayInterp::GetNextOutputs(std::span<float> output) noexcept SFFDN_NONBLOC
     {
         delayline_.GetNextOutputs(output);
         const std::array<float, 2> coeffs = {1.0f - frac_delay_, frac_delay_};
-        for (uint32_t n = 0; n < output.size(); ++n)
+        for (float& sample : output)
         {
-            const float raw = output[n];
-            output[n] = (raw * coeffs[0]) + (linear_last_out_ * coeffs[1]);
+            const float raw = sample;
+            sample = (raw * coeffs[0]) + (linear_last_out_ * coeffs[1]);
             linear_last_out_ = raw;
         }
     }

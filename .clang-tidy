@@ -1,4 +1,12 @@
 ---
+# Opt-outs below fall into two groups: style choices this codebase has settled on, and checks that
+# are impossible to satisfy given how the code has to work. The latter are annotated inline in the
+# list order they appear:
+#   portability-avoid-pragma-once  - every header in the project uses '#pragma once' deliberately.
+#   cppcoreguidelines-macro-usage  - SFFDN_FEA_UNSAFE needs _Pragma, and the SIMD feature flags are
+#                                    consumed by '#if', so neither can become a function or constant.
+#   *-macro-to-enum                - SFFDN_HAS_SIMD is tested with '#if'; an enum is not visible to
+#                                    the preprocessor.
 Checks: "*,
         -readability-identifier-naming,
         -bugprone-implicit-widening-of-multiplication-result,
@@ -25,6 +33,10 @@ Checks: "*,
         -modernize-use-integer-sign-comparison,
         -misc-include-cleaner,
         -misc-confusable-identifiers,
+        -portability-avoid-pragma-once,
+        -cppcoreguidelines-macro-usage,
+        -cppcoreguidelines-macro-to-enum,
+        -modernize-macro-to-enum,
         -mpi-*,
         -cert-*,
         -abseil-*,
@@ -41,6 +53,10 @@ Checks: "*,
 HeaderFilterRegex: ''
 FormatStyle:     none
 CheckOptions:
+  # FilterCoefficients and the *Options aggregates are plain data with every member public by
+  # design; the check still fires on classes that mix public and private state.
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           true
   - key:             readability-identifier-naming.VariableCase
     value:           lower_case
   - key:             readability-identifier-naming.FunctionCase

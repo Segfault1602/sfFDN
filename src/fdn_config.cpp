@@ -38,6 +38,10 @@ std::string VariantTypeName()
     {
         return "MultichannelSchroederAllpassSectionOptions";
     }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>)
+    {
+        return "MultichannelTimeVaryingSchroederAllpassSectionOptions";
+    }
     else if constexpr (std::is_same_v<T, sfFDN::MultichannelDattorroDelayOptions>)
     {
         return "MultichannelDattorroDelayOptions";
@@ -49,6 +53,10 @@ std::string VariantTypeName()
     else if constexpr (std::is_same_v<T, sfFDN::SchroederAllpassSectionOptions>)
     {
         return "SchroederAllpassSectionOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::TimeVaryingSchroederAllpassSectionOptions>)
+    {
+        return "TimeVaryingSchroederAllpassSectionOptions";
     }
     else if constexpr (std::is_same_v<T, sfFDN::AllpassFilterOptions>)
     {
@@ -218,6 +226,15 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 }
                 return true;
             },
+            [&config](const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions& schroeder_config) {
+                if (schroeder_config.sections.size() != config.fdn_size)
+                {
+                    std::cerr << "Number of sections in multichannel time-varying Schroeder allpass config must match "
+                                 "FDN size\n";
+                    return false;
+                }
+                return true;
+            },
             [&config](const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) {
                 if (dattorro_config.delays.size() != config.fdn_size)
                 {
@@ -327,6 +344,20 @@ struct SingleChannelProcessorVisitor
         return std::make_unique<sfFDN::SchroederAllpassSection>(config);
     }
 
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::TimeVaryingSchroederAllpassSectionOptions& config) const
+    {
+        try
+        {
+            return std::make_unique<sfFDN::TimeVaryingSchroederAllpassSection>(config);
+        }
+        catch (const std::invalid_argument& error)
+        {
+            throw std::runtime_error(std::string("Invalid time-varying Schroeder allpass configuration: ") +
+                                     error.what());
+        }
+    }
+
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::AllpassFilterOptions& config) const
     {
         auto filter = std::make_unique<sfFDN::AllpassFilter>();
@@ -381,13 +412,21 @@ struct MultichannelProcessorVisitor
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
         const sfFDN::MultichannelSchroederAllpassSectionOptions& schroeder_config) const
     {
-        auto bank = std::make_unique<sfFDN::FilterBank>();
-        for (const auto& section_config : schroeder_config.sections)
+        return sfFDN::MakeMultichannelSchroederAllpassSection(schroeder_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions& schroeder_config) const
+    {
+        try
         {
-            auto schroeder = std::make_unique<sfFDN::SchroederAllpassSection>(section_config);
-            bank->AddFilter(std::move(schroeder));
+            return sfFDN::MakeMultichannelTimeVaryingSchroederAllpassSection(schroeder_config);
         }
-        return bank;
+        catch (const std::invalid_argument& error)
+        {
+            throw std::runtime_error(
+                std::string("Invalid multichannel time-varying Schroeder allpass configuration: ") + error.what());
+        }
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
@@ -610,7 +649,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
             fdn->SetLoopFilter(std::move(processor));
         }
-        else if (config.loop_filter_configs.size() >= 1)
+        else if (!config.loop_filter_configs.empty())
         {
             auto loop_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
 

@@ -26,14 +26,12 @@ class ScalarFeedbackMatrix : public AudioProcessor
      */
     ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config);
 
-    ~ScalarFeedbackMatrix() override;
-
     /** @brief Sets the matrix coefficients.
      * @param matrix A span representing the matrix coefficients in column-major order. The span must be of size
      * `order * order`.
      * @return true if the matrix was set successfully, false otherwise (e.g. if the size is incorrect).
      */
-    bool SetMatrix(const std::span<const float> matrix);
+    bool SetMatrix(std::span<const float> matrix);
 
     /**
      * @brief Get the Matrix object

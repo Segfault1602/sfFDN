@@ -34,14 +34,14 @@ class DelayMatrix : public AudioProcessor
     ~DelayMatrix() override;
 
     /** @brief Copy constructor. */
-    DelayMatrix(const DelayMatrix&);
+    DelayMatrix(const DelayMatrix& other);
     /** @brief Copy assignment operator. */
-    DelayMatrix& operator=(const DelayMatrix&);
+    DelayMatrix& operator=(const DelayMatrix& other);
 
     /** @brief Move constructor. */
-    DelayMatrix(DelayMatrix&&) noexcept;
+    DelayMatrix(DelayMatrix&& other) noexcept;
     /** @brief Move assignment operator. */
-    DelayMatrix& operator=(DelayMatrix&&) noexcept;
+    DelayMatrix& operator=(DelayMatrix&& other) noexcept;
 
     /** @brief Processes the input audio buffer through the delay matrix.
      * @param input the input audio buffer

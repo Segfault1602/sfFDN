@@ -199,7 +199,7 @@ void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noe
     assert(input.SampleCount() == output.SampleCount());
 
     constexpr size_t kChunkSize = 128;
-    std::array<float, kChunkSize> sums;
+    std::array<float, kChunkSize> sums{};
     const size_t sample_count = input.SampleCount();
     const float scale = 2.f / static_cast<float>(matrix_size);
 

@@ -65,8 +65,8 @@ class FFTBuffer
 
     FFTBuffer(const FFTBuffer&) = delete;
     FFTBuffer& operator=(const FFTBuffer&) = delete;
-    FFTBuffer(FFTBuffer&&) noexcept;
-    FFTBuffer& operator=(FFTBuffer&&) noexcept;
+    FFTBuffer(FFTBuffer&& other) noexcept;
+    FFTBuffer& operator=(FFTBuffer&& other) noexcept;
 
     std::span<T>::iterator begin() noexcept SFFDN_NONBLOCKING
     {

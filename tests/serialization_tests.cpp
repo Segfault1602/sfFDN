@@ -67,6 +67,21 @@ void RequireEqual(const sfFDN::TimeVaryingFeedbackMatrixOptions& actual,
     }
 }
 
+void RequireEqual(const sfFDN::TimeVaryingSchroederAllpassSectionOptions& actual,
+                  const sfFDN::TimeVaryingSchroederAllpassSectionOptions& expected)
+{
+    REQUIRE(actual.delays == expected.delays);
+    REQUIRE(actual.gains == expected.gains);
+    REQUIRE(actual.parallel == expected.parallel);
+    REQUIRE(actual.time_varying_config.size() == expected.time_varying_config.size());
+    for (size_t index = 0; index < expected.time_varying_config.size(); ++index)
+    {
+        REQUIRE(actual.time_varying_config[index].frequency == expected.time_varying_config[index].frequency);
+        REQUIRE(actual.time_varying_config[index].amplitude == expected.time_varying_config[index].amplitude);
+        REQUIRE(actual.time_varying_config[index].initial_phase == expected.time_varying_config[index].initial_phase);
+    }
+}
+
 } // namespace
 
 TEST_CASE("FDNConfig")
@@ -304,4 +319,75 @@ TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix options before
     auto sentinel_mode = MakeTimeVaryingFDNConfig();
     sentinel_mode.feedback_matrix_config = sentinel_mode_options;
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(sentinel_mode), std::runtime_error);
+}
+
+TEST_CASE("Time-varying Schroeder allpass options serialize")
+{
+    const sfFDN::TimeVaryingSchroederAllpassSectionOptions section{
+        .delays = {7.F, 13.F},
+        .gains = {0.4F, -0.3F},
+        .time_varying_config =
+            {
+                {.frequency = 0.001F, .amplitude = 0.2F, .initial_phase = 0.125F},
+                {.frequency = 0.002F, .amplitude = -0.1F, .initial_phase = 0.75F},
+            },
+        .parallel = true,
+    };
+    const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions bank{
+        .sections = {section, section},
+    };
+
+    const nlohmann::json section_json = section;
+    const nlohmann::json bank_json = bank;
+    RequireEqual(section_json.get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(), section);
+
+    const auto round_tripped_bank = bank_json.get<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>();
+    REQUIRE(round_tripped_bank.sections.size() == bank.sections.size());
+    for (size_t index = 0; index < bank.sections.size(); ++index)
+    {
+        RequireEqual(round_tripped_bank.sections[index], bank.sections[index]);
+    }
+}
+
+TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses")
+{
+    auto config = MakeTimeVaryingFDNConfig();
+    const sfFDN::TimeVaryingSchroederAllpassSectionOptions input_section{
+        .delays = {5.F},
+        .gains = {0.4F},
+        .time_varying_config = {{.frequency = 0.001F, .amplitude = 0.2F, .initial_phase = 0.25F}},
+    };
+    config.input_block_config.single_channel_processors.emplace_back(input_section);
+
+    sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions loop_bank;
+    for (uint32_t channel = 0; channel < config.fdn_size; ++channel)
+    {
+        loop_bank.sections.push_back({
+            .delays = {7.F + static_cast<float>(channel)},
+            .gains = {0.35F},
+            .time_varying_config = {{.frequency = 0.0005F * static_cast<float>(channel + 1U),
+                                     .amplitude = 0.2F,
+                                     .initial_phase =
+                                         static_cast<float>(channel) / static_cast<float>(config.fdn_size)}},
+        });
+    }
+    config.loop_filter_configs.emplace_back(loop_bank);
+
+    const nlohmann::json json = config;
+    REQUIRE(json["input_block_config"]["single_channel_processors"][0].contains(
+        "TimeVaryingSchroederAllpassSectionOptions"));
+    REQUIRE(json["loop_filter_configs"][0].contains("MultichannelTimeVaryingSchroederAllpassSectionOptions"));
+
+    const auto round_tripped = json.get<sfFDN::FDNConfig>();
+    REQUIRE(std::holds_alternative<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(
+        round_tripped.input_block_config.single_channel_processors[0]));
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>(
+        round_tripped.loop_filter_configs[0]));
+    REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(round_tripped));
+
+    auto invalid = round_tripped;
+    auto& invalid_section = std::get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(
+        invalid.input_block_config.single_channel_processors[0]);
+    invalid_section.gains[0] = 1.F;
+    REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(invalid), std::runtime_error);
 }

@@ -29,18 +29,18 @@ class PartitionedConvolver : public AudioProcessor
      * Process() expects the input and output buffers to have a sample count equal to the block size.
      */
     PartitionedConvolver(uint32_t block_size, std::span<const float> fir, uint32_t rep_count = 0);
-    ~PartitionedConvolver();
+    ~PartitionedConvolver() override;
 
     PartitionedConvolver(const PartitionedConvolver&) = delete;
     PartitionedConvolver& operator=(const PartitionedConvolver&) = delete;
 
     /** @brief Move constructor for the partitioned convolver.*/
-    PartitionedConvolver(PartitionedConvolver&&) noexcept;
+    PartitionedConvolver(PartitionedConvolver&& other) noexcept;
 
     /** @brief Move assignment operator for the partitioned convolver.
      * @return A reference to the assigned partitioned convolver.
      */
-    PartitionedConvolver& operator=(PartitionedConvolver&&) noexcept;
+    PartitionedConvolver& operator=(PartitionedConvolver&& other) noexcept;
 
     /** @brief Processes the audio buffer.
      * @param input The input audio buffer.

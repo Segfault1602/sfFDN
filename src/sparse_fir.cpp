@@ -240,6 +240,8 @@ SparseFir::SparseFir(const SparseFirOptions& config)
 }
 
 SparseFir::~SparseFir() = default;
+SparseFir::SparseFir(SparseFir&& other) noexcept = default;
+SparseFir& SparseFir::operator=(SparseFir&& other) noexcept = default;
 
 void SparseFir::SetCoefficients(const SparseFirOptions& config)
 {

@@ -38,15 +38,15 @@ class UPOLS
     bool initialized_{false};
     uint32_t block_size_{0};
     uint32_t fft_size_{0};
-    FFT fft_{};
+    FFT fft_;
 
     std::vector<FFTComplexBuffer> filters_z_;
     std::vector<FFTComplexBuffer> inputs_z_; // Frequency domain delay line
     uint32_t inputs_z_index_{0};
 
-    FFTRealBuffer work_buffer_{};
-    FFTComplexBuffer spectrum_buffer_{};
-    FFTRealBuffer result_buffer_{};
+    FFTRealBuffer work_buffer_;
+    FFTComplexBuffer spectrum_buffer_;
+    FFTRealBuffer result_buffer_;
 
     uint32_t samples_needed_{0};
 };
