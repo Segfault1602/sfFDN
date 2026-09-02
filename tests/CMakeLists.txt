@@ -57,6 +57,7 @@ target_sources(
             filter_tests.cpp
             mixmat_tests.cpp
             matrix_multiplication_tests.cpp
+            nonlinear_tests.cpp
             fdn_tests.cpp
             filter_design_tests.cpp
             fft_tests.cpp
@@ -127,6 +128,7 @@ target_sources(
             array_math_perf.cpp
             mixmat_perf.cpp
             matrix_multiplication_perf.cpp
+            nonlinear_perf.cpp
             processor_perf.cpp
             parallel_gains_perf.cpp
             upols_perf.cpp

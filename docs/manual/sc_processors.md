@@ -13,6 +13,9 @@ This section describes the single-channel processors provided by sfFDN. These ar
 - [IIR](@ref sfFDN::CascadedBiquads): An infinite impulse response filter implemented as a cascade of biquad sections.
 - [One Pole](@ref sfFDN::OnePoleFilter): A simple one-pole filter.
 - [Allpass](@ref sfFDN::Allpass): A first-order allpass filter.
+- [Controllable Full-Wave Rectifier](@ref sfFDN::ControllableFullWaveRectifier): A waveshaper that blends between the input and its full-wave rectification, with first-order antiderivative antialiasing and an optional dc blocker. Generates even harmonics.
+- [Signal-Dependent Fractional Delay](@ref sfFDN::SignalDependentFractionalDelay): Delays the positive and negative half-wave components of the input by different fractional amounts, distorting the waveform around its zero crossings. A milder alternative to the rectifier.
+- [Ring Modulator](@ref sfFDN::RingModulator): Multiplies the input by a sinusoid, replacing its spectrum with two sidebands.
 
 ## AudioProcessorChain
 

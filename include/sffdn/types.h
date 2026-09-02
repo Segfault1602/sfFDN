@@ -391,6 +391,80 @@ struct MultichannelDattorroDelayOptions
     std::vector<DattorroDelayOptions> delays;
 };
 
+/** @brief Options for configuring a controllable full-wave rectifier.
+ *
+ * Implements equation (3) of G. Dal Santo, X. Pi, K. Prawda, S. J. Schlecht and V. Välimäki, "Shimmer Reverberation
+ * with Nonlinear Feedback Delay Networks", DAFx26.
+ */
+struct ControllableFullWaveRectifierOptions
+{
+    /** @brief Distortion amount, in [0, 1]. Zero passes the input through unchanged, one is a full-wave rectifier,
+     * and one half is a half-wave rectifier. */
+    float alpha{1.f};
+    /** @brief If true, approximate the rectifier with first-order antiderivative antialiasing, equation (4) of the
+     * paper. This attenuates the aliased components that fold back from the even harmonics. */
+    bool antialiasing{true};
+    /** @brief If true, follow the rectifier with a dc blocker with energy compensation, equations (7) and (8) of the
+     * paper. The rectifier produces a dc component that would otherwise accumulate in a feedback loop. */
+    bool dc_block{true};
+    /** @brief Sample rate in Hz. Only used to set the time constants of the dc blocker, so it is irrelevant when
+     * `dc_block` is false. */
+    float sample_rate{static_cast<float>(kDefaultSampleRate)};
+};
+
+/** @brief Options for configuring a multichannel bank of controllable full-wave rectifiers. Each entry processes one
+ * channel of audio, and a `std::nullopt` entry leaves its channel unprocessed. */
+struct MultichannelControllableFullWaveRectifierOptions
+{
+    std::vector<std::optional<ControllableFullWaveRectifierOptions>> channels;
+};
+
+/** @brief Options for configuring a signal-dependent fractional delay.
+ *
+ * Implements the filter of Fig. 5 of the DAFx26 shimmer paper, after V. Välimäki, T. Tolonen and M. Karjalainen,
+ * "Signal-dependent nonlinearities for physical models using time-varying fractional delay filters", ICMC 1998.
+ */
+struct SignalDependentFractionalDelayOptions
+{
+    /** @brief Interpolation weight, in [0, 1]. The positive half-wave component is delayed by `1 + d` samples and the
+     * negative one by `1 - d` samples, so zero is a plain one-sample delay and larger values distort the waveform
+     * more strongly around its zero crossings. */
+    float d{1.f};
+};
+
+/** @brief Options for configuring a multichannel bank of signal-dependent fractional delays. Each entry processes one
+ * channel of audio, and a `std::nullopt` entry leaves its channel unprocessed. */
+struct MultichannelSignalDependentFractionalDelayOptions
+{
+    std::vector<std::optional<SignalDependentFractionalDelayOptions>> channels;
+};
+
+/** @brief Options for configuring a ring modulator.
+ *
+ * Implements equation (5) of the DAFx26 shimmer paper.
+ *
+ * @note Unlike ModulationOptions::amplitude, `amplitude` here is a plain linear gain and is never multiplied by pi.
+ */
+struct RingModulatorOptions
+{
+    /** @brief Modulation frequency in cycles per sample, normalized by the sample rate. For example, 100 Hz at 96 kHz
+     * is `100.0f / 96000.0f`. Must be finite and non-negative. */
+    float frequency{0.f};
+    /** @brief Linear gain applied to the modulating sinusoid. The default of `sqrt(2)` compensates for the average
+     * power of a unit-amplitude sinusoid and makes the operation approximately energy preserving. Lower values are
+     * safer inside a strongly recirculating feedback loop. */
+    float amplitude{std::numbers::sqrt2_v<float>};
+    /** @brief Initial phase of the modulating sinusoid, normalized to [0, 1]. */
+    float initial_phase{0.f};
+};
+
+/** @brief Options for configuring a multichannel bank of ring modulators. Each entry processes one channel of audio,
+ * and a `std::nullopt` entry leaves its channel unprocessed. */
+struct MultichannelRingModulatorOptions
+{
+    std::vector<std::optional<RingModulatorOptions>> channels;
+};
+
 /** @brief Options for configuring a homogenous filter. The homogenous filter has the same attenuation characteristics
  * across all frequencies. */
 struct HomogenousFilterOptions
@@ -486,14 +560,17 @@ using feedback_matrix_variant_t =
 /** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
     std::variant<SchroederAllpassSectionOptions, TimeVaryingSchroederAllpassSectionOptions, AllpassFilterOptions,
-                 CascadedBiquadsOptions, FirOptions, DelayOptions, GraphicEQOptions, DattorroDelayOptions>;
+                 CascadedBiquadsOptions, FirOptions, DelayOptions, GraphicEQOptions, DattorroDelayOptions,
+                 ControllableFullWaveRectifierOptions, SignalDependentFractionalDelayOptions, RingModulatorOptions>;
 
 /** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
     std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions,
                  MultichannelTimeVaryingSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
                  AttenuationFilterBankOptions, DelayBankOptions, DelayBankTimeVaryingOptions,
-                 CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions>;
+                 CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions,
+                 MultichannelControllableFullWaveRectifierOptions,
+                 MultichannelSignalDependentFractionalDelayOptions, MultichannelRingModulatorOptions>;
 
 /** @}*/
 
@@ -553,6 +630,17 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DattorroDelayOptions, delay_config, blend, fe
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelTimeVaryingSchroederAllpassSectionOptions, sections);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelDattorroDelayOptions, delays);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ControllableFullWaveRectifierOptions, alpha, antialiasing, dc_block, sample_rate);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SignalDependentFractionalDelayOptions, d);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RingModulatorOptions, frequency, amplitude, initial_phase);
+// The multichannel banks hold `std::optional` entries, which nlohmann does not serialize on its own. A null entry
+// means the channel is left unprocessed.
+void to_json(nlohmann::json& j, const MultichannelControllableFullWaveRectifierOptions& config);
+void from_json(const nlohmann::json& j, MultichannelControllableFullWaveRectifierOptions& config);
+void to_json(nlohmann::json& j, const MultichannelSignalDependentFractionalDelayOptions& config);
+void from_json(const nlohmann::json& j, MultichannelSignalDependentFractionalDelayOptions& config);
+void to_json(nlohmann::json& j, const MultichannelRingModulatorOptions& config);
+void from_json(const nlohmann::json& j, MultichannelRingModulatorOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);

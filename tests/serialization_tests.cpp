@@ -153,6 +153,47 @@ TEST_CASE("FDNConfig")
     }
     config.input_block_config.multichannel_processors = {dattorro_bank_config};
 
+    // The shimmer nonlinearities. The single-channel ones are appended after the existing processors so that the
+    // indices asserted below do not shift, and the multichannel banks go in the loop filter block, which is where
+    // they belong in an FDN. Every bank leaves one channel null, so the optional entries are exercised both ways.
+    config.input_block_config.single_channel_processors.emplace_back(sfFDN::ControllableFullWaveRectifierOptions{
+        .alpha = 0.75f, .antialiasing = true, .dc_block = true, .sample_rate = 48000.f});
+    config.input_block_config.single_channel_processors.emplace_back(
+        sfFDN::SignalDependentFractionalDelayOptions{.d = 0.4f});
+    config.input_block_config.single_channel_processors.emplace_back(
+        sfFDN::RingModulatorOptions{.frequency = 0.002f, .amplitude = 1.4142f, .initial_phase = 0.375f});
+
+    sfFDN::MultichannelControllableFullWaveRectifierOptions rectifier_bank_config;
+    rectifier_bank_config.channels.resize(4);
+    for (size_t i = 0; i + 1 < rectifier_bank_config.channels.size(); ++i)
+    {
+        rectifier_bank_config.channels[i] =
+            sfFDN::ControllableFullWaveRectifierOptions{.alpha = 0.1f * static_cast<float>(i + 1),
+                                                        .antialiasing = (i % 2) == 0,
+                                                        .dc_block = (i % 2) == 1,
+                                                        .sample_rate = 48000.f};
+    }
+
+    sfFDN::MultichannelSignalDependentFractionalDelayOptions sdfd_bank_config;
+    sdfd_bank_config.channels.resize(4);
+    for (size_t i = 0; i + 1 < sdfd_bank_config.channels.size(); ++i)
+    {
+        sdfd_bank_config.channels[i] =
+            sfFDN::SignalDependentFractionalDelayOptions{.d = 0.2f * static_cast<float>(i + 1)};
+    }
+
+    sfFDN::MultichannelRingModulatorOptions ring_mod_bank_config;
+    ring_mod_bank_config.channels.resize(4);
+    for (size_t i = 0; i + 1 < ring_mod_bank_config.channels.size(); ++i)
+    {
+        ring_mod_bank_config.channels[i] =
+            sfFDN::RingModulatorOptions{.frequency = 0.001f * static_cast<float>(i + 1),
+                                        .amplitude = 1.4142f,
+                                        .initial_phase = 0.25f * static_cast<float>(i)};
+    }
+
+    config.loop_filter_configs = {rectifier_bank_config, sdfd_bank_config, ring_mod_bank_config};
+
     nlohmann::json j = config;
 
     std::cout << j.dump(4) << std::endl;
@@ -160,7 +201,7 @@ TEST_CASE("FDNConfig")
     sfFDN::FDNConfig deserialized_config = j.get<sfFDN::FDNConfig>();
 
     const auto& single_channel_procs = deserialized_config.input_block_config.single_channel_processors;
-    REQUIRE(single_channel_procs.size() == 3);
+    REQUIRE(single_channel_procs.size() == 6);
     REQUIRE(std::holds_alternative<sfFDN::DattorroDelayOptions>(single_channel_procs[2]));
 
     const auto& dattorro = std::get<sfFDN::DattorroDelayOptions>(single_channel_procs[2]);
@@ -202,6 +243,67 @@ TEST_CASE("FDNConfig")
             REQUIRE_FALSE(channel.delay_config.lfo_config.has_value());
         }
     }
+
+    // The shimmer nonlinearities, single channel.
+    REQUIRE(std::holds_alternative<sfFDN::ControllableFullWaveRectifierOptions>(single_channel_procs[3]));
+    const auto& rectifier = std::get<sfFDN::ControllableFullWaveRectifierOptions>(single_channel_procs[3]);
+    REQUIRE_THAT(rectifier.alpha, Catch::Matchers::WithinAbs(0.75f, 1e-6f));
+    REQUIRE(rectifier.antialiasing);
+    REQUIRE(rectifier.dc_block);
+    REQUIRE_THAT(rectifier.sample_rate, Catch::Matchers::WithinAbs(48000.f, 1e-3f));
+
+    REQUIRE(std::holds_alternative<sfFDN::SignalDependentFractionalDelayOptions>(single_channel_procs[4]));
+    REQUIRE_THAT(std::get<sfFDN::SignalDependentFractionalDelayOptions>(single_channel_procs[4]).d,
+                 Catch::Matchers::WithinAbs(0.4f, 1e-6f));
+
+    REQUIRE(std::holds_alternative<sfFDN::RingModulatorOptions>(single_channel_procs[5]));
+    const auto& ring_mod = std::get<sfFDN::RingModulatorOptions>(single_channel_procs[5]);
+    REQUIRE_THAT(ring_mod.frequency, Catch::Matchers::WithinAbs(0.002f, 1e-9f));
+    REQUIRE_THAT(ring_mod.amplitude, Catch::Matchers::WithinAbs(1.4142f, 1e-6f));
+    REQUIRE_THAT(ring_mod.initial_phase, Catch::Matchers::WithinAbs(0.375f, 1e-6f));
+
+    // The shimmer nonlinearities, multichannel. The last channel of each bank is null and must stay null.
+    const auto& loop_filters = deserialized_config.loop_filter_configs;
+    REQUIRE(loop_filters.size() == 3);
+
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelControllableFullWaveRectifierOptions>(loop_filters[0]));
+    const auto& rectifier_bank = std::get<sfFDN::MultichannelControllableFullWaveRectifierOptions>(loop_filters[0]);
+    REQUIRE(rectifier_bank.channels.size() == 4);
+    REQUIRE_FALSE(rectifier_bank.channels[3].has_value());
+    for (size_t i = 0; i + 1 < rectifier_bank.channels.size(); ++i)
+    {
+        REQUIRE(rectifier_bank.channels[i].has_value());
+        REQUIRE_THAT(rectifier_bank.channels[i]->alpha,
+                     Catch::Matchers::WithinAbs(0.1f * static_cast<float>(i + 1), 1e-6f));
+        REQUIRE(rectifier_bank.channels[i]->antialiasing == ((i % 2) == 0));
+        REQUIRE(rectifier_bank.channels[i]->dc_block == ((i % 2) == 1));
+    }
+
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelSignalDependentFractionalDelayOptions>(loop_filters[1]));
+    const auto& sdfd_bank = std::get<sfFDN::MultichannelSignalDependentFractionalDelayOptions>(loop_filters[1]);
+    REQUIRE(sdfd_bank.channels.size() == 4);
+    REQUIRE_FALSE(sdfd_bank.channels[3].has_value());
+    for (size_t i = 0; i + 1 < sdfd_bank.channels.size(); ++i)
+    {
+        REQUIRE(sdfd_bank.channels[i].has_value());
+        REQUIRE_THAT(sdfd_bank.channels[i]->d, Catch::Matchers::WithinAbs(0.2f * static_cast<float>(i + 1), 1e-6f));
+    }
+
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelRingModulatorOptions>(loop_filters[2]));
+    const auto& ring_mod_bank = std::get<sfFDN::MultichannelRingModulatorOptions>(loop_filters[2]);
+    REQUIRE(ring_mod_bank.channels.size() == 4);
+    REQUIRE_FALSE(ring_mod_bank.channels[3].has_value());
+    for (size_t i = 0; i + 1 < ring_mod_bank.channels.size(); ++i)
+    {
+        REQUIRE(ring_mod_bank.channels[i].has_value());
+        REQUIRE_THAT(ring_mod_bank.channels[i]->frequency,
+                     Catch::Matchers::WithinAbs(0.001f * static_cast<float>(i + 1), 1e-9f));
+        REQUIRE_THAT(ring_mod_bank.channels[i]->initial_phase,
+                     Catch::Matchers::WithinAbs(0.25f * static_cast<float>(i), 1e-6f));
+    }
+
+    // The configuration must also survive being turned into an actual FDN.
+    REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(deserialized_config));
 }
 
 TEST_CASE("Time-varying feedback matrix options serialize")

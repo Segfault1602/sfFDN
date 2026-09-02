@@ -13,6 +13,7 @@
 #include "sffdn/filter_design.h"
 #include "sffdn/filter_feedback_matrix.h"
 #include "sffdn/filterbank.h"
+#include "sffdn/nonlinear.h"
 #include "sffdn/parallel_gains.h"
 #include "sffdn/schroeder_allpass.h"
 #include "sffdn/time_varying_feedback_matrix.h"
@@ -93,6 +94,34 @@ std::string VariantTypeName()
     else if constexpr (std::is_same_v<T, sfFDN::ScalarFeedbackMatrixOptions>)
     {
         return "ScalarFeedbackMatrixOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::ControllableFullWaveRectifierOptions>)
+    {
+        return "ControllableFullWaveRectifierOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::SignalDependentFractionalDelayOptions>)
+    {
+        return "SignalDependentFractionalDelayOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::RingModulatorOptions>)
+    {
+        return "RingModulatorOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelControllableFullWaveRectifierOptions>)
+    {
+        return "MultichannelControllableFullWaveRectifierOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelSignalDependentFractionalDelayOptions>)
+    {
+        return "MultichannelSignalDependentFractionalDelayOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelRingModulatorOptions>)
+    {
+        return "MultichannelRingModulatorOptions";
+    }
+    else if constexpr (std::is_same_v<T, sfFDN::MultichannelFirOptions>)
+    {
+        return "MultichannelFirOptions";
     }
     else
     {
@@ -239,6 +268,32 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 if (dattorro_config.delays.size() != config.fdn_size)
                 {
                     std::cerr << "Number of delays in multichannel Dattorro delay config must match FDN size\n";
+                    return false;
+                }
+                return true;
+            },
+            [&config](const sfFDN::MultichannelControllableFullWaveRectifierOptions& rectifier_config) {
+                if (rectifier_config.channels.size() != config.fdn_size)
+                {
+                    std::cerr
+                        << "Number of channels in multichannel full-wave rectifier config must match FDN size\n";
+                    return false;
+                }
+                return true;
+            },
+            [&config](const sfFDN::MultichannelSignalDependentFractionalDelayOptions& sdfd_config) {
+                if (sdfd_config.channels.size() != config.fdn_size)
+                {
+                    std::cerr << "Number of channels in multichannel signal-dependent fractional delay config must "
+                                 "match FDN size\n";
+                    return false;
+                }
+                return true;
+            },
+            [&config](const sfFDN::MultichannelRingModulatorOptions& ring_mod_config) {
+                if (ring_mod_config.channels.size() != config.fdn_size)
+                {
+                    std::cerr << "Number of channels in multichannel ring modulator config must match FDN size\n";
                     return false;
                 }
                 return true;
@@ -400,6 +455,21 @@ struct SingleChannelProcessorVisitor
     {
         return std::make_unique<sfFDN::DattorroDelay>(config);
     }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ControllableFullWaveRectifierOptions& config) const
+    {
+        return std::make_unique<sfFDN::ControllableFullWaveRectifier>(config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::SignalDependentFractionalDelayOptions& config) const
+    {
+        return std::make_unique<sfFDN::SignalDependentFractionalDelay>(config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::RingModulatorOptions& config) const
+    {
+        return std::make_unique<sfFDN::RingModulator>(config);
+    }
 };
 
 struct MultichannelProcessorVisitor
@@ -433,6 +503,24 @@ struct MultichannelProcessorVisitor
         const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) const
     {
         return sfFDN::MakeMultichannelDattorroDelay(dattorro_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::MultichannelControllableFullWaveRectifierOptions& rectifier_config) const
+    {
+        return sfFDN::MakeMultichannelControllableFullWaveRectifier(rectifier_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::MultichannelSignalDependentFractionalDelayOptions& sdfd_config) const
+    {
+        return sfFDN::MakeMultichannelSignalDependentFractionalDelay(sdfd_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::MultichannelRingModulatorOptions& ring_mod_config) const
+    {
+        return sfFDN::MakeMultichannelRingModulator(ring_mod_config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(

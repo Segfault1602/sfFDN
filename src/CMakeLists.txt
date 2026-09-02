@@ -46,6 +46,7 @@ target_sources(
             math_utils.cpp
             matrix_gallery.cpp
             matrix_multiplication.cpp
+            nonlinear.cpp
             partitioned_convolver.cpp
             oscillator.cpp
             parallel_gains.cpp
@@ -84,6 +85,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filterbank.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/matrix_gallery.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/nonlinear.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/parallel_gains.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/partitioned_convolver.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/schroeder_allpass.h
