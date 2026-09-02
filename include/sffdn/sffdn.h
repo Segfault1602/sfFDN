@@ -22,6 +22,7 @@
 #include "filter_feedback_matrix.h"
 #include "filterbank.h"
 #include "matrix_gallery.h"
+#include "nonlinear.h"
 #include "oscillator.h"
 #include "parallel_gains.h"
 #include "partitioned_convolver.h"

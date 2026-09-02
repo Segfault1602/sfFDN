@@ -3,6 +3,56 @@
 #include "sffdn/types.h"
 
 #include <cstdint>
+#include <optional>
+#include <stdexcept>
+#include <vector>
+
+namespace
+{
+/** @brief Serializes a vector of optional per-channel options, using null for a bypassed channel. */
+template <typename T>
+nlohmann::json OptionalChannelsToJson(const std::vector<std::optional<T>>& channels)
+{
+    nlohmann::json array = nlohmann::json::array();
+    for (const auto& channel : channels)
+    {
+        if (channel.has_value())
+        {
+            array.push_back(channel.value());
+        }
+        else
+        {
+            array.push_back(nullptr);
+        }
+    }
+    return array;
+}
+
+/** @brief Deserializes a vector of optional per-channel options. A null entry means the channel is bypassed. */
+template <typename T>
+std::vector<std::optional<T>> OptionalChannelsFromJson(const nlohmann::json& j)
+{
+    if (!j.is_array())
+    {
+        throw std::invalid_argument("Per-channel processor options must be an array");
+    }
+
+    std::vector<std::optional<T>> channels;
+    channels.reserve(j.size());
+    for (const auto& entry : j)
+    {
+        if (entry.is_null())
+        {
+            channels.emplace_back(std::nullopt);
+        }
+        else
+        {
+            channels.emplace_back(entry.get<T>());
+        }
+    }
+    return channels;
+}
+} // namespace
 
 namespace sfFDN
 {
@@ -127,6 +177,36 @@ void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config)
     }
 }
 
+void to_json(nlohmann::json& j, const MultichannelControllableFullWaveRectifierOptions& config)
+{
+    j["channels"] = OptionalChannelsToJson(config.channels);
+}
+
+void from_json(const nlohmann::json& j, MultichannelControllableFullWaveRectifierOptions& config)
+{
+    config.channels = OptionalChannelsFromJson<ControllableFullWaveRectifierOptions>(j.at("channels"));
+}
+
+void to_json(nlohmann::json& j, const MultichannelSignalDependentFractionalDelayOptions& config)
+{
+    j["channels"] = OptionalChannelsToJson(config.channels);
+}
+
+void from_json(const nlohmann::json& j, MultichannelSignalDependentFractionalDelayOptions& config)
+{
+    config.channels = OptionalChannelsFromJson<SignalDependentFractionalDelayOptions>(j.at("channels"));
+}
+
+void to_json(nlohmann::json& j, const MultichannelRingModulatorOptions& config)
+{
+    j["channels"] = OptionalChannelsToJson(config.channels);
+}
+
+void from_json(const nlohmann::json& j, MultichannelRingModulatorOptions& config)
+{
+    config.channels = OptionalChannelsFromJson<RingModulatorOptions>(j.at("channels"));
+}
+
 nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
 {
     return std::visit(overloaded{[](const CascadedFeedbackMatrixOptions& info) {
@@ -182,6 +262,21 @@ nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config
                                  [](const DattorroDelayOptions& config) {
                                      nlohmann::json proc;
                                      proc["DattorroDelayOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const ControllableFullWaveRectifierOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["ControllableFullWaveRectifierOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const SignalDependentFractionalDelayOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["SignalDependentFractionalDelayOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const RingModulatorOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["RingModulatorOptions"] = config;
                                      return proc;
                                  },
                                  [](const GraphicEQOptions& config) {
@@ -242,6 +337,21 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                                      nlohmann::json proc;
                                      proc["MultichannelFirOptions"] = config;
                                      return proc;
+                                 },
+                                 [](const MultichannelControllableFullWaveRectifierOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelControllableFullWaveRectifierOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const MultichannelSignalDependentFractionalDelayOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelSignalDependentFractionalDelayOptions"] = config;
+                                     return proc;
+                                 },
+                                 [](const MultichannelRingModulatorOptions& config) {
+                                     nlohmann::json proc;
+                                     proc["MultichannelRingModulatorOptions"] = config;
+                                     return proc;
                                  }},
                       processor_config);
 }
@@ -286,6 +396,21 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
     if (j.contains("DattorroDelayOptions"))
     {
         return j["DattorroDelayOptions"].get<DattorroDelayOptions>();
+    }
+
+    if (j.contains("ControllableFullWaveRectifierOptions"))
+    {
+        return j["ControllableFullWaveRectifierOptions"].get<ControllableFullWaveRectifierOptions>();
+    }
+
+    if (j.contains("SignalDependentFractionalDelayOptions"))
+    {
+        return j["SignalDependentFractionalDelayOptions"].get<SignalDependentFractionalDelayOptions>();
+    }
+
+    if (j.contains("RingModulatorOptions"))
+    {
+        return j["RingModulatorOptions"].get<RingModulatorOptions>();
     }
 
     throw std::invalid_argument("Unknown single channel processor config type" + j.dump());
@@ -334,6 +459,23 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
     if (j.contains("MultichannelFirOptions"))
     {
         return j["MultichannelFirOptions"].get<MultichannelFirOptions>();
+    }
+
+    if (j.contains("MultichannelControllableFullWaveRectifierOptions"))
+    {
+        return j["MultichannelControllableFullWaveRectifierOptions"]
+            .get<MultichannelControllableFullWaveRectifierOptions>();
+    }
+
+    if (j.contains("MultichannelSignalDependentFractionalDelayOptions"))
+    {
+        return j["MultichannelSignalDependentFractionalDelayOptions"]
+            .get<MultichannelSignalDependentFractionalDelayOptions>();
+    }
+
+    if (j.contains("MultichannelRingModulatorOptions"))
+    {
+        return j["MultichannelRingModulatorOptions"].get<MultichannelRingModulatorOptions>();
     }
 
     throw std::invalid_argument("Unknown multichannel processor config type");
