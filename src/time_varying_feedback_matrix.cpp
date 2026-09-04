@@ -179,9 +179,8 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
         Eigen::MatrixXf base_matrix;
         if (custom_base_matrix.empty())
         {
-            // Mapped the same way ScalarFeedbackMatrix consumes matrix data: the library's flat matrix layout is
-            // column-major, which is exactly what Eigen's default Map expects. Any orthogonal basis is valid here,
-            // so the Schur decomposition below is unaffected by orientation either way.
+            // GenerateMatrix is row-major, so Eigen's default column-major Map sees A.T. Preserve this mapping:
+            // changing it would alter the deterministic RealSchur DSP output.
             const uint32_t seed = options.rng_seed == 0U ? kDefaultRealSchurSeed : options.rng_seed;
             const auto matrix_data = GenerateMatrix(order_, ScalarMatrixType::Random, seed);
             base_matrix = Eigen::Map<const Eigen::MatrixXf>(matrix_data.data(), static_cast<Eigen::Index>(order_),
@@ -574,7 +573,7 @@ bool TimeVaryingFeedbackMatrix::GetMatrix(std::span<float> matrix, uint64_t samp
         const auto row_data = result->GetChannelSpan(row);
         for (uint32_t column = 0; column < order_; ++column)
         {
-            matrix[(static_cast<size_t>(column) * order_) + row] = row_data[column];
+            matrix[(static_cast<size_t>(row) * order_) + column] = row_data[column];
         }
     }
 

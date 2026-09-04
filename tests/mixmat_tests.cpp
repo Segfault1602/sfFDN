@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <ranges>
+#include <stdexcept>
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/feedback_matrix.h"
@@ -348,52 +349,62 @@ TEST_CASE("RandomMatrix")
     }
 }
 
-TEST_CASE("DelayMatrix")
+TEST_CASE("DelayMatrix row-major dest*N+src convention")
 {
-#ifndef __cpp_lib_mdspan
-    SKIP();
-#endif
-    constexpr uint32_t kMatSize = 4;
-    constexpr std::array<uint32_t, 16> kDelays = {11, 11, 2, 6, 10, 14, 17, 8, 2, 6, 19, 5, 10, 19, 1, 13};
-    sfFDN::ScalarFeedbackMatrix mixing_matrix =
-        sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
-    sfFDN::DelayMatrix delay_matrix(4, kDelays, mixing_matrix);
+    // Non-symmetric 3x3 case.
+    // Matrix A (row-major, non-symmetric):
+    //   A = [[1.0, 0.2, 0.3],
+    //        [0.4, 1.0, 0.6],
+    //        [0.7, 0.8, 1.0]]
+    constexpr uint32_t N = 3;
+    const std::vector<float> kGains = {1.0f, 0.2f, 0.3f, 0.4f, 1.0f, 0.6f, 0.7f, 0.8f, 1.0f};
 
-    constexpr uint32_t kBlockSize = 32;
-    std::array<float, kMatSize * kBlockSize> input = {0.f};
-    std::array<float, kMatSize * kBlockSize> output = {0.f};
+    // delays[dest*N+src] (row=dest, col=src):
+    //   dest=0: src=0→3, src=1→5, src=2→2
+    //   dest=1: src=0→4, src=1→1, src=2→6
+    //   dest=2: src=0→2, src=1→7, src=2→3
+    constexpr std::array<uint32_t, N * N> kDelays = {3, 5, 2, 4, 1, 6, 2, 7, 3};
 
-    for (auto i = 0u; i < kMatSize; ++i)
+    sfFDN::ScalarFeedbackMatrix mixing_matrix({.matrix_size = N, .custom_matrix = kGains});
+    sfFDN::DelayMatrix delay_matrix(N, kDelays, mixing_matrix);
+
+    // Stagger one impulse per source so every route contributes at a known sample.
+    constexpr uint32_t kBlockSize = 12;
+    std::array<float, N * kBlockSize> input{};
+    std::array<float, N * kBlockSize> output{};
+
+    for (auto source = 0u; source < N; ++source)
     {
-        input[i * kBlockSize] = 1.f; // Set the first sample of each channel to 1
+        input[(source * kBlockSize) + source] = 1.f;
     }
 
-    sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output);
-    delay_matrix.Process(input_buffer, output_buffer);
+    sfFDN::AudioBuffer input_buffer(kBlockSize, N, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, N, output);
 
-    const std::array<float, kBlockSize> expected_output_ch1 = {0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 1.0, 0.5, 0, 0, 0, 0,
-                                                               0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,   0,   0, 0, 0, 0};
-
-    const std::array<float, kBlockSize> expected_output_ch2 = {
-        0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0, -0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    const std::array<float, kBlockSize> expected_output_ch3 = {0, -0.5, 0.5, 0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                               0, 0.5,  0,   -0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    const std::array<float, kBlockSize> expected_output_ch4 = {
-        0, 0, 0, 0, 0, -0.5, 0.5, 0, -0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    for (auto i = 0u; i < output_buffer.SampleCount(); ++i)
+    std::size_t allocations = 0;
     {
-        REQUIRE_THAT(output_buffer.GetChannelSpan(0)[i],
-                     Catch::Matchers::WithinAbs(expected_output_ch1[i], std::numeric_limits<float>::epsilon()));
-        REQUIRE_THAT(output_buffer.GetChannelSpan(1)[i],
-                     Catch::Matchers::WithinAbs(expected_output_ch2[i], std::numeric_limits<float>::epsilon()));
-        REQUIRE_THAT(output_buffer.GetChannelSpan(2)[i],
-                     Catch::Matchers::WithinAbs(expected_output_ch3[i], std::numeric_limits<float>::epsilon()));
-        REQUIRE_THAT(output_buffer.GetChannelSpan(3)[i],
-                     Catch::Matchers::WithinAbs(expected_output_ch4[i], std::numeric_limits<float>::epsilon()));
+        sfFDNTest::ScopedAllocationCounter counter;
+        delay_matrix.Process(input_buffer, output_buffer);
+        allocations = counter.Count();
+    }
+    REQUIRE(allocations == 0);
+
+    for (auto destination = 0u; destination < N; ++destination)
+    {
+        for (auto sample = 0u; sample < kBlockSize; ++sample)
+        {
+            float expected = 0.0f;
+            for (auto source = 0u; source < N; ++source)
+            {
+                const auto arrival = source + kDelays[(destination * N) + source];
+                if (sample == arrival)
+                {
+                    expected += kGains[(destination * N) + source];
+                }
+            }
+            REQUIRE_THAT(output_buffer.GetChannelSpan(destination)[sample],
+                         Catch::Matchers::WithinAbs(expected, 1e-6f));
+        }
     }
 }
 
@@ -555,4 +566,153 @@ TEST_CASE("FilterFeedbackMatrix uses structured stage-zero processing")
             REQUIRE_THAT(actual[i], Catch::Matchers::WithinAbs(expected[i], 2e-5f));
         }
     }
+}
+// ---------------------------------------------------------------------------
+// Tests added for matrix-order canonicalization (row-major: flat[row*N+col])
+// ---------------------------------------------------------------------------
+
+TEST_CASE("ScalarFeedbackMatrix row-major Set/Get/GetCoefficient/Process")
+{
+    // A = [[1,2,3],[4,5,6],[7,8,9]] stored in row-major flat order.
+    constexpr uint32_t N = 3;
+    const std::vector<float> kMatrix = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
+
+    sfFDN::ScalarFeedbackMatrix mat({.matrix_size = N, .custom_matrix = kMatrix});
+
+    // GetCoefficient uses row-major A[row,col] = flat[row*N+col].
+    REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
+    REQUIRE(mat.GetCoefficient(0, 1) == 2.f);
+    REQUIRE(mat.GetCoefficient(0, 2) == 3.f);
+    REQUIRE(mat.GetCoefficient(1, 0) == 4.f);
+    REQUIRE(mat.GetCoefficient(1, 1) == 5.f);
+    REQUIRE(mat.GetCoefficient(1, 2) == 6.f);
+    REQUIRE(mat.GetCoefficient(2, 0) == 7.f);
+    REQUIRE(mat.GetCoefficient(2, 1) == 8.f);
+    REQUIRE(mat.GetCoefficient(2, 2) == 9.f);
+
+    // GetMatrix returns the same row-major flat vector.
+    std::vector<float> retrieved(N * N);
+    REQUIRE(mat.GetMatrix(retrieved));
+    REQUIRE(retrieved == kMatrix);
+
+    // Process: y = A*x. Each standard basis vector x=e_k must produce column k of A.
+    // x = e_0 = [1,0,0] → y = [A[0,0], A[1,0], A[2,0]] = [1, 4, 7]
+    {
+        std::array<float, N> in = {1.f, 0.f, 0.f};
+        std::array<float, N> out{};
+        sfFDN::AudioBuffer ib(1, N, in);
+        sfFDN::AudioBuffer ob(1, N, out);
+        mat.Process(ib, ob);
+        REQUIRE_THAT(ob.GetChannelSpan(0)[0], Catch::Matchers::WithinAbs(1.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(1)[0], Catch::Matchers::WithinAbs(4.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(2)[0], Catch::Matchers::WithinAbs(7.f, 1e-5f));
+    }
+    // x = e_1 = [0,1,0] → y = [2, 5, 8]
+    {
+        std::array<float, N> in = {0.f, 1.f, 0.f};
+        std::array<float, N> out{};
+        sfFDN::AudioBuffer ib(1, N, in);
+        sfFDN::AudioBuffer ob(1, N, out);
+        mat.Process(ib, ob);
+        REQUIRE_THAT(ob.GetChannelSpan(0)[0], Catch::Matchers::WithinAbs(2.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(1)[0], Catch::Matchers::WithinAbs(5.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(2)[0], Catch::Matchers::WithinAbs(8.f, 1e-5f));
+    }
+    // x = e_2 = [0,0,1] → y = [3, 6, 9]
+    {
+        std::array<float, N> in = {0.f, 0.f, 1.f};
+        std::array<float, N> out{};
+        sfFDN::AudioBuffer ib(1, N, in);
+        sfFDN::AudioBuffer ob(1, N, out);
+        mat.Process(ib, ob);
+        REQUIRE_THAT(ob.GetChannelSpan(0)[0], Catch::Matchers::WithinAbs(3.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(1)[0], Catch::Matchers::WithinAbs(6.f, 1e-5f));
+        REQUIRE_THAT(ob.GetChannelSpan(2)[0], Catch::Matchers::WithinAbs(9.f, 1e-5f));
+    }
+
+    // SetMatrix: replace with a different matrix and verify coefficients update.
+    const std::vector<float> kMatrix2 = {9.f, 8.f, 7.f, 6.f, 5.f, 4.f, 3.f, 2.f, 1.f};
+    REQUIRE(mat.SetMatrix(kMatrix2));
+    REQUIRE(mat.GetCoefficient(0, 0) == 9.f);
+    REQUIRE(mat.GetCoefficient(2, 2) == 1.f);
+    REQUIRE(mat.GetCoefficient(0, 2) == 7.f);
+    REQUIRE(mat.GetCoefficient(2, 0) == 3.f);
+}
+
+TEST_CASE("SetMatrix rejects wrong size and leaves state unchanged")
+{
+    constexpr uint32_t N = 3;
+    const std::vector<float> kInit = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
+
+    REQUIRE_THROWS_AS(
+        sfFDN::ScalarFeedbackMatrix({.matrix_size = N, .custom_matrix = std::vector<float>(N * N - 1, 0.f)}),
+        std::invalid_argument);
+
+    sfFDN::ScalarFeedbackMatrix mat({.matrix_size = N, .custom_matrix = kInit});
+
+    // One element short.
+    std::vector<float> short_vec(N * N - 1, 0.f);
+    REQUIRE_FALSE(mat.SetMatrix(short_vec));
+    // State must be unchanged.
+    REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
+    REQUIRE(mat.GetCoefficient(2, 2) == 9.f);
+
+    // One element long.
+    std::vector<float> long_vec(N * N + 1, 0.f);
+    REQUIRE_FALSE(mat.SetMatrix(long_vec));
+    REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
+    REQUIRE(mat.GetCoefficient(2, 2) == 9.f);
+
+    // Zero size.
+    REQUIRE_FALSE(mat.SetMatrix(std::span<const float>{}));
+    REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
+
+    // A different NxN size (e.g. 4x4=16 elements for a 3x3 matrix).
+    std::vector<float> wrong_order(16, 0.f);
+    REQUIRE_FALSE(mat.SetMatrix(wrong_order));
+    REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
+
+    // Correct size is accepted.
+    std::vector<float> correct(N * N, 99.f);
+    REQUIRE(mat.SetMatrix(correct));
+    REQUIRE(mat.GetCoefficient(1, 1) == 99.f);
+}
+
+TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout")
+{
+    // Use a non-structured matrix type (Random) with stage_count=0 so that
+    // Process immediately applies matrix_[0] with no delays (stateless path).
+    constexpr uint32_t N = 4;
+    sfFDN::CascadedFeedbackMatrixOptions opts{
+        .matrix_size = N,
+        .stage_count = 0,
+        .sparsity = 1.f,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 1.f,
+    };
+    sfFDN::FilterFeedbackMatrix ffm(opts);
+
+    std::vector<float> first_mat(N * N);
+    REQUIRE(ffm.GetFirstMatrix(first_mat));
+
+    // Verify layout: for each standard basis input e_k (only channel k is 1, rest 0),
+    // Process output[dest][0] must equal first_mat[dest*N+k] (row-major A[dest,k]).
+    // ffm has no delay banks (stage_count=0), so it is stateless across calls.
+    for (auto k = 0u; k < N; ++k)
+    {
+        std::array<float, N> in_data{};
+        in_data[k] = 1.f;
+        std::array<float, N> out_data{};
+        sfFDN::AudioBuffer ib(1, N, in_data);
+        sfFDN::AudioBuffer ob(1, N, out_data);
+        ffm.Process(ib, ob);
+        for (auto dest = 0u; dest < N; ++dest)
+        {
+            REQUIRE_THAT(ob.GetChannelSpan(dest)[0], Catch::Matchers::WithinAbs(first_mat[dest * N + k], 1e-5f));
+        }
+    }
+
+    // GetFirstMatrix must fail on wrong-size span.
+    std::vector<float> wrong(N * N - 1);
+    REQUIRE_FALSE(ffm.GetFirstMatrix(wrong));
 }

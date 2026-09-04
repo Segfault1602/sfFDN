@@ -186,10 +186,9 @@ TEST_CASE("FDNConfig")
     ring_mod_bank_config.channels.resize(4);
     for (size_t i = 0; i + 1 < ring_mod_bank_config.channels.size(); ++i)
     {
-        ring_mod_bank_config.channels[i] =
-            sfFDN::RingModulatorOptions{.frequency = 0.001f * static_cast<float>(i + 1),
-                                        .amplitude = 1.4142f,
-                                        .initial_phase = 0.25f * static_cast<float>(i)};
+        ring_mod_bank_config.channels[i] = sfFDN::RingModulatorOptions{.frequency = 0.001f * static_cast<float>(i + 1),
+                                                                       .amplitude = 1.4142f,
+                                                                       .initial_phase = 0.25f * static_cast<float>(i)};
     }
 
     config.loop_filter_configs = {rectifier_bank_config, sdfd_bank_config, ring_mod_bank_config};
@@ -492,4 +491,38 @@ TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses")
         invalid.input_block_config.single_channel_processors[0]);
     invalid_section.gains[0] = 1.F;
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(invalid), std::runtime_error);
+}
+
+TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custom matrix")
+{
+    // A non-symmetric 3x3 matrix in row-major order: flat[row*N+col] = A[row,col].
+    constexpr uint32_t N = 3;
+    const std::vector<float> kMatrix = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
+
+    sfFDN::ScalarFeedbackMatrixOptions original;
+    original.matrix_size = N;
+    original.type = sfFDN::ScalarMatrixType::Random;
+    original.custom_matrix = kMatrix;
+
+    const nlohmann::json j = original;
+    const auto deserialized = j.get<sfFDN::ScalarFeedbackMatrixOptions>();
+
+    REQUIRE(deserialized.matrix_size == N);
+    REQUIRE(deserialized.custom_matrix.has_value());
+    REQUIRE(deserialized.custom_matrix->size() == N * N);
+    for (size_t i = 0; i < kMatrix.size(); ++i)
+    {
+        REQUIRE((*deserialized.custom_matrix)[i] == kMatrix[i]);
+    }
+
+    // Constructing from the deserialized options must produce a matrix with the same
+    // row-major coefficients: GetCoefficient(row,col) == kMatrix[row*N+col].
+    sfFDN::ScalarFeedbackMatrix mat(deserialized);
+    for (auto row = 0u; row < N; ++row)
+    {
+        for (auto col = 0u; col < N; ++col)
+        {
+            REQUIRE_THAT(mat.GetCoefficient(row, col), Catch::Matchers::WithinAbs(kMatrix[row * N + col], 0.f));
+        }
+    }
 }

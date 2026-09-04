@@ -88,8 +88,8 @@ class FilterFeedbackMatrix : public AudioProcessor
     /**
      * @brief Retrieves the coefficients of the first feedback matrix in the cascade.
      *
-     * @param matrix A span to fill with the coefficients of the first feedback matrix in column-major order. The span
-     * must be of size `channel_count_ * channel_count_`.
+     * @param matrix A span of size `channel_count_ * channel_count_` to fill with the coefficients of the first
+     *   feedback matrix in row-major order: filled[row*N+col] = A[row,col].
      * @return true if the coefficients were retrieved successfully, false otherwise (e.g. if the size is incorrect).
      */
     bool GetFirstMatrix(std::span<float> matrix) const;

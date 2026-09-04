@@ -434,7 +434,7 @@ std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint
 {
     Eigen::MatrixXf matrix = GenerateMatrixInternal(mat_size, type, seed, arg);
 
-    // Matrix is stored in column-major order
+    // Flatten the public matrix representation in row-major order: flat_matrix[row * mat_size + column].
     std::vector<float> flat_matrix(mat_size * mat_size, 0.0f);
     for (auto i = 0u; i < mat_size; ++i)
     {

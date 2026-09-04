@@ -113,8 +113,8 @@ class TimeVaryingFeedbackMatrix : public AudioProcessor
     uint32_t RotationBlockCount() const noexcept SFFDN_NONBLOCKING;
 
     /** @brief Materializes the feedback matrix that Process applies at a given sample index.
-     * @param matrix Destination for `matrix_size * matrix_size` values in column-major order, matching
-     * ScalarFeedbackMatrix::GetMatrix.
+     * @param matrix Destination for `matrix_size * matrix_size` values in row-major order, matching
+     * ScalarFeedbackMatrix::GetMatrix: `matrix[row * matrix_size + column] = A[row, column]`, where `y = A * x`.
      * @param sample_index The index, counted from the start of an unprocessed stream, of the sample whose matrix is
      * wanted. Zero yields the matrix applied to the very first sample.
      * @return False if the span does not contain exactly `matrix_size * matrix_size` values.

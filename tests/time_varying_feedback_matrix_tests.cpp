@@ -836,14 +836,13 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix matches the matrix Process applie
                 REQUIRE(matrix.GetMatrix(materialized, sample));
                 const auto processed = EffectiveMatrixAtSample(matrix, order, sample);
 
-                // GetMatrix writes column-major, the test helper row-major, hence the transposed index.
                 float worst_difference = 0.0F;
                 for (uint32_t row = 0; row < order; ++row)
                 {
                     for (uint32_t column = 0; column < order; ++column)
                     {
                         const float difference =
-                            std::abs(materialized[(column * order) + row] - processed[(row * order) + column]);
+                            std::abs(materialized[(row * order) + column] - processed[(row * order) + column]);
                         worst_difference = std::max(worst_difference, difference);
                     }
                 }
@@ -874,7 +873,6 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix stays orthogonal and rejects bad 
             for (const uint32_t sample : kSamplesInModulationCycle)
             {
                 REQUIRE(matrix.GetMatrix(materialized, sample));
-                // Orthogonality is transpose-invariant, so the helper's row-major reading is valid here.
                 const float tolerance = 10.0F * std::sqrt(static_cast<float>(order)) * kSampleEpsilon;
                 INFO("mode=" << ModeName(mode) << " order=" << order << " sample=" << sample);
                 REQUIRE_THAT(OrthogonalityError(materialized, order), Catch::Matchers::WithinAbs(0.0F, tolerance));
@@ -886,6 +884,27 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix stays orthogonal and rejects bad 
             REQUIRE_FALSE(matrix.GetMatrix(too_large));
         }
     }
+}
+
+TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix is row-major for a non-symmetric fixed rotation")
+{
+    constexpr uint32_t kOrder = 2U;
+    constexpr float kAngle = 0.5F;
+    constexpr float kTolerance = 2.0e-5F;
+
+    sfFDN::TimeVaryingFeedbackMatrix matrix(
+        {.matrix_size = kOrder, .mode = sfFDN::TimeVaryingMatrixMode::Hadamard, .time_varying_config = {}});
+    matrix.SetBaseAngles(std::array{kAngle});
+
+    std::array<float, kOrder * kOrder> materialized{};
+    REQUIRE(matrix.GetMatrix(materialized));
+
+    const float cosine = std::cos(kAngle);
+    const float sine = std::sin(kAngle);
+    REQUIRE_THAT(materialized[0], Catch::Matchers::WithinAbs(cosine, kTolerance));
+    REQUIRE_THAT(materialized[1], Catch::Matchers::WithinAbs(sine, kTolerance));
+    REQUIRE_THAT(materialized[2], Catch::Matchers::WithinAbs(-sine, kTolerance));
+    REQUIRE_THAT(materialized[3], Catch::Matchers::WithinAbs(cosine, kTolerance));
 }
 
 TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix does not disturb processing")

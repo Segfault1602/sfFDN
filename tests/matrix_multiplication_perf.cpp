@@ -48,11 +48,38 @@ alignas(64) constexpr std::array<float, 16 * 16> kMatrix16x16 = {
 constexpr std::array<float, 16> kInput = {1.0f, 2.0f,  3.0f,  4.0f,  5.0f,  6.0f,  7.0f,  8.0f,
                                                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f};
 
+std::array<float, 16> ScalarMatrixMultiply16()
+{
+    std::array<float, 16> output{};
+    for (auto output_index = 0u; output_index < output.size(); ++output_index)
+    {
+        for (auto input_index = 0u; input_index < kInput.size(); ++input_index)
+        {
+            output[output_index] += kMatrix16x16[(output_index * kInput.size()) + input_index] * kInput[input_index];
+        }
+    }
+    return output;
+}
+
+void RequireClose(const std::array<float, 16>& expected, const std::array<float, 16>& actual)
+{
+    for (auto output = 0u; output < expected.size(); ++output)
+    {
+        REQUIRE_THAT(actual[output], Catch::Matchers::WithinAbs(expected[output], 1e-4f));
+    }
+}
+
 } // namespace
 
 TEST_CASE("MatrixMultiplicationPerf_single")
 {
     constexpr uint32_t kMatSize = 16;
+    const auto expected_output = ScalarMatrixMultiply16();
+    std::array<float, kMatSize> validation_output{};
+    sfFDN::MatrixMultiply_C(kInput, validation_output, kMatrix16x16, kMatSize);
+    RequireClose(expected_output, validation_output);
+    sfFDN::MatrixMultiply_16(kInput, validation_output, kMatrix16x16);
+    RequireClose(expected_output, validation_output);
 
     alignas(64) std::array<float, kMatSize> eigen_output_data{};
     Eigen::Map<Eigen::Matrix<float, 1, kMatSize>> eigen_output(eigen_output_data.data());

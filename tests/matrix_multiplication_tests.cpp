@@ -16,6 +16,37 @@
 
 namespace
 {
+constexpr uint32_t kMatrixMultiplyOrder = 16;
+
+std::array<float, kMatrixMultiplyOrder * kMatrixMultiplyOrder> MakeNonSymmetricMatrix()
+{
+    std::array<float, kMatrixMultiplyOrder * kMatrixMultiplyOrder> matrix{};
+    for (auto output = 0u; output < kMatrixMultiplyOrder; ++output)
+    {
+        for (auto input = 0u; input < kMatrixMultiplyOrder; ++input)
+        {
+            matrix[(output * kMatrixMultiplyOrder) + input] =
+                static_cast<float>((17 * output) - (5 * input) + (3 * output * input) + 1) / 11.f;
+        }
+    }
+    return matrix;
+}
+
+std::array<float, kMatrixMultiplyOrder> ScalarMatrixMultiply(
+    const std::array<float, kMatrixMultiplyOrder>& input,
+    const std::array<float, kMatrixMultiplyOrder * kMatrixMultiplyOrder>& matrix)
+{
+    std::array<float, kMatrixMultiplyOrder> output{};
+    for (auto output_index = 0u; output_index < kMatrixMultiplyOrder; ++output_index)
+    {
+        for (auto input_index = 0u; input_index < kMatrixMultiplyOrder; ++input_index)
+        {
+            output[output_index] += matrix[(output_index * kMatrixMultiplyOrder) + input_index] * input[input_index];
+        }
+    }
+    return output;
+}
+
 template <uint32_t N>
 void TestMatrixMultiplyIdentity()
 {
@@ -42,6 +73,25 @@ void TestMatrixMultiplyIdentity()
     }
 }
 } // namespace
+
+TEST_CASE("MatrixMultiply_16 row-major")
+{
+    const std::array<float, kMatrixMultiplyOrder> input = {1.f,  -2.f,  3.5f, -4.f,   5.f,  -6.5f, 7.f,   -8.f,
+                                                           9.5f, -10.f, 11.f, -12.5f, 13.f, -14.f, 15.5f, -16.f};
+    const auto matrix = MakeNonSymmetricMatrix();
+    const auto expected = ScalarMatrixMultiply(input, matrix);
+
+    std::array<float, kMatrixMultiplyOrder> c_output{};
+    std::array<float, kMatrixMultiplyOrder> unrolled_output{};
+    sfFDN::MatrixMultiply_C(input, c_output, matrix, kMatrixMultiplyOrder);
+    sfFDN::MatrixMultiply_16(input, unrolled_output, matrix);
+
+    for (auto output = 0u; output < kMatrixMultiplyOrder; ++output)
+    {
+        REQUIRE_THAT(c_output[output], Catch::Matchers::WithinAbs(expected[output], 1e-4f));
+        REQUIRE_THAT(unrolled_output[output], Catch::Matchers::WithinAbs(expected[output], 1e-4f));
+    }
+}
 
 TEST_CASE("Identity")
 {

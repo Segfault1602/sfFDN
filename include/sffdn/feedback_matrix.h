@@ -14,7 +14,7 @@ namespace sfFDN
 {
 /** @brief A scalar feedback matrix processor.
  * This processor applies a square feedback matrix to the input audio buffer.
- * The matrix is defined as a flat array in column-major order.
+ * The public matrix convention is **row-major**: flat[row*N+col] = A[row,col], y = A*x.
  *
  * @ingroup AudioProcessors
  */
@@ -27,17 +27,20 @@ class ScalarFeedbackMatrix : public AudioProcessor
     ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config);
 
     /** @brief Sets the matrix coefficients.
-     * @param matrix A span representing the matrix coefficients in column-major order. The span must be of size
-     * `order * order`.
+     * @param matrix A span of matrix coefficients in row-major order: flat[row*N+col] = A[row,col].
+     *   The span must contain exactly `order * order` elements (where `order` is the value returned by
+     *   GetSize()). The size of the matrix cannot be changed by this method; passing the wrong number of
+     *   elements is rejected and leaves the current state unchanged.
      * @return true if the matrix was set successfully, false otherwise (e.g. if the size is incorrect).
      */
     bool SetMatrix(std::span<const float> matrix);
 
     /**
-     * @brief Get the Matrix object
+     * @brief Retrieves the matrix coefficients.
      *
-     * @param matrix
-     * @return false if the span is not the correct size.
+     * @param matrix A span of size `order * order` to fill with the matrix coefficients in row-major order:
+     *   filled[row*N+col] = A[row,col].
+     * @return false if the span is not exactly `order * order` in size.
      */
     bool GetMatrix(std::span<float> matrix) const;
 
@@ -58,9 +61,10 @@ class ScalarFeedbackMatrix : public AudioProcessor
 
     /**
      * @brief Get a specific coefficient from the matrix.
+     * Uses the row-major convention: A[row,col] = flat[row*N+col].
      *
-     * @param row The row index
-     * @param col The column index
+     * @param row The row index (destination)
+     * @param col The column index (source)
      * @return the coefficient at the specified row and column
      */
     float GetCoefficient(uint32_t row, uint32_t col) const;

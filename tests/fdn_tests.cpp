@@ -26,6 +26,7 @@ std::unique_ptr<sfFDN::FDN> CreatePyFDNGoldFDN()
     constexpr std::array<float, kFDNOrder> kInputGains = {0.6f, -0.4f, 0.8f, -0.7f};
     constexpr std::array<float, kFDNOrder> kOutputGains = {0.5f, -0.6f, 0.7f, -0.3f};
     constexpr std::array<float, kFDNOrder> kDelays = {7.f, 11.f, 13.f, 17.f};
+    // pyFDN supplies this deliberately non-symmetric matrix in row-major order.
     constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {kInvSqrt2, 0.f,        0.5f,  0.5f,  //
                                                                         0.f,       -kInvSqrt2, 0.5f,  -0.5f, //
                                                                         kInvSqrt2, 0.f,        -0.5f, -0.5f, //
