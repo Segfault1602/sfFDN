@@ -120,7 +120,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
 } // namespace
 
-TEST_CASE("FDN")
+TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = 4096;
@@ -178,7 +178,7 @@ TEST_CASE("FDN")
     }
 }
 
-TEST_CASE("FDN_Transposed")
+TEST_CASE("FDN transposed topology matches its golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = kSampleRate;
@@ -224,7 +224,7 @@ TEST_CASE("FDN_Transposed")
     }
 }
 
-TEST_CASE("FDN_FIR")
+TEST_CASE("FDN with FIR filters matches its golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 64;
@@ -295,7 +295,7 @@ TEST_CASE("FDN_FIR")
     }
 }
 
-TEST_CASE("FDN_Chirp")
+TEST_CASE("FDN reproduces the chirp golden file", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
 
@@ -339,7 +339,7 @@ TEST_CASE("FDN_Chirp")
     }
 }
 
-TEST_CASE("FDNConfig_Example")
+TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
 {
     sfFDN::FDNConfig config;
     config.fdn_size = 8;
@@ -407,7 +407,7 @@ TEST_CASE("FDNConfig_Example")
         REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
     }
 }
-TEST_CASE("FDNConfig_MultichannelDattorroDelay")
+TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay networks", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 8;
     constexpr float kSampleRate = 48000.f;
@@ -501,7 +501,7 @@ TEST_CASE("FDNConfig_MultichannelDattorroDelay")
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 
-TEST_CASE("FDNConfig_TimeVaryingSchroederAllpass")
+TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 4;
     constexpr uint32_t kSampleCount = 240000;
@@ -609,7 +609,7 @@ TEST_CASE("FDNConfig_TimeVaryingSchroederAllpass")
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 
-TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output")
+TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 13;
     auto whole_fdn = CreatePyFDNGoldFDN();
@@ -640,7 +640,7 @@ TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output")
     }
 }
 
-TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared")
+TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
     auto fdn = CreatePyFDNGoldFDN();
@@ -674,7 +674,7 @@ TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared")
     }
 }
 
-TEST_CASE("FDN rejects incompatible setters without replacing configured processors")
+TEST_CASE("FDN rejects incompatible setters without replacing configured processors", "[fdn]")
 {
     sfFDN::FDN fdn(4, 8);
     auto* const output_gains = fdn.GetOutputGains();
@@ -694,7 +694,7 @@ TEST_CASE("FDN rejects incompatible setters without replacing configured process
     REQUIRE(fdn.GetDelayBank().InputChannelCount() == 4);
 }
 
-TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpose")
+TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpose", "[fdn]")
 {
     sfFDN::FDN fdn(4, 8, true);
     fdn.SetLoopFilter(
@@ -712,7 +712,7 @@ TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpos
     REQUIRE(fdn.GetOrder() == 6);
 }
 
-TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks")
+TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 8;
     std::array<float, kBlockSize> input{};

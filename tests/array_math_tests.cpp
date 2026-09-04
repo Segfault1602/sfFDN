@@ -8,7 +8,7 @@
 
 #include <array_math.h>
 
-TEST_CASE("Accumulate")
+TEST_CASE("ArrayMath Accumulate adds values to destination", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::array<float, kSize> a{};
@@ -28,7 +28,7 @@ TEST_CASE("Accumulate")
     }
 }
 
-TEST_CASE("Add")
+TEST_CASE("ArrayMath Add sums input arrays", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::vector<float> a(kSize);
@@ -47,7 +47,7 @@ TEST_CASE("Add")
     }
 }
 
-TEST_CASE("Scale")
+TEST_CASE("ArrayMath Scale multiplies values by scalar", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::vector<float> a(kSize);
@@ -64,7 +64,7 @@ TEST_CASE("Scale")
     }
 }
 
-TEST_CASE("ScaleAccumulate")
+TEST_CASE("ArrayMath ScaleAccumulate adds scaled values to destination", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::vector<float> a(kSize);
@@ -84,7 +84,7 @@ TEST_CASE("ScaleAccumulate")
     }
 }
 
-TEST_CASE("Multiply")
+TEST_CASE("ArrayMath Multiply multiplies input arrays", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::vector<float> a(kSize);
@@ -103,7 +103,7 @@ TEST_CASE("Multiply")
     }
 }
 
-TEST_CASE("MultiplyAdd")
+TEST_CASE("ArrayMath MultiplyAdd adds scaled values to input array", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::vector<float> a(kSize);

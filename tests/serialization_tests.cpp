@@ -85,7 +85,7 @@ void RequireEqual(const sfFDN::TimeVaryingSchroederAllpassSectionOptions& actual
 
 } // namespace
 
-TEST_CASE("FDNConfig")
+TEST_CASE("FDNConfig round-trips all configured processor options", "[serialization]")
 {
     sfFDN::FDNConfig config;
     config.fdn_size = 4;
@@ -308,7 +308,7 @@ TEST_CASE("FDNConfig")
     REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(deserialized_config));
 }
 
-TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly")
+TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly", "[serialization]")
 {
     auto defaults_and_absent_optionals = MakeTimeVaryingFDNConfig();
 
@@ -347,7 +347,7 @@ TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly"
     }
 }
 
-TEST_CASE("FDNConfig JSON rejects malformed required fields and variants")
+TEST_CASE("FDNConfig JSON rejects malformed required fields and variants", "[serialization]")
 {
     const nlohmann::json valid = MakeTimeVaryingFDNConfig();
 
@@ -401,7 +401,7 @@ TEST_CASE("FDNConfig JSON rejects malformed required fields and variants")
     }
 }
 
-TEST_CASE("FDNConfig construction rejects invalid processor graphs")
+TEST_CASE("FDNConfig rejects invalid processor graphs during construction", "[serialization]")
 {
     auto invalid_parallel_mode = MakeTimeVaryingFDNConfig();
     invalid_parallel_mode.loop_filter_configs.emplace_back(sfFDN::ParallelGainsOptions{
@@ -419,7 +419,7 @@ TEST_CASE("FDNConfig construction rejects invalid processor graphs")
     REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_custom_matrix));
 }
 
-TEST_CASE("FDNConfig JSON round-trip preserves rendered output")
+TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization]")
 {
     const auto config = MakeTimeVaryingFDNConfig();
     const auto round_tripped = nlohmann::json(config).get<sfFDN::FDNConfig>();
@@ -444,7 +444,7 @@ TEST_CASE("FDNConfig JSON round-trip preserves rendered output")
     REQUIRE(original_output == round_tripped_output);
 }
 
-TEST_CASE("Time-varying feedback matrix options serialize")
+TEST_CASE("TimeVaryingFeedbackMatrixOptions round-trips through JSON", "[serialization]")
 {
     const auto options = MakeTimeVaryingMatrixOptions(4);
 
@@ -454,7 +454,7 @@ TEST_CASE("Time-varying feedback matrix options serialize")
     RequireEqual(deserialized_options, options);
 }
 
-TEST_CASE("RealSchur time-varying feedback matrix JSON round-trip is reproducible")
+TEST_CASE("TimeVaryingFeedbackMatrixOptions reproduces RealSchur processing after JSON round-trip", "[serialization]")
 {
     constexpr uint32_t kOrder = 6U;
     const sfFDN::TimeVaryingFeedbackMatrixOptions options = {
@@ -486,7 +486,7 @@ TEST_CASE("RealSchur time-varying feedback matrix JSON round-trip is reproducibl
     REQUIRE(original_output == round_tripped_output);
 }
 
-TEST_CASE("FDNConfig serializes a time-varying feedback matrix")
+TEST_CASE("FDNConfig serializes a time-varying feedback matrix", "[serialization]")
 {
     const auto config = MakeTimeVaryingFDNConfig();
 
@@ -500,7 +500,7 @@ TEST_CASE("FDNConfig serializes a time-varying feedback matrix")
                  std::get<sfFDN::TimeVaryingFeedbackMatrixOptions>(config.feedback_matrix_config));
 }
 
-TEST_CASE("FDNConfig creates an FDN with a time-varying feedback matrix")
+TEST_CASE("FDNConfig creates an FDN with a time-varying feedback matrix", "[serialization]")
 {
     const auto config = MakeTimeVaryingFDNConfig();
     const auto fdn = sfFDN::CreateFDNFromConfig(config);
@@ -518,7 +518,7 @@ TEST_CASE("FDNConfig creates an FDN with a time-varying feedback matrix")
     REQUIRE(std::ranges::any_of(output, [](float sample) { return sample != 0.F; }));
 }
 
-TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix sizes")
+TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix sizes", "[serialization]")
 {
     auto mismatched_config = MakeTimeVaryingFDNConfig();
     mismatched_config.feedback_matrix_config = MakeTimeVaryingMatrixOptions(8);
@@ -541,7 +541,7 @@ TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix sizes")
     REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(real_schur_config));
 }
 
-TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix options before construction")
+TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix options before construction", "[serialization]")
 {
     auto wrong_modulation_count = MakeTimeVaryingFDNConfig();
     wrong_modulation_count.fdn_size = 8U;
@@ -561,7 +561,8 @@ TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix options before
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(sentinel_mode), std::runtime_error);
 }
 
-TEST_CASE("Time-varying Schroeder allpass options serialize")
+TEST_CASE("TimeVaryingSchroederAllpassSectionOptions round-trip with multichannel banks through JSON",
+          "[serialization]")
 {
     const sfFDN::TimeVaryingSchroederAllpassSectionOptions section{
         .delays = {7.F, 13.F},
@@ -589,7 +590,7 @@ TEST_CASE("Time-varying Schroeder allpass options serialize")
     }
 }
 
-TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses")
+TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses", "[serialization]")
 {
     auto config = MakeTimeVaryingFDNConfig();
     const sfFDN::TimeVaryingSchroederAllpassSectionOptions input_section{
@@ -632,7 +633,7 @@ TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses")
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(invalid), std::runtime_error);
 }
 
-TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custom matrix")
+TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custom matrix", "[serialization]")
 {
     // A non-symmetric 3x3 matrix in row-major order: flat[row*N+col] = A[row,col].
     constexpr uint32_t N = 3;

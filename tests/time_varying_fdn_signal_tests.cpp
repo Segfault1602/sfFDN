@@ -306,7 +306,7 @@ TEST_CASE("Time-varying FDN preserves T60", "[time_varying_fdn]")
     REQUIRE(t60_difference < 0.05);
 }
 
-TEST_CASE("Time-varying FDN diffusion and spectral metrics", "[.diagnostic][time_varying_fdn]")
+TEST_CASE("Time-varying FDN produces finite diffusion and spectral metrics", "[time_varying_fdn][.diagnostic]")
 {
     auto unmodulated_fdn = CreateFDN(0.0F, true);
     auto modulated_fdn = CreateFDN(0.7F, true);
@@ -329,7 +329,7 @@ TEST_CASE("Time-varying FDN diffusion and spectral metrics", "[.diagnostic][time
     REQUIRE(std::isfinite(modulated_flatness));
 }
 
-TEST_CASE("Lossless time-varying FDN remains bounded over a long run", "[time_varying_fdn]")
+TEST_CASE("Time-varying FDN stays bounded over a long lossless run", "[time_varying_fdn]")
 {
     auto fdn = CreateFDN(0.7F, false);
     const auto output = RenderImpulseResponse(*fdn, kLosslessSamples);

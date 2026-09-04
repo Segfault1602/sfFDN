@@ -14,7 +14,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("FDNPerf", "FDN")
+TEST_CASE("FDNPerf", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
@@ -112,7 +112,7 @@ TEST_CASE("FDNPerf", "FDN")
     });
 }
 
-TEST_CASE("FDNPerf_FIR", "FDN")
+TEST_CASE("FDNPerf_FIR", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
@@ -153,7 +153,7 @@ TEST_CASE("FDNPerf_FIR", "FDN")
     });
 }
 
-TEST_CASE("FDNPerf_FFM")
+TEST_CASE("FDNPerf_FFM", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kFDNOrder = 16;
@@ -191,7 +191,7 @@ TEST_CASE("FDNPerf_FFM")
     });
 }
 
-TEST_CASE("FDNPerf_Order")
+TEST_CASE("FDNPerf_Order", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 128;
 
@@ -227,7 +227,7 @@ TEST_CASE("FDNPerf_Order")
     std::cout << bench.complexityBigO() << "\n";
 }
 
-TEST_CASE("FDNPerf_BlockSize")
+TEST_CASE("FDNPerf_BlockSize", "[fdn]")
 {
     constexpr std::array kBlockSizes = {1, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     constexpr uint32_t kInputSize = 2048;
@@ -269,7 +269,7 @@ TEST_CASE("FDNPerf_BlockSize")
     }
 }
 
-TEST_CASE("FDNPerf_OrderFFM")
+TEST_CASE("FDNPerf_OrderFFM", "[fdn]")
 {
     constexpr uint32_t kBlockSize = 512;
 

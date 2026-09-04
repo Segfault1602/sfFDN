@@ -98,7 +98,7 @@ void Process(sfFDN::AudioProcessor& processor, std::span<float> input, std::span
 }
 } // namespace
 
-TEST_CASE("TimeVaryingSchroederAllpass explicit gain matches SchroederAllpass")
+TEST_CASE("TimeVaryingSchroederAllpass explicit gain matches SchroederAllpass", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 13;
     constexpr float kGain = -0.73f;
@@ -116,7 +116,7 @@ TEST_CASE("TimeVaryingSchroederAllpass explicit gain matches SchroederAllpass")
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass follows normalized Type V reference")
+TEST_CASE("TimeVaryingSchroederAllpass follows normalized Type V reference", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 9;
     constexpr uint32_t kSamples = 401;
@@ -167,7 +167,7 @@ TEST_CASE("TimeVaryingSchroederAllpass follows normalized Type V reference")
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass avoids naive changing-gain energy error")
+TEST_CASE("TimeVaryingSchroederAllpass avoids naive changing-gain energy error", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 5;
     constexpr uint32_t kSamples = 512;
@@ -192,7 +192,7 @@ TEST_CASE("TimeVaryingSchroederAllpass avoids naive changing-gain energy error")
     REQUIRE(std::abs(naive_energy + Energy(naive_delay) - 1.0) > 1.e-3);
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass configured modulation is block invariant")
+TEST_CASE("TimeVaryingSchroederAllpass configured modulation is block invariant", "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 127;
     const sfFDN::ModulationOptions modulation{.frequency = 0.017f, .amplitude = 0.31f, .initial_phase = 0.2f};
@@ -218,7 +218,7 @@ TEST_CASE("TimeVaryingSchroederAllpass configured modulation is block invariant"
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass ProcessBlockAccumulate adds its response")
+TEST_CASE("TimeVaryingSchroederAllpass ProcessBlockAccumulate adds its response", "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 37;
     const sfFDN::ModulationOptions modulation{.frequency = 0.017f, .amplitude = 0.31f, .initial_phase = 0.2f};
@@ -240,7 +240,7 @@ TEST_CASE("TimeVaryingSchroederAllpass ProcessBlockAccumulate adds its response"
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass Clear restores configured modulation phase")
+TEST_CASE("TimeVaryingSchroederAllpass Clear restores configured modulation phase", "[time_varying_allpass]")
 {
     const sfFDN::ModulationOptions modulation{.frequency = 0.037f, .amplitude = 0.31f, .initial_phase = 0.375f};
     sfFDN::TimeVaryingSchroederAllpass cleared(11, -0.4f, modulation);
@@ -259,7 +259,8 @@ TEST_CASE("TimeVaryingSchroederAllpass Clear restores configured modulation phas
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, clone, and Clear")
+TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, clone, and Clear",
+          "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 95;
     std::vector<float> input(kSamples, 0.f);
@@ -315,7 +316,8 @@ TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, cl
     REQUIRE(cleared_output == fresh_output);
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSection multichannel bank keeps channels independent without allocation")
+TEST_CASE("TimeVaryingSchroederAllpassSection multichannel bank keeps channels independent without allocation",
+          "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 64;
     sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions options{
@@ -359,7 +361,7 @@ TEST_CASE("TimeVaryingSchroederAllpassSection multichannel bank keeps channels i
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass validates setup options")
+TEST_CASE("TimeVaryingSchroederAllpass validates setup options", "[time_varying_allpass]")
 {
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpass(0, 0.f, kTestModulation), std::invalid_argument);
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpass(4, 1.f, kTestModulation), std::invalid_argument);

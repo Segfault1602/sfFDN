@@ -31,7 +31,7 @@ std::vector<float> MakeNoise(uint32_t count)
 }
 } // namespace
 
-TEST_CASE("NonlinearPerf")
+TEST_CASE("NonlinearPerf", "[nonlinear]")
 {
     auto input = MakeNoise(kBlockSize);
     std::vector<float> output(kBlockSize, 0.f);
@@ -67,7 +67,7 @@ TEST_CASE("NonlinearPerf")
     bench.run("RingModulator", [&] { ring_mod.Process(input_buffer, output_buffer); });
 }
 
-TEST_CASE("NonlinearBankPerf")
+TEST_CASE("NonlinearBankPerf", "[nonlinear]")
 {
     auto input = MakeNoise(kChannelCount * kBlockSize);
     std::vector<float> output(input.size(), 0.f);

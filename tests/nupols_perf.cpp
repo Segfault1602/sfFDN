@@ -28,7 +28,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 }
 } // namespace
 
-TEST_CASE("PartitionedConvolver")
+TEST_CASE("PartitionedConvolver", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 128;
 

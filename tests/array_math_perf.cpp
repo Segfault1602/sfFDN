@@ -8,7 +8,7 @@ using namespace std::chrono_literals;
 
 #include <array_math.h>
 
-TEST_CASE("ArrayMath")
+TEST_CASE("ArrayMath", "[array_math]")
 {
     constexpr uint32_t kSize = 128;
     alignas(32) std::array<float, kSize> a{};

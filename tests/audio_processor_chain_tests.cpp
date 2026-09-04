@@ -11,7 +11,7 @@
 
 #include "allocation_counter.h"
 
-TEST_CASE("AudioProcessorChain")
+TEST_CASE("AudioProcessorChain processes configured gain processors", "[processor_chain]")
 {
     constexpr uint32_t kSize = 4;
     constexpr uint32_t kBlockSize = 4;
@@ -49,7 +49,7 @@ TEST_CASE("AudioProcessorChain")
     }
 }
 
-TEST_CASE("AudioProcessorChain empty and single processor paths")
+TEST_CASE("AudioProcessorChain preserves output when empty", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
 
@@ -66,7 +66,7 @@ TEST_CASE("AudioProcessorChain empty and single processor paths")
     }
 }
 
-TEST_CASE("AudioProcessorChain composes, resets, and clones processors")
+TEST_CASE("AudioProcessorChain manages, processes, and clones processors", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
     sfFDN::AudioProcessorChain chain(kBlockSize);
@@ -111,7 +111,7 @@ TEST_CASE("AudioProcessorChain composes, resets, and clones processors")
     }
 }
 
-TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its contents")
+TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its contents", "[processor_chain]")
 {
     sfFDN::AudioProcessorChain chain(8);
     auto split = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split);
@@ -126,7 +126,7 @@ TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its c
     REQUIRE(chain.OutputChannelCount() == 2);
 }
 
-TEST_CASE("AudioProcessorChain single processor writes directly to output")
+TEST_CASE("AudioProcessorChain writes single processor output directly", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
     std::array<float, kBlockSize> input = {1.f, 2.f, 3.f, 4.f};

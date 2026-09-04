@@ -112,7 +112,7 @@ void RunBenchmark(sfFDN::FDN* fdn, uint32_t block_size, uint32_t fdn_order, nano
 }
 } // namespace
 
-TEST_CASE("FDNPerf2_Block", "[FDNPerf2]")
+TEST_CASE("FDNPerf2_Block", "[fdn]")
 {
     nanobench::Bench bench;
     bench.title("FDN Perf2");
@@ -137,7 +137,7 @@ TEST_CASE("FDNPerf2_Block", "[FDNPerf2]")
     csv_file.close();
 }
 
-TEST_CASE("FDNPerf2_Jot", "[FDNPerf2]")
+TEST_CASE("FDNPerf2_Jot", "[fdn]")
 {
     nanobench::Bench bench;
     bench.title("FDN Perf2");
@@ -159,7 +159,7 @@ TEST_CASE("FDNPerf2_Jot", "[FDNPerf2]")
     csv_file.close();
 }
 
-TEST_CASE("FDNPerf2_FFM", "[FDNPerf2]")
+TEST_CASE("FDNPerf2_FFM", "[fdn]")
 {
     nanobench::Bench bench;
     bench.title("FDN Perf2");

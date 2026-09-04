@@ -19,7 +19,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("FilterBankPerf")
+TEST_CASE("FilterBankPerf", "[filter]")
 {
     constexpr uint32_t kChannelCount = 16;
 
@@ -60,7 +60,7 @@ TEST_CASE("FilterBankPerf")
     }
 }
 
-TEST_CASE("IIRFilterBankPerf")
+TEST_CASE("IIRFilterBankPerf", "[filter]")
 {
     constexpr uint32_t kChannelCount = 16;
     constexpr uint32_t kSampleRate = 48000;
@@ -127,7 +127,7 @@ TEST_CASE("IIRFilterBankPerf")
     });
 }
 
-TEST_CASE("OnePoleFilter")
+TEST_CASE("OnePoleFilter", "[filter]")
 {
     sfFDN::OnePoleFilter filter;
     filter.SetCoefficients(0.5f, 0.2f);
@@ -160,7 +160,7 @@ TEST_CASE("OnePoleFilter")
     bench.run("OnePoleFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
 }
 
-TEST_CASE("AllpassFilter")
+TEST_CASE("AllpassFilter", "[filter]")
 {
     sfFDN::AllpassFilter filter;
     filter.SetCoefficients(0.5f);
@@ -193,7 +193,7 @@ TEST_CASE("AllpassFilter")
     bench.run("AllpassFilter (block)", [&] { filter.Process(input_buffer, output_buffer); });
 }
 
-TEST_CASE("CascadedBiquadsPerf")
+TEST_CASE("CascadedBiquadsPerf", "[filter]")
 {
     // clang-format off
     constexpr std::array<sfFDN::FilterCoefficients,11> kSOS = {{
@@ -247,7 +247,7 @@ TEST_CASE("CascadedBiquadsPerf")
     bench.run("CascadedBiquads - One Band", [&] { one_band_filter.Process(input_buffer, output_buffer); });
 }
 
-TEST_CASE("FirFilter")
+TEST_CASE("FirFilter", "[filter]")
 {
     nanobench::Bench bench;
     bench.title("Fir perf");
@@ -280,7 +280,7 @@ TEST_CASE("FirFilter")
     }
 }
 
-TEST_CASE("FirFilterSparse")
+TEST_CASE("FirFilterSparse", "[filter]")
 {
     nanobench::Bench bench;
     bench.title("Fir sparse perf");
@@ -323,7 +323,7 @@ TEST_CASE("FirFilterSparse")
     }
 }
 
-TEST_CASE("ParallelSchroederAllpassSection")
+TEST_CASE("ParallelSchroederAllpassSection", "[filter]")
 {
     constexpr uint32_t kChannelCount = 16;
     constexpr uint32_t kBlockSize = 128;
@@ -362,7 +362,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
 }
 
 #ifdef __APPLE__
-TEST_CASE("VDSP_FilterBank")
+TEST_CASE("VDSP_FilterBank", "[filter]")
 {
     constexpr uint32_t N = 16; // number of channels
     constexpr uint32_t M = 11; // number of section
@@ -432,7 +432,7 @@ TEST_CASE("VDSP_FilterBank")
     }
 }
 #endif
-TEST_CASE("IIRFilterBankChannelCountPerf")
+TEST_CASE("IIRFilterBankChannelCountPerf", "[filter]")
 {
     // The bank vectorizes across channels in groups of four and splits wide banks into passes.
     // This sweeps channel counts across those boundaries, including counts that are not a

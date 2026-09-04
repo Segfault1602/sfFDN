@@ -13,7 +13,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("AudioProcessorChainPerf")
+TEST_CASE("AudioProcessorChainPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr std::array<sfFDN::FilterCoefficients, 2> kCoefficients = {{
@@ -66,7 +66,7 @@ TEST_CASE("AudioProcessorChainPerf")
     });
 }
 
-TEST_CASE("DelayBankTimeVaryingPerf")
+TEST_CASE("DelayBankTimeVaryingPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr std::array<uint32_t, 2> kOrders = {8, 32};
@@ -111,7 +111,7 @@ TEST_CASE("DelayBankTimeVaryingPerf")
     }
 }
 
-TEST_CASE("DattorroDelayPerf")
+TEST_CASE("DattorroDelayPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr float kSampleRate = 48000.f;
@@ -148,7 +148,7 @@ TEST_CASE("DattorroDelayPerf")
     }
 }
 
-TEST_CASE("MultichannelDattorroDelayPerf")
+TEST_CASE("MultichannelDattorroDelayPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kChannelCount = 8;
@@ -180,7 +180,7 @@ TEST_CASE("MultichannelDattorroDelayPerf")
     });
 }
 
-TEST_CASE("DattorroDelayVsTimeVaryingPerf")
+TEST_CASE("DattorroDelayVsTimeVaryingPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
 
@@ -242,7 +242,7 @@ TEST_CASE("DattorroDelayVsTimeVaryingPerf")
     });
 }
 
-TEST_CASE("SchroederAllpassComparisonPerf")
+TEST_CASE("SchroederAllpassComparisonPerf", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kDelay = 479;

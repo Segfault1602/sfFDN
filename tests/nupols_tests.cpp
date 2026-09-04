@@ -11,7 +11,7 @@
 #include "signal_test_utils.h"
 #include "test_utils.h"
 
-TEST_CASE("PartitionedConvolver")
+TEST_CASE("PartitionedConvolver reproduces the reference impulse response", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 128;
 
@@ -30,7 +30,7 @@ TEST_CASE("PartitionedConvolver")
     sfFDNTest::RequireSignalsClose(fir, output, 1e-5f, 90.0);
 }
 
-TEST_CASE("PartitionedConvolver_Noise")
+TEST_CASE("PartitionedConvolver matches Fir on a chirp", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 128;
 
@@ -59,7 +59,7 @@ TEST_CASE("PartitionedConvolver_Noise")
     sfFDNTest::RequireSignalsClose(filter_output, output, 1e-5f, 90.0);
 }
 
-TEST_CASE("PartitionedConvolver automatically selects a production partition schedule")
+TEST_CASE("PartitionedConvolver automatically selects a production partition schedule", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 1024;
     std::vector<float> short_rir(48000, 0.f);

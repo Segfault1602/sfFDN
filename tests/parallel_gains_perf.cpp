@@ -13,7 +13,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("ParallelGainsPerf", "[Gains]")
+TEST_CASE("ParallelGainsPerf", "[parallel_gains]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;

@@ -74,7 +74,7 @@ void TestMatrixMultiplyIdentity()
 }
 } // namespace
 
-TEST_CASE("MatrixMultiply_16 row-major")
+TEST_CASE("MatrixMultiply_16 matches MatrixMultiply_C for a row-major order-16 matrix", "[matrix_multiplication]")
 {
     const std::array<float, kMatrixMultiplyOrder> input = {1.f,  -2.f,  3.5f, -4.f,   5.f,  -6.5f, 7.f,   -8.f,
                                                            9.5f, -10.f, 11.f, -12.5f, 13.f, -14.f, 15.5f, -16.f};
@@ -93,7 +93,7 @@ TEST_CASE("MatrixMultiply_16 row-major")
     }
 }
 
-TEST_CASE("Identity")
+TEST_CASE("MatrixMultiply_C preserves identity matrices across supported orders", "[matrix_multiplication]")
 {
     TestMatrixMultiplyIdentity<4>();
     TestMatrixMultiplyIdentity<8>();
@@ -101,7 +101,7 @@ TEST_CASE("Identity")
     TestMatrixMultiplyIdentity<32>();
 }
 
-TEST_CASE("MatrixMultiply")
+TEST_CASE("MatrixMultiply_C matches Eigen for multiple orders and row counts", "[matrix_multiplication]")
 {
     constexpr std::array kNSize = {4, 8, 10, 12, 16, 32};
     constexpr std::array kRowCounts = {1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64};
@@ -139,7 +139,7 @@ TEST_CASE("MatrixMultiply")
     }
 }
 
-TEST_CASE("MatrixMultiply_6")
+TEST_CASE("MatrixMultiply_C matches Eigen for an order-6 matrix", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 6;
     constexpr uint32_t kRowCount = 4;
@@ -211,14 +211,14 @@ void TestMatrixMultiplyHadamard()
     }
 }
 
-TEST_CASE("MatrixMultiply_Hadamard")
+TEST_CASE("HadamardMultiply matches WalshHadamardTransform against Hadamard matrices", "[matrix_multiplication]")
 {
     TestMatrixMultiplyHadamard<4>();
     TestMatrixMultiplyHadamard<8>();
     TestMatrixMultiplyHadamard<16>();
 }
 
-TEST_CASE("HadamardMultiplyBlock")
+TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block sample", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatrixSize = 4;
     constexpr uint32_t kBlockSize = 5;

@@ -50,7 +50,7 @@ void BenchmarkStructuredMatrix(const sfFDN::ScalarMatrixType type, const std::st
 }
 } // namespace
 
-TEST_CASE("MixMatPerf")
+TEST_CASE("MixMatPerf", "[feedback_matrix]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kMatSize = 16;
@@ -97,7 +97,7 @@ TEST_CASE("MixMatPerf")
     });
 }
 
-TEST_CASE("StructuredMixMatPerf")
+TEST_CASE("StructuredMixMatPerf", "[feedback_matrix]")
 {
     nanobench::Bench bench;
     bench.title("Structured feedback matrix");
@@ -115,7 +115,7 @@ TEST_CASE("StructuredMixMatPerf")
     }
 }
 
-TEST_CASE("Matrix_Order")
+TEST_CASE("Matrix_Order", "[feedback_matrix]")
 {
     constexpr std::array<uint32_t, 14> kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32, 64, 128};
 
@@ -149,7 +149,7 @@ TEST_CASE("Matrix_Order")
     // std::cout << bench.complexityBigO() << "\n";
 }
 
-TEST_CASE("FFMPerf_Order")
+TEST_CASE("FFMPerf_Order", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 8;
     constexpr uint32_t kMaxStageCount = 8;
@@ -184,7 +184,7 @@ TEST_CASE("FFMPerf_Order")
     std::cout << bench.complexityBigO() << "\n";
 }
 
-TEST_CASE("Delay_Matrix")
+TEST_CASE("Delay_Matrix", "[feedback_matrix]")
 {
     constexpr std::array<uint32_t, 12> kMatrixSizes = {4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32};
 

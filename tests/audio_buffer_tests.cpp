@@ -4,7 +4,7 @@
 
 #include "sffdn/audio_buffer.h"
 
-TEST_CASE("AudioBuffer constructors and accessors alias backing storage")
+TEST_CASE("AudioBuffer aliases backing storage through constructors and accessors", "[audio_buffer]")
 {
     sfFDN::AudioBuffer const empty;
     REQUIRE(empty.SampleCount() == 0);
@@ -48,7 +48,7 @@ TEST_CASE("AudioBuffer constructors and accessors alias backing storage")
     REQUIRE(const_channel_buffer.GetChannelSpan(0)[1] == 42.f);
 }
 
-TEST_CASE("AudioBuffer_Offset")
+TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
 {
     constexpr uint32_t kFrameSize = 128;
     constexpr uint32_t kChannelCount = 8;

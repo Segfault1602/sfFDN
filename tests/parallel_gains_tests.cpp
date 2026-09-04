@@ -18,7 +18,7 @@
 #include "allocation_counter.h"
 #include "test_utils.h"
 
-TEST_CASE("ParallelGainsInput")
+TEST_CASE("ParallelGains Split applies configured gains to each output channel", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -49,7 +49,7 @@ TEST_CASE("ParallelGainsInput")
     }
 }
 
-TEST_CASE("ParallelGainsOutput")
+TEST_CASE("ParallelGains Merge sums scaled input channels", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -83,7 +83,7 @@ TEST_CASE("ParallelGainsOutput")
 }
 
 // With frequency and amplitude to 0, this should behave the same as a normal ParallelGain
-TEST_CASE("TimeVaryingParallelGainsInput_static")
+TEST_CASE("TimeVaryingParallelGains Split matches ParallelGains without modulation", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -120,7 +120,7 @@ TEST_CASE("TimeVaryingParallelGainsInput_static")
     }
 }
 
-TEST_CASE("TimeVaryingParallelGainsOutput_static")
+TEST_CASE("TimeVaryingParallelGains Merge matches ParallelGains without modulation", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -159,7 +159,7 @@ TEST_CASE("TimeVaryingParallelGainsOutput_static")
     }
 }
 
-TEST_CASE("TimeVaryingParallelGainsInput")
+TEST_CASE("TimeVaryingParallelGains Split modulates gains and Clear restores initial phase", "[parallel_gains]")
 {
     constexpr std::array<float, 4> kExpectedGain = {0.5f, 0.6767767f, 0.75f, 0.6767767f};
     constexpr std::array<float, 4> kContinuedGain = {0.5f, 0.3232233f, 0.25f, 0.3232233f};
@@ -201,7 +201,7 @@ TEST_CASE("TimeVaryingParallelGainsInput")
     }
 }
 
-TEST_CASE("TimeVaryingParallelGains dynamically merges and processes channels in parallel")
+TEST_CASE("TimeVaryingParallelGains processes Merge and Parallel modes without allocation", "[parallel_gains]")
 {
     const sfFDN::ParallelGainsOptions merge_options{
         .mode = sfFDN::ParallelGainsMode::Merge,
@@ -257,7 +257,7 @@ TEST_CASE("TimeVaryingParallelGains dynamically merges and processes channels in
     }
 }
 
-TEST_CASE("MakeParallelGainsFromConfig selects static and time-varying implementations")
+TEST_CASE("MakeParallelGainsFromConfig selects static and time-varying implementations", "[parallel_gains]")
 {
     const sfFDN::ParallelGainsOptions static_options{
         .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {2.f, 3.f}, .time_varying_config = {}};

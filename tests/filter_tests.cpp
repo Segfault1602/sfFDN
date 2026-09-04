@@ -48,7 +48,7 @@ constexpr std::array<float, 32> kTestSOSExpectedOutput = {
 
 } // namespace
 
-TEST_CASE("OnePoleFilter")
+TEST_CASE("OnePoleFilter produces an impulse response", "[filter]")
 {
     sfFDN::OnePoleFilter filter;
     filter.SetCoefficients(0.1, -0.9);
@@ -71,7 +71,7 @@ TEST_CASE("OnePoleFilter")
     }
 }
 
-TEST_CASE("FirFilter")
+TEST_CASE("Fir matches an impulse response through block and sample processing", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     sfFDN::Fir filter;
@@ -116,7 +116,7 @@ TEST_CASE("FirFilter")
     }
 }
 
-TEST_CASE("SparseFirFilter")
+TEST_CASE("MakeFirFilter selects SparseFir for sparse coefficients", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     sfFDN::FirOptions fir_config;
@@ -130,7 +130,7 @@ TEST_CASE("SparseFirFilter")
     REQUIRE(dynamic_cast<sfFDN::SparseFir*>(sparse_filter.get()) != nullptr);
 }
 
-TEST_CASE("SparseFir supports default construction and coefficient updates")
+TEST_CASE("SparseFir supports default construction and coefficient updates", "[filter]")
 {
     sfFDN::SparseFir filter;
 
@@ -161,7 +161,7 @@ TEST_CASE("SparseFir supports default construction and coefficient updates")
     REQUIRE_THAT(output[11], Catch::Matchers::WithinAbs(0.125f, 1e-6f));
 }
 
-TEST_CASE("SparseFir continuously consumes streaming blocks")
+TEST_CASE("SparseFir continuously consumes streaming blocks", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     constexpr uint32_t kBlockSize = 128;
@@ -225,7 +225,7 @@ TEST_CASE("SparseFir continuously consumes streaming blocks")
     }
 }
 
-TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom")
+TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom", "[filter]")
 {
     constexpr uint32_t kFilterOrder = 4000;
     constexpr uint32_t kBlockSize = 256;
@@ -263,7 +263,7 @@ TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom")
     }
 }
 
-TEST_CASE("SchroederAllpass")
+TEST_CASE("SchroederAllpass matches an impulse response through tick and block processing", "[filter]")
 {
     sfFDN::SchroederAllpass filter(5, -0.9);
 
@@ -289,7 +289,7 @@ TEST_CASE("SchroederAllpass")
     }
 }
 
-TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move")
+TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move", "[filter]")
 {
     const sfFDN::SchroederAllpassSectionOptions options{
         .delays = {5, 7, 11},
@@ -334,7 +334,7 @@ TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move
     }
 }
 
-TEST_CASE("SchroederAllpassSection")
+TEST_CASE("SchroederAllpassSection matches a serial allpass cascade", "[filter]")
 {
     sfFDN::SchroederAllpassSection filter(2);
 
@@ -362,7 +362,7 @@ TEST_CASE("SchroederAllpassSection")
     }
 }
 
-TEST_CASE("ParallelSchroederAllpassSection")
+TEST_CASE("ParallelSchroederAllpassSection processes independent first-order channels", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -421,7 +421,7 @@ TEST_CASE("ParallelSchroederAllpassSection")
     }
 }
 
-TEST_CASE("ParallelSchroederAllpassSection_Order2")
+TEST_CASE("ParallelSchroederAllpassSection processes independent second-order cascades", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -480,7 +480,7 @@ TEST_CASE("ParallelSchroederAllpassSection_Order2")
     }
 }
 
-TEST_CASE("FilterBank")
+TEST_CASE("FilterBank matches distinct per-channel one-pole responses", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -520,7 +520,7 @@ TEST_CASE("FilterBank")
     }
 }
 
-TEST_CASE("CascadedBiquads")
+TEST_CASE("CascadedBiquads matches a reference biquad cascade", "[filter]")
 {
     sfFDN::CascadedBiquads filter;
 
@@ -543,7 +543,7 @@ TEST_CASE("CascadedBiquads")
     }
 }
 
-TEST_CASE("IIRFilterBank")
+TEST_CASE("IIRFilterBank matches a cascade reference with cloning and in-place processing", "[filter]")
 {
     constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kStageCount = kTestSOS.size();
@@ -615,7 +615,7 @@ TEST_CASE("IIRFilterBank")
     }
 }
 
-TEST_CASE("IIRFilterBank preserves channel coefficient layout")
+TEST_CASE("IIRFilterBank preserves channel coefficient layout", "[filter]")
 {
     constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kBlockSize = 4;
@@ -639,7 +639,7 @@ TEST_CASE("IIRFilterBank preserves channel coefficient layout")
     }
 }
 
-TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count")
+TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count", "[filter]")
 {
     // The bank vectorizes across channels in groups of four and splits wide banks into several
     // passes. This walks every channel count across those boundaries, including counts that are

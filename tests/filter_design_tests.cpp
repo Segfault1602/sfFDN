@@ -35,7 +35,7 @@ void RequireStableSections(std::span<const sfFDN::FilterCoefficients> sections)
 }
 } // namespace
 
-TEST_CASE("TwoFilter")
+TEST_CASE("DesignTenBandAbsorption matches reference two-filter coefficients", "[filter_design]")
 {
     constexpr float kSR = 48000;
     constexpr std::array<double, 10> kT60s = {2.5, 2.7, 2.5, 2.3, 2.3, 2.1, 1.7, 1.6, 1.2, 1.0};
@@ -85,7 +85,7 @@ TEST_CASE("TwoFilter")
     }
 }
 
-TEST_CASE("Polyval")
+TEST_CASE("Polyval matches a complex polynomial reference", "[filter_design]")
 {
     constexpr size_t kN = 10;
     std::array<double, kN> freqs = {31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
@@ -119,7 +119,7 @@ TEST_CASE("Polyval")
     }
 }
 
-TEST_CASE("LowShelfRBJ and HighShelfRBJ")
+TEST_CASE("LowShelfRBJ and HighShelfRBJ match reference shelf coefficients", "[filter_design]")
 {
     constexpr double kSR = 48000;
     constexpr double kF0 = 1000.0;
@@ -148,7 +148,7 @@ TEST_CASE("LowShelfRBJ and HighShelfRBJ")
     }
 }
 
-TEST_CASE("DesignGraphicEQ produces stable sections")
+TEST_CASE("DesignGraphicEQ produces stable sections", "[filter_design]")
 {
     constexpr std::array<float, 10> kFreq = {31.25f, 62.5f,  125.f,  250.f,  500.f,
                                              1000.f, 2000.f, 4000.f, 8000.f, 16000.f};
@@ -158,7 +158,7 @@ TEST_CASE("DesignGraphicEQ produces stable sections")
     RequireStableSections(sections);
 }
 
-TEST_CASE("DesignThreeBandAbsorption produces stable sections")
+TEST_CASE("DesignThreeBandAbsorption produces stable sections", "[filter_design]")
 {
     constexpr float kDelay = 1000.f;
     constexpr float sr = 48000.f;
@@ -169,7 +169,8 @@ TEST_CASE("DesignThreeBandAbsorption produces stable sections")
     RequireStableSections(sos);
 }
 
-TEST_CASE("Attenuation filter bank selects multichannel cascades only when supported")
+TEST_CASE("CreateAttenuationFilterBank selects multichannel cascades and falls back for heterogeneous filters",
+          "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions ten_band_options;
     ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
@@ -227,7 +228,7 @@ TEST_CASE("Attenuation filter bank selects multichannel cascades only when suppo
     REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fallback.get()) != nullptr);
 }
 
-TEST_CASE("Three-band attenuation filter bank matches channel filters")
+TEST_CASE("CreateAttenuationFilterBank matches three-band channel filters without allocations", "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions options;
     options.filter_configs.emplace_back(sfFDN::ThreeBandFilterOptions{
@@ -314,7 +315,8 @@ TEST_CASE("Three-band attenuation filter bank matches channel filters")
     sfFDNTest::RequireSignalsClose(sustained_reference, sustained_optimized, 3e-5f, 90.0);
 }
 
-TEST_CASE("Two-band attenuation filter bank matches channel filters")
+TEST_CASE("CreateAttenuationFilterBank matches two-band channel filters across platform implementations",
+          "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions options;
     options.filter_configs.emplace_back(

@@ -8,7 +8,7 @@
 
 #include "sffdn/oscillator.h"
 
-TEST_CASE("SineWave")
+TEST_CASE("SineWave Generate produces sine samples", "[oscillator]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kSampleRate = 48000;
@@ -36,7 +36,7 @@ TEST_CASE("SineWave")
     }
 }
 
-TEST_CASE("SineWave sample APIs agree")
+TEST_CASE("SineWave sample APIs agree", "[oscillator]")
 {
     constexpr uint32_t kSize = 17;
     constexpr float kFrequency = 0.13f;
@@ -55,7 +55,7 @@ TEST_CASE("SineWave sample APIs agree")
     }
 }
 
-TEST_CASE("SineWave controls and normalized frequency wrapping")
+TEST_CASE("SineWave applies controls and wraps normalized frequency", "[oscillator]")
 {
     constexpr float kFrequency = 0.75f;
     constexpr float kInitialPhase = 0.25f;
@@ -86,7 +86,7 @@ TEST_CASE("SineWave controls and normalized frequency wrapping")
                      (std::sin(kPhaseOffset * 2.f * std::numbers::pi_v<float>) * kAmplitude) + kOffset, 7e-4f));
 }
 
-TEST_CASE("SineWave multiplication matches scalar modulation")
+TEST_CASE("SineWave Multiply matches scalar modulation and accumulation", "[oscillator]")
 {
     constexpr std::array<float, 7> kInput = {1.f, -2.f, 0.5f, -0.25f, 4.f, 3.f, -1.f};
     constexpr float kFrequency = 0.2f;

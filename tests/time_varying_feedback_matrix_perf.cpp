@@ -116,7 +116,7 @@ void BenchmarkFDN(sfFDN::FDN& fdn, std::string_view name, nanobench::Bench& benc
 
 } // namespace
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_MatrixSweep", "[TimeVaryingFeedbackMatrix][perf]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf_MatrixSweep", "[time_varying_matrix]")
 {
     for (const uint32_t order : {8U, 16U, 32U})
     {
@@ -127,7 +127,7 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf_MatrixSweep", "[TimeVaryingFeedbackMatr
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_SinCosUnit", "[TimeVaryingFeedbackMatrix][perf]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf_SinCosUnit", "[time_varying_matrix]")
 {
     constexpr std::array kAngles = {
         -std::numbers::pi_v<float>,         -0.7F * std::numbers::pi_v<float>,
@@ -154,7 +154,7 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf_SinCosUnit", "[TimeVaryingFeedbackMatri
     });
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_FDN", "[TimeVaryingFeedbackMatrix][perf]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf_FDN", "[time_varying_matrix]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr uint32_t kOrder = 16U;

@@ -16,7 +16,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("Delay", "[Delay]")
+TEST_CASE("Delay", "[delay]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kDelay = 2456;
@@ -61,7 +61,7 @@ TEST_CASE("Delay", "[Delay]")
     sfFDN::DelayInterp delay_allpass({kDelay + 0.5f, kMaxDelay, sfFDN::DelayInterpolationType::Allpass});
 }
 
-TEST_CASE("DelayInterp", "[Delay]")
+TEST_CASE("DelayInterp", "[delay]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kDelay = 2456;
@@ -141,7 +141,7 @@ TEST_CASE("DelayInterp", "[Delay]")
     });
 }
 
-TEST_CASE("DelayTimeVarying", "[Delay]")
+TEST_CASE("DelayTimeVarying", "[delay]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kDelay = 2456;
@@ -206,7 +206,7 @@ TEST_CASE("DelayTimeVarying", "[Delay]")
     });
 }
 
-TEST_CASE("DelayBank")
+TEST_CASE("DelayBank", "[delay]")
 {
     constexpr uint32_t kChannelCount = 16;
     const std::vector<float> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
@@ -238,7 +238,7 @@ TEST_CASE("DelayBank")
     });
 }
 
-TEST_CASE("DelayBank_BlockSize")
+TEST_CASE("DelayBank_BlockSize", "[delay]")
 {
     constexpr uint32_t kChannelCount = 16;
     const std::vector<float> kDelays = {1123, 1291, 1627, 1741, 1777, 2099, 2341, 2593,
@@ -284,7 +284,7 @@ TEST_CASE("DelayBank_BlockSize")
     }
 }
 
-TEST_CASE("Delay_MultiTap")
+TEST_CASE("Delay_MultiTap", "[delay]")
 {
     constexpr uint32_t kTapCount = 16;
     constexpr uint32_t kMinTap = 0;
