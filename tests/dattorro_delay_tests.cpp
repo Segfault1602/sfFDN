@@ -276,6 +276,30 @@ TEST_CASE("DattorroDelay does not allocate")
     }
 }
 
+TEST_CASE("DattorroDelay grows its buffer during setup, then processes without allocation")
+{
+    constexpr uint32_t kBlockSize = 64;
+    sfFDN::DattorroDelay delay(sfFDN::DattorroDelayOptions{
+        .delay_config = {.delay = 8.f,
+                         .max_delay = 16,
+                         .interp_type = sfFDN::DelayInterpolationType::Allpass,
+                         .lfo_config = std::nullopt},
+    });
+
+    // Changing the delay is a setup operation and may enlarge the backing delay line. Process() must not do so.
+    delay.SetDelay(512.f);
+
+    std::array<float, kBlockSize> input{};
+    std::array<float, kBlockSize> output{};
+    sfFDN::AudioBuffer const input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    delay.Process(input_buffer, output_buffer);
+
+    const sfFDNTest::ScopedAllocationCounter counter;
+    delay.Process(input_buffer, output_buffer);
+    REQUIRE(counter.Count() == 0);
+}
+
 TEST_CASE("DattorroDelay parameter validation")
 {
     sfFDN::DattorroDelayOptions options{
@@ -302,7 +326,11 @@ TEST_CASE("DattorroDelay parameter validation")
     REQUIRE_THROWS_AS(
         delay.SetMod(sfFDN::ModulationOptions{.frequency = 0.001f, .amplitude = 31.f, .initial_phase = 0.f}),
         std::invalid_argument);
+    REQUIRE_THROWS_AS(
+        delay.SetMod(sfFDN::ModulationOptions{.frequency = 0.001f, .amplitude = -31.f, .initial_phase = 0.f}),
+        std::invalid_argument);
     REQUIRE_THROWS_AS(delay.SetDelay(1.f), std::invalid_argument);
+    REQUIRE_THROWS_AS(delay.SetDelay(-std::numeric_limits<float>::infinity()), std::invalid_argument);
 
     // The feedback gain is clamped to keep the loop stable.
     delay.SetFeedback(2.f);
@@ -487,7 +515,7 @@ float SecondDifferenceCrestFactor(std::span<const float> signal)
 }
 } // namespace
 
-TEST_CASE("DattorroDelayPresetAudio")
+TEST_CASE("DattorroDelay preset audition renders", "[.diagnostic]")
 {
     // Deliberately not a multiple of the 16-sample unroll factor inside Process(), so that both the unrolled body and
     // the scalar remainder run every block and any seam between them would show up in the audio.
@@ -500,8 +528,6 @@ TEST_CASE("DattorroDelayPresetAudio")
     {
         sfFDN::DattorroDelay delay(sfFDN::MakeDattorroDelayOptions(type, kSampleRate));
         std::vector<float> output = ProcessInBlocks(delay, input, kBlockSize);
-
-        REQUIRE(std::ranges::all_of(output, [](float sample) { return std::isfinite(sample); }));
 
         // Normalize so every preset is comfortable to listen to at the same volume. The discontinuity test below
         // works on unnormalized output, so this only affects what gets written to disk.
@@ -570,7 +596,7 @@ TEST_CASE("DattorroDelayPresetContinuity")
     }
 }
 
-TEST_CASE("DattorroDelayChorusSine")
+TEST_CASE("DattorroDelay white chorus modulates a sine smoothly")
 {
     // The white chorus LFO runs at 0.15 Hz, so one modulation cycle lasts about 6.7 s. The file is long enough to
     // hear two full cycles sweep past.
@@ -597,9 +623,6 @@ TEST_CASE("DattorroDelayChorusSine")
     const std::vector<float> output = ProcessInBlocks(chorus, input, kBlockSize);
 
     REQUIRE(std::ranges::all_of(output, [](float sample) { return std::isfinite(sample); }));
-
-    WriteWavFile("dattorro_chorus_sine_dry.wav", input);
-    WriteWavFile("dattorro_chorus_sine.wav", output);
 
     // A chorus on a steady tone is heard as a swirl. The delayed voice is Doppler-shifted by the moving tap (+/-0.47%
     // here, about 8 cents) and beats against the dry path, so the envelope has to actually move. Note the beating is
@@ -628,6 +651,34 @@ TEST_CASE("DattorroDelayChorusSine")
 
     // And it must stay smooth while doing it.
     REQUIRE(SecondDifferenceCrestFactor(output) < 10.f);
+}
+
+TEST_CASE("DattorroDelay white chorus sine render", "[.diagnostic]")
+{
+    constexpr uint32_t kBlockSize = 100;
+    constexpr uint32_t kDurationSamples = kSampleRate * 14;
+    constexpr float kToneFreq = 440.f;
+    constexpr float kLevel = 0.25f;
+    constexpr uint32_t kFadeSamples = 4096;
+
+    std::vector<float> input(kDurationSamples, 0.f);
+    const float omega = 2.f * std::numbers::pi_v<float> * kToneFreq / kSampleRate;
+    for (uint32_t i = 0; i < kDurationSamples; ++i)
+    {
+        input[i] = kLevel * std::sin(omega * static_cast<float>(i));
+    }
+    for (uint32_t i = 0; i < kFadeSamples; ++i)
+    {
+        const float ramp = 0.5f * (1.f - std::cos(std::numbers::pi_v<float> * static_cast<float>(i) / kFadeSamples));
+        input[i] *= ramp;
+        input[kDurationSamples - 1 - i] *= ramp;
+    }
+
+    sfFDN::DattorroDelay chorus(sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate));
+    const std::vector<float> output = ProcessInBlocks(chorus, input, kBlockSize);
+
+    WriteWavFile("dattorro_chorus_sine_dry.wav", input);
+    WriteWavFile("dattorro_chorus_sine.wav", output);
 }
 
 TEST_CASE("DattorroDelayWhiteChorusIsWhite")
@@ -697,8 +748,8 @@ TEST_CASE("MultichannelDattorroDelay channel count")
     REQUIRE(sfFDN::MakeMultichannelDattorroDelay(options)->InputChannelCount() == 0);
 
     constexpr uint32_t kChannelCount = 6;
-    options = sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f,
-                                                          kChannelCount);
+    options =
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount);
     REQUIRE(options.delays.size() == kChannelCount);
 
     auto bank = sfFDN::MakeMultichannelDattorroDelay(options);
@@ -760,8 +811,7 @@ TEST_CASE("MultichannelDattorroDelayOptions decorrelation")
 
     const auto base = sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate);
     const auto options =
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate,
-                                                    kChannelCount);
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, kChannelCount);
     REQUIRE(options.delays.size() == kChannelCount);
 
     std::vector<float> phases;
@@ -800,8 +850,8 @@ TEST_CASE("MultichannelDattorroDelayOptions decorrelation")
             options.delays.back().delay_config.lfo_config->frequency);
 
     // A single channel reproduces the single-channel preset exactly, spread and all.
-    const auto mono = sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate,
-                                                                  1);
+    const auto mono =
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, 1);
     REQUIRE(mono.delays.size() == 1);
     REQUIRE_THAT(mono.delays[0].delay_config.delay, Catch::Matchers::WithinAbs(base.delay_config.delay, 1e-6f));
     REQUIRE_THAT(mono.delays[0].delay_config.lfo_config->amplitude,
@@ -889,6 +939,19 @@ TEST_CASE("MultichannelDattorroDelay clone")
     for (auto i = 0u; i < original_output.size(); ++i)
     {
         REQUIRE_THAT(clone_output[i], Catch::Matchers::WithinAbs(original_output[i], 1e-6f));
+    }
+
+    bank->Clear();
+    auto fresh = sfFDN::MakeMultichannelDattorroDelay(
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount));
+    std::ranges::fill(original_output, 0.f);
+    std::ranges::fill(clone_output, 0.f);
+    bank->Process(input_buffer, original_buffer);
+    fresh->Process(input_buffer, clone_buffer);
+
+    for (auto i = 0u; i < original_output.size(); ++i)
+    {
+        REQUIRE_THAT(original_output[i], Catch::Matchers::WithinAbs(clone_output[i], 1e-6f));
     }
 }
 

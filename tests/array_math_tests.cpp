@@ -31,67 +31,93 @@ TEST_CASE("Accumulate")
 TEST_CASE("Add")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> b(kSize, 2.f);
+    std::vector<float> a(kSize);
+    std::vector<float> b(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        b[i] = 3.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::Add(a, b, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(3.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] + b[i], 0.0001));
     }
 }
 
 TEST_CASE("Scale")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
+    std::vector<float> a(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) / 32.f;
+    }
 
     sfFDN::ArrayMath::Scale(a, 2.f, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] * 2.f, 0.0001));
     }
 }
 
 TEST_CASE("ScaleAccumulate")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> out(kSize, 0.f);
+    std::vector<float> a(kSize);
+    std::vector<float> out(kSize);
+    std::vector<float> expected(kSize);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        out[i] = 5.f - (static_cast<float>(i) * 0.125f);
+        expected[i] = out[i] + (a[i] * 2.f);
+    }
 
     sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(expected[i], 0.0001));
     }
 }
 
 TEST_CASE("Multiply")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 2.f);
-    std::vector<float> b(kSize, 3.f);
+    std::vector<float> a(kSize);
+    std::vector<float> b(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        b[i] = 2.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::Multiply(a, b, out);
-    for (const float value : out)
+    for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(6.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] * b[i], 0.0001));
     }
 }
 
 TEST_CASE("MultiplyAdd")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 2.f);
-    std::vector<float> c(kSize, 3.f);
+    std::vector<float> a(kSize);
+    std::vector<float> c(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        c[i] = 3.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::MultiplyAdd(a, 4.f, c, out);
-    for (const float value : out)
+    for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(11.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs((a[i] * 4.f) + c[i], 0.0001));
     }
 }

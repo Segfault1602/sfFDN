@@ -1,10 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include <iostream>
+#include <algorithm>
+#include <cmath>
 #include <limits>
+#include <numbers>
 #include <ranges>
 #include <stdexcept>
+#include <vector>
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/feedback_matrix.h"
@@ -14,6 +17,47 @@
 #include "allocation_counter.h"
 #include "matrix_multiplication.h"
 #include "test_utils.h"
+
+namespace
+{
+std::vector<float> DenseReference(std::span<const float> matrix, uint32_t order, uint32_t block_size,
+                                  std::span<const float> input)
+{
+    std::vector<float> output(input.size(), 0.f);
+    for (uint32_t destination = 0; destination < order; ++destination)
+    {
+        for (uint32_t sample = 0; sample < block_size; ++sample)
+        {
+            for (uint32_t source = 0; source < order; ++source)
+            {
+                output[(destination * block_size) + sample] +=
+                    matrix[(destination * order) + source] * input[(source * block_size) + sample];
+            }
+        }
+    }
+    return output;
+}
+
+void RequireFiniteOrthogonal(std::span<const float> matrix, uint32_t order)
+{
+    for (const float coefficient : matrix)
+    {
+        REQUIRE(std::isfinite(coefficient));
+    }
+    for (uint32_t row = 0; row < order; ++row)
+    {
+        for (uint32_t other_row = 0; other_row < order; ++other_row)
+        {
+            float dot = 0.f;
+            for (uint32_t column = 0; column < order; ++column)
+            {
+                dot += matrix[(row * order) + column] * matrix[(other_row * order) + column];
+            }
+            REQUIRE_THAT(dot, Catch::Matchers::WithinAbs(row == other_row ? 1.f : 0.f, 1e-5f));
+        }
+    }
+}
+} // namespace
 
 TEST_CASE("VelvetFFM")
 {
@@ -43,30 +87,33 @@ TEST_CASE("VelvetFFM")
 
     ffm->Process(input_buffer, output_buffer);
 
-    for (auto i = 0u; i < kMatSize; ++i)
+    float energy = 0.f;
+    for (const float sample : output_buffer_data)
     {
-        std::cout << "Output Channel " << i << ": ";
-        for (auto j = 0u; j < kBlockSize; ++j)
-        {
-            std::cout << output_buffer.GetChannelSpan(i)[j] << " ";
-        }
-        std::cout << "\n";
+        REQUIRE(std::isfinite(sample));
+        energy += sample * sample;
     }
+    REQUIRE(energy > 0.f);
+
+    ffm->Clear();
+    std::ranges::fill(output_buffer_data, 0.f);
+    ffm->Process(input_buffer, output_buffer);
+    REQUIRE(std::ranges::any_of(output_buffer_data, [](float sample) { return sample != 0.f; }));
 }
 
 TEST_CASE("VariableDiffusionMatrix")
 {
-    constexpr uint32_t kMatSize = 8;
-    auto mat = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::VariableDiffusion, 0.f, 1.0f);
+    constexpr uint32_t kMatSize = 2;
+    const auto mat = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::VariableDiffusion, 0, 0.5f);
+    const float theta = std::numbers::pi_v<float> / 8.f;
+    const std::array<float, 4> expected = {std::cos(theta), std::sin(theta), -std::sin(theta), std::cos(theta)};
 
-    for (auto i = 0u; i < kMatSize; ++i)
+    REQUIRE(mat.size() == expected.size());
+    for (const auto [actual, reference] : std::views::zip(mat, expected))
     {
-        for (auto j = 0u; j < kMatSize; ++j)
-        {
-            std::cout << mat[i * kMatSize + j] << " ";
-        }
-        std::cout << "\n";
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(reference, 1e-6f));
     }
+    RequireFiniteOrthogonal(mat, kMatSize);
 }
 
 TEST_CASE("IdentityMatrix")
@@ -238,7 +285,7 @@ TEST_CASE("FeedbackMatrixHadamard")
 
         constexpr std::array<float, kMatSize> kExpected = {34, -2, -4, 0, -8, 0, 0, 0, -16, 0, 0, 0, 0, 0, 0, 0};
 
-        for (auto i = 0u; i < input.size(); i += kMatSize)
+        for (auto i = 0u; i < input.size(); ++i)
         {
             REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
         }
@@ -304,7 +351,7 @@ TEST_CASE("Hadamard_Block")
         0.5000, -0.5000, -0.5000,  0.5000,  0, 0, 0, 0};
     // clang-format on
 
-    for (auto i = 0u; i < input.size(); i += kMatSize)
+    for (auto i = 0u; i < input.size(); ++i)
     {
         REQUIRE_THAT(kExpected[i], Catch::Matchers::WithinAbs(output[i], std::numeric_limits<float>::epsilon()));
     }
@@ -318,7 +365,8 @@ TEST_CASE("MatrixAssignment")
 
     std::array<float, kMatSize * kMatSize> matrix = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
-    mix_mat.SetMatrix(matrix);
+    REQUIRE(mix_mat.SetMatrix(matrix));
+    matrix.fill(-1.f);
 
     std::array<float, kMatSize * kBlockSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
     std::array<float, kMatSize * kBlockSize> output = {0.f};
@@ -327,13 +375,22 @@ TEST_CASE("MatrixAssignment")
     sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output);
 
     mix_mat.Process(input_buffer, output_buffer);
+
+    constexpr std::array<float, kMatSize * kBlockSize> kExpected = {34.f,  40.f,  98.f,  120.f,
+                                                                    162.f, 200.f, 226.f, 280.f};
+    for (const auto [actual, expected] : std::views::zip(output, kExpected))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected, 1e-6f));
+    }
 }
 
 TEST_CASE("RandomMatrix")
 {
     constexpr uint32_t kMatSize = 6;
 
-    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize, sfFDN::ScalarMatrixType::Random});
+    const auto matrix = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::Random, 1234);
+    RequireFiniteOrthogonal(matrix, kMatSize);
+    sfFDN::ScalarFeedbackMatrix mix_mat({.matrix_size = kMatSize, .custom_matrix = matrix});
 
     std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6};
     std::array<float, kMatSize> output = {0.f};
@@ -343,9 +400,10 @@ TEST_CASE("RandomMatrix")
 
     mix_mat.Process(input_buffer, output_buffer);
 
-    for (auto val : output)
+    const auto expected = DenseReference(matrix, kMatSize, 1, input);
+    for (const auto [actual, reference] : std::views::zip(output, expected))
     {
-        std::cout << val << " ";
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(reference, 1e-6f));
     }
 }
 
@@ -431,15 +489,22 @@ TEST_CASE("FilterFeedbackMatrix")
 
     ffm->Process(input_buffer, output_buffer);
 
-    // for (auto i = 0u; i < kBlockSize; ++i)
-    // {
-    //     std::print("{} \t", i + 1);
-    //     for (auto j = 0u; j < kMatSize; ++j)
-    //     {
-    //         std::print("{} \t", output_buffer.GetChannelSpan(j)[i]);
-    //     }
-    //     std::print("\n");
-    // }
+    float energy = 0.f;
+    for (const float sample : output)
+    {
+        REQUIRE(std::isfinite(sample));
+        energy += sample * sample;
+    }
+    REQUIRE(energy > 0.f);
+
+    ffm->Clear();
+    std::array<float, kMatSize * kBlockSize> repeated{};
+    sfFDN::AudioBuffer repeated_buffer(kBlockSize, kMatSize, repeated);
+    ffm->Process(input_buffer, repeated_buffer);
+    for (const auto [actual, expected] : std::views::zip(repeated, output))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected, 1e-6f));
+    }
 }
 
 TEST_CASE("Structured feedback matrices match dense processing without allocations")

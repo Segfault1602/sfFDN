@@ -5,8 +5,6 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-#include <iomanip>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <numbers>
@@ -282,21 +280,9 @@ double SpectralFlatness(std::span<const float> signal)
     return std::exp(sum_log_power / bin_count) / (sum_power / bin_count);
 }
 
-void PrintEchoDensityReport(std::span<const float> unmodulated, std::span<const float> modulated)
-{
-    constexpr std::array<uint32_t, 3> kTimes = {24000U, 48000U, 96000U};
-    std::cout << std::fixed << std::setprecision(5) << "Echo density (unmodulated, modulated):";
-    for (const uint32_t first_sample : kTimes)
-    {
-        std::cout << " t=" << (static_cast<float>(first_sample) / static_cast<float>(kSampleRate)) << "s ("
-                  << EchoDensity(unmodulated, first_sample) << ", " << EchoDensity(modulated, first_sample) << ")";
-    }
-    std::cout << '\n';
-}
-
 } // namespace
 
-TEST_CASE("Time-varying FDN preserves T60 and reports diffusion metrics", "[time_varying_fdn]")
+TEST_CASE("Time-varying FDN preserves T60", "[time_varying_fdn]")
 {
     auto unmodulated_fdn = CreateFDN(0.0F, true);
     auto modulated_fdn = CreateFDN(0.7F, true);
@@ -307,17 +293,10 @@ TEST_CASE("Time-varying FDN preserves T60 and reports diffusion metrics", "[time
     const auto modulated_t60 = EstimateT60(modulated);
     const double t60_difference =
         std::abs(modulated_t60.t60_seconds - unmodulated_t60.t60_seconds) / unmodulated_t60.t60_seconds;
-    const double unmodulated_flatness = SpectralFlatness(unmodulated);
-    const double modulated_flatness = SpectralFlatness(modulated);
 
     INFO("unmodulated T60=" << unmodulated_t60.t60_seconds << "s, modulated T60=" << modulated_t60.t60_seconds
                             << "s, relative difference=" << t60_difference << ", fit samples=("
                             << unmodulated_t60.fit_samples << ", " << modulated_t60.fit_samples << ")");
-    std::cout << std::fixed << std::setprecision(5) << "T60 (unmodulated, modulated): (" << unmodulated_t60.t60_seconds
-              << " s, " << modulated_t60.t60_seconds << " s), difference=" << (100.0 * t60_difference) << "%\n";
-    PrintEchoDensityReport(unmodulated, modulated);
-    std::cout << "Spectral flatness (unmodulated, modulated): (" << unmodulated_flatness << ", " << modulated_flatness
-              << ")\n";
 
     REQUIRE(unmodulated_t60.fit_samples > 1000U);
     REQUIRE(modulated_t60.fit_samples > 1000U);
@@ -325,8 +304,27 @@ TEST_CASE("Time-varying FDN preserves T60 and reports diffusion metrics", "[time
     REQUIRE(std::isfinite(modulated_t60.t60_seconds));
     // A systematically contractive sin/cos approximation shortens T60 long before it becomes visibly unstable.
     REQUIRE(t60_difference < 0.05);
+}
 
-    // These measures are report-only: their direction is content dependent, but they should remain well-defined.
+TEST_CASE("Time-varying FDN diffusion and spectral metrics", "[.diagnostic][time_varying_fdn]")
+{
+    auto unmodulated_fdn = CreateFDN(0.0F, true);
+    auto modulated_fdn = CreateFDN(0.7F, true);
+    const auto unmodulated = RenderImpulseResponse(*unmodulated_fdn, kImpulseResponseSamples);
+    const auto modulated = RenderImpulseResponse(*modulated_fdn, kImpulseResponseSamples);
+    const double unmodulated_flatness = SpectralFlatness(unmodulated);
+    const double modulated_flatness = SpectralFlatness(modulated);
+
+    for (const uint32_t first_sample : {24000U, 48000U, 96000U})
+    {
+        const double unmodulated_density = EchoDensity(unmodulated, first_sample);
+        const double modulated_density = EchoDensity(modulated, first_sample);
+        INFO("t=" << (static_cast<float>(first_sample) / static_cast<float>(kSampleRate)) << "s density=("
+                  << unmodulated_density << ", " << modulated_density << ")");
+        REQUIRE(std::isfinite(unmodulated_density));
+        REQUIRE(std::isfinite(modulated_density));
+    }
+    INFO("spectral flatness=(" << unmodulated_flatness << ", " << modulated_flatness << ")");
     REQUIRE(std::isfinite(unmodulated_flatness));
     REQUIRE(std::isfinite(modulated_flatness));
 }
@@ -341,8 +339,6 @@ TEST_CASE("Lossless time-varying FDN remains bounded over a long run", "[time_va
 
     INFO("early RMS=" << early_rms << ", late RMS=" << late_rms << ", late/early=" << rms_ratio
                       << ", max abs=" << MaxAbs(output));
-    std::cout << std::fixed << std::setprecision(7) << "Lossless FDN RMS (early, late, ratio): (" << early_rms << ", "
-              << late_rms << ", " << rms_ratio << ")\n";
 
     // Per-line output energy fluctuates for unequal delays. Long output-RMS windows instead average those
     // fluctuations while exposing the loss or gain of an otherwise unitary feedback loop. A 3% tolerance admits
@@ -365,10 +361,6 @@ TEST_CASE("Time-varying FDN does not regress to linear matrix interpolation", "[
 
     INFO("orthogonal T60=" << orthogonal_t60.t60_seconds << "s, linear-interpolation T60=" << linear_t60.t60_seconds
                            << "s, shorter fraction=" << shorter_fraction);
-    std::cout << std::fixed << std::setprecision(5) << "T60 (orthogonal, linear interpolation): ("
-              << orthogonal_t60.t60_seconds << " s, " << linear_t60.t60_seconds << " s), linear is "
-              << (100.0 * shorter_fraction) << "% shorter\n";
-
     REQUIRE(orthogonal_t60.fit_samples > 1000U);
     REQUIRE(linear_t60.fit_samples > 1000U);
     REQUIRE(std::isfinite(orthogonal_t60.t60_seconds));

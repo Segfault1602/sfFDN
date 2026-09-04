@@ -12,6 +12,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <numbers>
 #include <numeric>
 #include <optional>
@@ -24,6 +25,9 @@ namespace
 {
 constexpr float kSampleRate = 96000.f;
 constexpr float kSqrt2 = std::numbers::sqrt2_v<float>;
+// Keep the reference branch boundary independent of the production symbol while
+// matching the documented ADAA fallback threshold.
+constexpr float kReferenceAntialiasingEpsilon = 1e-5f;
 
 /** @brief A direct transcription of the reference `cfwr` and `DCBlocker` of the DAFx26 companion repository, kept
  * independent of the library implementation so that it can be used as a reference to compare against.
@@ -49,7 +53,7 @@ class ReferenceRectifier
         if (antialiasing_)
         {
             const float den = x - prev_input_;
-            if (std::abs(den) <= sfFDN::ControllableFullWaveRectifier::kAntialiasingEpsilon)
+            if (std::abs(den) <= kReferenceAntialiasingEpsilon)
             {
                 rectified = std::abs(x + prev_input_) / 2.f;
             }
@@ -160,6 +164,25 @@ std::vector<float> ProcessBlock(sfFDN::AudioProcessor& processor, std::span<cons
     return output;
 }
 
+float ProcessSample(sfFDN::AudioProcessor& processor, float input)
+{
+    std::array<float, 1> input_sample = {input};
+    std::array<float, 1> output_sample = {0.f};
+    sfFDN::AudioBuffer const input_buffer(input_sample);
+    sfFDN::AudioBuffer output_buffer(output_sample);
+    processor.Process(input_buffer, output_buffer);
+    return output_sample[0];
+}
+
+uint64_t AllocationCountAfterWarmup(sfFDN::AudioProcessor& processor, const sfFDN::AudioBuffer& input,
+                                    sfFDN::AudioBuffer& output)
+{
+    processor.Process(input, output);
+    const sfFDNTest::ScopedAllocationCounter counter;
+    processor.Process(input, output);
+    return counter.Count();
+}
+
 float Energy(std::span<const float> signal)
 {
     float energy = 0.f;
@@ -182,11 +205,8 @@ TEST_CASE("ControllableFullWaveRectifier matches the reference implementation")
     {
         for (const bool dc_block : {false, true})
         {
-            sfFDN::ControllableFullWaveRectifier rectifier(
-                sfFDN::ControllableFullWaveRectifierOptions{.alpha = alpha,
-                                                            .antialiasing = antialiasing,
-                                                            .dc_block = dc_block,
-                                                            .sample_rate = kSampleRate});
+            sfFDN::ControllableFullWaveRectifier rectifier(sfFDN::ControllableFullWaveRectifierOptions{
+                .alpha = alpha, .antialiasing = antialiasing, .dc_block = dc_block, .sample_rate = kSampleRate});
             ReferenceRectifier reference(alpha, antialiasing, dc_block, kSampleRate);
 
             const auto output = ProcessBlock(rectifier, input);
@@ -408,13 +428,7 @@ TEST_CASE("ControllableFullWaveRectifier Clone and Clear")
     const auto input = MakeNoise(128, 31);
     for (const float sample : input)
     {
-        std::array<float, 1> clone_input = {sample};
-        std::array<float, 1> clone_output = {0.f};
-        sfFDN::AudioBuffer clone_input_buffer(clone_input);
-        sfFDN::AudioBuffer clone_output_buffer(clone_output);
-        clone->Process(clone_input_buffer, clone_output_buffer);
-
-        REQUIRE_THAT(clone_output[0], Catch::Matchers::WithinAbs(rectifier.Tick(sample), 1e-6f));
+        REQUIRE_THAT(ProcessSample(*clone, sample), Catch::Matchers::WithinAbs(rectifier.Tick(sample), 1e-6f));
     }
 
     // Clear() resets the state but keeps the configuration.
@@ -437,7 +451,16 @@ TEST_CASE("ControllableFullWaveRectifier parameter validation")
                           sfFDN::ControllableFullWaveRectifierOptions{.alpha = 1.1f, .sample_rate = kSampleRate}),
                       std::invalid_argument);
     REQUIRE_THROWS_AS(sfFDN::ControllableFullWaveRectifier(sfFDN::ControllableFullWaveRectifierOptions{
+                          .alpha = std::numeric_limits<float>::quiet_NaN(), .sample_rate = kSampleRate}),
+                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::ControllableFullWaveRectifier(sfFDN::ControllableFullWaveRectifierOptions{
+                          .alpha = std::numeric_limits<float>::infinity(), .sample_rate = kSampleRate}),
+                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::ControllableFullWaveRectifier(sfFDN::ControllableFullWaveRectifierOptions{
                           .alpha = 0.5f, .dc_block = true, .sample_rate = 0.f}),
+                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::ControllableFullWaveRectifier(sfFDN::ControllableFullWaveRectifierOptions{
+                          .alpha = 0.5f, .dc_block = true, .sample_rate = std::numeric_limits<float>::infinity()}),
                       std::invalid_argument);
 
     // The sample rate is irrelevant when the dc blocker is off.
@@ -446,6 +469,8 @@ TEST_CASE("ControllableFullWaveRectifier parameter validation")
 
     sfFDN::ControllableFullWaveRectifier rectifier;
     REQUIRE_THROWS_AS(rectifier.SetAlpha(2.f), std::invalid_argument);
+    REQUIRE_THROWS_AS(rectifier.SetAlpha(std::numeric_limits<float>::quiet_NaN()), std::invalid_argument);
+    REQUIRE_THROWS_AS(rectifier.SetAlpha(std::numeric_limits<float>::infinity()), std::invalid_argument);
 }
 
 TEST_CASE("ControllableFullWaveRectifier does not allocate")
@@ -458,13 +483,7 @@ TEST_CASE("ControllableFullWaveRectifier does not allocate")
     sfFDN::AudioBuffer input_buffer(input);
     sfFDN::AudioBuffer output_buffer(output);
 
-    rectifier.Process(input_buffer, output_buffer);
-
-    {
-        const sfFDNTest::ScopedAllocationCounter counter;
-        rectifier.Process(input_buffer, output_buffer);
-        REQUIRE(counter.Count() == 0);
-    }
+    REQUIRE(AllocationCountAfterWarmup(rectifier, input_buffer, output_buffer) == 0);
 }
 
 // ==================== SignalDependentFractionalDelay ====================
@@ -562,13 +581,7 @@ TEST_CASE("SignalDependentFractionalDelay Clone and Clear")
     const auto input = MakeNoise(128, 13);
     for (const float sample : input)
     {
-        std::array<float, 1> clone_input = {sample};
-        std::array<float, 1> clone_output = {0.f};
-        sfFDN::AudioBuffer clone_input_buffer(clone_input);
-        sfFDN::AudioBuffer clone_output_buffer(clone_output);
-        clone->Process(clone_input_buffer, clone_output_buffer);
-
-        REQUIRE_THAT(clone_output[0], Catch::Matchers::WithinAbs(filter.Tick(sample), 1e-6f));
+        REQUIRE_THAT(ProcessSample(*clone, sample), Catch::Matchers::WithinAbs(filter.Tick(sample), 1e-6f));
     }
 
     filter.Clear();
@@ -587,9 +600,17 @@ TEST_CASE("SignalDependentFractionalDelay parameter validation")
                       std::invalid_argument);
     REQUIRE_THROWS_AS(sfFDN::SignalDependentFractionalDelay(sfFDN::SignalDependentFractionalDelayOptions{.d = 1.5f}),
                       std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::SignalDependentFractionalDelay(
+                          sfFDN::SignalDependentFractionalDelayOptions{.d = std::numeric_limits<float>::quiet_NaN()}),
+                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::SignalDependentFractionalDelay(
+                          sfFDN::SignalDependentFractionalDelayOptions{.d = std::numeric_limits<float>::infinity()}),
+                      std::invalid_argument);
 
     sfFDN::SignalDependentFractionalDelay filter;
     REQUIRE_THROWS_AS(filter.SetD(-1.f), std::invalid_argument);
+    REQUIRE_THROWS_AS(filter.SetD(std::numeric_limits<float>::quiet_NaN()), std::invalid_argument);
+    REQUIRE_THROWS_AS(filter.SetD(std::numeric_limits<float>::infinity()), std::invalid_argument);
 }
 
 TEST_CASE("SignalDependentFractionalDelay does not allocate")
@@ -601,13 +622,7 @@ TEST_CASE("SignalDependentFractionalDelay does not allocate")
     sfFDN::AudioBuffer input_buffer(input);
     sfFDN::AudioBuffer output_buffer(output);
 
-    filter.Process(input_buffer, output_buffer);
-
-    {
-        const sfFDNTest::ScopedAllocationCounter counter;
-        filter.Process(input_buffer, output_buffer);
-        REQUIRE(counter.Count() == 0);
-    }
+    REQUIRE(AllocationCountAfterWarmup(filter, input_buffer, output_buffer) == 0);
 }
 
 // ==================== RingModulator ====================
@@ -624,8 +639,7 @@ TEST_CASE("RingModulator multiplies by the modulating sinusoid")
     for (auto i = 0u; i < input.size(); ++i)
     {
         const float expected =
-            input[i] * kSqrt2 *
-            std::sin(2.f * std::numbers::pi_v<float> * kFrequency * static_cast<float>(i));
+            input[i] * kSqrt2 * std::sin(2.f * std::numbers::pi_v<float> * kFrequency * static_cast<float>(i));
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected, 1e-3f));
     }
 }
@@ -697,13 +711,7 @@ TEST_CASE("RingModulator Clone and Clear")
     const auto input = MakeNoise(128, 17);
     for (const float sample : input)
     {
-        std::array<float, 1> clone_input = {sample};
-        std::array<float, 1> clone_output = {0.f};
-        sfFDN::AudioBuffer clone_input_buffer(clone_input);
-        sfFDN::AudioBuffer clone_output_buffer(clone_output);
-        clone->Process(clone_input_buffer, clone_output_buffer);
-
-        REQUIRE_THAT(clone_output[0], Catch::Matchers::WithinAbs(modulator.Tick(sample), 1e-6f));
+        REQUIRE_THAT(ProcessSample(*clone, sample), Catch::Matchers::WithinAbs(modulator.Tick(sample), 1e-6f));
     }
 
     modulator.Clear();
@@ -720,10 +728,20 @@ TEST_CASE("RingModulator Clone and Clear")
 TEST_CASE("RingModulator parameter validation")
 {
     REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.frequency = -0.1f}), std::invalid_argument);
-    REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = 1.5f}),
-                      std::invalid_argument);
-    REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = -0.5f}),
-                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = 1.5f}), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = -0.5f}), std::invalid_argument);
+    REQUIRE_THROWS_AS(
+        sfFDN::RingModulator(sfFDN::RingModulatorOptions{.frequency = std::numeric_limits<float>::quiet_NaN()}),
+        std::invalid_argument);
+    REQUIRE_THROWS_AS(
+        sfFDN::RingModulator(sfFDN::RingModulatorOptions{.frequency = std::numeric_limits<float>::infinity()}),
+        std::invalid_argument);
+    REQUIRE_THROWS_AS(
+        sfFDN::RingModulator(sfFDN::RingModulatorOptions{.amplitude = std::numeric_limits<float>::quiet_NaN()}),
+        std::invalid_argument);
+    REQUIRE_THROWS_AS(
+        sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = std::numeric_limits<float>::infinity()}),
+        std::invalid_argument);
 }
 
 TEST_CASE("RingModulator does not allocate")
@@ -736,13 +754,7 @@ TEST_CASE("RingModulator does not allocate")
     sfFDN::AudioBuffer input_buffer(input);
     sfFDN::AudioBuffer output_buffer(output);
 
-    modulator.Process(input_buffer, output_buffer);
-
-    {
-        const sfFDNTest::ScopedAllocationCounter counter;
-        modulator.Process(input_buffer, output_buffer);
-        REQUIRE(counter.Count() == 0);
-    }
+    REQUIRE(AllocationCountAfterWarmup(modulator, input_buffer, output_buffer) == 0);
 }
 
 // ==================== DcBlocker ====================
@@ -839,7 +851,8 @@ TEST_CASE("Multichannel nonlinearity banks bypass their null channels")
 
     SECTION("ControllableFullWaveRectifier")
     {
-        const auto options = sfFDN::MakeMultichannelControllableFullWaveRectifierOptions(1.f, kSampleRate, kChannels, 2);
+        const auto options =
+            sfFDN::MakeMultichannelControllableFullWaveRectifierOptions(1.f, kSampleRate, kChannels, 2);
         REQUIRE(!options.channels[0].has_value());
         REQUIRE(!options.channels[1].has_value());
         REQUIRE(options.channels[2].has_value());
@@ -858,8 +871,7 @@ TEST_CASE("Multichannel nonlinearity banks bypass their null channels")
 
     SECTION("RingModulator")
     {
-        const auto options =
-            sfFDN::MakeMultichannelRingModulatorOptions(100.f / kSampleRate, kSqrt2, kChannels, 2);
+        const auto options = sfFDN::MakeMultichannelRingModulatorOptions(100.f / kSampleRate, kSqrt2, kChannels, 2);
         auto bank = sfFDN::MakeMultichannelRingModulator(options);
         check_bypass(*bank);
     }
@@ -916,8 +928,7 @@ TEST_CASE("Multichannel nonlinearity banks reject invalid options")
     sfFDN::MultichannelControllableFullWaveRectifierOptions rectifier_options;
     rectifier_options.channels.emplace_back(
         sfFDN::ControllableFullWaveRectifierOptions{.alpha = 2.f, .sample_rate = kSampleRate});
-    REQUIRE_THROWS_AS(sfFDN::MakeMultichannelControllableFullWaveRectifier(rectifier_options),
-                      std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::MakeMultichannelControllableFullWaveRectifier(rectifier_options), std::invalid_argument);
 
     sfFDN::MultichannelSignalDependentFractionalDelayOptions sdfd_options;
     sdfd_options.channels.emplace_back(sfFDN::SignalDependentFractionalDelayOptions{.d = -1.f});
@@ -1083,7 +1094,7 @@ TEST_CASE("Nonlinear FDN stays bounded and decays")
     }
 }
 
-TEST_CASE("Nonlinear FDN generates harmonics that the linear network does not")
+TEST_CASE("Rectifier FDN generates harmonics that the linear network does not")
 {
     // Section 5.1 of the paper: the nonlinearity produces even harmonics of the input, and the recursion fills in the
     // odd ones. Drive the network with a sinusoid and measure the energy of the second harmonic.

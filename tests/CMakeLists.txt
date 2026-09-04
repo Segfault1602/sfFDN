@@ -70,6 +70,7 @@ target_sources(
             time_varying_feedback_matrix_tests.cpp
             time_varying_fdn_signal_tests.cpp
             time_varying_schroeder_allpass_tests.cpp
+            signal_test_utils.cpp
             test_utils.cpp
 )
 target_link_libraries(
@@ -165,10 +166,6 @@ target_link_libraries(
 )
 target_include_directories(sfFDN.callback_latency PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.callback_latency PRIVATE cxx_std_23)
-
-sffdn_enable_lto(sfFDN.tests)
-sffdn_enable_lto(sfFDN.perf)
-sffdn_enable_lto(sfFDN.callback_latency)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(

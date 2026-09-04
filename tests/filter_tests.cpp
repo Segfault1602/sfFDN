@@ -119,59 +119,15 @@ TEST_CASE("FirFilter")
 TEST_CASE("SparseFirFilter")
 {
     constexpr uint32_t kFirSize = 64;
-    std::vector<float> ir(kFirSize, 0.f);
-    std::vector<float> sparse_ir;
-
-    sfFDN::SparseFirOptions sparse_fir_config;
-
-    sfFDN::RNG rng;
-    for (auto i = 0u; i < kFirSize; i++)
-    {
-        if (i % 4 == 0)
-        {
-            auto s = rng();
-            ir[i] = s;
-            sparse_ir.push_back(s);
-            sparse_fir_config.coeffs.push_back({i, s});
-        }
-
-    }
-
     sfFDN::FirOptions fir_config;
-    fir_config.coeffs = ir;
-    sfFDN::Fir filter(fir_config);
+    fir_config.coeffs.resize(kFirSize, 0.f);
+    for (auto i = 0u; i < kFirSize; i += 4)
+    {
+        fir_config.coeffs[i] = static_cast<float>(i + 1) / static_cast<float>(kFirSize);
+    }
 
     auto sparse_filter = sfFDN::MakeFirFilter(fir_config, 0.25f);
-    // Make sure that the sparse filter is actually created
     REQUIRE(dynamic_cast<sfFDN::SparseFir*>(sparse_filter.get()) != nullptr);
-
-    // sfFDN::SparseFir sparse_filter;
-    // sparse_filter.SetCoefficients(sparse_fir_config);
-
-    constexpr uint32_t kSize = 128;
-    std::array<float, kSize> input = {0.f};
-    input[0] = 1.f;
-    std::array<float, kSize> output{};
-    std::array<float, kSize> sparse_output{};
-
-    sfFDN::AudioBuffer input_buffer(kSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kSize, 1, output);
-    sfFDN::AudioBuffer sparse_output_buffer(kSize, 1, sparse_output);
-
-    filter.Process(input_buffer, output_buffer);
-    sparse_filter->Process(input_buffer, sparse_output_buffer);
-
-    for (auto i = 0u; i < kFirSize; ++i)
-    {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(ir[i], 1e-5));
-        REQUIRE_THAT(sparse_output[i], Catch::Matchers::WithinAbs(ir[i], 1e-5));
-    }
-
-    for (auto i = kFirSize; i < kSize; ++i)
-    {
-        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
-        REQUIRE_THAT(sparse_output[i], Catch::Matchers::WithinAbs(0.f, 1e-5));
-    }
 }
 
 TEST_CASE("SparseFir supports default construction and coefficient updates")

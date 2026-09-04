@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include "rng.h"
@@ -193,11 +194,13 @@ TEST_CASE("FDNConfig")
 
     config.loop_filter_configs = {rectifier_bank_config, sdfd_bank_config, ring_mod_bank_config};
 
-    nlohmann::json j = config;
-
-    std::cout << j.dump(4) << std::endl;
+    const nlohmann::json j = config;
 
     sfFDN::FDNConfig deserialized_config = j.get<sfFDN::FDNConfig>();
+
+    // Re-serializing the complete configuration catches fields that individual
+    // assertions below do not happen to inspect.
+    REQUIRE(nlohmann::json(deserialized_config) == j);
 
     const auto& single_channel_procs = deserialized_config.input_block_config.single_channel_processors;
     REQUIRE(single_channel_procs.size() == 6);
@@ -303,6 +306,142 @@ TEST_CASE("FDNConfig")
 
     // The configuration must also survive being turned into an actual FDN.
     REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(deserialized_config));
+}
+
+TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly")
+{
+    auto defaults_and_absent_optionals = MakeTimeVaryingFDNConfig();
+
+    auto populated_optionals_and_variants = MakeTimeVaryingFDNConfig();
+    populated_optionals_and_variants.direct_gain = 0.25F;
+    populated_optionals_and_variants.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .matrix_size = 4U,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .custom_matrix =
+            std::vector<float>{1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F},
+        .rng_seed = 42U,
+        .arg = 0.75F,
+    };
+    populated_optionals_and_variants.input_block_config.single_channel_processors.emplace_back(sfFDN::DelayOptions{
+        .delay = 12.5F,
+        .max_delay = 32U,
+        .interp_type = sfFDN::DelayInterpolationType::Linear,
+        .lfo_config = sfFDN::ModulationOptions{.frequency = 0.001F, .amplitude = 0.25F, .initial_phase = 0.5F}});
+    populated_optionals_and_variants.output_block_config.single_channel_processors.emplace_back(
+        sfFDN::AllpassFilterOptions{.coeff = -0.4F});
+
+    const std::vector<std::pair<const char*, sfFDN::FDNConfig>> cases = {
+        {"defaults and absent optionals", defaults_and_absent_optionals},
+        {"populated optionals and processor variants", populated_optionals_and_variants},
+    };
+
+    for (const auto& [name, original] : cases)
+    {
+        DYNAMIC_SECTION(name)
+        {
+            const nlohmann::json serialized = original;
+            const auto round_tripped = serialized.get<sfFDN::FDNConfig>();
+            REQUIRE(nlohmann::json(round_tripped) == serialized);
+            REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(round_tripped));
+        }
+    }
+}
+
+TEST_CASE("FDNConfig JSON rejects malformed required fields and variants")
+{
+    const nlohmann::json valid = MakeTimeVaryingFDNConfig();
+
+    SECTION("missing required fields")
+    {
+        for (const auto* field : {"fdn_size", "delay_bank_config", "feedback_matrix_config"})
+        {
+            auto malformed = valid;
+            malformed.erase(field);
+            REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+        }
+    }
+
+    SECTION("wrong field types and non-finite values represented as null")
+    {
+        auto wrong_type = valid;
+        wrong_type["block_size"] = "sixteen";
+        REQUIRE_THROWS(wrong_type.get<sfFDN::FDNConfig>());
+
+        auto non_finite = valid;
+        non_finite["direct_gain"] = std::numeric_limits<float>::infinity();
+        const auto reparsed = nlohmann::json::parse(non_finite.dump());
+        REQUIRE(reparsed["direct_gain"].is_null());
+        REQUIRE_THROWS(reparsed.get<sfFDN::FDNConfig>());
+    }
+
+    SECTION("empty, unknown, and multiple unknown processor tags")
+    {
+        auto empty_variant = valid;
+        empty_variant["input_block_config"]["single_channel_processors"] = nlohmann::json::array({nlohmann::json{}});
+        REQUIRE_THROWS(empty_variant.get<sfFDN::FDNConfig>());
+
+        auto unknown_variant = valid;
+        unknown_variant["input_block_config"]["single_channel_processors"] =
+            nlohmann::json::array({{{"UnknownProcessorOptions", nlohmann::json::object()}}});
+        REQUIRE_THROWS(unknown_variant.get<sfFDN::FDNConfig>());
+
+        auto multiple_tags = valid;
+        multiple_tags["input_block_config"]["single_channel_processors"] =
+            nlohmann::json::array({{{"UnknownProcessorOptions", nlohmann::json::object()},
+                                    {"AnotherUnknownProcessorOptions", nlohmann::json::object()}}});
+        REQUIRE_THROWS(multiple_tags.get<sfFDN::FDNConfig>());
+    }
+
+    SECTION("invalid enum strings")
+    {
+        auto invalid_enum = valid;
+        invalid_enum["delay_bank_config"]["interpolation_type"] = "Cubic";
+        const auto deserialized = invalid_enum.get<sfFDN::FDNConfig>();
+        REQUIRE(deserialized.delay_bank_config.interpolation_type == sfFDN::DelayInterpolationType::None);
+    }
+}
+
+TEST_CASE("FDNConfig construction rejects invalid processor graphs")
+{
+    auto invalid_parallel_mode = MakeTimeVaryingFDNConfig();
+    invalid_parallel_mode.loop_filter_configs.emplace_back(sfFDN::ParallelGainsOptions{
+        .mode = sfFDN::ParallelGainsMode::Split, .gains = std::vector<float>(4U, 1.F), .time_varying_config = {}});
+    REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_parallel_mode));
+
+    auto invalid_channel_count = MakeTimeVaryingFDNConfig();
+    invalid_channel_count.loop_filter_configs.emplace_back(sfFDN::MultichannelRingModulatorOptions{
+        .channels = {sfFDN::RingModulatorOptions{.frequency = 0.001F, .amplitude = 1.F, .initial_phase = 0.F}}});
+    REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_channel_count));
+
+    auto invalid_custom_matrix = MakeTimeVaryingFDNConfig();
+    invalid_custom_matrix.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .matrix_size = 4U, .type = sfFDN::ScalarMatrixType::Random, .custom_matrix = std::vector<float>{1.F, 0.F, 0.F}};
+    REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_custom_matrix));
+}
+
+TEST_CASE("FDNConfig JSON round-trip preserves rendered output")
+{
+    const auto config = MakeTimeVaryingFDNConfig();
+    const auto round_tripped = nlohmann::json(config).get<sfFDN::FDNConfig>();
+    const auto original_fdn = sfFDN::CreateFDNFromConfig(config);
+    const auto round_tripped_fdn = sfFDN::CreateFDNFromConfig(round_tripped);
+
+    std::vector<float> input(16U * 8U, 0.F);
+    std::vector<float> original_output(input.size(), 0.F);
+    std::vector<float> round_tripped_output(input.size(), 0.F);
+    input[0] = 1.F;
+
+    for (size_t block = 0; block < 8U; ++block)
+    {
+        sfFDN::AudioBuffer const input_buffer(16U, 1U, std::span(input).subspan(block * 16U, 16U));
+        sfFDN::AudioBuffer original_output_buffer(16U, 1U, std::span(original_output).subspan(block * 16U, 16U));
+        sfFDN::AudioBuffer round_tripped_output_buffer(16U, 1U,
+                                                       std::span(round_tripped_output).subspan(block * 16U, 16U));
+        original_fdn->Process(input_buffer, original_output_buffer);
+        round_tripped_fdn->Process(input_buffer, round_tripped_output_buffer);
+    }
+
+    REQUIRE(original_output == round_tripped_output);
 }
 
 TEST_CASE("Time-varying feedback matrix options serialize")
