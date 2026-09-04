@@ -25,10 +25,10 @@ void MatrixMultiply_8(std::span<const float, 8> input, std::span<float, 8> outpu
 void MatrixMultiply_16(std::span<const float, 16> input, std::span<float, 16> output,
                        std::span<const float, 16 * 16> matrix);
 
-/// @brief Matrix multiplication
-/// @param in k x mat_size input matrix in column-major order
-/// @param out k x mat_size output matrix in column-major order
-/// @param matrix mat_size x mat_size transformation matrix in column-major order
+/// @brief Multiplies each input vector by a transformation matrix.
+/// @param in row_count x mat_size input matrix in column-major order
+/// @param out row_count x mat_size output matrix in column-major order
+/// @param matrix mat_size x mat_size transformation matrix in row-major output/input order
 /// @param mat_size size of the transformation matrix (mat_size x mat_size)
 void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix,
                       uint32_t mat_size);

@@ -280,7 +280,7 @@ void WalshHadamardTransform(std::span<float> inout)
 void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
                        const std::span<const float, 16 * 16> matrix)
 {
-    auto to_1d = [](int x, int y) constexpr -> size_t { return (y * 16) + x; };
+    auto to_1d = [](int output, int input) constexpr -> size_t { return (output * 16) + input; };
 
     out[0] = in[0] * matrix[to_1d(0, 0)] + in[1] * matrix[to_1d(0, 1)] + in[2] * matrix[to_1d(0, 2)] +
              in[3] * matrix[to_1d(0, 3)] + in[4] * matrix[to_1d(0, 4)] + in[5] * matrix[to_1d(0, 5)] +
@@ -359,12 +359,12 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
               in[12] * matrix[to_1d(10, 12)] + in[13] * matrix[to_1d(10, 13)] + in[14] * matrix[to_1d(10, 14)] +
               in[15] * matrix[to_1d(10, 15)];
 
-    out[11] = in[0] * matrix[to_1d(3, 0)] + in[1] * matrix[to_1d(3, 1)] + in[2] * matrix[to_1d(3, 2)] +
-              in[3] * matrix[to_1d(3, 3)] + in[4] * matrix[to_1d(3, 4)] + in[5] * matrix[to_1d(3, 5)] +
-              in[6] * matrix[to_1d(3, 6)] + in[7] * matrix[to_1d(3, 7)] + in[8] * matrix[to_1d(3, 8)] +
-              in[9] * matrix[to_1d(3, 9)] + in[10] * matrix[to_1d(3, 10)] + in[11] * matrix[to_1d(3, 11)] +
-              in[12] * matrix[to_1d(3, 12)] + in[13] * matrix[to_1d(3, 13)] + in[14] * matrix[to_1d(3, 14)] +
-              in[15] * matrix[to_1d(3, 15)];
+    out[11] = in[0] * matrix[to_1d(11, 0)] + in[1] * matrix[to_1d(11, 1)] + in[2] * matrix[to_1d(11, 2)] +
+              in[3] * matrix[to_1d(11, 3)] + in[4] * matrix[to_1d(11, 4)] + in[5] * matrix[to_1d(11, 5)] +
+              in[6] * matrix[to_1d(11, 6)] + in[7] * matrix[to_1d(11, 7)] + in[8] * matrix[to_1d(11, 8)] +
+              in[9] * matrix[to_1d(11, 9)] + in[10] * matrix[to_1d(11, 10)] + in[11] * matrix[to_1d(11, 11)] +
+              in[12] * matrix[to_1d(11, 12)] + in[13] * matrix[to_1d(11, 13)] + in[14] * matrix[to_1d(11, 14)] +
+              in[15] * matrix[to_1d(11, 15)];
 
     out[12] = in[0] * matrix[to_1d(12, 0)] + in[1] * matrix[to_1d(12, 1)] + in[2] * matrix[to_1d(12, 2)] +
               in[3] * matrix[to_1d(12, 3)] + in[4] * matrix[to_1d(12, 4)] + in[5] * matrix[to_1d(12, 5)] +
@@ -397,7 +397,7 @@ void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
 
 void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span<const float> matrix, uint32_t mat_size)
 {
-    // Everything is in col-major order.
+    // Input and output batches are column-major; transformation matrices are row-major output/input.
 
     const uint32_t row_count = in.size() / mat_size;
     const uint32_t col_count = mat_size;

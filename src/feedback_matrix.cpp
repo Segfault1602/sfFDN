@@ -15,6 +15,8 @@
 #include <memory>
 #include <print>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 // #include <sanitizer/rtsan_interface.h>
@@ -38,6 +40,13 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
 
     if (config.custom_matrix)
     {
+        const size_t expected = static_cast<size_t>(config.matrix_size) * config.matrix_size;
+        if (config.custom_matrix->size() != expected)
+        {
+            throw std::invalid_argument("ScalarFeedbackMatrix: custom_matrix size must equal matrix_size^2 (got " +
+                                        std::to_string(config.custom_matrix->size()) + ", expected " +
+                                        std::to_string(expected) + ")");
+        }
         matrix_data_ = *config.custom_matrix;
     }
     else
@@ -48,13 +57,16 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
 
 bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)
 {
-    auto order = static_cast<uint32_t>(std::sqrt(matrix.size()));
-    if (order * order != matrix.size() || order == 0)
+    // Only accept exactly order_^2 elements; the channel count cannot change.
+    const size_t expected = static_cast<size_t>(order_) * order_;
+    if (matrix.size() != expected)
     {
-        std::print(std::cerr, "Only square matrices are supported!\n");
+        std::print(std::cerr, "ScalarFeedbackMatrix::SetMatrix: expected {} elements (order^2), got {}\n", expected,
+                   matrix.size());
         return false;
     }
-    matrix_data_ = std::vector<float>(matrix.begin(), matrix.end());
+    // Update state atomically: assign first, then change type.
+    matrix_data_.assign(matrix.begin(), matrix.end());
     matrix_type_ = ScalarMatrixType::Count;
     return true;
 }
@@ -104,6 +116,11 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     const Eigen::Map<const Eigen::MatrixXf> input_map(input.Data(), row, col);
     Eigen::Map<Eigen::MatrixXf> output_map(output.Data(), row, col);
 
+    // Intentional Eigen column-major trick:
+    //   matrix_data_ stores A in row-major order: flat[r*N+c] = A[r,c].
+    //   Eigen maps that buffer column-major, so the Eigen matrix object equals A^T.
+    //   input_map(s, ch) = sample s of channel ch (channel-major AudioBuffer maps correctly as column-major).
+    //   output_map = input_map * A^T, which for each sample-vector x_s gives y_s = A * x_s. ✓
     // noalias() avoids an alias-protection result temporary; Eigen may still use internal GEMM scratch storage.
     if (input.Data() != output.Data())
     {

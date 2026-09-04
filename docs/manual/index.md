@@ -55,6 +55,21 @@ The feedback matrix supports any processor that takes N channels of audio as inp
 
 </details>
 
+## Matrix coefficient order and pyFDN
+
+Public matrix vectors use row-major destination/output-row, source/input-column order:
+`matrix[row * N + column] = A[row, column]`, and the processor applies \f$y = A x\f$. To pass a
+pyFDN/NumPy matrix `A` with shape `(out, in)`, use its C-order flattening:
+
+```python
+coefficients = numpy.asarray(A).ravel(order="C")
+```
+
+pyFDN evaluates the same mapping as `x @ A.T`. This is unrelated to sfFDN's **transposed FDN
+topology** (`FDN::SetTranspose`): that setting reorders the FDN signal-flow topology; it does not
+apply \f$A^T\f$ to a supplied feedback matrix. Supply an explicitly transposed matrix when
+\f$A^T\f$ is desired.
+
 <details>
 <summary> Loop Filters </summary>
 

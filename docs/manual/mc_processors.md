@@ -10,7 +10,11 @@ This section describes the multi-channel processors provided by sfFDN. These are
 - [Dattorro Delay Bank](@ref sfFDN::MultichannelDattorroDelayOptions): A parallel bank of [Dattorro delay-line effects](@ref sfFDN::DattorroDelay), one per channel. See [MakeMultichannelDattorroDelayOptions](@ref sfFDN::MakeMultichannelDattorroDelayOptions) for a decorrelated preset, which staggers the modulation of each channel and uses allpass interpolation so that the magnitude response stays flat. Note that only the presets without feedback are safe to place in the feedback path: a modulated [white chorus](@ref sfFDN::DattorroEffectType) or flanger has a peak gain of roughly +15 dB and will make the network diverge. See [MakeMultichannelDattorroDelayOptions](@ref sfFDN::MakeMultichannelDattorroDelayOptions) for the per-preset figures.
 - [Delay bank](@ref sfFDN::DelayBank): A parallel bank of delay lines. Each delay line can have a different length and can be configured to use interpolation for fractional delay lengths.
 - [Time-varying Delay Bank](@ref sfFDN::DelayBankTimeVarying): A parallel bank of time-varying delay lines. The delay lengths are modulated over time using a sine wave.
-- [Feedback Matrix](@ref sfFDN::ScalarFeedbackMatrix): Simple feedback matrix with scalar coefficients.
+- [Feedback Matrix](@ref sfFDN::ScalarFeedbackMatrix): Simple feedback matrix with scalar coefficients. Public
+  coefficients are row-major (`matrix[row * N + column] = A[row, column]`) and apply \f$y = A x\f$; this is the
+  same convention as a pyFDN/NumPy `(out, in)` matrix flattened with
+  `numpy.asarray(A).ravel(order="C")` and evaluated as `x @ A.T`. The FDN's transposed topology is a signal-flow
+  arrangement, not an instruction to apply \f$A^T\f$.
 - [Filter Feedback Matrix](@ref sfFDN::FilterFeedbackMatrix): Implementation of a Filter Feedback Matrix based on the design by S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks.” A filter feedback matrix consists of a series of scalar matrix interleaved with banks of delay lines.
 - [Attenuation Filter Bank](@ref sfFDN::AttenuationFilterBankOptions): A parallel bank of attenuation filters. These filters are usually designed to target a specific RT60 and their gains are scaled according to the length of the delay lines. See also the [Filtering](filters.md) manual page for the four attenuation filter variants and the associated design helpers.
 

@@ -25,9 +25,12 @@ class DelayMatrix : public AudioProcessor
   public:
     /** @brief Constructs a DelayMatrix with the specified size and delay values.
      * @param order the size of the square matrix (order x order)
-     * @param delays the delay values for each channel. The size of the delays span must match order.
-     * @param mixing_matrix the feedback matrix to apply to the delayed signals. The size of the matrix must match order
-     * x order.
+     * @param delays the delay table with order^2 entries in row-major order:
+     *   delays[destination * order + source] is the tap depth (in samples) applied to the
+     *   signal traveling from `source` to `destination`. The maximum tap depth for each source
+     *   delay line is automatically derived as the maximum over all destinations.
+     * @param mixing_matrix the gain matrix to apply to the delayed signals (row-major, y = A*x).
+     *   Its size must match order x order.
      */
     DelayMatrix(uint32_t order, std::span<const uint32_t> delays, const ScalarFeedbackMatrix& mixing_matrix);
 

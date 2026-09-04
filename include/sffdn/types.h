@@ -144,8 +144,9 @@ struct ScalarFeedbackMatrixOptions
     //! Type of the feedback matrix
     ScalarMatrixType type{ScalarMatrixType::Random};
 
-    //!   Optional custom matrix values in col-major order. The size of the vector must be equal to
-    //! matrix_size*matrix_size. If this is set, `type` is ignored.
+    //! Optional custom matrix values in row-major order: custom_matrix[row * matrix_size + column] is
+    //! A[row, column], mapping source/input columns to destination/output rows (y = A*x). The size of the vector
+    //! must be matrix_size*matrix_size. If this is set, `type` is ignored.
     std::optional<std::vector<float>> custom_matrix{std::nullopt};
 
     //! Optional. Seed for random number generation when type is Random or RandomHouseholder.
@@ -569,8 +570,8 @@ using multi_channel_processor_variant_t =
                  MultichannelTimeVaryingSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
                  AttenuationFilterBankOptions, DelayBankOptions, DelayBankTimeVaryingOptions,
                  CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions,
-                 MultichannelControllableFullWaveRectifierOptions,
-                 MultichannelSignalDependentFractionalDelayOptions, MultichannelRingModulatorOptions>;
+                 MultichannelControllableFullWaveRectifierOptions, MultichannelSignalDependentFractionalDelayOptions,
+                 MultichannelRingModulatorOptions>;
 
 /** @}*/
 

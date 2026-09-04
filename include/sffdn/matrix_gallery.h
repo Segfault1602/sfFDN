@@ -21,7 +21,8 @@ namespace sfFDN
  * @param type The type of matrix to generate.
  * @param seed Seed for random number generation (used for Random and RandomHouseholder types).
  * @param arg Optional argument for certain matrix types.
- * @return A flat vector containing the matrix elements in col-major order.
+ * @return A flat vector in row-major order: `matrix[row * mat_size + column]` is \f$A_{row,column}\f$.
+ * The matrix maps input/source columns to output/destination rows (\f$y = A x\f$).
  *
  * For the VariableDiffusion type, the optional argument 'arg' specifies the sparsity level (0 <= arg <= 1).
  *
@@ -36,7 +37,8 @@ std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint
  * @param seed Seed for random number generation.
  * @param input_gains [Optional|Out]: input gains for the allpass filters.
  * @param output_gains [Optional|Out]: output gains for the allpass filters.
- * @return A flat vector containing the matrix elements in col-major order.
+ * @return A flat vector in row-major order: `matrix[row * mat_size + column]` is \f$A_{row,column}\f$.
+ * The matrix maps input/source columns to output/destination rows (\f$y = A x\f$).
  *
  * @note [1] William G. Gardner; A real‐time multichannel room simulator. J. Acoust. Soc. Am. 1 October 1992; 92
  * (4_Supplement): 2395. https://doi.org/10.1121/1.404752
