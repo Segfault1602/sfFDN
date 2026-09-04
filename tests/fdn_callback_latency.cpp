@@ -69,8 +69,8 @@ Options ParseOptions(std::span<char*> arguments)
 
     uint32_t iterations = 0;
     const std::string_view value(arguments[1]);
-    const auto [end, error] = std::from_chars(value.begin(), value.end(), iterations);
-    if (error != std::errc{} || end != value.end() || iterations == 0)
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), iterations);
+    if (error != std::errc{} || end != value.data() + value.size() || iterations == 0)
     {
         std::cerr << "Usage: sfFDN.callback_latency [positive iteration count] [workload name substring]\n";
         return {};
