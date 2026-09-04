@@ -122,6 +122,18 @@ std::vector<float> EffectiveMatrixAtSample(sfFDN::TimeVaryingFeedbackMatrix& mat
     return effective_matrix;
 }
 
+// A(n) materialized in closed form. EffectiveMatrixAtSample replays the stream once per column, so it costs
+// O(order * sample) Process work and dominates the Debug test run at large sample indices. GetMatrix is a pure query
+// at an arbitrary index; the two are pinned together by "GetMatrix matches the matrix Process applies", so tests that
+// only need A(n) itself should use this and leave the replay to that one equivalence test.
+std::vector<float> MaterializedMatrixAtSample(const sfFDN::TimeVaryingFeedbackMatrix& matrix, uint32_t order,
+                                              uint32_t sample)
+{
+    std::vector<float> effective_matrix(static_cast<size_t>(order) * order, 0.0F);
+    REQUIRE(matrix.GetMatrix(effective_matrix, sample));
+    return effective_matrix;
+}
+
 float OrthogonalityError(std::span<const float> matrix, uint32_t order)
 {
     float sum_squared_error = 0.0F;
@@ -278,7 +290,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix remains orthogonal over time", "[time_varyi
             for (const uint32_t sample : kSamplesInModulationCycle)
             {
                 worst_error =
-                    std::max(worst_error, OrthogonalityError(EffectiveMatrixAtSample(matrix, order, sample), order));
+                    std::max(worst_error, OrthogonalityError(MaterializedMatrixAtSample(matrix, order, sample), order));
             }
 
             const float tolerance = 10.0F * std::sqrt(static_cast<float>(order)) * kSampleEpsilon;
@@ -717,8 +729,8 @@ TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports all even orders", "[time
         float orthogonality_error = 0.0F;
         for (const uint32_t sample : kSamplesInModulationCycle)
         {
-            orthogonality_error = std::max(orthogonality_error,
-                                           OrthogonalityError(EffectiveMatrixAtSample(matrix, order, sample), order));
+            orthogonality_error = std::max(
+                orthogonality_error, OrthogonalityError(MaterializedMatrixAtSample(matrix, order, sample), order));
         }
         const float orthogonality_tolerance = 10.0F * std::sqrt(static_cast<float>(order)) * kSampleEpsilon;
 

@@ -106,5 +106,55 @@
             "name": "windows",
             "configurePreset": "windows"
         }
+    ],
+    "testPresets": [
+        {
+            "name": "test-base",
+            "hidden": true,
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": false,
+                "jobs": 0
+            }
+        },
+        {
+            "name": "llvm-debug",
+            "inherits": "test-base",
+            "configurePreset": "llvm-ninja",
+            "configuration": "Debug"
+        },
+        {
+            "name": "llvm-release",
+            "inherits": "test-base",
+            "configurePreset": "llvm-ninja",
+            "configuration": "Release"
+        },
+        {
+            "name": "gcc-debug",
+            "inherits": "test-base",
+            "configurePreset": "gcc-ninja",
+            "configuration": "Debug"
+        },
+        {
+            "name": "gcc-release",
+            "inherits": "test-base",
+            "configurePreset": "gcc-ninja",
+            "configuration": "Release"
+        },
+        {
+            "name": "llvm-fea",
+            "inherits": "test-base",
+            "configurePreset": "llvm-fea",
+            "configuration": "Release"
+        },
+        {
+            "name": "llvm-rtsan",
+            "inherits": "test-base",
+            "configurePreset": "llvm-rtsan",
+            "configuration": "Release"
+        }
     ]
 }

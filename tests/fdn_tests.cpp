@@ -145,7 +145,8 @@ TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -195,7 +196,8 @@ TEST_CASE("FDN transposed topology matches its golden reference", "[fdn]")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test_transposed.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -266,7 +268,8 @@ TEST_CASE("FDN with FIR filters matches its golden reference", "[fdn]")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_fir_test.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -310,7 +313,8 @@ TEST_CASE("FDN reproduces the chirp golden file", "[fdn]")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/chirp_reverb.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
