@@ -18,6 +18,47 @@
 namespace
 {
 
+std::unique_ptr<sfFDN::FDN> CreatePyFDNGoldFDN()
+{
+    constexpr uint32_t kBlockSize = 4;
+    constexpr uint32_t kFDNOrder = 4;
+    constexpr float kInvSqrt2 = 0.7071067811865476f;
+    constexpr std::array<float, kFDNOrder> kInputGains = {0.6f, -0.4f, 0.8f, -0.7f};
+    constexpr std::array<float, kFDNOrder> kOutputGains = {0.5f, -0.6f, 0.7f, -0.3f};
+    constexpr std::array<float, kFDNOrder> kDelays = {7.f, 11.f, 13.f, 17.f};
+    constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {kInvSqrt2, 0.f,        0.5f,  0.5f,  //
+                                                                        0.f,       -kInvSqrt2, 0.5f,  -0.5f, //
+                                                                        kInvSqrt2, 0.f,        -0.5f, -0.5f, //
+                                                                        0.f,       -kInvSqrt2, -0.5f, 0.5f};
+    constexpr std::array<sfFDN::FilterCoefficients, kFDNOrder> kLoopFilters = {
+        sfFDN::FilterCoefficients{0.3f, 0.f, 0.f, 1.f, -0.7f, 0.f},
+        sfFDN::FilterCoefficients{0.4f, 0.f, 0.f, 1.f, -0.6f, 0.f},
+        sfFDN::FilterCoefficients{0.5f, 0.f, 0.f, 1.f, -0.5f, 0.f},
+        sfFDN::FilterCoefficients{0.6f, 0.f, 0.f, 1.f, -0.4f, 0.f}};
+    constexpr std::array<sfFDN::FilterCoefficients, 1> kToneFilter = {
+        sfFDN::FilterCoefficients{0.2f, 0.1f, 0.f, 1.f, -1.f, 0.34f}};
+
+    auto fdn = std::make_unique<sfFDN::FDN>(kFDNOrder, kBlockSize, false);
+    fdn->SetInputGains(kInputGains);
+    fdn->SetOutputGains(kOutputGains);
+    fdn->SetDirectGain(0.5f);
+    fdn->SetDelays(kDelays);
+
+    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config;
+    mix_mat_config.matrix_size = kFDNOrder;
+    mix_mat_config.custom_matrix = std::vector<float>(kMixingMatrix.begin(), kMixingMatrix.end());
+    fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config));
+
+    auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    filter_bank->SetFilter(kLoopFilters, kFDNOrder);
+    fdn->SetLoopFilter(std::move(filter_bank));
+
+    auto tone_filter = std::make_unique<sfFDN::CascadedBiquads>();
+    tone_filter->SetCoefficients(kToneFilter);
+    fdn->SetTCFilter(std::move(tone_filter));
+    return fdn;
+}
+
 std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 {
     constexpr uint32_t kBlockSize = 256;
@@ -79,16 +120,10 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 TEST_CASE("FDN")
 {
     constexpr uint32_t kSampleRate = 48000;
-    constexpr uint32_t kIter = kSampleRate;
+    constexpr uint32_t kIter = 4096;
 
-    auto fdn = CreateReferenceFDN(false);
-
-    // Send some garbage data first to test that `Clear()` works as expected
-    // std::vector<float> garbage(4096, 1.f);
-    // sfFDN::AudioBuffer garbage_buffer(4096, 1, garbage);
-    // fdn->Process(garbage_buffer, garbage_buffer);
-
-    // fdn->Clear();
+    auto fdn = CreatePyFDNGoldFDN();
+    auto clone_fdn = fdn->Clone();
 
     std::vector<float> input(kIter, 0.f);
     input[0] = 1.f;
@@ -103,7 +138,6 @@ TEST_CASE("FDN")
 
     sfFDN::AudioBuffer clone_input_buffer(kIter, 1, clone_input);
     sfFDN::AudioBuffer clone_output_buffer(kIter, 1, clone_output);
-    auto clone_fdn = fdn->Clone();
     clone_fdn->Process(clone_input_buffer, clone_output_buffer);
 
     {
@@ -115,20 +149,21 @@ TEST_CASE("FDN")
 
         REQUIRE(sfinfo.channels == 1);
         REQUIRE(sfinfo.samplerate == kSampleRate);
+        REQUIRE(sfinfo.frames == static_cast<sf_count_t>(kIter));
+        REQUIRE((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
 
         std::vector<float> expected_output(sfinfo.frames);
         sf_count_t read = sf_readf_float(expected_output_file, expected_output.data(), sfinfo.frames);
         REQUIRE(read == sfinfo.frames);
         sf_close(expected_output_file);
+        REQUIRE(output.size() == expected_output.size());
 
         float signal_energy = 0.f;
         float signal_error = 0.f;
 
-        uint32_t testing_boundary = std::min(output.size(), expected_output.size());
-
-        for (auto i = 0u; i < testing_boundary; ++i)
+        for (auto i = 0u; i < output.size(); ++i)
         {
-            REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-4));
+            REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected_output[i], 1e-5));
             signal_energy += expected_output[i] * expected_output[i];
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
 

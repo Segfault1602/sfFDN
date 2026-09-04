@@ -1,0 +1,5 @@
+# Manual golden-file generation only; not part of the normal build or CI.
+numpy==2.1.1
+scipy==1.14.1
+soundfile==0.13.1
+pyFDN @ git+https://github.com/artificial-audio/pyFDN@68bb98caac85b06f46fa948093d341d2b72f4c9d
