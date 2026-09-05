@@ -215,7 +215,7 @@ TEST_CASE("ControllableFullWaveRectifier matches the reference implementation", 
                 // The tolerance is loose for a float32 comparison because the two implementations are in different
                 // translation units and the compiler is free to contract their multiply-adds differently. The dc
                 // blocker then amplifies that divergence: its envelope recursions have a pole at exp(-1/(fs*tau)),
-                // which is 0.9998 here.
+                // which is approximately 0.9996 here.
                 REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(reference(input[i]), 1e-4f));
             }
         }
