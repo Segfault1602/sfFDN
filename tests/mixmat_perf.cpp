@@ -50,53 +50,6 @@ void BenchmarkStructuredMatrix(const sfFDN::ScalarMatrixType type, const std::st
 }
 } // namespace
 
-TEST_CASE("MixMatPerf", "[feedback_matrix]")
-{
-    constexpr uint32_t kBlockSize = 128;
-    constexpr uint32_t kMatSize = 16;
-    constexpr uint32_t kInputSize = kMatSize * kBlockSize;
-
-    sfFDN::ScalarFeedbackMatrix mix_mat =
-        sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Householder});
-
-    std::array<float, kInputSize> input{};
-    std::array<float, kInputSize> output{};
-    // Fill with white noise
-    sfFDN::RNG generator;
-    for (auto& i : input)
-    {
-        i = generator();
-    }
-
-    sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output);
-
-    nanobench::Bench bench;
-    bench.title("Householder matrix");
-    // bench.batch(kBlockSize);
-    bench.minEpochIterations(100000);
-    bench.timeUnit(1us, "us");
-
-    bench.run("Householder", [&] {
-        mix_mat.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
-
-    sfFDN::ScalarFeedbackMatrix random_mat =
-        sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Random});
-
-    bench.run("Random", [&] {
-        random_mat.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
-
-    auto hadamard = sfFDN::ScalarFeedbackMatrix({.matrix_size = kMatSize, .type = sfFDN::ScalarMatrixType::Hadamard});
-    bench.run("Hadamard", [&] {
-        hadamard.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
-}
-
 TEST_CASE("StructuredMixMatPerf", "[feedback_matrix]")
 {
     nanobench::Bench bench;

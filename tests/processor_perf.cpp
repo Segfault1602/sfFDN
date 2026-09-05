@@ -277,12 +277,4 @@ TEST_CASE("SchroederAllpassComparisonPerf", "[processor_chain]")
         nanobench::doNotOptimizeAway(output);
     });
 
-    sfFDN::DattorroDelay modulated_delay(
-        sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate));
-    sfFDN::AudioBuffer input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-    bench.run("Dattorro modulated delay context", [&] {
-        modulated_delay.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
 }

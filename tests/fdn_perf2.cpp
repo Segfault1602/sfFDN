@@ -137,28 +137,6 @@ TEST_CASE("FDNPerf2_Block", "[fdn]")
     csv_file.close();
 }
 
-TEST_CASE("FDNPerf2_Jot", "[fdn]")
-{
-    nanobench::Bench bench;
-    bench.title("FDN Perf2");
-    bench.warmup(100);
-    bench.timeUnit(1us, "us");
-    bench.minEpochTime(10ms);
-
-    constexpr uint32_t kBlockSize = 64;
-    constexpr std::array kFDNOrders = {4, 8, 16, 32, 64};
-
-    for (unsigned int fdn_order : kFDNOrders)
-    {
-        auto fdn = CreateFDN2(kBlockSize, fdn_order);
-        RunBenchmark(fdn.get(), kBlockSize, fdn_order, bench);
-    }
-
-    std::ofstream csv_file("fdnperf_jot_results.csv");
-    bench.render(ankerl::nanobench::templates::csv(), csv_file);
-    csv_file.close();
-}
-
 TEST_CASE("FDNPerf2_FFM", "[fdn]")
 {
     nanobench::Bench bench;

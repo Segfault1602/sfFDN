@@ -6,7 +6,6 @@
 
 #include "sffdn/sffdn.h"
 
-#include "array_math.h"
 #include "rng.h"
 
 #include "test_utils.h"
@@ -42,32 +41,6 @@ TEST_CASE("FDNPerf", "[fdn]")
         fdn->Process(input_buffer, output_buffer);
     });
 
-    // Benchmark the individual components
-    auto input_gains =
-        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, std::vector<float>(kFDNOrder, 1.f));
-    bench.minEpochIterations(50000);
-    bench.run("Input Gains", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
-        input_gains->Process(input_buffer, output_buffer);
-    });
-
-    sfFDN::DelayBank delay_bank({GetDefaultDelays(kFDNOrder), kBlockSize});
-    bench.run("Delay Bank", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
-        delay_bank.GetNextOutputs(output_buffer);
-        delay_bank.AddNextInputs(input_buffer);
-    });
-
-    bench.minEpochIterations(1000);
-    auto filter_bank = GetLoopFilter(kFDNOrder, 11);
-    bench.run("Filter Bank", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
-        filter_bank->Process(input_buffer, output_buffer);
-    });
-
     auto fir_filter_bank = std::make_unique<sfFDN::FilterBank>();
     for (auto i = 0u; i < kFDNOrder; i++)
     {
@@ -81,34 +54,11 @@ TEST_CASE("FDNPerf", "[fdn]")
         fir_filter_bank->Process(input_buffer, output_buffer);
     });
 
-    auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrix({kFDNOrder, sfFDN::ScalarMatrixType::Householder}));
-    bench.run("Mixing Matrix", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, kFDNOrder, output);
-        mix_mat->Process(input_buffer, output_buffer);
-    });
-
-    auto output_gains = GetDefaultOutputGains(kFDNOrder);
-    bench.minEpochIterations(1000);
-    bench.run("Output Gains", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, kFDNOrder, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
-        output_gains->Process(input_buffer, output_buffer);
-    });
-
     auto tc_filter = GetDefaultTCFilter();
     bench.run("TC Filter", [&] {
         sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
         tc_filter->Process(input_buffer, output_buffer);
-    });
-
-    bench.minEpochIterations(1000);
-    bench.run("Direct Gain", [&] {
-        sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-        sfFDN::AudioBuffer output_buffer(kBlockSize, 1, output);
-        sfFDN::ArrayMath::ScaleAccumulate(input_buffer.GetChannelSpan(0), 1.f, output_buffer.GetChannelSpan(0));
     });
 }
 
