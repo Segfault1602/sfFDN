@@ -23,7 +23,7 @@
 
 namespace
 {
-constexpr float kSampleRate = 96000.f;
+constexpr float kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 constexpr float kSqrt2 = std::numbers::sqrt2_v<float>;
 // Keep the reference branch boundary independent of the production symbol while
 // matching the documented ADAA fallback threshold.
