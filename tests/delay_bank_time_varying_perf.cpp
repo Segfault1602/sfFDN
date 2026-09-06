@@ -75,7 +75,7 @@ TEST_CASE("DelayBankTimeVaryingPerf", "[delay]")
     {
         for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
-            for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
+            for (const uint32_t channel_count : sfFDN::test::perf::ChannelCounts())
             {
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
                 RunDelayBankTimeVaryingBenchmark(interpolation, channel_count, block_size, bench);

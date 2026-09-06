@@ -16,8 +16,16 @@ using namespace ankerl;
 
 namespace
 {
-constexpr std::array kChannelCounts = {4U, 5U, 6U, 7U, 8U, 12U, 15U, 16U, 17U, 20U, 24U, 28U, 31U, 32U, 33U};
+constexpr std::array kExtendedChannelCounts = {4U, 5U, 6U, 7U, 8U, 12U, 15U, 16U, 17U, 20U, 24U, 28U, 31U, 32U, 33U};
 constexpr std::array kStageCounts = {1U, 2U, 4U, 8U, 10U};
+
+std::span<const uint32_t> ChannelCounts()
+{
+    static constexpr std::array<uint32_t, 1> kDefaultChannelCounts = {8U};
+    return sfFDN::test::perf::EnvironmentFlagEnabled("SFFDN_PERF_BLOCK_SWEEP")
+               ? std::span<const uint32_t>(kExtendedChannelCounts)
+               : std::span<const uint32_t>(kDefaultChannelCounts);
+}
 
 std::vector<sfFDN::FilterCoefficients> MakeCoefficients(uint32_t channel_count, uint32_t stage_count)
 {
@@ -59,9 +67,9 @@ TEST_CASE("IIRFilterBankPerf", "[filter]")
     bool first_benchmark = true;
     for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
-        for (const uint32_t channel_count : kChannelCounts)
+        for (const uint32_t channel_count : ChannelCounts())
         {
-            bench.warmup(first_benchmark ? 100'000U : 100U);
+            sfFDN::test::perf::SetWarmup(bench, first_benchmark ? 100'000U : 100U);
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
             RunIIRFilterBankBenchmark(channel_count, kStageCount, block_size, bench);
             first_benchmark = false;
@@ -90,7 +98,7 @@ TEST_CASE("IIRFilterBankPerf_BigO", "[filter][.diagnostic]")
     constexpr uint32_t kStageCount = 10U;
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureComplexityBench(bench, "IIRFilterBank B=128 stages=10");
-    for (const uint32_t channel_count : kChannelCounts)
+    for (const uint32_t channel_count : kExtendedChannelCounts)
     {
         bench.complexityN(channel_count);
         RunIIRFilterBankBenchmark(channel_count, kStageCount, kBlockSize, bench);

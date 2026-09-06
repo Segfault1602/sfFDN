@@ -46,7 +46,7 @@ TEST_CASE("FilterBankPerf", "[filter]")
     sfFDN::test::perf::ConfigureThroughputBench(bench, "FilterBank perf");
     for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
-        for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
+        for (const uint32_t channel_count : sfFDN::test::perf::ChannelCounts())
         {
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
             RunFilterBankBenchmark(channel_count, block_size, bench);
@@ -59,7 +59,7 @@ TEST_CASE("FilterBankPerf_BigO", "[filter][.diagnostic]")
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureComplexityBench(bench, "FilterBank B=128");
-    for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
+    for (const uint32_t channel_count : sfFDN::test::perf::kExtendedChannelCounts)
     {
         bench.complexityN(channel_count);
         RunFilterBankBenchmark(channel_count, kBlockSize, bench);

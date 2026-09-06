@@ -1,5 +1,6 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "filter_coeffs.h"
 #include "processor_perf_utils.h"
@@ -41,10 +42,22 @@ TEST_CASE("FilterBankComparisonPerf", "[filter][.diagnostic]")
     iir_filter_bank.SetFilter(bank_coefficients, kChannelCount);
 
     std::vector<float> input(kChannelCount * kBlockSize);
-    std::vector<float> output(input.size());
+    std::vector<float> filter_bank_output(input.size());
+    std::vector<float> iir_filter_bank_output(input.size());
     sfFDN::test::perf::FillNoise(input);
     const sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
+    sfFDN::AudioBuffer filter_bank_output_buffer(kBlockSize, kChannelCount, filter_bank_output);
+    sfFDN::AudioBuffer iir_filter_bank_output_buffer(kBlockSize, kChannelCount, iir_filter_bank_output);
+
+    filter_bank->Process(input_buffer, filter_bank_output_buffer);
+    iir_filter_bank.Process(input_buffer, iir_filter_bank_output_buffer);
+    for (size_t sample = 0; sample < filter_bank_output.size(); ++sample)
+    {
+        REQUIRE_THAT(iir_filter_bank_output[sample],
+                     Catch::Matchers::WithinAbs(filter_bank_output[sample], 1e-4F));
+    }
+    filter_bank->Clear();
+    iir_filter_bank.Clear();
 
     nanobench::Bench bench;
     bench.title("FilterBank implementation comparison N=16 stages=10 B=128");
@@ -52,23 +65,14 @@ TEST_CASE("FilterBankComparisonPerf", "[filter][.diagnostic]")
     bench.relative(true);
     bench.minEpochTime(std::chrono::milliseconds(10));
 
-    bench.run("FilterBank", [&] {
-        filter_bank->Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
-    bench.run("IIRFilterBank", [&] {
-        iir_filter_bank.Process(input_buffer, output_buffer);
-        nanobench::doNotOptimizeAway(output);
-    });
-
 #ifdef __APPLE__
     std::vector<double> vdsp_coefficients;
     vdsp_coefficients.reserve(kChannelCount * kStageCount * 5U);
-    for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+    for (const sfFDN::FilterCoefficients& coefficients : source)
     {
-        for (const sfFDN::FilterCoefficients& coefficients : source)
+        const auto normalized = coefficients.Normalize();
+        for (uint32_t channel = 0; channel < kChannelCount; ++channel)
         {
-            const auto normalized = coefficients.Normalize();
             vdsp_coefficients.push_back(normalized.b0);
             vdsp_coefficients.push_back(normalized.b1);
             vdsp_coefficients.push_back(normalized.b2);
@@ -78,16 +82,37 @@ TEST_CASE("FilterBankComparisonPerf", "[filter][.diagnostic]")
     }
     vDSP_biquadm_Setup setup = vDSP_biquadm_CreateSetup(vdsp_coefficients.data(), kStageCount, kChannelCount);
     REQUIRE(setup != nullptr);
+    std::vector<float> vdsp_output(input.size());
+    sfFDN::AudioBuffer vdsp_output_buffer(kBlockSize, kChannelCount, vdsp_output);
     std::array<const float*, kChannelCount> input_pointers{};
     std::array<float*, kChannelCount> output_pointers{};
     for (uint32_t channel = 0; channel < kChannelCount; ++channel)
     {
         input_pointers[channel] = input_buffer.GetChannelSpan(channel).data();
-        output_pointers[channel] = output_buffer.GetChannelSpan(channel).data();
+        output_pointers[channel] = vdsp_output_buffer.GetChannelSpan(channel).data();
     }
+    vDSP_biquadm(setup, input_pointers.data(), 1, output_pointers.data(), 1, kBlockSize);
+    for (size_t sample = 0; sample < filter_bank_output.size(); ++sample)
+    {
+        CAPTURE(sample);
+        REQUIRE_THAT(vdsp_output[sample], Catch::Matchers::WithinAbs(filter_bank_output[sample], 1e-4F));
+    }
+    vDSP_biquadm_ResetState(setup);
+#endif
+
+    bench.run("FilterBank", [&] {
+        filter_bank->Process(input_buffer, filter_bank_output_buffer);
+        nanobench::doNotOptimizeAway(filter_bank_output);
+    });
+    bench.run("IIRFilterBank", [&] {
+        iir_filter_bank.Process(input_buffer, iir_filter_bank_output_buffer);
+        nanobench::doNotOptimizeAway(iir_filter_bank_output);
+    });
+
+#ifdef __APPLE__
     bench.run("vDSP_biquadm", [&] {
         vDSP_biquadm(setup, input_pointers.data(), 1, output_pointers.data(), 1, kBlockSize);
-        nanobench::doNotOptimizeAway(output);
+        nanobench::doNotOptimizeAway(vdsp_output);
     });
     vDSP_biquadm_DestroySetup(setup);
 #endif

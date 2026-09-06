@@ -56,7 +56,7 @@ TEST_CASE("DelayMatrixPerf", "[feedback_matrix]")
 
     for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
-        for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
+        for (const uint32_t order : sfFDN::test::perf::ChannelCounts())
         {
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
             RunDelayMatrixBenchmark(order, block_size, bench);
@@ -70,7 +70,7 @@ TEST_CASE("DelayMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureComplexityBench(bench, "DelayMatrix B=128");
 
-    for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
+    for (const uint32_t order : sfFDN::test::perf::kExtendedChannelCounts)
     {
         bench.complexityN(order);
         RunDelayMatrixBenchmark(order, kBlockSize, bench);

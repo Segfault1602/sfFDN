@@ -1,7 +1,9 @@
 #include "nanobench.h"
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -56,10 +58,14 @@ void RunArrayMathBenchmarks(uint32_t block_size, nanobench::Bench& bench)
         nanobench::doNotOptimizeAway(out);
     });
 
+    bench.batch(2U * block_size);
     bench.run("Scale (in-place)" + suffix, [&] {
         sfFDN::ArrayMath::Scale(scale_inplace, 2.f, scale_inplace);
+        sfFDN::ArrayMath::Scale(scale_inplace, 0.5f, scale_inplace);
         nanobench::doNotOptimizeAway(scale_inplace);
     });
+    REQUIRE(std::ranges::all_of(scale_inplace, [](float value) { return std::isfinite(value); }));
+    bench.batch(block_size);
 
     bench.run("ScaleAccumulate (in-place)" + suffix, [&] {
         sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, scale_accumulate);

@@ -73,12 +73,13 @@ TEST_CASE("DelayBankPerf", "[delay]")
     {
         for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
-            for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
+            for (const uint32_t channel_count : sfFDN::test::perf::ChannelCounts())
             {
-                bench.warmup(first_benchmark ? 1'000'000 : 100);
-                bench.minEpochTime(interpolation.type == sfFDN::DelayInterpolationType::Allpass
-                                       ? std::chrono::milliseconds(20)
-                                       : std::chrono::milliseconds(10));
+                sfFDN::test::perf::SetWarmup(bench, first_benchmark ? 1'000'000U : 100U);
+                sfFDN::test::perf::SetMinEpochTime(
+                    bench, interpolation.type == sfFDN::DelayInterpolationType::Allpass
+                               ? std::chrono::milliseconds(20)
+                               : std::chrono::milliseconds(10));
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
                 RunDelayBankBenchmark(interpolation, channel_count, block_size, bench);
                 first_benchmark = false;

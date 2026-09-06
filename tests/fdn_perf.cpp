@@ -113,7 +113,7 @@ TEST_CASE("FDNPerf", "[fdn]")
     {
         for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
-            for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
+            for (const uint32_t order : sfFDN::test::perf::ChannelCounts())
             {
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size);
                 RunFDNBenchmark(family, order, block_size, bench);
@@ -132,7 +132,7 @@ TEST_CASE("FDNPerf_BigO", "[fdn][.diagnostic]")
         sfFDN::test::perf::ConfigureComplexityBench(
             bench, "FDN " + std::string(family.name) + " B=" + std::to_string(kBlockSize));
 
-        for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
+        for (const uint32_t order : sfFDN::test::perf::kExtendedChannelCounts)
         {
             bench.complexityN(order);
             RunFDNBenchmark(family, order, kBlockSize, bench);

@@ -16,7 +16,7 @@
 namespace sfFDN::test::perf
 {
 
-inline constexpr std::array<uint32_t, 5> kChannelCounts = {4U, 8U, 16U, 32U, 64U};
+inline constexpr std::array<uint32_t, 5> kExtendedChannelCounts = {4U, 8U, 16U, 32U, 64U};
 
 inline bool EnvironmentFlagEnabled(const char* name)
 {
@@ -32,6 +32,13 @@ inline std::span<const uint32_t> BlockSizes()
     static constexpr std::array<uint32_t, 4> kExtendedBlockSizes = {32U, 64U, 128U, 256U};
     return EnvironmentFlagEnabled("SFFDN_PERF_BLOCK_SWEEP") ? std::span<const uint32_t>(kExtendedBlockSizes)
                                                             : std::span<const uint32_t>(kDefaultBlockSizes);
+}
+
+inline std::span<const uint32_t> ChannelCounts()
+{
+    static constexpr std::array<uint32_t, 1> kDefaultChannelCounts = {8U};
+    return EnvironmentFlagEnabled("SFFDN_PERF_BLOCK_SWEEP") ? std::span<const uint32_t>(kExtendedChannelCounts)
+                                                            : std::span<const uint32_t>(kDefaultChannelCounts);
 }
 
 inline bool SmokeModeEnabled()
@@ -89,6 +96,30 @@ inline void SetChannelSampleBatch(ankerl::nanobench::Bench& bench, uint32_t bloc
                                   uint32_t block_count = 1U)
 {
     bench.batch(static_cast<uint64_t>(block_size) * channel_count * block_count);
+}
+
+inline void SetWarmup(ankerl::nanobench::Bench& bench, uint64_t iterations)
+{
+    if (!SmokeModeEnabled())
+    {
+        bench.warmup(iterations);
+    }
+}
+
+inline void SetMinEpochIterations(ankerl::nanobench::Bench& bench, uint64_t iterations)
+{
+    if (!SmokeModeEnabled())
+    {
+        bench.minEpochIterations(iterations);
+    }
+}
+
+inline void SetMinEpochTime(ankerl::nanobench::Bench& bench, std::chrono::nanoseconds time)
+{
+    if (!SmokeModeEnabled())
+    {
+        bench.minEpochTime(time);
+    }
 }
 
 inline void FillNoise(std::span<float> data, uint64_t seed = 0x9E3779B9U)

@@ -4,8 +4,10 @@
 #include "processor_perf_utils.h"
 #include "sffdn/sffdn.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -55,12 +57,13 @@ TEST_CASE("SchroederAllpassSectionPerf", "[filter]")
     sfFDN::test::perf::ConfigureThroughputBench(bench, "SchroederAllpassSection perf");
     for (const bool parallel : {false, true})
     {
-        bench.minEpochTime(parallel ? std::chrono::milliseconds(10) : std::chrono::milliseconds(50));
+        sfFDN::test::perf::SetMinEpochTime(
+            bench, parallel ? std::chrono::milliseconds(10) : std::chrono::milliseconds(50));
         for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t stage_count : kStageCounts)
             {
-                bench.minEpochIterations(900'000U / stage_count);
+                sfFDN::test::perf::SetMinEpochIterations(bench, 900'000U / stage_count);
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size);
                 RunSchroederAllpassSectionBenchmark(stage_count, parallel, block_size, bench);
             }
@@ -76,14 +79,17 @@ TEST_CASE("SchroederAllpassSectionPerf_Aliased", "[filter]")
     for (const uint32_t stage_count : kStageCounts)
     {
         sfFDN::SchroederAllpassSection processor(MakeOptions(stage_count, true));
+        std::vector<float> input(kBlockSize);
         std::vector<float> inout(kBlockSize);
-        sfFDN::test::perf::FillNoise(inout);
+        sfFDN::test::perf::FillNoise(input);
         sfFDN::AudioBuffer buffer(inout);
         sfFDN::test::perf::SetChannelSampleBatch(bench, kBlockSize);
-        bench.run("Parallel stages=" + std::to_string(stage_count), [&] {
+        bench.run("Parallel with input restore stages=" + std::to_string(stage_count), [&] {
+            std::ranges::copy(input, inout.begin());
             processor.Process(buffer, buffer);
             nanobench::doNotOptimizeAway(inout);
         });
+        REQUIRE(std::ranges::all_of(inout, [](float sample) { return std::isfinite(sample); }));
     }
 }
 
