@@ -77,10 +77,11 @@ struct FDNConfig
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
 };
 
-/** @brief Validates FDN graph structure and dimensions without constructing processors.
+/** @brief Validates FDN graph structure, dimensions, and delay, gain, and allpass option domains without constructing
+ * processors.
  *
- * Structural success does not guarantee that processor preparation will succeed or that the resulting network is
- * numerically stable.
+ * Filter, matrix, and nonlinear processor domain coverage remains incomplete. Success does not guarantee that
+ * processor preparation will succeed or that the resulting network is numerically stable.
  */
 [[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConfig& config);
 

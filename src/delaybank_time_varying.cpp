@@ -4,11 +4,12 @@
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_interp.h"
 
+#include "processor_option_validation.h"
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -16,18 +17,9 @@ namespace sfFDN
 {
 
 DelayBankTimeVarying::DelayBankTimeVarying(const DelayBankTimeVaryingOptions& config)
-    : config_(config)
+    : config_(detail::RequireValidOptions(config))
 {
-    // validate config
     const uint32_t num_delays = config.delays.size();
-    if (!config.time_varying_config.empty())
-    {
-        if (config.time_varying_config.size() != num_delays)
-        {
-            throw std::invalid_argument(
-                "DelayBankTimeVarying: size of time_varying_config must match number of delays");
-        }
-    }
 
     for (uint32_t i = 0; i < num_delays; i++)
     {

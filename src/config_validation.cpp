@@ -1,6 +1,7 @@
 #include "sffdn/fdn_config.h"
 
 #include "math_utils.h"
+#include "processor_option_validation.h"
 
 #include <cmath>
 #include <cstddef>
@@ -28,51 +29,18 @@ std::string IndexPath(const std::string& path, size_t index)
     return path + "/" + std::to_string(index);
 }
 
-void ValidateDelayBank(const sfFDN::DelayBankOptions& options, const std::string& path, uint32_t fdn_size,
-                       bool fdn_size_valid, Issues& issues)
-{
-    if (fdn_size_valid && options.delays.size() != fdn_size)
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/delays",
-                 "expected " + std::to_string(fdn_size) + " delays, got " + std::to_string(options.delays.size()));
-    }
-
-    constexpr uint32_t kMaxCapacity = std::numeric_limits<uint32_t>::max();
-    const bool block_size_fits = options.block_size <= kMaxCapacity / 2U;
-    if (!block_size_fits)
-    {
-        AddIssue(issues, ConfigErrorCode::CapacityOverflow, path + "/block_size",
-                 "block size cannot be doubled without overflowing uint32_t");
-    }
-
-    for (size_t index = 0; index < options.delays.size(); ++index)
-    {
-        const float delay = options.delays[index];
-        const std::string delay_path = IndexPath(path + "/delays", index);
-        if (!std::isfinite(delay) || delay < 0.f)
-        {
-            AddIssue(issues, ConfigErrorCode::InvalidValue, delay_path, "delay must be finite and non-negative");
-            continue;
-        }
-
-        if (block_size_fits)
-        {
-            const uint32_t block_padding = options.block_size * 2U;
-            const float buffer_capacity = delay + static_cast<float>(block_padding);
-            if (static_cast<double>(buffer_capacity) > static_cast<double>(kMaxCapacity))
-            {
-                AddIssue(issues, ConfigErrorCode::CapacityOverflow, delay_path,
-                         "delay plus block padding exceeds uint32_t capacity");
-            }
-        }
-    }
-}
-
 void ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& options, const sfFDN::FDNConfig& config,
                               bool fdn_size_valid, bool block_size_valid, Issues& issues)
 {
     constexpr const char* kPath = "/delay_bank_config";
-    ValidateDelayBank(options, kPath, config.fdn_size, fdn_size_valid, issues);
+    sfFDN::detail::ValidateOptions(options, kPath, issues);
+
+    if (fdn_size_valid && options.delays.size() != config.fdn_size)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, std::string(kPath) + "/delays",
+                 "expected " + std::to_string(config.fdn_size) + " delays, got " +
+                     std::to_string(options.delays.size()));
+    }
 
     if (!block_size_valid)
     {
@@ -226,61 +194,116 @@ void ValidateFeedbackMatrix(const sfFDN::feedback_matrix_variant_t& options, con
                options);
 }
 
+bool IsKnownParallelGainsMode(sfFDN::ParallelGainsMode mode)
+{
+    return mode == sfFDN::ParallelGainsMode::Split || mode == sfFDN::ParallelGainsMode::Merge ||
+           mode == sfFDN::ParallelGainsMode::Parallel;
+}
+
+void ValidateSingleChannelProcessor(const sfFDN::single_channel_processor_variant_t& options, const std::string& path,
+                                    Issues& issues)
+{
+    std::visit(sfFDN::overloaded{
+                   [&](const sfFDN::DelayOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/DelayOptions", issues);
+                   },
+                   [&](const sfFDN::DattorroDelayOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/DattorroDelayOptions", issues);
+                   },
+                   [&](const sfFDN::SchroederAllpassSectionOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/SchroederAllpassSectionOptions", issues);
+                   },
+                   [&](const sfFDN::TimeVaryingSchroederAllpassSectionOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/TimeVaryingSchroederAllpassSectionOptions",
+                                                      issues);
+                   },
+                   [](const sfFDN::AllpassFilterOptions&) {},
+                   [](const sfFDN::CascadedBiquadsOptions&) {},
+                   [](const sfFDN::FirOptions&) {},
+                   [](const sfFDN::GraphicEQOptions&) {},
+                   [](const sfFDN::ControllableFullWaveRectifierOptions&) {},
+                   [](const sfFDN::SignalDependentFractionalDelayOptions&) {},
+                   [](const sfFDN::RingModulatorOptions&) {},
+               },
+               options);
+}
+
 void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_t& options, const std::string& path,
                                    uint32_t fdn_size, bool fdn_size_valid, bool allow_shared_attenuation,
                                    Issues& issues)
 {
-    std::visit(
-        sfFDN::overloaded{
-            [&](const sfFDN::ParallelGainsOptions& value) {
-                const std::string options_path = path + "/ParallelGainsConfig";
-                if (value.mode != sfFDN::ParallelGainsMode::Parallel)
-                {
-                    AddIssue(issues, ConfigErrorCode::UnsupportedValue, options_path + "/mode",
-                             "parallel gains in a multichannel processor block must use Parallel mode");
-                }
-                if (fdn_size_valid && value.gains.size() != fdn_size)
-                {
-                    AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/gains",
-                             "expected " + std::to_string(fdn_size) + " gains, got " +
-                                 std::to_string(value.gains.size()));
-                }
-            },
-            [&](const sfFDN::MultichannelProcessorOptions& value) {
-                if (fdn_size_valid && value.channels.size() != fdn_size)
-                {
-                    AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/MultichannelProcessorOptions/channels",
-                             "expected " + std::to_string(fdn_size) + " channels, got " +
-                                 std::to_string(value.channels.size()));
-                }
-            },
-            [&](const sfFDN::AttenuationFilterBankOptions& value) {
-                ValidateAttenuationFilterBank(value, path, fdn_size, fdn_size_valid, allow_shared_attenuation, issues);
-            },
-            [&](const sfFDN::DelayBankOptions& value) {
-                ValidateDelayBank(value, path + "/DelayBankOptions", fdn_size, fdn_size_valid, issues);
-            },
-            [&](const sfFDN::DelayBankTimeVaryingOptions& value) {
-                if (fdn_size_valid && value.delays.size() != fdn_size)
-                {
-                    AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/DelayBankTimeVaryingOptions/delays",
-                             "expected " + std::to_string(fdn_size) + " delays, got " +
-                                 std::to_string(value.delays.size()));
-                }
-            },
-            [&](const sfFDN::CascadedFeedbackMatrixOptions& value) {
-                ValidateCascadedMatrix(value, path, fdn_size, fdn_size_valid, issues);
-            },
-            [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
-                ValidateScalarMatrix(value, path, fdn_size, fdn_size_valid, issues);
-            }},
-        options);
+    std::visit(sfFDN::overloaded{
+                   [&](const sfFDN::ParallelGainsOptions& value) {
+                       const std::string options_path = path + "/ParallelGainsConfig";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (IsKnownParallelGainsMode(value.mode) && value.mode != sfFDN::ParallelGainsMode::Parallel)
+                       {
+                           AddIssue(issues, ConfigErrorCode::UnsupportedValue, options_path + "/mode",
+                                    "parallel gains in a multichannel processor block must use Parallel mode");
+                       }
+                       if (fdn_size_valid && value.gains.size() != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/gains",
+                                    "expected " + std::to_string(fdn_size) + " gains, got " +
+                                        std::to_string(value.gains.size()));
+                       }
+                   },
+                   [&](const sfFDN::MultichannelProcessorOptions& value) {
+                       const std::string options_path = path + "/MultichannelProcessorOptions";
+                       if (fdn_size_valid && value.channels.size() != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/channels",
+                                    "expected " + std::to_string(fdn_size) + " channels, got " +
+                                        std::to_string(value.channels.size()));
+                       }
+                       for (size_t index = 0; index < value.channels.size(); ++index)
+                       {
+                           if (value.channels[index].has_value())
+                           {
+                               ValidateSingleChannelProcessor(*value.channels[index],
+                                                              IndexPath(options_path + "/channels", index), issues);
+                           }
+                       }
+                   },
+                   [&](const sfFDN::AttenuationFilterBankOptions& value) {
+                       ValidateAttenuationFilterBank(value, path, fdn_size, fdn_size_valid, allow_shared_attenuation,
+                                                     issues);
+                   },
+                   [&](const sfFDN::DelayBankOptions& value) {
+                       const std::string options_path = path + "/DelayBankOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.delays.size() != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/delays",
+                                    "expected " + std::to_string(fdn_size) + " delays, got " +
+                                        std::to_string(value.delays.size()));
+                       }
+                   },
+                   [&](const sfFDN::DelayBankTimeVaryingOptions& value) {
+                       const std::string options_path = path + "/DelayBankTimeVaryingOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.delays.size() != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/delays",
+                                    "expected " + std::to_string(fdn_size) + " delays, got " +
+                                        std::to_string(value.delays.size()));
+                       }
+                   },
+                   [&](const sfFDN::CascadedFeedbackMatrixOptions& value) {
+                       ValidateCascadedMatrix(value, path, fdn_size, fdn_size_valid, issues);
+                   },
+                   [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
+                       ValidateScalarMatrix(value, path, fdn_size, fdn_size_valid, issues);
+                   },
+               },
+               options);
 }
 
 void ValidateGains(const sfFDN::ParallelGainsOptions& options, const std::string& path,
                    sfFDN::ParallelGainsMode expected_mode, uint32_t fdn_size, bool fdn_size_valid, Issues& issues)
 {
-    if (options.mode != expected_mode)
+    sfFDN::detail::ValidateOptions(options, path, issues);
+    if (IsKnownParallelGainsMode(options.mode) && options.mode != expected_mode)
     {
         AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/mode",
                  std::string("expected ") + (expected_mode == sfFDN::ParallelGainsMode::Split ? "Split" : "Merge") +
@@ -358,6 +381,12 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConf
     ValidateFeedbackMatrix(config.feedback_matrix_config, "/feedback_matrix_config", config.fdn_size, fdn_size_valid,
                            issues);
 
+    for (size_t index = 0; index < config.input_block_config.single_channel_processors.size(); ++index)
+    {
+        ValidateSingleChannelProcessor(config.input_block_config.single_channel_processors[index],
+                                       IndexPath("/input_block_config/single_channel_processors", index), issues);
+    }
+
     for (size_t index = 0; index < config.input_block_config.multichannel_processors.size(); ++index)
     {
         ValidateMultichannelProcessor(config.input_block_config.multichannel_processors[index],
@@ -372,10 +401,22 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConf
                                       fdn_size_valid, false, issues);
     }
 
+    for (size_t index = 0; index < config.output_block_config.single_channel_processors.size(); ++index)
+    {
+        ValidateSingleChannelProcessor(config.output_block_config.single_channel_processors[index],
+                                       IndexPath("/output_block_config/single_channel_processors", index), issues);
+    }
+
     if (config.attenuation_filter_bank_config.has_value())
     {
         ValidateAttenuationFilterBank(*config.attenuation_filter_bank_config, "/attenuation_filter_bank_config",
                                       config.fdn_size, fdn_size_valid, true, issues);
+    }
+
+    for (size_t index = 0; index < config.tone_correction_filters.size(); ++index)
+    {
+        ValidateSingleChannelProcessor(config.tone_correction_filters[index],
+                                       IndexPath("/tone_correction_filters", index), issues);
     }
 
     for (size_t index = 0; index < config.loop_filter_configs.size(); ++index)

@@ -4,6 +4,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
+#include "processor_option_validation.h"
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -14,7 +16,7 @@
 namespace sfFDN
 {
 DelayBank::DelayBank(const DelayBankOptions& config)
-    : block_size_(config.block_size)
+    : block_size_(detail::RequireValidOptions(config).block_size)
     , interpolation_type_(config.interpolation_type)
 {
     for (auto delay : config.delays)

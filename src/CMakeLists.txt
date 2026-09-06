@@ -25,6 +25,7 @@ target_sources(
             circular_buffer.cpp
             dattorro_delay.cpp
             delay.cpp
+            delay_option_validation.cpp
             delaybank.cpp
             delaybank_time_varying.cpp
             delay_interp.cpp
@@ -50,6 +51,7 @@ target_sources(
             partitioned_convolver.cpp
             oscillator.cpp
             parallel_gains.cpp
+            gain_option_validation.cpp
             processor_factory.cpp
             rng.cpp
             schroeder_allpass.cpp

@@ -63,6 +63,7 @@ target_sources(
             filter_design_tests.cpp
             fft_tests.cpp
             fdn_config_tests.cpp
+            processor_option_validation_tests.cpp
             oscillator_tests.cpp
             upols_tests.cpp
             nupols_tests.cpp

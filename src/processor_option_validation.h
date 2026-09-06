@@ -1,0 +1,37 @@
+#pragma once
+
+#include "sffdn/config_diagnostics.h"
+#include "sffdn/types.h"
+
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+namespace sfFDN::detail
+{
+
+void ValidateOptions(const DelayOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const DelayBankOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const DelayBankTimeVaryingOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const DattorroDelayOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const ParallelGainsOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const SchroederAllpassSectionOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const TimeVaryingSchroederAllpassSectionOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateModulation(const ModulationOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+
+template <class Options>
+const Options& RequireValidOptions(const Options& options)
+{
+    std::vector<ConfigIssue> issues;
+    ValidateOptions(options, "", issues);
+    if (!issues.empty())
+    {
+        throw std::invalid_argument(issues.front().path + ": " + issues.front().message);
+    }
+    return options;
+}
+
+} // namespace sfFDN::detail

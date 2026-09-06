@@ -200,9 +200,10 @@ try {
 }
 ```
 
-This validation covers structure and the established configuration guards; it is not a complete
-check of every processor parameter or a certification that all numerical processing will succeed.
-Callers may log the report, but the validator itself does not.
+This validation includes FDN graph structure and shared delay, gain, and allpass option-domain
+checks. Filter, feedback-matrix, and nonlinear processor domain coverage remains Phase 2.c work;
+success is not a certification that all numerical processing will succeed or that the network is
+stable. Callers may log the report, but the validator itself does not.
 
 ## Build
 

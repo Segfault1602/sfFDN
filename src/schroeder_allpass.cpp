@@ -1,6 +1,7 @@
 #include "sffdn/schroeder_allpass.h"
 
 #include "array_math.h"
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -233,6 +234,7 @@ void TimeVaryingSchroederAllpass::Clear()
 
 SchroederAllpassSection::SchroederAllpassSection(const SchroederAllpassSectionOptions& config)
 {
+    detail::RequireValidOptions(config);
     allpasses_.reserve(config.delays.size());
     for (size_t i = 0; i < config.delays.size(); ++i)
     {
@@ -401,26 +403,12 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
 
 TimeVaryingSchroederAllpassSection::TimeVaryingSchroederAllpassSection(
     const TimeVaryingSchroederAllpassSectionOptions& config)
-    : parallel_(config.parallel)
+    : parallel_(detail::RequireValidOptions(config).parallel)
 {
-    if (config.delays.empty() || config.gains.size() != config.delays.size() ||
-        config.time_varying_config.size() != config.delays.size())
-    {
-        throw std::invalid_argument(
-            "TimeVaryingSchroederAllpassSection: delays, gains, and modulation must have equal non-zero sizes");
-    }
-
     allpasses_.reserve(config.delays.size());
     for (size_t stage = 0; stage < config.delays.size(); ++stage)
     {
-        const float delay = config.delays[stage];
-        if (!std::isfinite(delay) || delay < 1.f || std::trunc(delay) != delay ||
-            delay >= static_cast<float>(std::numeric_limits<uint32_t>::max()))
-        {
-            throw std::invalid_argument("TimeVaryingSchroederAllpassSection: delays must be positive integers");
-        }
-
-        const auto integer_delay = static_cast<uint32_t>(delay);
+        const auto integer_delay = static_cast<uint32_t>(config.delays[stage]);
         allpasses_.emplace_back(integer_delay, config.gains[stage], config.time_varying_config[stage]);
     }
 }

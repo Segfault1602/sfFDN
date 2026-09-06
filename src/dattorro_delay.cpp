@@ -5,6 +5,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay_interp.h"
 
+#include "processor_option_validation.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -31,7 +33,7 @@ uint32_t RequiredMaximumDelay(float delay, float width)
 
 sfFDN::DattorroDelayOptions SanitizeOptions(const sfFDN::DattorroDelayOptions& options)
 {
-    sfFDN::DattorroDelayOptions sanitized = options;
+    sfFDN::DattorroDelayOptions sanitized = sfFDN::detail::RequireValidOptions(options);
 
     const float width = options.delay_config.lfo_config.has_value() ? options.delay_config.lfo_config->amplitude : 0.f;
     sanitized.delay_config.max_delay =

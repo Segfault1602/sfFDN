@@ -269,7 +269,11 @@ TEST_CASE("MakeParallelGainsFromConfig selects static and time-varying implement
     const sfFDN::ParallelGainsOptions time_varying_options{
         .mode = sfFDN::ParallelGainsMode::Split,
         .gains = {1.f, 1.f},
-        .time_varying_config = {{.frequency = 0.f, .amplitude = 0.f, .initial_phase = 0.f}},
+        .time_varying_config =
+            {
+                {.frequency = 0.f, .amplitude = 0.f, .initial_phase = 0.f},
+                {.frequency = 0.f, .amplitude = 0.f, .initial_phase = 0.f},
+            },
     };
     const auto time_varying_gains = sfFDN::MakeParallelGainsFromConfig(time_varying_options);
     REQUIRE(dynamic_cast<sfFDN::TimeVaryingParallelGains*>(time_varying_gains.get()) != nullptr);

@@ -3,6 +3,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay_interp.h"
 
+#include "processor_option_validation.h"
+
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -12,12 +14,15 @@ namespace sfFDN
 {
 
 DelayTimeVarying::DelayTimeVarying(const DelayOptions& config)
-    : delay_{config}
+    : delay_{detail::RequireValidOptions(config)}
     , base_delay_{config.delay}
 {
     if (config.lfo_config.has_value())
     {
-        SetMod(config.lfo_config.value());
+        const auto& lfo_config = config.lfo_config.value();
+        lfo_.SetFrequency(lfo_config.frequency);
+        lfo_.SetAmplitude(lfo_config.amplitude);
+        lfo_.SetPhaseOffset(lfo_config.initial_phase);
     }
 }
 

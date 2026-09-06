@@ -86,6 +86,5 @@ Specialized attenuation filters, delay banks, gains, and feedback matrices remai
 cross-channel or delay-dependent behavior that a generic FilterBank does not provide.
 
 JSON readers reject unknown enum strings, malformed array shapes, and ambiguous tagged wrappers. A single-channel,
-multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag; all additional
-siblings, including `metadata`, are rejected. Reads are transactional, so a failed parse does not modify an existing
+multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag. Reads are transactional, so a failed parse does not modify an existing
 options object.

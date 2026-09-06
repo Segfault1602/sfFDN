@@ -168,11 +168,12 @@ TEST_CASE("FDNConfig reports deterministic unchanged validation and typed factor
     catch (const sfFDN::FDNConfigError& error)
     {
         REQUIRE(error.Issues() == issues);
-        REQUIRE(std::string_view(error.what()).find("/delay_bank_config/delays/0") != std::string_view::npos);
-        REQUIRE(std::string_view(error.what()).find("/output_block_config/parallel_gains_config/gains") !=
-                std::string_view::npos);
-        REQUIRE(std::string_view(error.what()).find("delay must be finite and non-negative") != std::string_view::npos);
-        REQUIRE(std::string_view(error.what()).find("expected 4 gains, got 3") != std::string_view::npos);
+        const std::string_view message(error.what());
+        for (const auto& issue : issues)
+        {
+            REQUIRE(message.find(issue.path) != std::string_view::npos);
+            REQUIRE(message.find(issue.message) != std::string_view::npos);
+        }
     }
 }
 
@@ -234,4 +235,188 @@ TEST_CASE("FDNConfig reports capacity overflow without constructing", "[fdn]")
     delay_capacity.delay_bank_config.block_size = std::numeric_limits<uint32_t>::max();
     const auto& delay_issues = RequireIssues(sfFDN::ValidateFDNStructure(delay_capacity));
     REQUIRE(HasIssue(delay_issues, sfFDN::ConfigErrorCode::CapacityOverflow, "/delay_bank_config/block_size"));
+}
+
+TEST_CASE("FDNConfig reports invalid single-channel processors at canonical paths", "[fdn]")
+{
+    const sfFDN::DelayOptions invalid_delay{
+        .delay = 4.F, .max_delay = 3U, .interp_type = sfFDN::DelayInterpolationType::Allpass, .lfo_config = {}};
+
+    auto input = MakeValidConfig();
+    input.input_block_config.single_channel_processors.emplace_back(invalid_delay);
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(input)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/single_channel_processors/0/DelayOptions/max_delay"));
+
+    auto output = MakeValidConfig();
+    output.output_block_config.single_channel_processors.emplace_back(invalid_delay);
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(output)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/output_block_config/single_channel_processors/0/DelayOptions/max_delay"));
+
+    auto tone = MakeValidConfig();
+    tone.tone_correction_filters.emplace_back(invalid_delay);
+    const auto validation = sfFDN::ValidateFDNStructure(tone);
+    const auto issues = RequireIssues(validation);
+    REQUIRE(
+        HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/tone_correction_filters/0/DelayOptions/max_delay"));
+    REQUIRE_THROWS_AS(sfFDN::DelayInterp(invalid_delay), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(tone), sfFDN::FDNConfigError);
+}
+
+TEST_CASE("FDNConfig validates multichannel delays without indexing missing channels", "[fdn]")
+{
+    const sfFDN::DelayOptions valid_delay{
+        .delay = 4.F, .max_delay = 8U, .interp_type = sfFDN::DelayInterpolationType::None, .lfo_config = {}};
+    const sfFDN::DelayOptions invalid_delay{
+        .delay = 4.F, .max_delay = 3U, .interp_type = sfFDN::DelayInterpolationType::Allpass, .lfo_config = {}};
+
+    sfFDN::MultichannelProcessorOptions channels;
+    channels.channels.emplace_back(std::nullopt);
+    channels.channels.emplace_back(valid_delay);
+    channels.channels.emplace_back(invalid_delay);
+    channels.channels.emplace_back(std::nullopt);
+
+    auto input = MakeValidConfig();
+    input.input_block_config.multichannel_processors.emplace_back(channels);
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(input)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/multichannel_processors/0/MultichannelProcessorOptions/channels/2/"
+                     "DelayOptions/max_delay"));
+
+    auto output = MakeValidConfig();
+    output.output_block_config.multichannel_processors.emplace_back(channels);
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(output)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/output_block_config/multichannel_processors/0/MultichannelProcessorOptions/channels/2/"
+                     "DelayOptions/max_delay"));
+
+    auto loop = MakeValidConfig();
+    loop.loop_filter_configs.emplace_back(channels);
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(loop)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/loop_filter_configs/0/MultichannelProcessorOptions/channels/2/DelayOptions/max_delay"));
+}
+
+TEST_CASE("FDNConfig reports interpolation enums at their option paths", "[fdn]")
+{
+    constexpr auto kUnknownInterpolation = static_cast<sfFDN::DelayInterpolationType>(255);
+
+    auto delay = MakeValidConfig();
+    delay.input_block_config.single_channel_processors.emplace_back(
+        sfFDN::DelayOptions{.delay = 4.F, .max_delay = 8U, .interp_type = kUnknownInterpolation, .lfo_config = {}});
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(delay)), sfFDN::ConfigErrorCode::UnsupportedValue,
+                     "/input_block_config/single_channel_processors/0/DelayOptions/interp_type"));
+
+    auto dattorro = MakeValidConfig();
+    dattorro.output_block_config.single_channel_processors.emplace_back(sfFDN::DattorroDelayOptions{
+        .delay_config = {.delay = 4.F, .max_delay = 8U, .interp_type = kUnknownInterpolation, .lfo_config = {}},
+        .blend = 0.F,
+        .feedforward = 0.F,
+        .feedback = 0.F,
+    });
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(dattorro)), sfFDN::ConfigErrorCode::UnsupportedValue,
+                     "/output_block_config/single_channel_processors/0/DattorroDelayOptions/delay_config/interp_type"));
+
+    auto bank = MakeValidConfig();
+    bank.input_block_config.multichannel_processors.emplace_back(sfFDN::DelayBankOptions{
+        .delays = {4.F, 4.F, 4.F, 4.F}, .block_size = 1U, .interpolation_type = kUnknownInterpolation});
+    const auto issues = RequireIssues(sfFDN::ValidateFDNStructure(bank));
+    REQUIRE(issues.size() == 1U);
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue,
+                     "/input_block_config/multichannel_processors/0/DelayBankOptions/interpolation_type"));
+}
+
+TEST_CASE("FDNConfig reports processor option errors from each single-channel variant", "[fdn]")
+{
+    auto dattorro = MakeValidConfig();
+    dattorro.input_block_config.single_channel_processors.emplace_back(sfFDN::DattorroDelayOptions{
+        .delay_config =
+            {.delay = 1.F, .max_delay = 4U, .interp_type = sfFDN::DelayInterpolationType::None, .lfo_config = {}},
+        .blend = 0.F,
+        .feedforward = 0.F,
+        .feedback = 0.F,
+    });
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(dattorro)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/single_channel_processors/0/DattorroDelayOptions/delay_config/delay"));
+
+    auto static_schroeder = MakeValidConfig();
+    static_schroeder.output_block_config.single_channel_processors.emplace_back(
+        sfFDN::SchroederAllpassSectionOptions{.delays = {1.F}, .gains = {}, .parallel = false});
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(static_schroeder)), sfFDN::ConfigErrorCode::SizeMismatch,
+                     "/output_block_config/single_channel_processors/0/SchroederAllpassSectionOptions/gains"));
+
+    auto time_varying_schroeder = MakeValidConfig();
+    time_varying_schroeder.tone_correction_filters.emplace_back(sfFDN::TimeVaryingSchroederAllpassSectionOptions{
+        .delays = {1.F},
+        .gains = {0.F},
+        .time_varying_config = {{.frequency = 0.F, .amplitude = 0.1F, .initial_phase = 0.F}},
+        .parallel = false,
+    });
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNStructure(time_varying_schroeder)),
+                     sfFDN::ConfigErrorCode::InvalidValue,
+                     "/tone_correction_filters/0/TimeVaryingSchroederAllpassSectionOptions/time_varying_config/0/"
+                     "frequency"));
+}
+
+TEST_CASE("FDNConfig validates time-varying gains and delay banks in each multichannel placement", "[fdn]")
+{
+    const sfFDN::ParallelGainsOptions invalid_gains{
+        .mode = sfFDN::ParallelGainsMode::Parallel,
+        .gains = {1.F, 1.F, 1.F, 1.F},
+        .time_varying_config = {{.frequency = -0.01F, .amplitude = 2.F, .initial_phase = 0.F},
+                                {.frequency = 0.F, .amplitude = 2.F, .initial_phase = 0.F},
+                                {.frequency = 0.F, .amplitude = 2.F, .initial_phase = 0.F},
+                                {.frequency = 0.F, .amplitude = 2.F, .initial_phase = 0.F}},
+    };
+    const sfFDN::DelayBankTimeVaryingOptions invalid_bank{
+        .delays = {4.F, 4.F, 4.F, 4.F},
+        .max_delay = 3U,
+        .interpolation_type = sfFDN::DelayInterpolationType::None,
+        .time_varying_config = {},
+    };
+    const sfFDN::DelayBankOptions invalid_fixed_bank{
+        .delays = {4.F, 4.F, 4.F, 4.F},
+        .block_size = std::numeric_limits<uint32_t>::max(),
+        .interpolation_type = sfFDN::DelayInterpolationType::None,
+    };
+
+    auto input = MakeValidConfig();
+    input.input_block_config.parallel_gains_config = invalid_gains;
+    input.input_block_config.multichannel_processors.emplace_back(invalid_bank);
+    input.input_block_config.multichannel_processors.emplace_back(invalid_gains);
+    input.input_block_config.multichannel_processors.emplace_back(invalid_fixed_bank);
+    const auto input_issues = RequireIssues(sfFDN::ValidateFDNStructure(input));
+    REQUIRE(HasIssue(input_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/parallel_gains_config/time_varying_config/0/frequency"));
+    REQUIRE(HasIssue(input_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/multichannel_processors/0/DelayBankTimeVaryingOptions/max_delay"));
+    REQUIRE(HasIssue(input_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/multichannel_processors/1/ParallelGainsConfig/time_varying_config/0/"
+                     "frequency"));
+    REQUIRE(HasIssue(input_issues, sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/input_block_config/multichannel_processors/2/DelayBankOptions/block_size"));
+
+    auto output = MakeValidConfig();
+    output.output_block_config.parallel_gains_config = invalid_gains;
+    output.output_block_config.multichannel_processors.emplace_back(invalid_bank);
+    output.output_block_config.multichannel_processors.emplace_back(invalid_fixed_bank);
+    output.output_block_config.multichannel_processors.emplace_back(invalid_gains);
+    const auto output_issues = RequireIssues(sfFDN::ValidateFDNStructure(output));
+    REQUIRE(HasIssue(output_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/output_block_config/parallel_gains_config/time_varying_config/0/frequency"));
+    REQUIRE(HasIssue(output_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/output_block_config/multichannel_processors/0/DelayBankTimeVaryingOptions/max_delay"));
+    REQUIRE(HasIssue(output_issues, sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/output_block_config/multichannel_processors/1/DelayBankOptions/block_size"));
+    REQUIRE(HasIssue(output_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/output_block_config/multichannel_processors/2/ParallelGainsConfig/time_varying_config/0/"
+                     "frequency"));
+
+    auto loop = MakeValidConfig();
+    loop.loop_filter_configs.emplace_back(invalid_gains);
+    loop.loop_filter_configs.emplace_back(invalid_bank);
+    loop.loop_filter_configs.emplace_back(invalid_fixed_bank);
+    const auto loop_issues = RequireIssues(sfFDN::ValidateFDNStructure(loop));
+    REQUIRE(HasIssue(loop_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/loop_filter_configs/0/ParallelGainsConfig/time_varying_config/0/frequency"));
+    REQUIRE(HasIssue(loop_issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/loop_filter_configs/1/DelayBankTimeVaryingOptions/max_delay"));
+    REQUIRE(HasIssue(loop_issues, sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/loop_filter_configs/2/DelayBankOptions/block_size"));
 }
