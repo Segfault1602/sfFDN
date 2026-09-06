@@ -117,6 +117,10 @@ fdn.SetLoopFilter(std::move(attenuation_filter));
 
 Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
 The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
+JSON reads are strict and transactional: malformed input leaves a reused destination unchanged. Integer fields accept
+only integer JSON values in the `uint32_t` range, while finite fractional `sample_rate` values are preserved as floats.
+Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag and no sibling fields,
+including `metadata`.
 
 ```c++
 sfFDN::FDNConfig config{};

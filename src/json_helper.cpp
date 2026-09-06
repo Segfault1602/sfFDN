@@ -9,6 +9,27 @@
 
 namespace sfFDN
 {
+namespace
+{
+const nlohmann::json& TaggedValue(const nlohmann::json& j, std::initializer_list<const char*> tags)
+{
+    if (!j.is_object() || j.size() != 1)
+    {
+        throw std::invalid_argument("Processor config must contain exactly one processor type");
+    }
+
+    const auto entry = j.begin();
+    for (const char* tag : tags)
+    {
+        if (entry.key() == tag)
+        {
+            return entry.value();
+        }
+    }
+    throw std::invalid_argument("Unknown processor config type");
+}
+} // namespace
+
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 {
     j["matrix_size"] = config.matrix_size;
@@ -26,17 +47,20 @@ void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config)
 {
-    config.matrix_size = j.at("matrix_size").get<uint32_t>();
-    config.type = j.at("type").get<ScalarMatrixType>();
+    json_detail::RequireObject(j, "ScalarFeedbackMatrixOptions");
+    ScalarFeedbackMatrixOptions candidate;
+    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
+    json_detail::ReadField(j, "type", candidate.type);
     if (j.contains("custom_matrix") && !j["custom_matrix"].is_null())
     {
-        config.custom_matrix = j["custom_matrix"].get<std::vector<float>>();
+        candidate.custom_matrix = json_detail::ReadVector<float>(j["custom_matrix"]);
     }
-    config.rng_seed = j.at("rng_seed").get<uint32_t>();
+    json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
     if (j.contains("arg") && !j["arg"].is_null())
     {
-        config.arg = j["arg"].get<float>();
+        candidate.arg = json_detail::ReadFloat(j["arg"]);
     }
+    config = std::move(candidate);
 }
 
 void to_json(nlohmann::json& j, const DelayOptions& config)
@@ -52,17 +76,16 @@ void to_json(nlohmann::json& j, const DelayOptions& config)
 
 void from_json(const nlohmann::json& j, DelayOptions& config)
 {
-    config.delay = j.at("delay").get<float>();
-    config.max_delay = j.at("max_delay").get<uint32_t>();
-    config.interp_type = j.at("interp_type").get<DelayInterpolationType>();
+    json_detail::RequireObject(j, "DelayOptions");
+    DelayOptions candidate;
+    json_detail::ReadField(j, "delay", candidate.delay);
+    json_detail::ReadField(j, "max_delay", candidate.max_delay);
+    json_detail::ReadField(j, "interp_type", candidate.interp_type);
     if (j.contains("lfo_config") && !j["lfo_config"].is_null())
     {
-        config.lfo_config = j["lfo_config"].get<ModulationOptions>();
+        candidate.lfo_config = j["lfo_config"].get<ModulationOptions>();
     }
-    else
-    {
-        config.lfo_config = std::nullopt;
-    }
+    config = std::move(candidate);
 }
 
 void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config)
@@ -102,32 +125,34 @@ void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config)
         throw std::invalid_argument("AttenuationFilterBankOptions must be an array.");
     }
 
-    config.filter_configs.clear();
+    AttenuationFilterBankOptions candidate;
     for (const auto& filter_config_json : j)
     {
+        const auto& filter_config =
+            TaggedValue(filter_config_json, {"ProportionalAttenuationConfig", "TwoBandFilterConfig",
+                                             "ThreeBandFilterConfig", "TenBandFilterConfig"});
         if (filter_config_json.contains("ProportionalAttenuationConfig"))
         {
-            config.filter_configs.emplace_back(
-                filter_config_json["ProportionalAttenuationConfig"].get<HomogenousFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<HomogenousFilterOptions>());
         }
         else if (filter_config_json.contains("TwoBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<TwoBandFilterOptions>());
         }
         else if (filter_config_json.contains("ThreeBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(
-                filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<ThreeBandFilterOptions>());
         }
         else if (filter_config_json.contains("TenBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<TenBandFilterOptions>());
         }
         else
         {
             throw std::invalid_argument("Unknown filter config type in AttenuationFilterBankOptions");
         }
     }
+    config = std::move(candidate);
 }
 
 nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
@@ -251,6 +276,10 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
 
 single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann::json& j)
 {
+    TaggedValue(j, {"SchroederAllpassSectionOptions", "TimeVaryingSchroederAllpassSectionOptions",
+                    "AllpassFilterOptions", "CascadedBiquadsOptions", "FirOptions", "DelayOptions", "GraphicEQOptions",
+                    "DattorroDelayOptions", "ControllableFullWaveRectifierOptions",
+                    "SignalDependentFractionalDelayOptions", "RingModulatorOptions"});
     if (j.contains("SchroederAllpassSectionOptions"))
     {
         return j["SchroederAllpassSectionOptions"].get<SchroederAllpassSectionOptions>();
@@ -311,10 +340,9 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
 
 multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::json& j)
 {
-    if (j.contains("MultichannelProcessorOptions") && (!j.is_object() || j.size() != 1))
-    {
-        throw std::invalid_argument("Multichannel processor config must contain exactly one processor type");
-    }
+    TaggedValue(j, {"ParallelGainsConfig", "MultichannelProcessorOptions", "AttenuationFilterBankOptions",
+                    "DelayBankOptions", "DelayBankTimeVaryingOptions", "CascadedFeedbackMatrixInfo",
+                    "ScalarFeedbackMatrixOptions"});
 
     if (j.contains("ParallelGainsConfig"))
     {
@@ -378,13 +406,13 @@ void from_json(const nlohmann::json& j, MultichannelProcessorOptions& config)
         throw std::invalid_argument("Multichannel processor channels must be an array");
     }
 
-    config.channels.clear();
-    config.channels.reserve(channels.size());
+    MultichannelProcessorOptions candidate;
+    candidate.channels.reserve(channels.size());
     for (const auto& channel : channels)
     {
         if (channel.is_null())
         {
-            config.channels.emplace_back(std::nullopt);
+            candidate.channels.emplace_back(std::nullopt);
         }
         else
         {
@@ -397,13 +425,15 @@ void from_json(const nlohmann::json& j, MultichannelProcessorOptions& config)
                 throw std::invalid_argument(
                     "Multichannel processor channel must contain exactly one processor type");
             }
-            config.channels.emplace_back(SingleChannelProcessorFromJson(channel));
+            candidate.channels.emplace_back(SingleChannelProcessorFromJson(channel));
         }
     }
+    config = std::move(candidate);
 }
 
 feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
 {
+    TaggedValue(j, {"CascadedFeedbackMatrixInfo", "ScalarFeedbackMatrixOptions", "TimeVaryingFeedbackMatrixOptions"});
     if (j.contains("CascadedFeedbackMatrixInfo"))
     {
         auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();

@@ -692,67 +692,75 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
 
 void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
 {
-    p.fdn_size = j.at("fdn_size").get<uint32_t>();
-    p.transposed = j.at("transposed").get<bool>();
-    p.direct_gain = j.at("direct_gain").get<float>();
-    p.block_size = j.at("block_size").get<uint32_t>();
-    p.sample_rate = j.at("sample_rate").get<uint32_t>();
-    p.delay_bank_config = j.at("delay_bank_config").get<DelayBankOptions>();
+    json_detail::RequireObject(j, "FDNConfig");
+    FDNConfig candidate;
+    json_detail::ReadField(j, "fdn_size", candidate.fdn_size);
+    json_detail::ReadField(j, "transposed", candidate.transposed);
+    json_detail::ReadField(j, "direct_gain", candidate.direct_gain);
+    json_detail::ReadField(j, "block_size", candidate.block_size);
+    json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
+    json_detail::ReadField(j, "delay_bank_config", candidate.delay_bank_config);
 
-    const auto& input_block_json = j.at("input_block_config");
-    p.input_block_config.parallel_gains_config =
-        input_block_json.at("parallel_gains_config").get<ParallelGainsOptions>();
+    const auto parse_block = [](const nlohmann::json& block, auto& destination) {
+        json_detail::RequireObject(block, "FDN block config");
+        destination.parallel_gains_config = block.at("parallel_gains_config").get<ParallelGainsOptions>();
+        const auto& single = block.at("single_channel_processors");
+        const auto& multi = block.at("multichannel_processors");
+        if (!single.is_array() || !multi.is_array())
+        {
+            throw std::invalid_argument("FDN processor lists must be arrays");
+        }
+        destination.single_channel_processors.reserve(single.size());
+        for (const auto& processor : single)
+        {
+            destination.single_channel_processors.push_back(SingleChannelProcessorFromJson(processor));
+        }
+        destination.multichannel_processors.reserve(multi.size());
+        for (const auto& processor : multi)
+        {
+            destination.multichannel_processors.push_back(MultichannelProcessorFromJson(processor));
+        }
+    };
 
-    p.input_block_config.single_channel_processors.clear();
-    for (const auto& processor_json : input_block_json.at("single_channel_processors"))
+    parse_block(j.at("input_block_config"), candidate.input_block_config);
+    candidate.feedback_matrix_config = FeedbackMatrixFromJson(j.at("feedback_matrix_config"));
+
+    const auto& attenuation = j.at("attenuation_filter_bank_config");
+    if (!attenuation.is_null())
     {
-        p.input_block_config.single_channel_processors.push_back(SingleChannelProcessorFromJson(processor_json));
+        if (!attenuation.is_object() || attenuation.size() != 1 ||
+            !attenuation.contains("AttenuationFilterBankOptions"))
+        {
+            throw std::invalid_argument("Attenuation filter bank config must contain exactly one filter type");
+        }
+        candidate.attenuation_filter_bank_config =
+            attenuation.at("AttenuationFilterBankOptions").get<AttenuationFilterBankOptions>();
     }
 
-    p.input_block_config.multichannel_processors.clear();
-    for (const auto& processor_json : input_block_json.at("multichannel_processors"))
+    const auto& loop = j.at("loop_filter_configs");
+    if (!loop.is_array())
     {
-        p.input_block_config.multichannel_processors.push_back(MultichannelProcessorFromJson(processor_json));
+        throw std::invalid_argument("FDN loop filter configs must be an array");
+    }
+    candidate.loop_filter_configs.reserve(loop.size());
+    for (const auto& processor : loop)
+    {
+        candidate.loop_filter_configs.push_back(MultichannelProcessorFromJson(processor));
     }
 
-    p.feedback_matrix_config = FeedbackMatrixFromJson(j.at("feedback_matrix_config"));
+    parse_block(j.at("output_block_config"), candidate.output_block_config);
 
-    if (!j.at("attenuation_filter_bank_config").is_null())
+    const auto& tone = j.at("tone_correction_filters");
+    if (!tone.is_array())
     {
-        p.attenuation_filter_bank_config = j.at("attenuation_filter_bank_config")
-                                               .at("AttenuationFilterBankOptions")
-                                               .get<AttenuationFilterBankOptions>();
+        throw std::invalid_argument("FDN tone correction filters must be an array");
     }
-    else
+    candidate.tone_correction_filters.reserve(tone.size());
+    for (const auto& processor : tone)
     {
-        p.attenuation_filter_bank_config.reset();
+        candidate.tone_correction_filters.push_back(SingleChannelProcessorFromJson(processor));
     }
-
-    p.loop_filter_configs.clear();
-    for (const auto& processor_json : j.at("loop_filter_configs"))
-    {
-        p.loop_filter_configs.push_back(MultichannelProcessorFromJson(processor_json));
-    }
-
-    const auto& output_block_json = j.at("output_block_config");
-    p.output_block_config.parallel_gains_config =
-        output_block_json.at("parallel_gains_config").get<ParallelGainsOptions>();
-    p.output_block_config.single_channel_processors.clear();
-    for (const auto& processor_json : output_block_json.at("single_channel_processors"))
-    {
-        p.output_block_config.single_channel_processors.push_back(SingleChannelProcessorFromJson(processor_json));
-    }
-    p.output_block_config.multichannel_processors.clear();
-    for (const auto& processor_json : output_block_json.at("multichannel_processors"))
-    {
-        p.output_block_config.multichannel_processors.push_back(MultichannelProcessorFromJson(processor_json));
-    }
-
-    p.tone_correction_filters.clear();
-    for (const auto& processor_json : j.at("tone_correction_filters"))
-    {
-        p.tone_correction_filters.push_back(SingleChannelProcessorFromJson(processor_json));
-    }
+    p = std::move(candidate);
 }
 
 } // namespace sfFDN

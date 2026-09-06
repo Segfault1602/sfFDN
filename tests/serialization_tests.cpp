@@ -2,7 +2,9 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <ranges>
 #include <string_view>
@@ -104,6 +106,14 @@ std::vector<float> RenderFDN(sfFDN::FDN& fdn)
     }
 
     return output;
+}
+
+template <typename Options>
+void RequireUnchangedAfterFailedRead(const nlohmann::json& malformed, Options options)
+{
+    const nlohmann::json before = options;
+    REQUIRE_THROWS(malformed.get_to(options));
+    REQUIRE(nlohmann::json(options) == before);
 }
 
 } // namespace
@@ -385,12 +395,17 @@ TEST_CASE("FDNConfig JSON rejects malformed required fields and variants", "[ser
 
     SECTION("missing required fields")
     {
-        for (const auto* field : {"fdn_size", "delay_bank_config", "feedback_matrix_config"})
+        for (const auto* field :
+             {"fdn_size", "delay_bank_config", "feedback_matrix_config", "attenuation_filter_bank_config"})
         {
             auto malformed = valid;
             malformed.erase(field);
             REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
         }
+
+        auto nullable_attenuation = valid;
+        nullable_attenuation["attenuation_filter_bank_config"] = nullptr;
+        REQUIRE_NOTHROW(nullable_attenuation.get<sfFDN::FDNConfig>());
     }
 
     SECTION("wrong field types and non-finite values represented as null")
@@ -428,8 +443,7 @@ TEST_CASE("FDNConfig JSON rejects malformed required fields and variants", "[ser
     {
         auto invalid_enum = valid;
         invalid_enum["delay_bank_config"]["interpolation_type"] = "Cubic";
-        const auto deserialized = invalid_enum.get<sfFDN::FDNConfig>();
-        REQUIRE(deserialized.delay_bank_config.interpolation_type == sfFDN::DelayInterpolationType::None);
+        REQUIRE_THROWS(invalid_enum.get<sfFDN::FDNConfig>());
     }
 }
 
@@ -579,24 +593,20 @@ TEST_CASE("MultichannelProcessorOptions round-trips every single-channel option"
     REQUIRE_NOTHROW(reused.get<sfFDN::MultichannelProcessorOptions>());
 }
 
-TEST_CASE("JSON readers preserve established metadata tolerance outside generic banks", "[serialization]")
+TEST_CASE("JSON readers reject metadata wrapper siblings", "[serialization]")
 {
     const nlohmann::json single_channel = {
         {"FirOptions", {{"coeffs", {0.5F, -0.25F}}}},
         {"metadata", {{"source", "preset"}}},
     };
-    const auto decoded_single = sfFDN::SingleChannelProcessorFromJson(single_channel);
-    REQUIRE(std::holds_alternative<sfFDN::FirOptions>(decoded_single));
-    REQUIRE(std::get<sfFDN::FirOptions>(decoded_single).coeffs == std::vector<float>{0.5F, -0.25F});
+    REQUIRE_THROWS(sfFDN::SingleChannelProcessorFromJson(single_channel));
 
-    const nlohmann::json retained_multichannel = {
+    const nlohmann::json multichannel = {
         {"ParallelGainsConfig",
          {{"mode", "Parallel"}, {"gains", {0.5F}}, {"time_varying_config", nlohmann::json::array()}}},
         {"metadata", {{"source", "preset"}}},
     };
-    const auto decoded_multichannel = sfFDN::MultichannelProcessorFromJson(retained_multichannel);
-    REQUIRE(std::holds_alternative<sfFDN::ParallelGainsOptions>(decoded_multichannel));
-    REQUIRE(std::get<sfFDN::ParallelGainsOptions>(decoded_multichannel).gains == std::vector<float>{0.5F});
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(multichannel));
 
     const nlohmann::json generic_multichannel = {
         {"MultichannelProcessorOptions", {{"channels", nlohmann::json::array()}}},
@@ -724,7 +734,8 @@ TEST_CASE("FDNConfig JSON preserves seeded scalar and cascaded feedback matrices
         .rng_seed = 0x1234ABCDU,
     };
     const auto scalar_round_tripped = nlohmann::json(scalar_config).get<sfFDN::FDNConfig>();
-    const auto& scalar_options = std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar_round_tripped.feedback_matrix_config);
+    const auto& scalar_options =
+        std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar_round_tripped.feedback_matrix_config);
     REQUIRE(scalar_options.rng_seed == 0x1234ABCDU);
 
     auto cascaded_config = MakeTimeVaryingFDNConfig();
@@ -974,4 +985,402 @@ TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custo
             REQUIRE_THAT(mat.GetCoefficient(row, col), Catch::Matchers::WithinAbs(kMatrix[row * N + col], 0.f));
         }
     }
+}
+
+TEST_CASE("JSON enum adapters reject unsupported representations", "[serialization]")
+{
+    const std::array invalid_values = {
+        nlohmann::json("Unknown"),
+        nlohmann::json(0),
+        nlohmann::json(nullptr),
+        nlohmann::json(true),
+    };
+
+    for (const auto& value : invalid_values)
+    {
+        REQUIRE_THROWS(value.get<sfFDN::ScalarMatrixType>());
+        REQUIRE_THROWS(value.get<sfFDN::DelayInterpolationType>());
+        REQUIRE_THROWS(value.get<sfFDN::DelayLengthType>());
+        REQUIRE_THROWS(value.get<sfFDN::ParallelGainsMode>());
+        REQUIRE_THROWS(value.get<sfFDN::TimeVaryingMatrixMode>());
+    }
+
+    REQUIRE(nlohmann::json("Count").get<sfFDN::ScalarMatrixType>() == sfFDN::ScalarMatrixType::Count);
+    REQUIRE(nlohmann::json("Count").get<sfFDN::TimeVaryingMatrixMode>() == sfFDN::TimeVaryingMatrixMode::Count);
+
+    REQUIRE_THROWS(nlohmann::json(static_cast<sfFDN::ScalarMatrixType>(255)));
+    REQUIRE_THROWS(nlohmann::json(static_cast<sfFDN::DelayInterpolationType>(255)));
+    REQUIRE_THROWS(nlohmann::json(static_cast<sfFDN::DelayLengthType>(255)));
+    REQUIRE_THROWS(nlohmann::json(static_cast<sfFDN::ParallelGainsMode>(255)));
+    REQUIRE_THROWS(nlohmann::json(static_cast<sfFDN::TimeVaryingMatrixMode>(255)));
+}
+
+TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
+{
+    const std::array invalid_sizes = {
+        nlohmann::json(1.0),  nlohmann::json(1.5), nlohmann::json(-1),
+        nlohmann::json(true), nlohmann::json("1"), nlohmann::json(std::numeric_limits<uint64_t>::max()),
+    };
+    const auto max_uint32 = nlohmann::json(std::numeric_limits<uint32_t>::max());
+
+    const nlohmann::json scalar = {
+        {"matrix_size", 0U},
+        {"type", "Identity"},
+        {"rng_seed", 0U},
+    };
+    const nlohmann::json cascaded = {
+        {"matrix_size", 0U},  {"stage_count", 0U},       {"sparsity", 1.F},
+        {"type", "Identity"}, {"gain_per_samples", 1.F}, {"rng_seed", 0U},
+    };
+    const nlohmann::json delay = {
+        {"delay", 1.F},
+        {"max_delay", 0U},
+        {"interp_type", "None"},
+    };
+    const nlohmann::json delay_bank = {
+        {"delays", nlohmann::json::array()},
+        {"block_size", 0U},
+        {"interpolation_type", "None"},
+    };
+    const nlohmann::json varying_delay_bank = {
+        {"delays", nlohmann::json::array()},
+        {"max_delay", 0U},
+        {"interpolation_type", "None"},
+        {"time_varying_config", nlohmann::json::array()},
+    };
+    const nlohmann::json varying_matrix = {
+        {"matrix_size", 0U},
+        {"mode", "Hadamard"},
+        {"time_varying_config", nlohmann::json::array()},
+        {"rng_seed", 0U},
+    };
+    REQUIRE_NOTHROW(scalar.get<sfFDN::ScalarFeedbackMatrixOptions>());
+    REQUIRE_NOTHROW(cascaded.get<sfFDN::CascadedFeedbackMatrixOptions>());
+    REQUIRE_NOTHROW(delay.get<sfFDN::DelayOptions>());
+    REQUIRE_NOTHROW(delay_bank.get<sfFDN::DelayBankOptions>());
+    REQUIRE_NOTHROW(varying_delay_bank.get<sfFDN::DelayBankTimeVaryingOptions>());
+    REQUIRE_NOTHROW(varying_matrix.get<sfFDN::TimeVaryingFeedbackMatrixOptions>());
+
+    for (const auto& size : invalid_sizes)
+    {
+        auto malformed = scalar;
+        for (const auto* field : {"matrix_size", "rng_seed"})
+        {
+            malformed = scalar;
+            malformed[field] = size;
+            REQUIRE_THROWS(malformed.get<sfFDN::ScalarFeedbackMatrixOptions>());
+        }
+
+        for (const auto* field : {"matrix_size", "stage_count", "rng_seed"})
+        {
+            malformed = cascaded;
+            malformed[field] = size;
+            REQUIRE_THROWS(malformed.get<sfFDN::CascadedFeedbackMatrixOptions>());
+        }
+
+        malformed = delay;
+        malformed["max_delay"] = size;
+        REQUIRE_THROWS(malformed.get<sfFDN::DelayOptions>());
+
+        malformed = delay_bank;
+        malformed["block_size"] = size;
+        REQUIRE_THROWS(malformed.get<sfFDN::DelayBankOptions>());
+
+        malformed = varying_delay_bank;
+        malformed["max_delay"] = size;
+        REQUIRE_THROWS(malformed.get<sfFDN::DelayBankTimeVaryingOptions>());
+
+        for (const auto* field : {"matrix_size", "rng_seed"})
+        {
+            malformed = varying_matrix;
+            malformed[field] = size;
+            REQUIRE_THROWS(malformed.get<sfFDN::TimeVaryingFeedbackMatrixOptions>());
+        }
+
+        for (const auto* field : {"fdn_size", "block_size"})
+        {
+            malformed = MakeTimeVaryingFDNConfig();
+            malformed[field] = size;
+            REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+        }
+    }
+
+    auto bounded_scalar = scalar;
+    bounded_scalar["matrix_size"] = max_uint32;
+    bounded_scalar["rng_seed"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_scalar.get<sfFDN::ScalarFeedbackMatrixOptions>());
+
+    auto bounded_cascaded = cascaded;
+    bounded_cascaded["matrix_size"] = max_uint32;
+    bounded_cascaded["stage_count"] = max_uint32;
+    bounded_cascaded["rng_seed"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_cascaded.get<sfFDN::CascadedFeedbackMatrixOptions>());
+
+    auto bounded_delay = delay;
+    bounded_delay["max_delay"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_delay.get<sfFDN::DelayOptions>());
+
+    auto bounded_delay_bank = delay_bank;
+    bounded_delay_bank["block_size"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_delay_bank.get<sfFDN::DelayBankOptions>());
+
+    auto bounded_varying_delay_bank = varying_delay_bank;
+    bounded_varying_delay_bank["max_delay"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_varying_delay_bank.get<sfFDN::DelayBankTimeVaryingOptions>());
+
+    auto bounded_varying_matrix = varying_matrix;
+    bounded_varying_matrix["matrix_size"] = max_uint32;
+    bounded_varying_matrix["rng_seed"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_varying_matrix.get<sfFDN::TimeVaryingFeedbackMatrixOptions>());
+
+    auto bounded_root = nlohmann::json(MakeTimeVaryingFDNConfig());
+    bounded_root["fdn_size"] = max_uint32;
+    bounded_root["block_size"] = max_uint32;
+    REQUIRE_NOTHROW(bounded_root.get<sfFDN::FDNConfig>());
+
+    const nlohmann::json sparse_fir = sfFDN::SparseFirOptions{.coeffs = {{0U, 1.F}}};
+    REQUIRE(sparse_fir["coeffs"] == nlohmann::json::array({nlohmann::json::array({0U, 1.F})}));
+    REQUIRE_NOTHROW(sparse_fir.get<sfFDN::SparseFirOptions>());
+    for (const auto& size : invalid_sizes)
+    {
+        auto malformed = sparse_fir;
+        malformed["coeffs"][0][0] = size;
+        REQUIRE_THROWS(malformed.get<sfFDN::SparseFirOptions>());
+    }
+
+    auto bounded_sparse_fir = sparse_fir;
+    bounded_sparse_fir["coeffs"][0][0] = max_uint32;
+    REQUIRE_NOTHROW(bounded_sparse_fir.get<sfFDN::SparseFirOptions>());
+
+    auto fractional_rate = MakeTimeVaryingFDNConfig();
+    nlohmann::json fractional_rate_json = fractional_rate;
+    fractional_rate_json["sample_rate"] = 48000.5;
+    REQUIRE_THAT(fractional_rate_json.get<sfFDN::FDNConfig>().sample_rate, Catch::Matchers::WithinAbs(48000.5F, 0.F));
+
+    for (const auto& value :
+         {nlohmann::json("48000"), nlohmann::json(true), nlohmann::json(std::numeric_limits<double>::infinity()),
+          nlohmann::json(std::numeric_limits<double>::max())})
+    {
+        auto malformed = fractional_rate_json;
+        malformed["sample_rate"] = value;
+        REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+    }
+}
+
+TEST_CASE("JSON readers preserve optional and transactional destinations", "[serialization]")
+{
+    const sfFDN::ScalarFeedbackMatrixOptions populated_matrix = {
+        .matrix_size = 2U,
+        .type = sfFDN::ScalarMatrixType::VariableDiffusion,
+        .custom_matrix = std::vector<float>{1.F, 0.F, 0.F, 1.F},
+        .rng_seed = 7U,
+        .arg = 0.5F,
+    };
+    auto absent_optionals = nlohmann::json(populated_matrix);
+    absent_optionals.erase("custom_matrix");
+    absent_optionals.erase("arg");
+    auto cleared_matrix = populated_matrix;
+    absent_optionals.get_to(cleared_matrix);
+    REQUIRE_FALSE(cleared_matrix.custom_matrix.has_value());
+    REQUIRE_FALSE(cleared_matrix.arg.has_value());
+
+    auto null_optionals = nlohmann::json(populated_matrix);
+    null_optionals["custom_matrix"] = nullptr;
+    null_optionals["arg"] = nullptr;
+    null_optionals.get_to(cleared_matrix);
+    REQUIRE_FALSE(cleared_matrix.custom_matrix.has_value());
+    REQUIRE_FALSE(cleared_matrix.arg.has_value());
+
+    auto empty_matrix = nlohmann::json(populated_matrix);
+    empty_matrix["custom_matrix"] = nlohmann::json::array();
+    empty_matrix.get_to(cleared_matrix);
+    REQUIRE(cleared_matrix.custom_matrix == std::vector<float>{});
+
+    const sfFDN::DelayOptions populated_delay = {
+        .delay = 2.F,
+        .max_delay = 4U,
+        .interp_type = sfFDN::DelayInterpolationType::Linear,
+        .lfo_config = sfFDN::ModulationOptions{.frequency = 0.01F, .amplitude = 0.25F, .initial_phase = 0.F},
+    };
+    auto absent_lfo = nlohmann::json(populated_delay);
+    absent_lfo.erase("lfo_config");
+    auto cleared_delay = populated_delay;
+    absent_lfo.get_to(cleared_delay);
+    REQUIRE_FALSE(cleared_delay.lfo_config.has_value());
+    auto null_lfo = nlohmann::json(populated_delay);
+    null_lfo["lfo_config"] = nullptr;
+    null_lfo.get_to(cleared_delay);
+    REQUIRE_FALSE(cleared_delay.lfo_config.has_value());
+
+    auto malformed_matrix = nlohmann::json(populated_matrix);
+    malformed_matrix["arg"] = "late";
+    RequireUnchangedAfterFailedRead(malformed_matrix, populated_matrix);
+
+    const sfFDN::ParallelGainsOptions populated_gains = {
+        .mode = sfFDN::ParallelGainsMode::Parallel,
+        .gains = {0.5F},
+        .time_varying_config = {},
+    };
+    auto malformed_gains = nlohmann::json(populated_gains);
+    malformed_gains["time_varying_config"] = nlohmann::json::object();
+    RequireUnchangedAfterFailedRead(malformed_gains, populated_gains);
+
+    const sfFDN::MultichannelProcessorOptions populated_bank = {
+        .channels = {sfFDN::FirOptions{.coeffs = {1.F}}, sfFDN::AllpassFilterOptions{.coeff = 0.5F}},
+    };
+    auto malformed_bank = nlohmann::json(populated_bank);
+    malformed_bank["channels"][1] = nlohmann::json::object();
+    RequireUnchangedAfterFailedRead(malformed_bank, populated_bank);
+
+    const sfFDN::AttenuationFilterBankOptions populated_attenuation = {
+        .filter_configs = {sfFDN::HomogenousFilterOptions{}, sfFDN::TwoBandFilterOptions{}},
+    };
+    auto malformed_attenuation = nlohmann::json(populated_attenuation).at("AttenuationFilterBankOptions");
+    malformed_attenuation[1]["TwoBandFilterConfig"]["t60s"] = nlohmann::json::array({1.F});
+    RequireUnchangedAfterFailedRead(malformed_attenuation, populated_attenuation);
+
+    auto cleared_attenuation = populated_attenuation;
+    nlohmann::json::array().get_to(cleared_attenuation);
+    REQUIRE(cleared_attenuation.filter_configs.empty());
+
+    auto malformed_root = nlohmann::json(MakeTimeVaryingFDNConfig());
+    malformed_root["input_block_config"]["single_channel_processors"] =
+        nlohmann::json::array({{{"FirOptions", {{"coeffs", {1.F}}}}}});
+    malformed_root["tone_correction_filters"] = nlohmann::json::object();
+    RequireUnchangedAfterFailedRead(malformed_root, MakeTimeVaryingFDNConfig());
+}
+
+TEST_CASE("JSON readers require exact array and wrapper forms", "[serialization]")
+{
+    const nlohmann::json valid = MakeTimeVaryingFDNConfig();
+
+    for (const auto& shape : {nlohmann::json::object(), nlohmann::json(nullptr)})
+    {
+        auto malformed = valid;
+        malformed["input_block_config"]["single_channel_processors"] = shape;
+        REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+
+        malformed = valid;
+        malformed["loop_filter_configs"] = shape;
+        REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+    }
+
+    REQUIRE_NOTHROW(nlohmann::json{{"coeffs", nlohmann::json::array()}}.get<sfFDN::FirOptions>());
+    REQUIRE_NOTHROW(nlohmann::json{{"channels", nlohmann::json::array()}}.get<sfFDN::MultichannelProcessorOptions>());
+
+    const nlohmann::json two_band = {
+        {"t60s", {1.F, 0.5F}},
+        {"delay", 1.F},
+        {"sample_rate", 48000.F},
+    };
+    for (const auto& t60s : {nlohmann::json::array({1.F}), nlohmann::json::array({1.F, 0.5F, 0.25F}),
+                             nlohmann::json::object(), nlohmann::json(nullptr)})
+    {
+        auto malformed = two_band;
+        malformed["t60s"] = t60s;
+        REQUIRE_THROWS(malformed.get<sfFDN::TwoBandFilterOptions>());
+    }
+
+    const nlohmann::json sparse_fir = sfFDN::SparseFirOptions{.coeffs = {{0U, 1.F}}};
+    REQUIRE(sparse_fir["coeffs"] == nlohmann::json::array({nlohmann::json::array({0U, 1.F})}));
+    for (const auto& pair : {nlohmann::json::array({0U}), nlohmann::json::array({0U, 1.F, 2.F}),
+                             nlohmann::json::object(), nlohmann::json(nullptr)})
+    {
+        auto malformed = sparse_fir;
+        malformed["coeffs"][0] = pair;
+        REQUIRE_THROWS(malformed.get<sfFDN::SparseFirOptions>());
+    }
+
+    const nlohmann::json single = {{"FirOptions", {{"coeffs", {1.F}}}}};
+    const nlohmann::json multi = {
+        {"ParallelGainsConfig",
+         {{"mode", "Parallel"}, {"gains", {1.F}}, {"time_varying_config", nlohmann::json::array()}}},
+    };
+    const nlohmann::json matrix = {
+        {"ScalarFeedbackMatrixOptions", {{"matrix_size", 1U}, {"type", "Identity"}, {"rng_seed", 0U}}},
+    };
+
+    for (const auto& wrapper :
+         {nlohmann::json{{"FirOptions", {{"coeffs", {1.F}}}},
+                         {"DelayOptions", {{"delay", 1.F}, {"max_delay", 1U}, {"interp_type", "None"}}}},
+          nlohmann::json{{"FirOptions", {{"coeffs", {1.F}}}}, {"UnknownOptions", {}}},
+          nlohmann::json{{"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"FirOptions", {{"coeffs", {1.F}}}}, {"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"FirOptions", {{"coeffs", {1.F}}}}, {"metadata", "preset"}}})
+    {
+        REQUIRE_THROWS(sfFDN::SingleChannelProcessorFromJson(wrapper));
+    }
+
+    for (const auto& wrapper :
+         {nlohmann::json{{"ParallelGainsConfig", multi.at("ParallelGainsConfig")},
+                         {"DelayBankOptions", {{"delays", {}}, {"block_size", 1U}, {"interpolation_type", "None"}}}},
+          nlohmann::json{{"ParallelGainsConfig", multi.at("ParallelGainsConfig")}, {"UnknownOptions", {}}},
+          nlohmann::json{{"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"ParallelGainsConfig", multi.at("ParallelGainsConfig")},
+                         {"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"ParallelGainsConfig", multi.at("ParallelGainsConfig")}, {"metadata", "preset"}}})
+    {
+        REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(wrapper));
+    }
+
+    for (const auto& wrapper :
+         {nlohmann::json{{"ScalarFeedbackMatrixOptions", matrix.at("ScalarFeedbackMatrixOptions")},
+                         {"CascadedFeedbackMatrixInfo",
+                          {{"matrix_size", 1U},
+                           {"stage_count", 1U},
+                           {"sparsity", 1.F},
+                           {"type", "Identity"},
+                           {"gain_per_samples", 1.F},
+                           {"rng_seed", 0U}}}},
+          nlohmann::json{{"ScalarFeedbackMatrixOptions", matrix.at("ScalarFeedbackMatrixOptions")},
+                         {"UnknownOptions", {}}},
+          nlohmann::json{{"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"ScalarFeedbackMatrixOptions", matrix.at("ScalarFeedbackMatrixOptions")},
+                         {"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"ScalarFeedbackMatrixOptions", matrix.at("ScalarFeedbackMatrixOptions")},
+                         {"metadata", "preset"}}})
+    {
+        auto malformed = valid;
+        malformed["feedback_matrix_config"] = wrapper;
+        REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+    }
+
+    const nlohmann::json attenuation = {
+        {"AttenuationFilterBankOptions",
+         {{{"TwoBandFilterConfig", {{"t60s", {1.F, 0.5F}}, {"delay", 1.F}, {"sample_rate", 48000.F}}}}}},
+    };
+    auto root_attenuation = valid;
+    root_attenuation["attenuation_filter_bank_config"] = attenuation;
+    const auto parsed_root = root_attenuation.get<sfFDN::FDNConfig>();
+    REQUIRE(parsed_root.attenuation_filter_bank_config.has_value());
+    REQUIRE(parsed_root.attenuation_filter_bank_config->filter_configs.size() == 1U);
+    REQUIRE(std::holds_alternative<sfFDN::TwoBandFilterOptions>(
+        parsed_root.attenuation_filter_bank_config->filter_configs.front()));
+
+    for (const auto& wrapper :
+         {nlohmann::json{{"AttenuationFilterBankOptions", attenuation.at("AttenuationFilterBankOptions")},
+                         {"UnknownKey", nlohmann::json::object()}},
+          nlohmann::json{{"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"AttenuationFilterBankOptions", attenuation.at("AttenuationFilterBankOptions")},
+                         {"metadata", nlohmann::json::object()}},
+          nlohmann::json{{"AttenuationFilterBankOptions", attenuation.at("AttenuationFilterBankOptions")},
+                         {"metadata", "preset"}},
+          nlohmann::json{{"AttenuationFilterBankOptions", attenuation.at("AttenuationFilterBankOptions")},
+                         {"metadata", nlohmann::json::object()},
+                         {"UnknownKey", nlohmann::json::object()}}})
+    {
+        auto malformed = valid;
+        malformed["attenuation_filter_bank_config"] = wrapper;
+        REQUIRE_THROWS(malformed.get<sfFDN::FDNConfig>());
+    }
+
+    auto metadata_attenuation = attenuation;
+    metadata_attenuation["metadata"] = nlohmann::json::object();
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(metadata_attenuation));
+    auto ambiguous_filter = attenuation;
+    ambiguous_filter["AttenuationFilterBankOptions"][0]["UnknownFilter"] = nlohmann::json::object();
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(ambiguous_filter));
+    auto ambiguous_attenuation = attenuation;
+    ambiguous_attenuation["DelayBankOptions"] = {{"delays", {}}, {"block_size", 1U}, {"interpolation_type", "None"}};
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(ambiguous_attenuation));
 }
