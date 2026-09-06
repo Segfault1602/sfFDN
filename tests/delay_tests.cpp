@@ -8,11 +8,9 @@
 
 #include "allocation_counter.h"
 #include "rng.h"
-#include "test_utils.h"
 
 #include <array>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <numbers>
 #include <numeric>
@@ -25,8 +23,7 @@ namespace
 {
 void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN::DelayInterpolationType interp_type)
 {
-    INFO("delay: " << delay << " block_size: " << block_size
-                   << " interp: " << static_cast<int>(interp_type)); // NOLINT
+    INFO("delay: " << delay << " block_size: " << block_size << " interp: " << static_cast<int>(interp_type)); // NOLINT
     constexpr uint32_t kBlockCount = 4;
 
     sfFDN::DelayOptions config{delay, max_delay, interp_type};
@@ -67,8 +64,7 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN:
 void TestDelayBlockReadBeforeWrite(float delay, uint32_t block_size, uint32_t max_delay,
                                    sfFDN::DelayInterpolationType interp_type)
 {
-    INFO("delay: " << delay << " block_size: " << block_size
-                   << " interp: " << static_cast<int>(interp_type)); // NOLINT
+    INFO("delay: " << delay << " block_size: " << block_size << " interp: " << static_cast<int>(interp_type)); // NOLINT
     constexpr uint32_t kBlockCount = 4;
 
     const sfFDN::DelayOptions config{delay, max_delay, interp_type};
@@ -127,7 +123,7 @@ float SecondDifferenceCrestFactor(std::span<const float> signal)
 }
 } // namespace
 
-TEST_CASE("Delay")
+TEST_CASE("Delay produces delayed samples", "[delay]")
 {
     sfFDN::Delay delay(1, 10);
 
@@ -167,7 +163,7 @@ std::vector<float> ProcessDelay(float delay, uint32_t max_delay, uint32_t block_
     return output_block;
 }
 
-TEST_CASE("Delay_Integer")
+TEST_CASE("DelayInterp produces identical integer delays for every interpolation type", "[delay]")
 {
     constexpr uint32_t kBlockSize = 64;
     constexpr uint32_t kMaxDelay = 128;
@@ -193,13 +189,10 @@ TEST_CASE("Delay_Integer")
                      Catch::Matchers::WithinAbs(output_allpass[i], std::numeric_limits<float>::epsilon()));
         REQUIRE_THAT(output_allpass[i],
                      Catch::Matchers::WithinAbs(output_lagrange[i], std::numeric_limits<float>::epsilon()));
-
-        std::cout << "Input: " << input[i] << ", None: " << output_none[i] << ", Linear: " << output_linear[i]
-                  << ", Allpass: " << output_allpass[i] << ", Lagrange: " << output_lagrange[i] << std::endl;
     }
 }
 
-TEST_CASE("DelayTapOut")
+TEST_CASE("Delay TapOut reads a specified past sample", "[delay]")
 {
     sfFDN::Delay delay(8, 10);
 
@@ -219,28 +212,46 @@ TEST_CASE("DelayTapOut")
     }
 }
 
-TEST_CASE("DelayMultiTap")
+TEST_CASE("Delay GetNextOutputsAt accumulates multiple taps across ring buffer boundaries", "[delay]")
 {
-    sfFDN::Delay delay(8, 64);
-
-    constexpr uint32_t kBlockSize = 32;
-    std::vector<float> input_block(kBlockSize, 0.f);
-    input_block[0] = 1.f;
-
-    delay.AddNextInputs(input_block);
-
-    std::vector<uint32_t> taps = {0, 2, 4, 6, 8, 16};
-    std::vector<float> coeffs(taps.size(), 1.f);
-    std::vector<float> output_block(kBlockSize, 0.f);
-    delay.GetNextOutputsAt(taps, output_block, coeffs);
-
-    for (auto i : output_block)
+    SECTION("multiple taps accumulate without advancing read state")
     {
-        std::cout << i << ", ";
+        sfFDN::Delay delay(0, 7);
+        constexpr std::array<float, 4> kInput = {1.f, 2.f, 3.f, 4.f};
+        REQUIRE(delay.AddNextInputs(kInput));
+
+        std::array<uint32_t, 2> taps = {0, 2};
+        std::array<float, 2> coeffs = {0.5f, -2.f};
+        std::array<float, 3> output = {10.f, 10.f, 10.f};
+        delay.GetNextOutputsAt(taps, output, coeffs);
+
+        // tap 0 reads [2, 3, 4]; tap 2 reads [0, 1, 2].
+        REQUIRE(output == std::array<float, 3>{11.f, 9.5f, 8.f});
+        REQUIRE(delay.NextOut() == 1.f);
+        REQUIRE(delay.LastOut() == 0.f);
+    }
+
+    SECTION("tap reads span the ring-buffer boundary")
+    {
+        sfFDN::Delay delay(0, 7);
+        for (uint32_t sample = 1; sample <= 10; ++sample)
+        {
+            delay.Tick(static_cast<float>(sample));
+        }
+
+        std::array<uint32_t, 1> taps = {0};
+        std::array<float, 1> coeffs = {0.5f};
+        std::array<float, 4> output = {1.f, 2.f, 3.f, 4.f};
+        delay.GetNextOutputsAt(taps, output, coeffs);
+
+        // The four samples are stored as two segments: [7, 8] then [9, 10].
+        REQUIRE(output == std::array<float, 4>{4.5f, 6.f, 7.5f, 9.f});
+        REQUIRE(delay.NextOut() == 3.f);
+        REQUIRE(delay.LastOut() == 10.f);
     }
 }
 
-TEST_CASE("ZeroDelay")
+TEST_CASE("Delay returns current samples at zero delay", "[delay]")
 {
     sfFDN::Delay delay(0, 10);
 
@@ -262,7 +273,7 @@ TEST_CASE("ZeroDelay")
     }
 }
 
-TEST_CASE("DelayA")
+TEST_CASE("DelayInterp allpass matches its sample and block reference output", "[delay]")
 {
     sfFDN::DelayInterp delay({1.5, 10, sfFDN::DelayInterpolationType::Allpass});
 
@@ -302,7 +313,7 @@ TEST_CASE("DelayA")
     }
 }
 
-TEST_CASE("DelayA_MinDelay")
+TEST_CASE("DelayInterp allpass supports its minimum delay", "[delay]")
 {
     sfFDN::DelayInterp delay({0.5, 10, sfFDN::DelayInterpolationType::Allpass});
 
@@ -322,32 +333,52 @@ TEST_CASE("DelayA_MinDelay")
     }
 }
 
-TEST_CASE("DelayLagrange")
+TEST_CASE("DelayInterp Lagrange matches its polynomial interpolation reference", "[delay]")
 {
-    constexpr uint32_t kSampleRate = 48000;
-    constexpr uint32_t kInputSize = 128;
-    sfFDN::DelayInterp delay({1.5f, kInputSize * 2, sfFDN::DelayInterpolationType::Lagrange});
+    constexpr uint32_t kInputSize = 16;
+    constexpr float kDelay = 1.5f;
+    constexpr std::array<float, 4> kCoefficients = {-0.0625f, 0.5625f, 0.5625f, -0.0625f};
 
-    std::vector<float> input(kInputSize, 0.f);
-    sfFDN::SineWave sine(200.f / kSampleRate, 0.f);
-    sine.SetAmplitude(0.5f);
-    sine.Generate(input);
-    std::vector<float> output(kInputSize, 0.f);
+    std::array<float, kInputSize> input{};
+    for (uint32_t n = 0; n < kInputSize; ++n)
+    {
+        const auto sample = static_cast<float>(n);
+        input[n] = (sample * sample) - (3.f * sample) + 2.f;
+    }
 
-    // for (uint32_t i = 0; i < input.size(); ++i)
-    // {
-    //     output[i] = delay.Tick(input[i]);
-    // }
+    std::array<float, kInputSize> expected{};
+    for (uint32_t n = 0; n < kInputSize; ++n)
+    {
+        for (uint32_t tap = 0; tap < kCoefficients.size(); ++tap)
+        {
+            if (n >= tap)
+            {
+                expected[n] += kCoefficients[tap] * input[n - tap];
+            }
+        }
+    }
 
-    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
-    delay.Process(input_buffer, output_buffer);
+    sfFDN::DelayInterp tick_delay(
+        {.delay = kDelay, .max_delay = 64, .interp_type = sfFDN::DelayInterpolationType::Lagrange});
+    for (uint32_t n = 0; n < kInputSize; ++n)
+    {
+        REQUIRE_THAT(tick_delay.Tick(input[n]), Catch::Matchers::WithinAbs(expected[n], 1e-6f));
+    }
 
-    WriteWavFile("delay_lagrange_input.wav", input);
-    WriteWavFile("delay_lagrange_output.wav", output);
+    sfFDN::DelayInterp block_delay(
+        {.delay = kDelay, .max_delay = 64, .interp_type = sfFDN::DelayInterpolationType::Lagrange});
+    std::array<float, kInputSize> output{};
+    sfFDN::AudioBuffer const input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    block_delay.Process(input_buffer, output_buffer);
+
+    for (const auto [actual, reference] : std::views::zip(output, expected))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(reference, 1e-6f));
+    }
 }
 
-TEST_CASE("DelayBlock")
+TEST_CASE("DelayInterp block processing matches Tick", "[delay]")
 {
     constexpr uint32_t kBlockSize = 32;
     constexpr uint32_t kMaxDelay = 64;
@@ -360,7 +391,7 @@ TEST_CASE("DelayBlock")
     TestDelayBlock(20.34f, kBlockSize, 40, sfFDN::DelayInterpolationType::Lagrange);
 }
 
-TEST_CASE("DelayInterp NextOut and Advance match Tick")
+TEST_CASE("DelayInterp matches Tick with NextOut and Advance", "[delay]")
 {
     constexpr uint32_t kSampleCount = 64;
     constexpr std::array<sfFDN::DelayInterpolationType, 4> kInterpTypes = {
@@ -399,7 +430,7 @@ TEST_CASE("DelayInterp NextOut and Advance match Tick")
     }
 }
 
-TEST_CASE("DelayInterp TapOut")
+TEST_CASE("DelayInterp TapOut returns past samples independently of delay", "[delay]")
 {
     constexpr uint32_t kSampleCount = 16;
     const sfFDN::DelayOptions config{
@@ -431,14 +462,13 @@ TEST_CASE("DelayInterp TapOut")
     REQUIRE(delay.TapOut(3) == input[input.size() - 4]);
 }
 
-TEST_CASE("DelayBlockReadBeforeWrite")
+TEST_CASE("DelayInterp read before write block processing matches NextOut and Advance", "[delay]")
 {
     // The FDN reads a whole block out of each delay line before writing the feedback block back in, so every
     // interpolation type must agree with the per-sample NextOut()/Advance() pair in that order too.
     constexpr uint32_t kMaxDelay = 128;
-    for (const auto interp_type :
-         {sfFDN::DelayInterpolationType::None, sfFDN::DelayInterpolationType::Linear,
-          sfFDN::DelayInterpolationType::Allpass, sfFDN::DelayInterpolationType::Lagrange})
+    for (const auto interp_type : {sfFDN::DelayInterpolationType::None, sfFDN::DelayInterpolationType::Linear,
+                                   sfFDN::DelayInterpolationType::Allpass, sfFDN::DelayInterpolationType::Lagrange})
     {
         TestDelayBlockReadBeforeWrite(40.f, 32, kMaxDelay, interp_type);
         TestDelayBlockReadBeforeWrite(40.34f, 32, kMaxDelay, interp_type);
@@ -448,7 +478,7 @@ TEST_CASE("DelayBlockReadBeforeWrite")
     }
 }
 
-TEST_CASE("DelayInterp allpass tap crossing")
+TEST_CASE("DelayInterp avoids clicks when allpass taps cross integers", "[delay]")
 {
     // Sweeping the delay across integer sample boundaries used to leave the allpass filter primed with a sample
     // taken from the tap it had just left, which injected a step into the output on every crossing.
@@ -491,7 +521,7 @@ TEST_CASE("DelayInterp allpass tap crossing")
     REQUIRE(allpass_crest < 2.f * linear_crest);
 }
 
-TEST_CASE("DelayInterp minimum delay")
+TEST_CASE("DelayInterp realizes minimum delays", "[delay]")
 {
     // Delays smaller than what the structure can represent used to underflow int_delay_ (an uint32_t) and leave the
     // delay line pointing at an out of range tap. They are now clamped to the smallest representable delay.
@@ -547,7 +577,8 @@ TEST_CASE("DelayInterp minimum delay")
     }
 }
 
-TEST_CASE("DelayTimeVarying block processing matches Tick"){
+TEST_CASE("DelayTimeVarying block processing matches Tick", "[delay]")
+{
     constexpr uint32_t kBlockSize = 32;
     const sfFDN::DelayOptions config{
         .delay = 20.f,
@@ -581,7 +612,7 @@ TEST_CASE("DelayTimeVarying block processing matches Tick"){
     }
 }
 
-TEST_CASE("DelayBank")
+TEST_CASE("DelayBank returns impulses at configured delays", "[delay]")
 {
     constexpr uint32_t kNumDelay = 4;
     const std::vector<float> kDelays = {2, 3, 4, 5};
@@ -634,7 +665,7 @@ TEST_CASE("DelayBank")
     }
 }
 
-TEST_CASE("DelayBankTimeVarying")
+TEST_CASE("DelayBankTimeVarying returns impulses at configured delays", "[delay]")
 {
     constexpr uint32_t kNumDelay = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -678,7 +709,7 @@ TEST_CASE("DelayBankTimeVarying")
     }
 }
 
-TEST_CASE("DelayBankProcess")
+TEST_CASE("DelayBank Process returns channel impulses at configured delays", "[delay]")
 {
     constexpr uint32_t kBlockSize = 8;
     constexpr uint32_t kNumDelay = 4;
@@ -717,7 +748,7 @@ TEST_CASE("DelayBankProcess")
     }
 }
 
-TEST_CASE("Delay block processing preserves wrap and remainder samples")
+TEST_CASE("Delay block processing preserves wrap and remainder samples", "[delay]")
 {
     constexpr uint32_t kDelay = 11;
     constexpr uint32_t kMaximumDelay = 19;
@@ -748,7 +779,7 @@ TEST_CASE("Delay block processing preserves wrap and remainder samples")
     }
 }
 
-TEST_CASE("Delay split block processing preserves two-segment wraps")
+TEST_CASE("Delay split block processing preserves two-segment wraps", "[delay]")
 {
     constexpr uint32_t kDelay = 4;
     constexpr uint32_t kMaximumDelay = 7;
@@ -775,7 +806,7 @@ TEST_CASE("Delay split block processing preserves two-segment wraps")
     }
 }
 
-TEST_CASE("Delay GetNextOutputs under-run leaves output and read state unchanged")
+TEST_CASE("Delay GetNextOutputs under-run leaves output and read state unchanged", "[delay]")
 {
     sfFDN::Delay delay(3, 7);
     constexpr std::array<float, 4> kInput = {1.f, 2.f, 3.f, 4.f};
@@ -798,7 +829,7 @@ TEST_CASE("Delay GetNextOutputs under-run leaves output and read state unchanged
     REQUIRE(remaining_output == std::array<float, 1>{4.f});
 }
 
-TEST_CASE("Delay Process exhaustively matches Tick for small delays and block sizes")
+TEST_CASE("Delay Process exhaustively matches Tick for small delays and block sizes", "[delay]")
 {
     constexpr uint32_t kMaximumDelay = 12;
     constexpr uint32_t kIterationCount = 6;
@@ -833,7 +864,7 @@ TEST_CASE("Delay Process exhaustively matches Tick for small delays and block si
     }
 }
 
-TEST_CASE("DelayBank non-native remainder blocks match per-sample delays")
+TEST_CASE("DelayBank non-native remainder blocks match per-sample delays", "[delay]")
 {
     constexpr uint32_t kChannelCount = 3;
     constexpr uint32_t kConfiguredBlockSize = 8;
@@ -876,7 +907,7 @@ TEST_CASE("DelayBank non-native remainder blocks match per-sample delays")
     }
 }
 
-TEST_CASE("Delay and DelayBank wrapped steady-state processing does not allocate")
+TEST_CASE("Delay and DelayBank do not allocate during wrapped steady state processing", "[delay]")
 {
     constexpr uint32_t kBlockSize = 7;
     constexpr uint32_t kChannelCount = 3;
@@ -909,7 +940,7 @@ TEST_CASE("Delay and DelayBank wrapped steady-state processing does not allocate
     REQUIRE(allocation_counter.Count() == 0);
 }
 
-TEST_CASE("DelayInterp_Linear")
+TEST_CASE("DelayInterp linear matches its sample and block reference output", "[delay]")
 {
     sfFDN::DelayInterp delay({1.1f, 10, sfFDN::DelayInterpolationType::Linear});
 
@@ -948,82 +979,3 @@ TEST_CASE("DelayInterp_Linear")
         REQUIRE_THAT(out, Catch::Matchers::WithinAbs(expected, 0.01));
     }
 }
-
-#if 0
-TEST_CASE("DelayTimeVarying")
-{
-    constexpr uint32_t kSampleRate = 48000;
-    constexpr uint32_t kBlockSize = 512;
-    constexpr uint32_t kInputSize = kBlockSize * 200;
-    constexpr uint32_t kBaseDelay = 1024;
-
-    sfFDN::DelayTimeVarying<sfFDN::DelayInterpolationType::Linear> delay(kBaseDelay, 4096);
-
-    std::vector<float> input(kInputSize, 0.f);
-    sfFDN::SineWave sine(200.f / kSampleRate, 0.f);
-    sine.SetAmplitude(0.5f);
-    sine.Generate(input);
-    std::vector<float> output(kInputSize, 0.f);
-
-    sfFDN::AudioBuffer input_buffer(kInputSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
-
-    for (auto i = 0u; i < kInputSize; i += kBlockSize)
-    {
-        sfFDN::AudioBuffer in_block = input_buffer.Offset(i, kBlockSize);
-        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
-        delay.Process(in_block, out_block);
-    }
-
-    WriteWavFile("delay_time_varying_input.wav", output);
-
-    output.clear();
-    output.resize(kInputSize, 0.f);
-
-    delay.SetMod(1.f / kSampleRate, 256.f);
-    delay.Clear();
-
-    // for (auto i = 0u; i < kInputSize; ++i)
-    // {
-    //     output[i] = delay.Tick(input[i]);
-    // }
-
-    for (auto i = 0u; i < kInputSize; i += kBlockSize)
-    {
-        sfFDN::AudioBuffer in_block = input_buffer.Offset(i, kBlockSize);
-        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
-        delay.Process(in_block, out_block);
-    }
-
-    WriteWavFile("delay_time_varying_output.wav", output);
-}
-
-TEST_CASE("DelayFeedback")
-{
-
-    constexpr uint32_t kSampleRate = 48000;
-    constexpr uint32_t kBlockSize = 32;
-    constexpr uint32_t kInputSize = kBlockSize * 2000;
-    constexpr float kBaseDelay = 607.5f;
-
-    sfFDN::DelayTimeVarying<sfFDN::DelayInterpolationType::Linear> delay(kBaseDelay, 4096);
-    delay.SetMod(1.f / kSampleRate, 32.f);
-
-    std::vector<float> input(kBlockSize, 0.f);
-    input[0] = 1.f; // Impulse
-
-    std::vector<float> output(kInputSize, 0.f);
-
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1, input);
-    sfFDN::AudioBuffer output_buffer(kInputSize, 1, output);
-
-    for (auto i = 0u; i < kInputSize; i += kBlockSize)
-    {
-        sfFDN::AudioBuffer out_block = output_buffer.Offset(i, kBlockSize);
-        delay.Process(input_buffer, out_block);
-        input_buffer = out_block;
-    }
-
-    WriteWavFile("delay_feedback_output.wav", output);
-}
-#endif

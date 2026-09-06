@@ -71,7 +71,7 @@ void RequireClose(const std::array<float, 16>& expected, const std::array<float,
 
 } // namespace
 
-TEST_CASE("MatrixMultiplicationPerf_single")
+TEST_CASE("MatrixMultiplicationPerf_single", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 16;
     const auto expected_output = ScalarMatrixMultiply16();
@@ -133,7 +133,7 @@ TEST_CASE("MatrixMultiplicationPerf_single")
     #endif
 }
 
-TEST_CASE("MatrixMultiplicationPerf_block")
+TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication][.diagnostic]")
 {
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kBlockSize = 128;
@@ -153,7 +153,9 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     bench.title("Matrix Multiplication Performance - Block");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(50000);
+    bench.epochs(7);
+    bench.warmup(10'000);
+    bench.minEpochTime(100ms);
     // bench.batch(2*kInputSize * kMatSize * kMatSize);
     bench.performanceCounters(true);
 
@@ -180,7 +182,6 @@ TEST_CASE("MatrixMultiplicationPerf_block")
 
 
     #ifdef __APPLE__
-    bench.minEpochIterations(200000);
     bench.run("vDSP", [&]() {
         const float* A = input.data();
         const float* B = kMatrix16x16.data();
@@ -193,7 +194,7 @@ TEST_CASE("MatrixMultiplicationPerf_block")
     #endif
 }
 
-TEST_CASE("Hadamard")
+TEST_CASE("Hadamard", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 8;
     std::array<float, kMatSize> input{};
@@ -264,7 +265,7 @@ TEST_CASE("Hadamard")
     });
 }
 
-TEST_CASE("Hadamard_Block")
+TEST_CASE("Hadamard_Block", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kBlockSize = 1;

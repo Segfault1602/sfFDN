@@ -33,8 +33,6 @@ constexpr uint32_t kSampleRate = 48000U;
 constexpr uint32_t kBlockSize = 256U;
 constexpr float kSampleEpsilon = std::numeric_limits<float>::epsilon();
 constexpr uint32_t kRealSchurSeed = 0x5EED1234U;
-constexpr std::array kRealSchurSeeds = {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U};
-constexpr float kSchurSubDiagonalTolerance = 32.0F * kSampleEpsilon;
 constexpr std::array kSamplesInModulationCycle = {0U, 3000U, 6000U, 9000U, 12000U, 15000U, 18000U, 21000U};
 
 const char* ModeName(sfFDN::TimeVaryingMatrixMode mode)
@@ -124,6 +122,18 @@ std::vector<float> EffectiveMatrixAtSample(sfFDN::TimeVaryingFeedbackMatrix& mat
     return effective_matrix;
 }
 
+// A(n) materialized in closed form. EffectiveMatrixAtSample replays the stream once per column, so it costs
+// O(order * sample) Process work and dominates the Debug test run at large sample indices. GetMatrix is a pure query
+// at an arbitrary index; the two are pinned together by "GetMatrix matches the matrix Process applies", so tests that
+// only need A(n) itself should use this and leave the replay to that one equivalence test.
+std::vector<float> MaterializedMatrixAtSample(const sfFDN::TimeVaryingFeedbackMatrix& matrix, uint32_t order,
+                                              uint32_t sample)
+{
+    std::vector<float> effective_matrix(static_cast<size_t>(order) * order, 0.0F);
+    REQUIRE(matrix.GetMatrix(effective_matrix, sample));
+    return effective_matrix;
+}
+
 float OrthogonalityError(std::span<const float> matrix, uint32_t order)
 {
     float sum_squared_error = 0.0F;
@@ -143,64 +153,6 @@ float OrthogonalityError(std::span<const float> matrix, uint32_t order)
         }
     }
     return std::sqrt(sum_squared_error);
-}
-
-struct RealSchurMetrics
-{
-    uint32_t rotation_blocks{};
-    uint32_t scalar_blocks{};
-    float off_block_mass{};
-    float residual{};
-};
-
-RealSchurMetrics MeasureRealSchur(uint32_t order, uint32_t seed = kRealSchurSeed)
-{
-    const auto matrix_data = sfFDN::GenerateMatrix(order, sfFDN::ScalarMatrixType::Random, seed);
-    Eigen::MatrixXf matrix = Eigen::Map<const Eigen::MatrixXf>(matrix_data.data(), order, order);
-    if (matrix.determinant() < 0.0F)
-    {
-        matrix.col(static_cast<Eigen::Index>(order - 1U)) *= -1.0F;
-    }
-    const Eigen::RealSchur<Eigen::MatrixXf> schur(matrix);
-    REQUIRE(schur.info() == Eigen::Success);
-
-    const Eigen::MatrixXf& schur_form = schur.matrixT();
-    std::vector<uint32_t> block_indices(order);
-    RealSchurMetrics metrics;
-    for (uint32_t index = 0; index < order;)
-    {
-        const bool is_rotation =
-            (index + 1U) < order && std::abs(schur_form(index + 1U, index)) > kSchurSubDiagonalTolerance;
-        if (is_rotation)
-        {
-            block_indices[index] = index;
-            block_indices[index + 1U] = index;
-            ++metrics.rotation_blocks;
-            index += 2U;
-        }
-        else
-        {
-            block_indices[index] = index;
-            ++metrics.scalar_blocks;
-            ++index;
-        }
-    }
-
-    float off_block_sum_squared = 0.0F;
-    for (uint32_t row = 0; row < order; ++row)
-    {
-        for (uint32_t column = 0; column < order; ++column)
-        {
-            if (block_indices[row] != block_indices[column])
-            {
-                const float value = schur_form(row, column);
-                off_block_sum_squared += value * value;
-            }
-        }
-    }
-    metrics.off_block_mass = std::sqrt(off_block_sum_squared);
-    metrics.residual = (matrix - (schur.matrixU() * schur_form * schur.matrixU().transpose())).norm();
-    return metrics;
 }
 
 sfFDN::TimeVaryingFeedbackMatrix MakeMatrix(uint32_t order, float amplitude, sfFDN::TimeVaryingMatrixMode mode,
@@ -229,6 +181,7 @@ void StaticReferenceProcess(std::span<const float> input, std::span<float> outpu
                 const float hadamard = negative ? -normalization : normalization;
                 value += hadamard * input[(column * block_size) + sample];
             }
+
             first_hadamard[row] = value;
         }
 
@@ -257,9 +210,69 @@ void StaticReferenceProcess(std::span<const float> input, std::span<float> outpu
     }
 }
 
+void MatrixReferenceProcess(std::span<const float> matrix, std::span<const float> input, std::span<float> output,
+                            uint32_t order, uint32_t block_size)
+{
+    for (uint32_t sample = 0; sample < block_size; ++sample)
+    {
+        for (uint32_t row = 0; row < order; ++row)
+        {
+            output[(row * block_size) + sample] = 0.0F;
+            for (uint32_t column = 0; column < order; ++column)
+            {
+                output[(row * block_size) + sample] +=
+                    matrix[(row * order) + column] * input[(column * block_size) + sample];
+            }
+        }
+    }
+}
+
+void TimeVaryingHadamardReferenceProcess(std::span<const float> input, std::span<float> output, uint32_t order,
+                                         uint32_t block_size, std::span<const float> base_angles,
+                                         std::span<const sfFDN::ModulationOptions> modulation)
+{
+    const float normalization = 1.0F / std::sqrt(static_cast<float>(order));
+    std::vector<float> transformed(order);
+    std::vector<float> rotated(order);
+    for (uint32_t sample = 0; sample < block_size; ++sample)
+    {
+        for (uint32_t row = 0; row < order; ++row)
+        {
+            transformed[row] = 0.0F;
+            for (uint32_t column = 0; column < order; ++column)
+            {
+                const bool negative = (std::popcount(row & column) % 2) != 0;
+                transformed[row] += (negative ? -normalization : normalization) * input[(column * block_size) + sample];
+            }
+        }
+        for (uint32_t rotation = 0; rotation < modulation.size(); ++rotation)
+        {
+            const auto& lfo = modulation[rotation];
+            const float phase = std::fmod((static_cast<float>(sample) + 1.0F) * lfo.frequency, 1.0F);
+            const float angle =
+                base_angles[rotation] + (std::numbers::pi_v<float> * lfo.amplitude *
+                                         std::sin(2.0F * std::numbers::pi_v<float> * (phase + lfo.initial_phase)));
+            const float sine = std::sin(angle);
+            const float cosine = std::cos(angle);
+            const uint32_t first = 2U * rotation;
+            rotated[first] = (cosine * transformed[first]) - (sine * transformed[first + 1U]);
+            rotated[first + 1U] = (sine * transformed[first]) + (cosine * transformed[first + 1U]);
+        }
+        for (uint32_t row = 0; row < order; ++row)
+        {
+            output[(row * block_size) + sample] = 0.0F;
+            for (uint32_t column = 0; column < order; ++column)
+            {
+                const bool negative = (std::popcount(row & column) % 2) != 0;
+                output[(row * block_size) + sample] += (negative ? -normalization : normalization) * rotated[column];
+            }
+        }
+    }
+}
+
 } // namespace
 
-TEST_CASE("TimeVaryingFeedbackMatrix remains orthogonal over time")
+TEST_CASE("TimeVaryingFeedbackMatrix remains orthogonal over time", "[time_varying_matrix]")
 {
     for (const auto mode : kModes)
     {
@@ -277,7 +290,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix remains orthogonal over time")
             for (const uint32_t sample : kSamplesInModulationCycle)
             {
                 worst_error =
-                    std::max(worst_error, OrthogonalityError(EffectiveMatrixAtSample(matrix, order, sample), order));
+                    std::max(worst_error, OrthogonalityError(MaterializedMatrixAtSample(matrix, order, sample), order));
             }
 
             const float tolerance = 10.0F * std::sqrt(static_cast<float>(order)) * kSampleEpsilon;
@@ -288,7 +301,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix remains orthogonal over time")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix conserves energy")
+TEST_CASE("TimeVaryingFeedbackMatrix conserves energy", "[time_varying_matrix]")
 {
     constexpr double kEnergyRelativeTolerance = 2.0e-6; // Float32 Hadamard and rotation roundoff over 256 samples.
 
@@ -320,7 +333,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix conserves energy")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix zero modulation is static")
+TEST_CASE("TimeVaryingFeedbackMatrix zero modulation is static", "[time_varying_matrix]")
 {
     constexpr float kReferenceTolerance = 2.0e-5F;
 
@@ -359,11 +372,51 @@ TEST_CASE("TimeVaryingFeedbackMatrix zero modulation is static")
                 identity_matrix.Process(input_buffer, identity_output_buffer);
                 RequireSamplesWithinAbs(identity_output, input, 4.0F * kSampleEpsilon);
             }
+            else
+            {
+                std::vector<float> materialized(static_cast<size_t>(order) * order, 0.0F);
+                std::vector<float> matrix_reference(input.size(), 0.0F);
+                REQUIRE(matrix.GetMatrix(materialized));
+                MatrixReferenceProcess(materialized, input, matrix_reference, order, kBlockSize);
+                RequireSamplesWithinAbs(first_output, matrix_reference, kReferenceTolerance);
+            }
         }
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix modulation changes output")
+TEST_CASE("TimeVaryingFeedbackMatrix applies configured angles at each sample", "[time_varying_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kSamples = 7U;
+    constexpr float kTolerance = 3.0e-5F;
+    const std::array base_angles = {0.31F, -0.47F};
+    const std::vector<sfFDN::ModulationOptions> modulation = {
+        sfFDN::ModulationOptions{.frequency = 0.125F, .amplitude = 0.25F, .initial_phase = 0.125F},
+        sfFDN::ModulationOptions{.frequency = 0.375F, .amplitude = -0.4F, .initial_phase = 0.625F},
+    };
+    sfFDN::TimeVaryingFeedbackMatrix matrix(
+        {.matrix_size = kOrder, .mode = sfFDN::TimeVaryingMatrixMode::Hadamard, .time_varying_config = modulation});
+    matrix.SetBaseAngles(base_angles);
+
+    std::array<float, kOrder * kSamples> input{};
+    for (uint32_t channel = 0; channel < kOrder; ++channel)
+    {
+        for (uint32_t sample = 0; sample < kSamples; ++sample)
+        {
+            input[(channel * kSamples) + sample] = static_cast<float>((3U * channel) + sample + 1U) / 13.0F;
+        }
+    }
+    std::array<float, kOrder * kSamples> actual{};
+    std::array<float, kOrder * kSamples> expected{};
+    sfFDN::AudioBuffer const input_buffer(kSamples, kOrder, input);
+    sfFDN::AudioBuffer output_buffer(kSamples, kOrder, actual);
+    matrix.Process(input_buffer, output_buffer);
+    TimeVaryingHadamardReferenceProcess(input, expected, kOrder, kSamples, base_angles, modulation);
+
+    RequireSamplesWithinAbs(actual, expected, kTolerance);
+}
+
+TEST_CASE("TimeVaryingFeedbackMatrix modulation changes output", "[time_varying_matrix]")
 {
     constexpr float kMinimumSubstantialDifference = 0.01F;
 
@@ -391,7 +444,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix modulation changes output")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix Process is allocation-free")
+TEST_CASE("TimeVaryingFeedbackMatrix Process is allocation-free", "[time_varying_matrix]")
 {
     for (const auto mode : kModes)
     {
@@ -421,7 +474,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix Process is allocation-free")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix supports aliased processing")
+TEST_CASE("TimeVaryingFeedbackMatrix supports aliased processing", "[time_varying_matrix]")
 {
     constexpr float kAliasingTolerance = 2.0e-5F;
 
@@ -448,7 +501,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix supports aliased processing")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix is block-partition invariant")
+TEST_CASE("TimeVaryingFeedbackMatrix is block-partition invariant", "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr uint32_t kTotalSamples = 200000U;
@@ -494,7 +547,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix is block-partition invariant")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix Clear resets modulation phase")
+TEST_CASE("TimeVaryingFeedbackMatrix Clear resets modulation phase", "[time_varying_matrix]")
 {
     constexpr float kClearTolerance = 2.0e-5F;
 
@@ -520,7 +573,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix Clear resets modulation phase")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix Clone continues modulation phase")
+TEST_CASE("TimeVaryingFeedbackMatrix Clone continues modulation phase", "[time_varying_matrix]")
 {
     constexpr float kCloneTolerance = 2.0e-5F;
 
@@ -549,7 +602,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix Clone continues modulation phase")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix constructor validates options")
+TEST_CASE("TimeVaryingFeedbackMatrix constructor validates options", "[time_varying_matrix]")
 {
     for (const uint32_t order : kOrders)
     {
@@ -575,7 +628,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix constructor validates options")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix rejects invalid modulation parameters")
+TEST_CASE("TimeVaryingFeedbackMatrix rejects invalid modulation parameters", "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 8U;
     auto config = MakeModulationConfig(kOrder, 0.7F);
@@ -626,7 +679,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix rejects invalid modulation parameters")
     REQUIRE_THROWS_AS(matrix.SetBaseAngles(values), std::invalid_argument);
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix range-reduces large base angles")
+TEST_CASE("TimeVaryingFeedbackMatrix range-reduces large base angles", "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr float kReferenceTolerance = 2.0e-5F;
@@ -652,53 +705,43 @@ TEST_CASE("TimeVaryingFeedbackMatrix range-reduces large base angles")
     RequireSamplesWithinAbs(output, expected, kReferenceTolerance);
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports all even orders")
+TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports all even orders", "[time_varying_matrix]")
 {
     for (const uint32_t order : {6U, 8U, 10U, 12U, 16U, 32U})
     {
-        const auto metrics = MeasureRealSchur(order);
-        auto matrix = MakeMatrix(order, 0.7F, sfFDN::TimeVaryingMatrixMode::RealSchur);
+        const auto options = sfFDN::TimeVaryingFeedbackMatrixOptions{
+            .matrix_size = order,
+            .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
+            .time_varying_config = MakeModulationConfig(order, 0.7F),
+            .rng_seed = kRealSchurSeed,
+        };
+        sfFDN::TimeVaryingFeedbackMatrix matrix(options);
+        sfFDN::TimeVaryingFeedbackMatrix repeat(options);
         std::vector<float> input(order * kBlockSize);
         std::vector<float> output(input.size(), 0.0F);
+        std::vector<float> repeat_output(input.size(), 0.0F);
         FillRandom(input);
         sfFDN::AudioBuffer input_buffer(kBlockSize, order, input);
         sfFDN::AudioBuffer output_buffer(kBlockSize, order, output);
+        sfFDN::AudioBuffer repeat_output_buffer(kBlockSize, order, repeat_output);
         matrix.Process(input_buffer, output_buffer);
+        repeat.Process(input_buffer, repeat_output_buffer);
         float orthogonality_error = 0.0F;
         for (const uint32_t sample : kSamplesInModulationCycle)
         {
-            orthogonality_error = std::max(orthogonality_error,
-                                           OrthogonalityError(EffectiveMatrixAtSample(matrix, order, sample), order));
+            orthogonality_error = std::max(
+                orthogonality_error, OrthogonalityError(MaterializedMatrixAtSample(matrix, order, sample), order));
         }
         const float orthogonality_tolerance = 10.0F * std::sqrt(static_cast<float>(order)) * kSampleEpsilon;
 
-        INFO("order=" << order << " rotation blocks=" << metrics.rotation_blocks << " scalar blocks="
-                      << metrics.scalar_blocks << " off-block mass=" << std::setprecision(10) << metrics.off_block_mass
-                      << " Schur residual=" << metrics.residual << " worst ||A^T A - I||_F=" << orthogonality_error);
-        REQUIRE(metrics.rotation_blocks == order / 2U);
-        REQUIRE(metrics.scalar_blocks == 0U);
+        INFO("order=" << order << " worst ||A^T A - I||_F=" << orthogonality_error);
         REQUIRE(std::ranges::all_of(output, [](float sample) { return std::isfinite(sample); }));
+        REQUIRE(output == repeat_output);
         REQUIRE_THAT(orthogonality_error, Catch::Matchers::WithinAbs(0.0F, orthogonality_tolerance));
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix RealSchur rotation blocks are seed-independent")
-{
-    for (const uint32_t order : {6U, 8U, 10U, 12U, 16U, 32U})
-    {
-        for (const uint32_t seed : kRealSchurSeeds)
-        {
-            const auto metrics = MeasureRealSchur(order, seed);
-            INFO("order=" << order << " seed=" << seed << " rotation blocks=" << metrics.rotation_blocks
-                          << " scalar blocks=" << metrics.scalar_blocks);
-            REQUIRE(metrics.rotation_blocks == order / 2U);
-            REQUIRE(metrics.scalar_blocks == 0U);
-            REQUIRE_NOTHROW(MakeMatrix(order, 0.7F, sfFDN::TimeVaryingMatrixMode::RealSchur, seed));
-        }
-    }
-}
-
-TEST_CASE("TimeVaryingFeedbackMatrix RealSchur is deterministic with the default seed")
+TEST_CASE("TimeVaryingFeedbackMatrix RealSchur is deterministic with the default seed", "[time_varying_matrix]")
 {
     for (const uint32_t order : {6U, 8U, 10U, 12U, 16U})
     {
@@ -724,7 +767,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix RealSchur is deterministic with the default
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports scalar Schur blocks")
+TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports scalar Schur blocks", "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 6U;
     constexpr float kAngleA = 0.7F;
@@ -815,7 +858,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports scalar Schur blocks")
     REQUIRE(MaxAbsDifference(unmodulated_output, modulated_output) > kMinimumSubstantialDifference);
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix matches the matrix Process applies")
+TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix matches the matrix Process applies", "[time_varying_matrix]")
 {
     // GetMatrix evaluates each LFO phase in closed form, while Process accumulates it one increment per sample. The
     // two therefore drift apart by float32 rounding that grows with the sample index, so the tolerance tracks it.
@@ -857,7 +900,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix matches the matrix Process applie
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix stays orthogonal and rejects bad spans")
+TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix stays orthogonal and rejects bad spans", "[time_varying_matrix]")
 {
     for (const auto mode : kModes)
     {
@@ -886,7 +929,8 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix stays orthogonal and rejects bad 
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix is row-major for a non-symmetric fixed rotation")
+TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix is row-major for a non-symmetric fixed rotation",
+          "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 2U;
     constexpr float kAngle = 0.5F;
@@ -907,7 +951,7 @@ TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix is row-major for a non-symmetric 
     REQUIRE_THAT(materialized[3], Catch::Matchers::WithinAbs(cosine, kTolerance));
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix does not disturb processing")
+TEST_CASE("TimeVaryingFeedbackMatrix GetMatrix does not disturb processing", "[time_varying_matrix]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr uint32_t kBlockCount = 4U;

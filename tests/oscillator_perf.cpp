@@ -26,7 +26,7 @@ void StdSin(std::span<float> output, float frequency, uint32_t sample_rate)
 
 } // namespace
 
-TEST_CASE("SineWave")
+TEST_CASE("SineWave", "[oscillator]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;

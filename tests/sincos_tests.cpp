@@ -24,7 +24,7 @@ constexpr float kAccuracyTolerance = 1.0e-6f;
 
 } // namespace
 
-TEST_CASE("SinCosUnit returns normalized pairs across every sine table interval")
+TEST_CASE("SinCosUnit returns normalized pairs across every sine table interval", "[sincos]")
 {
     constexpr std::array<float, 4> kOffsets = {0.0f, 0.25f, 0.5f, 0.75f};
 
@@ -43,7 +43,7 @@ TEST_CASE("SinCosUnit returns normalized pairs across every sine table interval"
     }
 }
 
-TEST_CASE("SinCosUnit remains accurate after normalization")
+TEST_CASE("SinCosUnit remains accurate after normalization", "[sincos]")
 {
     constexpr std::array<float, 4> kOffsets = {0.0f, 0.25f, 0.5f, 0.75f};
 
@@ -62,7 +62,7 @@ TEST_CASE("SinCosUnit remains accurate after normalization")
     }
 }
 
-TEST_CASE("SinCosUnit range-reduces finite angles")
+TEST_CASE("SinCosUnit range-reduces finite angles", "[sincos]")
 {
     constexpr std::array<float, 6> kAngles = {
         -0.5f * std::numbers::pi_v<float>, 2.5f * std::numbers::pi_v<float>, -1000.0f, 1000.0f, -1.0e20f, 1.0e20f,
@@ -79,7 +79,7 @@ TEST_CASE("SinCosUnit range-reduces finite angles")
     }
 }
 
-TEST_CASE("SinCosUnit is component-accurate across its contracted input range")
+TEST_CASE("SinCosUnit is component-accurate across its contracted input range", "[sincos]")
 {
     constexpr std::array<float, 6> kAngles = {
         -2.0f * kTau, -1.5f * kTau, -0.5f * kTau, 0.5f * kTau, 1.5f * kTau, 2.0f * kTau,
@@ -96,7 +96,7 @@ TEST_CASE("SinCosUnit is component-accurate across its contracted input range")
     }
 }
 
-TEST_CASE("SinCosUnit selects signs in all quadrants")
+TEST_CASE("SinCosUnit selects signs in all quadrants", "[sincos]")
 {
     constexpr std::array<float, 4> kAngles = {
         0.25f * std::numbers::pi_v<float>,

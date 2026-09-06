@@ -4,30 +4,33 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "processor_perf_utils.h"
+#include "sffdn/sffdn.h"
+
 #include <array>
-#include <chrono>
 #include <cstdint>
-#include <memory>
-#include <numbers>
-#include <span>
+#include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
-
-#include "rng.h"
-#include "sffdn/sffdn.h"
-#include "sincos.h"
-
-#include "test_utils.h"
 
 using namespace ankerl;
 
 namespace
 {
+struct ModeInfo
+{
+    sfFDN::TimeVaryingMatrixMode mode;
+    std::string_view name;
+};
 
-constexpr uint32_t kSampleRate = 48000U;
-constexpr float kModulationFrequency = 1.0F / static_cast<float>(kSampleRate);
-constexpr float kModulationAmplitude = 0.7F;
+constexpr std::array kModes = {
+    ModeInfo{.mode = sfFDN::TimeVaryingMatrixMode::Hadamard, .name = "Hadamard"},
+    ModeInfo{.mode = sfFDN::TimeVaryingMatrixMode::RealSchur, .name = "RealSchur"},
+};
+
+static_assert(kModes.size() == std::to_underlying(sfFDN::TimeVaryingMatrixMode::Count));
 
 std::vector<sfFDN::ModulationOptions> MakeModulationConfig(uint32_t order)
 {
@@ -35,153 +38,76 @@ std::vector<sfFDN::ModulationOptions> MakeModulationConfig(uint32_t order)
     for (uint32_t rotation = 0; rotation < config.size(); ++rotation)
     {
         config[rotation] = {
-            .frequency = kModulationFrequency,
-            .amplitude = kModulationAmplitude,
+            .frequency = (0.75F + (0.05F * static_cast<float>(rotation))) /
+                         static_cast<float>(sfFDN::kDefaultSampleRate),
+            .amplitude = 0.7F,
             .initial_phase = static_cast<float>((rotation * 7U) % order) / static_cast<float>(order),
         };
     }
     return config;
 }
 
-void FillRandom(std::span<float> data)
+void RunTimeVaryingFeedbackMatrixBenchmark(const ModeInfo& mode, uint32_t order, uint32_t block_size,
+                                           nanobench::Bench& bench)
 {
-    sfFDN::RNG generator(0x9E3779B9U);
-    for (float& sample : data)
-    {
-        sample = generator();
-    }
-}
+    std::vector<float> input(static_cast<size_t>(order) * block_size);
+    std::vector<float> output(input.size());
+    sfFDN::test::perf::FillNoise(input);
 
-void BenchmarkTimeVaryingMatrix(uint32_t order, uint32_t block_size)
-{
-    std::vector<float> input(order * block_size);
-    std::vector<float> time_varying_output(input.size());
-    std::vector<float> hadamard_output(input.size());
-    std::vector<float> random_output(input.size());
-    FillRandom(input);
-
-    sfFDN::TimeVaryingFeedbackMatrix time_varying_hadamard({.matrix_size = order,
-                                                            .mode = sfFDN::TimeVaryingMatrixMode::Hadamard,
-                                                            .time_varying_config = MakeModulationConfig(order)});
-    sfFDN::TimeVaryingFeedbackMatrix time_varying_real_schur({.matrix_size = order,
-                                                              .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
-                                                              .time_varying_config = MakeModulationConfig(order)});
-    sfFDN::ScalarFeedbackMatrix hadamard({.matrix_size = order, .type = sfFDN::ScalarMatrixType::Hadamard});
-    sfFDN::ScalarFeedbackMatrix random({.matrix_size = order, .type = sfFDN::ScalarMatrixType::Random});
-    sfFDN::AudioBuffer input_buffer(block_size, order, input);
-    sfFDN::AudioBuffer time_varying_buffer(block_size, order, time_varying_output);
-    sfFDN::AudioBuffer hadamard_buffer(block_size, order, hadamard_output);
-    sfFDN::AudioBuffer random_buffer(block_size, order, random_output);
-    const std::string suffix = " o" + std::to_string(order) + " b" + std::to_string(block_size);
-
-    nanobench::Bench bench;
-    bench.title("Time-varying feedback matrix" + suffix);
-    bench.timeUnit(std::chrono::microseconds(1), "µs");
-    bench.relative(true);
-    // No bench.batch(): report time per Process() call (per block), matching FDNPerf.
-    bench.minEpochIterations(10000);
-
-    bench.run("Hadamard" + suffix, [&] {
-        hadamard.Process(input_buffer, hadamard_buffer);
-        nanobench::doNotOptimizeAway(hadamard_output);
+    sfFDN::TimeVaryingFeedbackMatrix matrix({
+        .matrix_size = order,
+        .mode = mode.mode,
+        .time_varying_config = MakeModulationConfig(order),
+        .rng_seed = 4242U,
     });
-    bench.run("TimeVarying Hadamard" + suffix, [&] {
-        time_varying_hadamard.Process(input_buffer, time_varying_buffer);
-        nanobench::doNotOptimizeAway(time_varying_output);
-    });
-    bench.run("TimeVarying RealSchur" + suffix, [&] {
-        time_varying_real_schur.Process(input_buffer, time_varying_buffer);
-        nanobench::doNotOptimizeAway(time_varying_output);
-    });
-    bench.run("Random" + suffix, [&] {
-        random.Process(input_buffer, random_buffer);
-        nanobench::doNotOptimizeAway(random_output);
-    });
-}
+    const sfFDN::AudioBuffer input_buffer(block_size, order, input);
+    sfFDN::AudioBuffer output_buffer(block_size, order, output);
+    const std::string name =
+        std::string(mode.name) + " N=" + std::to_string(order) + " B=" + std::to_string(block_size);
 
-void BenchmarkFDN(sfFDN::FDN& fdn, std::string_view name, nanobench::Bench& bench)
-{
-    constexpr uint32_t kBlockSize = 128U;
-    std::vector<float> input(kBlockSize);
-    std::vector<float> output(kBlockSize);
-    FillRandom(input);
-
-    sfFDN::AudioBuffer input_buffer(kBlockSize, 1U, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, 1U, output);
-    bench.run(std::string(name), [&] {
-        fdn.Process(input_buffer, output_buffer);
+    bench.run(name, [&] {
+        matrix.Process(input_buffer, output_buffer);
         nanobench::doNotOptimizeAway(output);
     });
 }
-
 } // namespace
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_MatrixSweep", "[TimeVaryingFeedbackMatrix][perf]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
 {
-    for (const uint32_t order : {8U, 16U, 32U})
+    nanobench::Bench bench;
+    sfFDN::test::perf::ConfigureThroughputBench(bench, "TimeVaryingFeedbackMatrix perf");
+
+    for (const ModeInfo& mode : kModes)
     {
-        for (const uint32_t block_size : {64U, 128U, 256U})
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
-            BenchmarkTimeVaryingMatrix(order, block_size);
+            for (const uint32_t order : sfFDN::test::perf::ChannelCounts())
+            {
+                const bool needs_iteration_floor =
+                    mode.mode == sfFDN::TimeVaryingMatrixMode::Hadamard && order == 32U;
+                sfFDN::test::perf::SetMinEpochIterations(bench, needs_iteration_floor ? 10'000U : 1U);
+                sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
+                RunTimeVaryingFeedbackMatrixBenchmark(mode, order, block_size, bench);
+            }
         }
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_SinCosUnit", "[TimeVaryingFeedbackMatrix][perf]")
-{
-    constexpr std::array kAngles = {
-        -std::numbers::pi_v<float>,         -0.7F * std::numbers::pi_v<float>,
-        -0.25F * std::numbers::pi_v<float>, 0.0F,
-        0.25F * std::numbers::pi_v<float>,  0.7F * std::numbers::pi_v<float>,
-        std::numbers::pi_v<float>,          1.75F * std::numbers::pi_v<float>,
-    };
-    float sine = 0.0F;
-    float cosine = 0.0F;
-
-    nanobench::Bench bench;
-    bench.title("SinCosUnit");
-    bench.timeUnit(std::chrono::nanoseconds(1), "ns");
-    bench.batch(kAngles.size());
-    bench.minEpochIterations(1000000);
-    bench.run("SinCosUnit representative angles", [&] {
-        float output_sum = 0.0F;
-        for (const float angle : kAngles)
-        {
-            sfFDN::SinCosUnit(angle, sine, cosine);
-            output_sum += sine + cosine;
-        }
-        nanobench::doNotOptimizeAway(output_sum);
-    });
-}
-
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_FDN", "[TimeVaryingFeedbackMatrix][perf]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf_BigO", "[time_varying_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
-    constexpr uint32_t kOrder = 16U;
 
-    auto static_fdn = CreateFDN(kBlockSize, kOrder);
-    static_fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Hadamard}));
+    for (const ModeInfo& mode : kModes)
+    {
+        nanobench::Bench bench;
+        sfFDN::test::perf::ConfigureComplexityBench(
+            bench, "TimeVaryingFeedbackMatrix " + std::string(mode.name) + " B=" + std::to_string(kBlockSize));
 
-    auto time_varying_fdn = CreateFDN(kBlockSize, kOrder);
-    time_varying_fdn->SetFeedbackMatrix(
-        std::make_unique<sfFDN::TimeVaryingFeedbackMatrix>(sfFDN::TimeVaryingFeedbackMatrixOptions{
-            .matrix_size = kOrder, .time_varying_config = MakeModulationConfig(kOrder)}));
-
-    auto time_varying_fdn_schur = CreateFDN(kBlockSize, kOrder);
-    time_varying_fdn_schur->SetFeedbackMatrix(std::make_unique<sfFDN::TimeVaryingFeedbackMatrix>(
-        sfFDN::TimeVaryingFeedbackMatrixOptions{.matrix_size = kOrder,
-                                                .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
-                                                .time_varying_config = MakeModulationConfig(kOrder)}));
-
-    nanobench::Bench bench;
-    bench.title("FDN feedback matrix comparison o16 b128");
-    bench.timeUnit(std::chrono::microseconds(1), "µs");
-    bench.relative(true);
-    // No bench.batch(): report time per Process() call (per block), matching FDNPerf.
-    bench.minEpochIterations(10000);
-
-    BenchmarkFDN(*static_fdn, "FDN Hadamard o16 b128", bench);
-    BenchmarkFDN(*time_varying_fdn, "FDN TimeVarying o16 b128", bench);
-    BenchmarkFDN(*time_varying_fdn_schur, "FDN TimeVarying Schur o16 b128", bench);
+        for (const uint32_t order : sfFDN::test::perf::kExtendedChannelCounts)
+        {
+            bench.complexityN(order);
+            RunTimeVaryingFeedbackMatrixBenchmark(mode, order, kBlockSize, bench);
+        }
+        std::cout << sfFDN::test::perf::FormatComplexityFits(bench.complexityBigO()) << '\n';
+    }
 }

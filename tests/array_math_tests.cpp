@@ -8,7 +8,7 @@
 
 #include <array_math.h>
 
-TEST_CASE("Accumulate")
+TEST_CASE("ArrayMath Accumulate adds values to destination", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
     std::array<float, kSize> a{};
@@ -28,70 +28,96 @@ TEST_CASE("Accumulate")
     }
 }
 
-TEST_CASE("Add")
+TEST_CASE("ArrayMath Add sums input arrays", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> b(kSize, 2.f);
+    std::vector<float> a(kSize);
+    std::vector<float> b(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        b[i] = 3.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::Add(a, b, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(3.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] + b[i], 0.0001));
     }
 }
 
-TEST_CASE("Scale")
+TEST_CASE("ArrayMath Scale multiplies values by scalar", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
+    std::vector<float> a(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) / 32.f;
+    }
 
     sfFDN::ArrayMath::Scale(a, 2.f, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] * 2.f, 0.0001));
     }
 }
 
-TEST_CASE("ScaleAccumulate")
+TEST_CASE("ArrayMath ScaleAccumulate adds scaled values to destination", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 1.f);
-    std::vector<float> out(kSize, 0.f);
+    std::vector<float> a(kSize);
+    std::vector<float> out(kSize);
+    std::vector<float> expected(kSize);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        out[i] = 5.f - (static_cast<float>(i) * 0.125f);
+        expected[i] = out[i] + (a[i] * 2.f);
+    }
 
     sfFDN::ArrayMath::ScaleAccumulate(a, 2.f, out);
     for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(2.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(expected[i], 0.0001));
     }
 }
 
-TEST_CASE("Multiply")
+TEST_CASE("ArrayMath Multiply multiplies input arrays", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 2.f);
-    std::vector<float> b(kSize, 3.f);
+    std::vector<float> a(kSize);
+    std::vector<float> b(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        b[i] = 2.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::Multiply(a, b, out);
-    for (const float value : out)
+    for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(6.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs(a[i] * b[i], 0.0001));
     }
 }
 
-TEST_CASE("MultiplyAdd")
+TEST_CASE("ArrayMath MultiplyAdd adds scaled values to input array", "[array_math]")
 {
     constexpr uint32_t kSize = 1024;
-    std::vector<float> a(kSize, 2.f);
-    std::vector<float> c(kSize, 3.f);
+    std::vector<float> a(kSize);
+    std::vector<float> c(kSize);
     std::vector<float> out(kSize, 0.f);
+    for (auto i = 0u; i < kSize; ++i)
+    {
+        a[i] = static_cast<float>(i) * 0.25f;
+        c[i] = 3.f - (static_cast<float>(i) * 0.125f);
+    }
 
     sfFDN::ArrayMath::MultiplyAdd(a, 4.f, c, out);
-    for (const float value : out)
+    for (auto i = 0u; i < kSize; ++i)
     {
-        REQUIRE_THAT(value, Catch::Matchers::WithinAbs(11.f, 0.0001));
+        REQUIRE_THAT(out[i], Catch::Matchers::WithinAbs((a[i] * 4.f) + c[i], 0.0001));
     }
 }

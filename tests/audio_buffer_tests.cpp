@@ -4,7 +4,51 @@
 
 #include "sffdn/audio_buffer.h"
 
-TEST_CASE("AudioBuffer_Offset")
+TEST_CASE("AudioBuffer aliases backing storage through constructors and accessors", "[audio_buffer]")
+{
+    sfFDN::AudioBuffer const empty;
+    REQUIRE(empty.SampleCount() == 0);
+    REQUIRE(empty.ChannelCount() == 0);
+
+    std::array<float, 12> storage{};
+    for (auto i = 0u; i < storage.size(); ++i)
+    {
+        storage[i] = static_cast<float>(i + 1);
+    }
+
+    sfFDN::AudioBuffer mono(storage);
+    REQUIRE(mono.SampleCount() == storage.size());
+    REQUIRE(mono.ChannelCount() == 1);
+    REQUIRE(mono.Data() == storage.data());
+    mono.GetChannelSpan(0)[1] = -2.f;
+    REQUIRE(storage[1] == -2.f);
+
+    sfFDN::AudioBuffer buffer(4, 3, storage);
+    const sfFDN::AudioBuffer& const_buffer = buffer;
+    REQUIRE(const_buffer.Data() == storage.data());
+
+    const auto const_span = const_buffer.GetChannelSpan(1);
+    REQUIRE(const_span.data() == std::span(storage).subspan(4).data());
+    REQUIRE(const_span.size() == 4);
+    REQUIRE(const_span[2] == storage[6]);
+
+    auto span = buffer.GetChannelSpan(2);
+    span[1] = 42.f;
+    REQUIRE(storage[9] == 42.f);
+
+    auto channel_buffer = buffer.GetChannelBuffer(1);
+    REQUIRE(channel_buffer.SampleCount() == 4);
+    REQUIRE(channel_buffer.ChannelCount() == 1);
+    REQUIRE(channel_buffer.Data() == std::span(storage).subspan(4).data());
+    channel_buffer.GetChannelSpan(0)[0] = 24.f;
+    REQUIRE(storage[4] == 24.f);
+
+    const auto const_channel_buffer = const_buffer.GetChannelBuffer(2);
+    REQUIRE(const_channel_buffer.Data() == std::span(storage).subspan(8).data());
+    REQUIRE(const_channel_buffer.GetChannelSpan(0)[1] == 42.f);
+}
+
+TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
 {
     constexpr uint32_t kFrameSize = 128;
     constexpr uint32_t kChannelCount = 8;

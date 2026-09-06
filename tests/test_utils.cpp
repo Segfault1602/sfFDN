@@ -102,7 +102,8 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
 
 std::vector<float> ReadWavFile(const std::string& filename)
 {
-    SF_INFO sfinfo;
+    // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+    SF_INFO sfinfo{};
     SNDFILE* file = sf_open(filename.c_str(), SFM_READ, &sfinfo);
     if (file == nullptr)
     {
@@ -131,7 +132,7 @@ void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 
     std::filesystem::path output_path = std::filesystem::path(kOutputDir) / filename;
 
-    SF_INFO sfinfo;
+    SF_INFO sfinfo{};
     sfinfo.frames = data.size();
     sfinfo.samplerate = 48000; // Default sample rate
     sfinfo.channels = 1;       // Mono

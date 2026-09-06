@@ -28,7 +28,7 @@ std::unique_ptr<sfFDN::CascadedBiquads> CreateTestFilter()
 }
 } // namespace
 
-TEST_CASE("UPOLS")
+TEST_CASE("UPOLS", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 64;
 

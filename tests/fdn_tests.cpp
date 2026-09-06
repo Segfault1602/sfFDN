@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -13,6 +14,7 @@
 #include "filter_coeffs.h"
 #include "sffdn/sffdn.h"
 
+#include "allocation_counter.h"
 #include "test_utils.h"
 
 namespace
@@ -118,7 +120,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
 
 } // namespace
 
-TEST_CASE("FDN")
+TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = 4096;
@@ -143,7 +145,8 @@ TEST_CASE("FDN")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -172,11 +175,11 @@ TEST_CASE("FDN")
             REQUIRE_THAT(clone_output[i], Catch::Matchers::WithinAbs(output[i], 1e-7));
         }
         float snr = 10.f * std::log10(signal_energy / signal_error);
-        std::cout << "FDN SNR: " << snr << " dB\n";
+        INFO("FDN SNR: " << snr << " dB");
     }
 }
 
-TEST_CASE("FDN_Transposed")
+TEST_CASE("FDN transposed topology matches its golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = kSampleRate;
@@ -193,7 +196,8 @@ TEST_CASE("FDN_Transposed")
 
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_test_transposed.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -218,11 +222,11 @@ TEST_CASE("FDN_Transposed")
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
         float snr = 10.f * std::log10(signal_energy / signal_error);
-        std::cout << "FDN_transpose SNR: " << snr << " dB\n";
+        INFO("FDN_transpose SNR: " << snr << " dB");
     }
 }
 
-TEST_CASE("FDN_FIR")
+TEST_CASE("FDN with FIR filters matches its golden reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 64;
@@ -262,11 +266,10 @@ TEST_CASE("FDN_FIR")
         fdn->Process(input_buffer, output_buffer);
     }
 
-    WriteWavFile("fdn_fir_test.wav", output);
-
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_fir_test.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -295,7 +298,7 @@ TEST_CASE("FDN_FIR")
     }
 }
 
-TEST_CASE("FDN_Chirp")
+TEST_CASE("FDN reproduces the chirp golden file", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
 
@@ -308,11 +311,10 @@ TEST_CASE("FDN_Chirp")
     sfFDN::AudioBuffer output_buffer(output.size(), 1, output);
     fdn->Process(input_buffer, output_buffer);
 
-    WriteWavFile("fdn_chirp_test.wav", output);
-
     {
         constexpr const char* kExpectedOutputFilename = "./tests/data/chirp_reverb.wav";
-        SF_INFO sfinfo;
+        // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+        SF_INFO sfinfo{};
         SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
 
         REQUIRE(expected_output_file != nullptr);
@@ -337,11 +339,11 @@ TEST_CASE("FDN_Chirp")
             signal_error += (output[i] - expected_output[i]) * (output[i] - expected_output[i]);
         }
         float snr = 10.f * std::log10(signal_energy / signal_error);
-        std::cout << "FDN (chirp) SNR: " << snr << " dB\n";
+        INFO("FDN (chirp) SNR: " << snr << " dB");
     }
 }
 
-TEST_CASE("FDNConfig_Example")
+TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
 {
     sfFDN::FDNConfig config;
     config.fdn_size = 8;
@@ -395,8 +397,6 @@ TEST_CASE("FDNConfig_Example")
 
     fdn->Process(input_buffer, output_buffer);
 
-    WriteWavFile("fdn_config_example.wav", output);
-
     nlohmann::json json_config = config;
 
     sfFDN::FDNConfig deserialized_config = json_config.get<sfFDN::FDNConfig>();
@@ -411,7 +411,7 @@ TEST_CASE("FDNConfig_Example")
         REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
     }
 }
-TEST_CASE("FDNConfig_MultichannelDattorroDelay")
+TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay networks", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 8;
     constexpr float kSampleRate = 48000.f;
@@ -505,7 +505,7 @@ TEST_CASE("FDNConfig_MultichannelDattorroDelay")
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 
-TEST_CASE("FDNConfig_TimeVaryingSchroederAllpass")
+TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 4;
     constexpr uint32_t kSampleCount = 240000;
@@ -611,4 +611,144 @@ TEST_CASE("FDNConfig_TimeVaryingSchroederAllpass")
     invalid_bank.sections[0].gains[0] = 0.8F;
     invalid_bank.sections[0].time_varying_config[0].amplitude = 0.2F;
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
+}
+
+TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 13;
+    auto whole_fdn = CreatePyFDNGoldFDN();
+    auto chunked_fdn = CreatePyFDNGoldFDN();
+    std::array<float, kSampleCount> input{};
+    input[0] = 1.f;
+    std::array<float, kSampleCount> whole_output{};
+    std::array<float, kSampleCount * 3> multichannel_output{};
+    sfFDN::AudioBuffer const input_buffer(input);
+    sfFDN::AudioBuffer whole_output_buffer(whole_output);
+    sfFDN::AudioBuffer multichannel_output_buffer(kSampleCount, 3, multichannel_output);
+    whole_fdn->Process(input_buffer, whole_output_buffer);
+    for (uint32_t offset = 0; offset < kSampleCount; offset += 5)
+    {
+        const uint32_t count = std::min(5u, kSampleCount - offset);
+        const sfFDN::AudioBuffer input_block = input_buffer.Offset(offset, count);
+        sfFDN::AudioBuffer output_block = multichannel_output_buffer.Offset(offset, count);
+        chunked_fdn->Process(input_block, output_block);
+    }
+
+    for (uint32_t channel = 0; channel < 3; ++channel)
+    {
+        const auto channel_output = multichannel_output_buffer.GetChannelSpan(channel);
+        for (size_t i = 0; i < whole_output.size(); ++i)
+        {
+            REQUIRE(channel_output[i] == Catch::Approx(whole_output[i]));
+        }
+    }
+}
+
+TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 32;
+    auto fdn = CreatePyFDNGoldFDN();
+    auto fresh = CreatePyFDNGoldFDN();
+    std::array<float, kSampleCount> impulse{};
+    impulse[0] = 1.f;
+    std::array<float, kSampleCount> warm_output{};
+    std::array<float, kSampleCount> cleared_output{};
+    std::array<float, kSampleCount> fresh_output{};
+    sfFDN::AudioBuffer const input_buffer(impulse);
+    sfFDN::AudioBuffer warm_output_buffer(warm_output);
+    sfFDN::AudioBuffer cleared_output_buffer(cleared_output);
+    sfFDN::AudioBuffer fresh_output_buffer(fresh_output);
+
+    fdn->Process(input_buffer, warm_output_buffer);
+    auto clone = fdn->Clone();
+    fdn->Clear();
+    fdn->Process(input_buffer, cleared_output_buffer);
+    fresh->Process(input_buffer, fresh_output_buffer);
+    for (size_t i = 0; i < fresh_output.size(); ++i)
+    {
+        REQUIRE(cleared_output[i] == Catch::Approx(fresh_output[i]));
+    }
+
+    std::array<float, kSampleCount> clone_output{};
+    sfFDN::AudioBuffer clone_output_buffer(clone_output);
+    clone->Process(input_buffer, clone_output_buffer);
+    for (size_t i = 0; i < fresh_output.size(); ++i)
+    {
+        REQUIRE(clone_output[i] == Catch::Approx(fresh_output[i]));
+    }
+}
+
+TEST_CASE("FDN rejects incompatible setters without replacing configured processors", "[fdn]")
+{
+    sfFDN::FDN fdn(4, 8);
+    auto* const output_gains = fdn.GetOutputGains();
+    auto* const feedback_matrix = fdn.GetFeedbackMatrix();
+
+    auto wrong_output = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge);
+    wrong_output->SetGains(std::array{1.f, 1.f, 1.f});
+    REQUIRE_FALSE(fdn.SetOutputGains(std::move(wrong_output)));
+    REQUIRE(fdn.GetOutputGains() == output_gains);
+
+    auto wrong_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = 3, .type = sfFDN::ScalarMatrixType::Hadamard});
+    REQUIRE_FALSE(fdn.SetFeedbackMatrix(std::move(wrong_matrix)));
+    REQUIRE(fdn.GetFeedbackMatrix() == feedback_matrix);
+
+    REQUIRE_FALSE(fdn.SetDelays(std::array{8.f, 8.f, 8.f}));
+    REQUIRE(fdn.GetDelayBank().InputChannelCount() == 4);
+}
+
+TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpose", "[fdn]")
+{
+    sfFDN::FDN fdn(4, 8, true);
+    fdn.SetLoopFilter(
+        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, std::array{1.f, 1.f, 1.f, 1.f}));
+    fdn.SetOrder(6);
+    REQUIRE(fdn.GetOrder() == 6);
+    REQUIRE(fdn.GetTranspose());
+    REQUIRE(fdn.GetLoopFilter() == nullptr);
+    REQUIRE(fdn.GetInputGains()->OutputChannelCount() == 6);
+    REQUIRE(fdn.GetOutputGains()->InputChannelCount() == 6);
+
+    fdn.SetTranspose(false);
+    REQUIRE_FALSE(fdn.GetTranspose());
+    fdn.SetOrder(3);
+    REQUIRE(fdn.GetOrder() == 6);
+}
+
+TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks", "[fdn]")
+{
+    constexpr uint32_t kBlockSize = 8;
+    std::array<float, kBlockSize> input{};
+    std::array<float, kBlockSize> output{};
+    sfFDN::AudioBuffer const input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+
+    sfFDN::FDN normal(4, kBlockSize);
+    sfFDN::FDN transposed(4, kBlockSize, true);
+    sfFDN::FDNConfig config;
+    config.fdn_size = 4;
+    config.block_size = kBlockSize;
+    config.sample_rate = 48000.f;
+    config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
+    config.input_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Split,
+                                                       .gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                       .time_varying_config = {}};
+    config.feedback_matrix_config =
+        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = config.fdn_size, .type = sfFDN::ScalarMatrixType::Hadamard};
+    config.output_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Merge,
+                                                        .gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                        .time_varying_config = {}};
+    auto configured = sfFDN::CreateFDNFromConfig(config);
+
+    normal.Process(input_buffer, output_buffer);
+    transposed.Process(input_buffer, output_buffer);
+    configured->Process(input_buffer, output_buffer);
+    {
+        sfFDNTest::ScopedAllocationCounter const allocation_counter;
+        normal.Process(input_buffer, output_buffer);
+        transposed.Process(input_buffer, output_buffer);
+        configured->Process(input_buffer, output_buffer);
+        REQUIRE(allocation_counter.Count() == 0);
+    }
 }

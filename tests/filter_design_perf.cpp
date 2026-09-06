@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 #include <filter_design_internal.h>
 #include <sffdn/sffdn.h>
 
-TEST_CASE("TwoFilter")
+TEST_CASE("TwoFilter", "[filter_design]")
 {
     constexpr float kSR = 48000;
     constexpr std::array<float, 10> kT60s = {2.5, 2.7, 2.5, 2.3, 2.3, 2.1, 1.7, 1.6, 1.2, 1.0};
@@ -40,7 +40,7 @@ TEST_CASE("TwoFilter")
     });
 }
 
-TEST_CASE("Polyval")
+TEST_CASE("Polyval", "[filter_design]")
 {
     constexpr size_t kN = 4069;
     constexpr double kSampleRate = 48000.0;

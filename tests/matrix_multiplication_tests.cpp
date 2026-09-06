@@ -74,7 +74,7 @@ void TestMatrixMultiplyIdentity()
 }
 } // namespace
 
-TEST_CASE("MatrixMultiply_16 row-major")
+TEST_CASE("MatrixMultiply_16 matches MatrixMultiply_C for a row-major order-16 matrix", "[matrix_multiplication]")
 {
     const std::array<float, kMatrixMultiplyOrder> input = {1.f,  -2.f,  3.5f, -4.f,   5.f,  -6.5f, 7.f,   -8.f,
                                                            9.5f, -10.f, 11.f, -12.5f, 13.f, -14.f, 15.5f, -16.f};
@@ -93,7 +93,7 @@ TEST_CASE("MatrixMultiply_16 row-major")
     }
 }
 
-TEST_CASE("Identity")
+TEST_CASE("MatrixMultiply_C preserves identity matrices across supported orders", "[matrix_multiplication]")
 {
     TestMatrixMultiplyIdentity<4>();
     TestMatrixMultiplyIdentity<8>();
@@ -101,7 +101,7 @@ TEST_CASE("Identity")
     TestMatrixMultiplyIdentity<32>();
 }
 
-TEST_CASE("MatrixMultiply")
+TEST_CASE("MatrixMultiply_C matches Eigen for multiple orders and row counts", "[matrix_multiplication]")
 {
     constexpr std::array kNSize = {4, 8, 10, 12, 16, 32};
     constexpr std::array kRowCounts = {1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64};
@@ -139,7 +139,7 @@ TEST_CASE("MatrixMultiply")
     }
 }
 
-TEST_CASE("MatrixMultiply_6")
+TEST_CASE("MatrixMultiply_C matches Eigen for an order-6 matrix", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 6;
     constexpr uint32_t kRowCount = 4;
@@ -211,58 +211,48 @@ void TestMatrixMultiplyHadamard()
     }
 }
 
-TEST_CASE("MatrixMultiply_Hadamard")
+TEST_CASE("HadamardMultiply matches WalshHadamardTransform against Hadamard matrices", "[matrix_multiplication]")
 {
     TestMatrixMultiplyHadamard<4>();
     TestMatrixMultiplyHadamard<8>();
     TestMatrixMultiplyHadamard<16>();
 }
 
-void FastWalshHadamardTransform_4(const sfFDN::AudioBuffer& input, sfFDN::AudioBuffer& output)
+TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block sample", "[matrix_multiplication]")
 {
-    assert(input.ChannelCount() == output.ChannelCount());
-    assert(input.SampleCount() == output.SampleCount());
-    assert(input.ChannelCount() == 4);
+    constexpr uint32_t kMatrixSize = 4;
+    constexpr uint32_t kBlockSize = 5;
 
-    Eigen::Map<const Eigen::Matrix<float, 4, Eigen::Dynamic, Eigen::RowMajor>> in(input.Data(), 4, input.SampleCount());
-    Eigen::Map<Eigen::Matrix<float, 4, Eigen::Dynamic, Eigen::RowMajor>> out(output.Data(), 4, output.SampleCount());
-
-    out.row(0) = in.row(0) + in.row(1) + in.row(2) + in.row(3);
-    out.row(1) = in.row(0) - in.row(1) + in.row(2) - in.row(3);
-    out.row(2) = in.row(0) + in.row(1) - in.row(2) - in.row(3);
-    out.row(3) = in.row(0) - in.row(1) - in.row(2) + in.row(3);
-
-    out *= 0.5f;
-}
-
-TEST_CASE("Hadamard_4")
-{
-    constexpr uint32_t kMatSize = 4;
-    constexpr uint32_t kBlockSize = 2;
-
-    std::array<float, kMatSize * kBlockSize> input{};
-    sfFDN::RNG rng;
-    for (auto& i : input)
+    std::array<float, kMatrixSize * kBlockSize> input{};
+    for (auto channel = 0u; channel < kMatrixSize; ++channel)
     {
-        i = rng();
+        for (auto sample = 0u; sample < kBlockSize; ++sample)
+        {
+            input[(channel * kBlockSize) + sample] = static_cast<float>((10 * channel) + sample + 1);
+        }
     }
 
-    auto hadamard = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::Hadamard);
-    Eigen::Map<const Eigen::MatrixXf> eigen_mat(hadamard.data(), kMatSize, kMatSize);
-    Eigen::Map<const Eigen::MatrixXf> eigen_input(input.data(), kBlockSize, kMatSize);
-
-    std::array<float, kMatSize * kBlockSize> eigen_output_data{};
-    Eigen::Map<Eigen::MatrixXf> eigen_output(eigen_output_data.data(), kBlockSize, kMatSize);
-    eigen_output.noalias() = eigen_input * eigen_mat;
-
-    std::array<float, kMatSize * kBlockSize> output{};
-    sfFDN::AudioBuffer input_buffer(kBlockSize, kMatSize, input);
-    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatSize, output);
-
-    FastWalshHadamardTransform_4(input_buffer, output_buffer);
-
-    for (auto i = 0u; i < kBlockSize * kMatSize; ++i)
+    std::array<float, kMatrixSize * kBlockSize> expected{};
+    for (auto sample = 0u; sample < kBlockSize; ++sample)
     {
-        REQUIRE_THAT(eigen_output_data[i], Catch::Matchers::WithinAbs(output[i], 1e-5));
+        std::array<float, kMatrixSize> values{};
+        for (auto channel = 0u; channel < kMatrixSize; ++channel)
+        {
+            values[channel] = input[(channel * kBlockSize) + sample];
+        }
+        expected[sample] = (values[0] + values[1] + values[2] + values[3]) * 0.5f;
+        expected[kBlockSize + sample] = (values[0] - values[1] + values[2] - values[3]) * 0.5f;
+        expected[(2 * kBlockSize) + sample] = (values[0] + values[1] - values[2] - values[3]) * 0.5f;
+        expected[(3 * kBlockSize) + sample] = (values[0] - values[1] - values[2] + values[3]) * 0.5f;
+    }
+
+    std::array<float, kMatrixSize * kBlockSize> output{};
+    sfFDN::AudioBuffer const input_buffer(kBlockSize, kMatrixSize, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kMatrixSize, output);
+    sfFDN::HadamardMultiplyBlock(input_buffer, output_buffer);
+
+    for (auto i = 0u; i < output.size(); ++i)
+    {
+        REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected[i], 1e-5f));
     }
 }

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -8,9 +9,34 @@
 #include "fft.h"
 #include "rng.h"
 
-TEST_CASE("FFT")
+namespace
 {
-    constexpr std::array kFFTSize = {32, 64, 128, 256, 512, 1024};
+void CheckRoundTrip(sfFDN::FFT& fft, uint32_t fft_size)
+{
+    auto input_buffer = fft.AllocateRealBuffer();
+    auto output_buffer = fft.AllocateComplexBuffer();
+    std::vector<float> expected_buffer(input_buffer.Data().size(), 0.f);
+    sfFDN::RNG rng;
+    for (auto i = 0u; i < input_buffer.Data().size(); ++i)
+    {
+        input_buffer.Data()[i] = rng();
+        expected_buffer[i] = input_buffer.Data()[i];
+    }
+
+    fft.Forward(input_buffer, output_buffer);
+    fft.Inverse(output_buffer, input_buffer);
+
+    const float scale = 1.0f / static_cast<float>(fft_size);
+    for (auto i = 0u; i < input_buffer.Data().size(); ++i)
+    {
+        REQUIRE_THAT(input_buffer.Data()[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4f));
+    }
+}
+} // namespace
+
+TEST_CASE("FFT round trips real buffers", "[fft]")
+{
+    constexpr std::array kFFTSize = {32, 64, 128, 256, 512, 1024, 8192};
 
     for (auto fft_size : kFFTSize)
     {
@@ -19,34 +45,31 @@ TEST_CASE("FFT")
         {
             sfFDN::FFT fft;
             REQUIRE(fft.Initialize(fft_size));
-
-            auto input_buffer = fft.AllocateRealBuffer();
-            auto output_buffer = fft.AllocateComplexBuffer();
-
-            // Fill with white noise
-            std::vector<float> expected_buffer(input_buffer.Data().size(), 0.f);
-            sfFDN::RNG rng;
-            for (auto i = 0u; i < input_buffer.Data().size(); ++i)
-            {
-                input_buffer.Data()[i] = rng();
-                expected_buffer[i] = input_buffer.Data()[i];
-            }
-
-            std::ranges::fill(output_buffer.Data(), 0.f);
-
-            fft.Forward(input_buffer, output_buffer);
-            fft.Inverse(output_buffer, input_buffer);
-
-            const float scale = 1.0f / static_cast<float>(fft_size);
-            for (auto i = 0u; i < input_buffer.Data().size(); ++i)
-            {
-                REQUIRE_THAT(input_buffer.Data()[i] * scale, Catch::Matchers::WithinAbs(expected_buffer[i], 1e-4));
-            }
+            CheckRoundTrip(fft, fft_size);
         }
     }
 }
 
-TEST_CASE("FFT convolution accumulation")
+TEST_CASE("FFT retains aligned resources after reinitialization and moves", "[fft]")
+{
+    sfFDN::FFT reinitialized;
+    REQUIRE(reinitialized.Initialize(64));
+    CheckRoundTrip(reinitialized, 64);
+    REQUIRE(reinitialized.Initialize(8192));
+    CheckRoundTrip(reinitialized, 8192);
+
+    sfFDN::FFT source;
+    REQUIRE(source.Initialize(8192));
+    sfFDN::FFT moved(std::move(source));
+    CheckRoundTrip(moved, 8192);
+
+    sfFDN::FFT replacement;
+    REQUIRE(replacement.Initialize(64));
+    replacement = std::move(moved);
+    CheckRoundTrip(replacement, 8192);
+}
+
+TEST_CASE("FFT ConvolveAccumulate produces impulse convolution", "[fft]")
 {
     constexpr uint32_t kFFTSize = 64;
     sfFDN::FFT fft;

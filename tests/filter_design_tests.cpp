@@ -1,9 +1,6 @@
 #include <array>
 #include <cmath>
 #include <complex>
-#include <iomanip>
-#include <iostream>
-#include <print>
 #include <ranges>
 #include <span>
 
@@ -14,8 +11,31 @@
 
 #include "allocation_counter.h"
 #include "filter_design_internal.h"
+#include "signal_test_utils.h"
 
-TEST_CASE("TwoFilter")
+namespace
+{
+void RequireStableSections(std::span<const sfFDN::FilterCoefficients> sections)
+{
+    for (const auto& section : sections)
+    {
+        REQUIRE(std::isfinite(section.b0));
+        REQUIRE(std::isfinite(section.b1));
+        REQUIRE(std::isfinite(section.b2));
+        REQUIRE(std::isfinite(section.a0));
+        REQUIRE(std::isfinite(section.a1));
+        REQUIRE(std::isfinite(section.a2));
+        REQUIRE_THAT(section.a0, Catch::Matchers::WithinAbs(1.f, 1e-6f));
+
+        const std::complex<float> discriminant = std::complex<float>(section.a1 * section.a1 - 4.f * section.a2, 0.f);
+        const auto root = std::sqrt(discriminant);
+        REQUIRE(std::abs((-section.a1 + root) * 0.5f) < 1.f);
+        REQUIRE(std::abs((-section.a1 - root) * 0.5f) < 1.f);
+    }
+}
+} // namespace
+
+TEST_CASE("DesignTenBandAbsorption matches reference two-filter coefficients", "[filter_design]")
 {
     constexpr float kSR = 48000;
     constexpr std::array<double, 10> kT60s = {2.5, 2.7, 2.5, 2.3, 2.3, 2.1, 1.7, 1.6, 1.2, 1.0};
@@ -65,27 +85,7 @@ TEST_CASE("TwoFilter")
     }
 }
 
-TEST_CASE("TwoFilter2")
-{
-    constexpr float kSR = 48000;
-    constexpr std::array<double, 10> kT60s = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1.0};
-    // constexpr std::array<double, 10> kT60s = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
-    constexpr float kDelay = 1619;
-    constexpr float kShelfCutoff = 8000.0f;
-
-    std::vector<double> coeffs = sfFDN::GetTwoFilter_d(kT60s, kDelay, kSR, kShelfCutoff);
-
-    for (auto i = 0u; i < coeffs.size(); ++i)
-    {
-        std::cout << std::setprecision(4) << coeffs[i] << ", ";
-        if ((i + 1) % 6 == 0)
-        {
-            std::cout << "\n";
-        }
-    }
-}
-
-TEST_CASE("Polyval")
+TEST_CASE("Polyval matches a complex polynomial reference", "[filter_design]")
 {
     constexpr size_t kN = 10;
     std::array<double, kN> freqs = {31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
@@ -119,9 +119,8 @@ TEST_CASE("Polyval")
     }
 }
 
-TEST_CASE("GraphicEQ")
+TEST_CASE("LowShelfRBJ and HighShelfRBJ match reference shelf coefficients", "[filter_design]")
 {
-    SKIP();
     constexpr double kSR = 48000;
     constexpr double kF0 = 1000.0;
     constexpr double kQ = 0.707;
@@ -147,40 +146,31 @@ TEST_CASE("GraphicEQ")
     {
         REQUIRE_THAT(coeffs[i], Catch::Matchers::WithinAbs(kHighShelfExpected.at(i), 1e-6));
     }
-
-    constexpr std::array<float, 10> kFreq = {62.5, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 8000};
-    constexpr std::array<float, 10> kMag = {1.0, 1.5, 2.0, 0.5, 1.0, 0.9, -0.5, 1.0, -1.0, -6.0};
-
-    auto graphic_eq_coeffs = sfFDN::DesignGraphicEQ({kMag, kFreq, kSR});
-
-    for (auto i = 0u; i < graphic_eq_coeffs.size(); ++i)
-    {
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b0 << ", ";
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b1 << ", ";
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].b2 << ", ";
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a0 << ", ";
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a1 << ", ";
-        std::cout << std::setprecision(15) << graphic_eq_coeffs[i].a2 << "\n";
-    }
 }
 
-TEST_CASE("ThreeBandFilter")
+TEST_CASE("DesignGraphicEQ produces stable sections", "[filter_design]")
+{
+    constexpr std::array<float, 10> kFreq = {31.25f, 62.5f,  125.f,  250.f,  500.f,
+                                             1000.f, 2000.f, 4000.f, 8000.f, 16000.f};
+    constexpr std::array<float, 10> kMag = {-3.f, -2.f, -1.f, 0.5f, 1.f, 0.75f, -0.5f, 1.f, -1.f, -3.f};
+
+    const auto sections = sfFDN::DesignGraphicEQ({.gains_db = kMag, .freqs = kFreq, .sample_rate = 48000.f});
+    RequireStableSections(sections);
+}
+
+TEST_CASE("DesignThreeBandAbsorption produces stable sections", "[filter_design]")
 {
     constexpr float kDelay = 1000.f;
     constexpr float sr = 48000.f;
     sfFDN::ThreeBandFilterOptions config{{2.f, 1.f, 0.5f}, kDelay, {300.f, 8000.f}, 1.f / std::sqrt(2.f), sr};
 
-    auto sos = sfFDN::DesignThreeBandAbsorption(config);
-
-    for (auto i = 0u; i < sos.size(); ++i)
-    {
-        std::cout << std::setprecision(3) << sos[i].b0 << ", " << std::setprecision(3) << sos[i].b1 << ", "
-                  << std::setprecision(3) << sos[i].b2 << ", " << std::setprecision(3) << sos[i].a0 << ", "
-                  << std::setprecision(3) << sos[i].a1 << ", " << std::setprecision(3) << sos[i].a2 << "\n";
-    }
+    const auto sos = sfFDN::DesignThreeBandAbsorption(config);
+    REQUIRE(sos.size() == 2);
+    RequireStableSections(sos);
 }
 
-TEST_CASE("Attenuation filter bank selects multichannel cascades only when supported")
+TEST_CASE("CreateAttenuationFilterBank selects multichannel cascades and falls back for heterogeneous filters",
+          "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions ten_band_options;
     ten_band_options.filter_configs.emplace_back(sfFDN::TenBandFilterOptions{
@@ -238,7 +228,7 @@ TEST_CASE("Attenuation filter bank selects multichannel cascades only when suppo
     REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fallback.get()) != nullptr);
 }
 
-TEST_CASE("Three-band attenuation filter bank matches channel filters")
+TEST_CASE("CreateAttenuationFilterBank matches three-band channel filters without allocations", "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions options;
     options.filter_configs.emplace_back(sfFDN::ThreeBandFilterOptions{
@@ -304,9 +294,10 @@ TEST_CASE("Three-band attenuation filter bank matches channel filters")
 
     optimized->Clear();
     reference->Clear();
-    double signal_energy = 0.0;
-    double error_energy = 0.0;
-    float max_error = 0.f;
+    std::vector<float> sustained_optimized;
+    std::vector<float> sustained_reference;
+    sustained_optimized.reserve(375 * input.size());
+    sustained_reference.reserve(375 * input.size());
     for (auto block = 0u; block < 375; ++block)
     {
         for (auto i = 0u; i < input.size(); ++i)
@@ -317,25 +308,15 @@ TEST_CASE("Three-band attenuation filter bank matches channel filters")
         reference_output = input;
         optimized->Process(optimized_buffer, optimized_buffer);
         reference->Process(reference_buffer, reference_buffer);
-
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            const double reference_sample = reference_output[i];
-            const double error = static_cast<double>(optimized_output[i]) - reference_sample;
-            signal_energy += reference_sample * reference_sample;
-            error_energy += error * error;
-            max_error = std::max(max_error, static_cast<float>(std::abs(error)));
-        }
+        sustained_optimized.insert(sustained_optimized.end(), optimized_output.begin(), optimized_output.end());
+        sustained_reference.insert(sustained_reference.end(), reference_output.begin(), reference_output.end());
     }
 
-    const double snr = 10.0 * std::log10(signal_energy / error_energy);
-    INFO("max error: " << max_error);
-    INFO("SNR: " << snr << " dB");
-    REQUIRE(max_error < 3e-5f);
-    REQUIRE(snr > 90.0);
+    sfFDNTest::RequireSignalsClose(sustained_reference, sustained_optimized, 3e-5f, 90.0);
 }
 
-TEST_CASE("Two-band attenuation filter bank matches channel filters")
+TEST_CASE("CreateAttenuationFilterBank matches two-band channel filters across platform implementations",
+          "[filter_design]")
 {
     sfFDN::AttenuationFilterBankOptions options;
     options.filter_configs.emplace_back(
@@ -396,9 +377,10 @@ TEST_CASE("Two-band attenuation filter bank matches channel filters")
 
     optimized->Clear();
     reference->Clear();
-    double signal_energy = 0.0;
-    double error_energy = 0.0;
-    float max_error = 0.f;
+    std::vector<float> sustained_optimized;
+    std::vector<float> sustained_reference;
+    sustained_optimized.reserve(375 * input.size());
+    sustained_reference.reserve(375 * input.size());
     for (auto block = 0u; block < 375; ++block)
     {
         for (auto i = 0u; i < input.size(); ++i)
@@ -409,20 +391,9 @@ TEST_CASE("Two-band attenuation filter bank matches channel filters")
         reference_output = input;
         optimized->Process(optimized_buffer, optimized_buffer);
         reference->Process(reference_buffer, reference_buffer);
-
-        for (auto i = 0u; i < input.size(); ++i)
-        {
-            const double reference_sample = reference_output[i];
-            const double error = static_cast<double>(optimized_output[i]) - reference_sample;
-            signal_energy += reference_sample * reference_sample;
-            error_energy += error * error;
-            max_error = std::max(max_error, static_cast<float>(std::abs(error)));
-        }
+        sustained_optimized.insert(sustained_optimized.end(), optimized_output.begin(), optimized_output.end());
+        sustained_reference.insert(sustained_reference.end(), reference_output.begin(), reference_output.end());
     }
 
-    const double snr = 10.0 * std::log10(signal_energy / error_energy);
-    INFO("max error: " << max_error);
-    INFO("SNR: " << snr << " dB");
-    REQUIRE(max_error < 3e-5f);
-    REQUIRE(snr > 90.0);
+    sfFDNTest::RequireSignalsClose(sustained_reference, sustained_optimized, 3e-5f, 90.0);
 }

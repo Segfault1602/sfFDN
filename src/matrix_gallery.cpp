@@ -154,7 +154,6 @@ Eigen::MatrixXf VariableDiffusionMatrix(uint32_t mat_size, float diffusion)
 
     for (auto n = 4u; n <= mat_size; n *= 2)
     {
-        std::cout << r2 << "\n\n";
         r2 = KroneckerProduct(r2, r);
     }
 

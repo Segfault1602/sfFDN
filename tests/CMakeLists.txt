@@ -70,6 +70,7 @@ target_sources(
             time_varying_feedback_matrix_tests.cpp
             time_varying_fdn_signal_tests.cpp
             time_varying_schroeder_allpass_tests.cpp
+            signal_test_utils.cpp
             test_utils.cpp
 )
 target_link_libraries(
@@ -116,26 +117,61 @@ add_test(
 
 add_executable(sfFDN.perf)
 sffdn_enable_lto(sfFDN.perf)
+set(
+    SFFDN_PROCESSOR_PERF_SOURCES
+    fdn_perf.cpp
+    cascaded_biquads_perf.cpp
+    fir_perf.cpp
+    sparse_fir_perf.cpp
+    filter_bank_perf.cpp
+    iir_filter_bank_perf.cpp
+    schroeder_allpass_section_perf.cpp
+    time_varying_schroeder_allpass_section_perf.cpp
+    one_pole_filter_perf.cpp
+    allpass_filter_perf.cpp
+    delay_interp_perf.cpp
+    delay_time_varying_perf.cpp
+    delay_bank_perf.cpp
+    delay_bank_time_varying_perf.cpp
+    dattorro_delay_perf.cpp
+    filter_feedback_matrix_perf.cpp
+    delay_matrix_perf.cpp
+    scalar_feedback_matrix_perf.cpp
+    controllable_full_wave_rectifier_perf.cpp
+    signal_dependent_fractional_delay_perf.cpp
+    ring_modulator_perf.cpp
+    pass_through_perf.cpp
+    audio_processor_chain_perf.cpp
+    parallel_gains_perf.cpp
+    time_varying_parallel_gains_perf.cpp
+    partitioned_convolver_perf.cpp
+    time_varying_feedback_matrix_perf.cpp
+)
+set(
+    SFFDN_COMPARISON_PERF_SOURCES
+    production_perf.cpp
+    delay_fir_comparison_perf.cpp
+    filter_bank_comparison_perf.cpp
+    feedback_matrix_comparison_perf.cpp
+    processor_comparison_perf.cpp
+)
+set(
+    SFFDN_LOW_LEVEL_PERF_SOURCES
+    array_math_perf.cpp
+    filter_design_perf.cpp
+    matrix_multiplication_perf.cpp
+    oscillator_perf.cpp
+    sincos_perf.cpp
+    upols_perf.cpp
+)
+set(SFFDN_PERF_SUPPORT_SOURCES production_workloads.cpp test_utils.cpp)
+
 target_sources(
     sfFDN.perf
-    PRIVATE fdn_perf.cpp
-            fdn_perf2.cpp
-            production_perf.cpp
-            production_workloads.cpp
-            filter_perf.cpp
-            filter_design_perf.cpp
-            delay_perf.cpp
-            array_math_perf.cpp
-            mixmat_perf.cpp
-            matrix_multiplication_perf.cpp
-            nonlinear_perf.cpp
-            processor_perf.cpp
-            parallel_gains_perf.cpp
-            upols_perf.cpp
-            nupols_perf.cpp
-            oscillator_perf.cpp
-            time_varying_feedback_matrix_perf.cpp
-            test_utils.cpp
+    PRIVATE ${SFFDN_PROCESSOR_PERF_SOURCES}
+            ${SFFDN_COMPARISON_PERF_SOURCES}
+            ${SFFDN_LOW_LEVEL_PERF_SOURCES}
+            ${SFFDN_PERF_SUPPORT_SOURCES}
 )
 target_link_libraries(
     sfFDN.perf
@@ -165,10 +201,6 @@ target_link_libraries(
 )
 target_include_directories(sfFDN.callback_latency PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.callback_latency PRIVATE cxx_std_23)
-
-sffdn_enable_lto(sfFDN.tests)
-sffdn_enable_lto(sfFDN.perf)
-sffdn_enable_lto(sfFDN.callback_latency)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(

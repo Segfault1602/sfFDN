@@ -51,7 +51,7 @@ std::vector<float> CreateProductionRIR(uint32_t sample_count)
 }
 } // namespace
 
-TEST_CASE("ProductionFDNPerf", "[production-perf]")
+TEST_CASE("ProductionFDNPerf", "[production]")
 {
     nanobench::Bench bench;
     bench.title("Production FDN workloads");
@@ -61,11 +61,13 @@ TEST_CASE("ProductionFDNPerf", "[production-perf]")
 
     for (auto& workload : CreateProductionFDNWorkloads())
     {
+        const bool needs_iteration_floor = workload.name == "FDN N32 block=128 two-band Random";
+        bench.minEpochIterations(needs_iteration_floor ? 80'000U : 1U);
         RunProductionBenchmark(bench, workload.name, *workload.fdn, workload.callback_size);
     }
 }
 
-TEST_CASE("ProductionConvolverPerf", "[production-perf]")
+TEST_CASE("ProductionConvolverPerf", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kLoopCount = 512;
@@ -102,7 +104,7 @@ TEST_CASE("ProductionConvolverPerf", "[production-perf]")
     }
 }
 
-TEST_CASE("ProductionConvolverPartitionPerf", "[production-perf]")
+TEST_CASE("ProductionConvolverPartitionPerf", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kLoopCount = 512;
@@ -145,7 +147,7 @@ TEST_CASE("ProductionConvolverPartitionPerf", "[production-perf]")
     }
 }
 
-TEST_CASE("ProductionConvolverLatency", "[production-perf]")
+TEST_CASE("ProductionConvolverLatency", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kIterationCount = 8192;
