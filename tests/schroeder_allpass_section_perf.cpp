@@ -5,6 +5,7 @@
 #include "sffdn/sffdn.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -54,10 +55,12 @@ TEST_CASE("SchroederAllpassSectionPerf", "[filter]")
     sfFDN::test::perf::ConfigureThroughputBench(bench, "SchroederAllpassSection perf");
     for (const bool parallel : {false, true})
     {
+        bench.minEpochTime(parallel ? std::chrono::milliseconds(10) : std::chrono::milliseconds(50));
         for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
         {
             for (const uint32_t stage_count : kStageCounts)
             {
+                bench.minEpochIterations(900'000U / stage_count);
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size);
                 RunSchroederAllpassSectionBenchmark(stage_count, parallel, block_size, bench);
             }
@@ -84,7 +87,7 @@ TEST_CASE("SchroederAllpassSectionPerf_Aliased", "[filter]")
     }
 }
 
-TEST_CASE("SchroederAllpassSectionPerf_BigO", "[filter]")
+TEST_CASE("SchroederAllpassSectionPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     for (const bool parallel : {false, true})

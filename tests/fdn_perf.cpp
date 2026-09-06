@@ -122,7 +122,7 @@ TEST_CASE("FDNPerf", "[fdn]")
     }
 }
 
-TEST_CASE("FDNPerf_BigO", "[fdn]")
+TEST_CASE("FDNPerf_BigO", "[fdn][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
 

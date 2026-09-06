@@ -64,7 +64,7 @@ TEST_CASE("DelayMatrixPerf", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("DelayMatrixPerf_BigO", "[feedback_matrix]")
+TEST_CASE("DelayMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

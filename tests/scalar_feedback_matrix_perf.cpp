@@ -6,6 +6,7 @@
 #include "sffdn/sffdn.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -76,14 +77,26 @@ TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "ScalarFeedbackMatrix perf");
+    bool first_benchmark = true;
     for (const MatrixTypeInfo& matrix_type : kMatrixTypes)
     {
-        for (const uint32_t block_size : std::array{32u, 64u, 128u, 256u})
+        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
         {
             for (const uint32_t order : std::array{4u, 8u, 16u, 32u, 64u})
             {
+                uint64_t minimum_iterations = 1U;
+                if (matrix_type.type == sfFDN::ScalarMatrixType::Householder)
+                {
+                    minimum_iterations = order == 64U ? 1'200'000U : 7'500'000U / order;
+                }
+                bench.warmup(first_benchmark ? 500'000U : 100U);
+                bench.minEpochIterations(minimum_iterations);
+                bench.minEpochTime(matrix_type.type == sfFDN::ScalarMatrixType::Hadamard
+                                       ? std::chrono::milliseconds(100)
+                                       : std::chrono::milliseconds(10));
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
                 RunScalarFeedbackMatrixBenchmark(matrix_type, order, block_size, bench);
+                first_benchmark = false;
             }
         }
     }
@@ -99,6 +112,9 @@ TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
     {
         for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
         {
+            const bool needs_iteration_floor =
+                matrix_type.type == sfFDN::ScalarMatrixType::Allpass && order == 32U;
+            bench.minEpochIterations(needs_iteration_floor ? 25'000U : 1U);
             std::vector<float> inout(static_cast<size_t>(order) * kBlockSize);
             sfFDN::test::perf::FillNoise(inout);
             sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = order, .type = matrix_type.type});
@@ -113,7 +129,7 @@ TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrixPerf_BigO", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128;
     for (const MatrixTypeInfo& matrix_type : kMatrixTypes)

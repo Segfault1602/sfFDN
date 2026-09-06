@@ -14,7 +14,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("DelayFirComparisonPerf", "[delay]")
+TEST_CASE("DelayFirComparisonPerf", "[delay][.diagnostic]")
 {
     constexpr uint32_t kTapCount = 16U;
     constexpr uint32_t kMinTap = 0U;

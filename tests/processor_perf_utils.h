@@ -16,7 +16,6 @@
 namespace sfFDN::test::perf
 {
 
-inline constexpr std::array<uint32_t, 4> kBlockSizes = {32U, 64U, 128U, 256U};
 inline constexpr std::array<uint32_t, 5> kChannelCounts = {4U, 8U, 16U, 32U, 64U};
 
 inline bool EnvironmentFlagEnabled(const char* name)
@@ -24,6 +23,13 @@ inline bool EnvironmentFlagEnabled(const char* name)
     const char* value = std::getenv(name);
     return value != nullptr && value[0] != '\0' && std::string_view(value) != "0";
 }
+
+inline const std::span<const uint32_t> kBlockSizes = [] {
+    static constexpr std::array<uint32_t, 1> kDefaultBlockSizes = {128U};
+    static constexpr std::array<uint32_t, 4> kExtendedBlockSizes = {32U, 64U, 128U, 256U};
+    return EnvironmentFlagEnabled("SFFDN_PERF_BLOCK_SWEEP") ? std::span<const uint32_t>(kExtendedBlockSizes)
+                                                            : std::span<const uint32_t>(kDefaultBlockSizes);
+}();
 
 inline bool SmokeModeEnabled()
 {
@@ -51,6 +57,7 @@ inline void ConfigureThroughputBench(ankerl::nanobench::Bench& bench, std::strin
         return;
     }
 
+    bench.epochs(7);
     bench.warmup(warmup_iterations);
     bench.minEpochTime(min_epoch_time);
 }
@@ -70,6 +77,7 @@ inline void ConfigureComplexityBench(ankerl::nanobench::Bench& bench, std::strin
         return;
     }
 
+    bench.epochs(7);
     bench.warmup(warmup_iterations);
     bench.minEpochTime(min_epoch_time);
 }

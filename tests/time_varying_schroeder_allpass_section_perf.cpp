@@ -71,7 +71,7 @@ TEST_CASE("TimeVaryingSchroederAllpassSectionPerf", "[filter]")
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSectionPerf_BigO", "[filter]")
+TEST_CASE("TimeVaryingSchroederAllpassSectionPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     for (const bool parallel : {false, true})

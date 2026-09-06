@@ -49,7 +49,7 @@ TEST_CASE("CascadedBiquadsPerf", "[filter]")
     }
 }
 
-TEST_CASE("CascadedBiquadsPerf_BigO", "[filter]")
+TEST_CASE("CascadedBiquadsPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

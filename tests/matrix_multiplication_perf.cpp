@@ -133,7 +133,7 @@ TEST_CASE("MatrixMultiplicationPerf_single", "[matrix_multiplication]")
     #endif
 }
 
-TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication][.diagnostic]")
 {
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kBlockSize = 128;
@@ -153,7 +153,9 @@ TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication]")
     bench.title("Matrix Multiplication Performance - Block");
     // bench.timeUnit(1us, "us");
     bench.relative(true);
-    bench.minEpochIterations(50000);
+    bench.epochs(7);
+    bench.warmup(10'000);
+    bench.minEpochTime(100ms);
     // bench.batch(2*kInputSize * kMatSize * kMatSize);
     bench.performanceCounters(true);
 
@@ -180,7 +182,6 @@ TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication]")
 
 
     #ifdef __APPLE__
-    bench.minEpochIterations(200000);
     bench.run("vDSP", [&]() {
         const float* A = input.data();
         const float* B = kMatrix16x16.data();

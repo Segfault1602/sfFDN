@@ -42,13 +42,14 @@ TEST_CASE("FirPerf", "[filter]")
     {
         for (const uint32_t tap_count : kTapCounts)
         {
+            bench.minEpochIterations(tap_count == 64U && block_size == 128U ? 200'000U : 1U);
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size);
             RunFirBenchmark(tap_count, block_size, bench);
         }
     }
 }
 
-TEST_CASE("FirPerf_BigO", "[filter]")
+TEST_CASE("FirPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

@@ -54,7 +54,7 @@ TEST_CASE("FilterBankPerf", "[filter]")
     }
 }
 
-TEST_CASE("FilterBankPerf_BigO", "[filter]")
+TEST_CASE("FilterBankPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

@@ -93,6 +93,13 @@ TEST_CASE("FilterFeedbackMatrixPerf", "[feedback_matrix]")
         {
             for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
             {
+                const bool uses_structured_kernel = configuration.gain_per_samples == 1.F &&
+                                                    (configuration.type == sfFDN::ScalarMatrixType::Hadamard ||
+                                                     configuration.type == sfFDN::ScalarMatrixType::Householder);
+                const bool needs_iteration_floor =
+                    (uses_structured_kernel && order <= 8U && block_size <= 128U) ||
+                    (configuration.gain_per_samples != 1.F && order == 64U && block_size == 64U);
+                bench.minEpochIterations(needs_iteration_floor ? 125'000U : 1U);
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
                 RunFilterFeedbackMatrixBenchmark(configuration, order, kStageCount, block_size, bench);
             }
@@ -100,7 +107,7 @@ TEST_CASE("FilterFeedbackMatrixPerf", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("FilterFeedbackMatrixPerf_BigO", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr uint32_t kBlockSize = 128U;

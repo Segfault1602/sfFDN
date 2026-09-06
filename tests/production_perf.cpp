@@ -61,6 +61,8 @@ TEST_CASE("ProductionFDNPerf", "[production]")
 
     for (auto& workload : CreateProductionFDNWorkloads())
     {
+        const bool needs_iteration_floor = workload.name == "FDN N32 block=128 two-band Random";
+        bench.minEpochIterations(needs_iteration_floor ? 80'000U : 1U);
         RunProductionBenchmark(bench, workload.name, *workload.fdn, workload.callback_size);
     }
 }

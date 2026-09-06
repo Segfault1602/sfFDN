@@ -48,7 +48,7 @@ void RunFDN(sfFDN::FDN& fdn, std::string_view name, nanobench::Bench& bench)
 }
 } // namespace
 
-TEST_CASE("FeedbackMatrixComparisonPerf", "[feedback_matrix]")
+TEST_CASE("FeedbackMatrixComparisonPerf", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kOrder = 16U;
     constexpr uint32_t kBlockSize = 128U;
@@ -92,7 +92,7 @@ TEST_CASE("FeedbackMatrixComparisonPerf", "[feedback_matrix]")
     });
 }
 
-TEST_CASE("FeedbackMatrixFDNComparisonPerf", "[fdn]")
+TEST_CASE("FeedbackMatrixFDNComparisonPerf", "[fdn][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr uint32_t kOrder = 16U;

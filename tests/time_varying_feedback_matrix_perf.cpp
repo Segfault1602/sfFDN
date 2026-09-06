@@ -83,6 +83,9 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
         {
             for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
             {
+                const bool needs_iteration_floor =
+                    mode.mode == sfFDN::TimeVaryingMatrixMode::Hadamard && order == 32U;
+                bench.minEpochIterations(needs_iteration_floor ? 10'000U : 1U);
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
                 RunTimeVaryingFeedbackMatrixBenchmark(mode, order, block_size, bench);
             }
@@ -90,7 +93,7 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_BigO", "[time_varying_matrix]")
+TEST_CASE("TimeVaryingFeedbackMatrixPerf_BigO", "[time_varying_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
 

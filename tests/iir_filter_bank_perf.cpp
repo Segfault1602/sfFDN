@@ -56,12 +56,15 @@ TEST_CASE("IIRFilterBankPerf", "[filter]")
     constexpr uint32_t kStageCount = 10U;
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "IIRFilterBank channel perf");
+    bool first_benchmark = true;
     for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
     {
         for (const uint32_t channel_count : kChannelCounts)
         {
+            bench.warmup(first_benchmark ? 100'000U : 100U);
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
             RunIIRFilterBankBenchmark(channel_count, kStageCount, block_size, bench);
+            first_benchmark = false;
         }
     }
 }
@@ -81,7 +84,7 @@ TEST_CASE("IIRFilterBankPerf_Stages", "[filter]")
     }
 }
 
-TEST_CASE("IIRFilterBankPerf_BigO", "[filter]")
+TEST_CASE("IIRFilterBankPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr uint32_t kStageCount = 10U;

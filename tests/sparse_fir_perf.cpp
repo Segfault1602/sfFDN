@@ -59,7 +59,7 @@ TEST_CASE("SparseFirPerf", "[filter]")
     }
 }
 
-TEST_CASE("SparseFirPerf_BigO", "[filter]")
+TEST_CASE("SparseFirPerf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

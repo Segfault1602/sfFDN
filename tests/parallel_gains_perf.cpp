@@ -66,6 +66,7 @@ TEST_CASE("ParallelGainsPerf", "[parallel_gains]")
         {
             for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
             {
+                bench.minEpochIterations(9'000'000U / channel_count);
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, channel_count);
                 RunParallelGainsBenchmark(mode, channel_count, block_size, bench);
             }

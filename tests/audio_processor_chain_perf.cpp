@@ -64,7 +64,7 @@ TEST_CASE("AudioProcessorChainPerf", "[processor_chain]")
     }
 }
 
-TEST_CASE("AudioProcessorChainPerf_BigO", "[processor_chain]")
+TEST_CASE("AudioProcessorChainPerf_BigO", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;
