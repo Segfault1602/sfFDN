@@ -169,17 +169,21 @@ auto fdn = sfFDN::CreateFDNFromConfig(config);
 The primary `delay_bank_config` must contain one finite delay per FDN channel. Each delay must be
 at least `config.block_size`, and its `block_size` must be nonzero and at least the FDN block size.
 For attenuation banks in the dedicated attenuation slot or loop-filter block, provide either one
-shared filter configuration or one configuration per FDN channel. Attenuation banks inserted in
-the input or output blocks require exactly one configuration per FDN channel.
+shared filter configuration or one configuration per FDN channel. A non-positive attenuation
+filter delay in either of those placements is derived from the corresponding primary delay. A
+shared attenuation configuration is replicated and its delay is likewise derived for every
+channel; a positive delay in the shared entry is not retained. Attenuation banks inserted in the
+input or output blocks require exactly one configuration per FDN channel and every filter delay
+must be non-negative; they do not derive delays from the primary loop.
 
 ### Validating an FDN configuration
 
-`ValidateFDNStructure()` checks the FDN structure and established configuration guards without
-constructing processors, writing diagnostics, or changing the configuration. It reports all
-independent structural problems as paths and explanations:
+`ValidateFDNConfig()` checks the FDN graph, its dimensions, and every supported processor option
+domain without constructing processors, writing diagnostics, or changing the configuration. It
+reports all independent problems as paths and explanations:
 
 ```c++
-const auto result = sfFDN::ValidateFDNStructure(config);
+const auto result = sfFDN::ValidateFDNConfig(config);
 if (!result) {
     for (const auto& issue : result.error()) {
         Log(issue.path + ": " + issue.message);
@@ -187,7 +191,7 @@ if (!result) {
 }
 ```
 
-`CreateFDNFromConfig()` performs the same structural precheck and throws
+`CreateFDNFromConfig()` performs the same precheck and throws
 `sfFDN::FDNConfigError`, derived from `std::runtime_error`, when it fails:
 
 ```c++
@@ -200,10 +204,13 @@ try {
 }
 ```
 
-This validation includes FDN graph structure and shared delay, gain, and allpass option-domain
-checks. Filter, feedback-matrix, and nonlinear processor domain coverage remains Phase 2.c work;
-success is not a certification that all numerical processing will succeed or that the network is
-stable. Callers may log the report, but the validator itself does not.
+`ValidateFDNConfig()` replaces the interim `ValidateFDNStructure()` name; this is a
+source-incompatible API rename with no compatibility alias. A successful validation does not run
+filter design or matrix decomposition, guarantee allocation success, or certify acoustic
+stability. In particular, a custom dense matrix need not be orthogonal or contractive, and
+user-supplied IIR, allpass, and nonlinear chains are not certified stable. JSON import still
+validates external numeric data; public C++ option inputs are assumed finite. Callers may log the
+report, but the validator itself does not.
 
 ## Build
 

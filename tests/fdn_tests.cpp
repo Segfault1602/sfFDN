@@ -752,7 +752,7 @@ TEST_CASE("FDN rejects incompatible setters without replacing configured process
     REQUIRE(fdn.GetOutputGains() == output_gains);
 
     auto wrong_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = 3, .type = sfFDN::ScalarMatrixType::Hadamard});
+        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = 3, .type = sfFDN::ScalarMatrixType::Identity});
     REQUIRE_FALSE(fdn.SetFeedbackMatrix(std::move(wrong_matrix)));
     REQUIRE(fdn.GetFeedbackMatrix() == feedback_matrix);
 

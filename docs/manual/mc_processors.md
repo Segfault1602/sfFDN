@@ -88,3 +88,10 @@ cross-channel or delay-dependent behavior that a generic FilterBank does not pro
 JSON readers reject unknown enum strings, malformed array shapes, and ambiguous tagged wrappers. A single-channel,
 multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag. Reads are transactional, so a failed parse does not modify an existing
 options object.
+
+`ValidateFDNConfig()` validates every supported multichannel alternative and all populated
+generic-bank channels, in addition to FDN placement dimensions. It checks domains and graph
+shape without constructing processors. It does not perform numerical matrix decomposition or
+filter design, guarantee allocation success, or certify acoustic stability; custom dense matrices
+need not be orthogonal or contractive. Cascaded stage gains must be real and float-representable;
+negative `gain_per_samples` requires integral generated delay exponents.

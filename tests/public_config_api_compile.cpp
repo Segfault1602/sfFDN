@@ -8,13 +8,13 @@
 #include <sffdn/config_diagnostics.h>
 #include <sffdn/fdn_config.h>
 
-static_assert(std::same_as<decltype(sfFDN::ValidateFDNStructure(std::declval<const sfFDN::FDNConfig&>())),
+static_assert(std::same_as<decltype(sfFDN::ValidateFDNConfig(std::declval<const sfFDN::FDNConfig&>())),
                            std::expected<void, std::vector<sfFDN::ConfigIssue>>>);
 static_assert(std::derived_from<sfFDN::FDNConfigError, std::runtime_error>);
 
 void CheckPublicConfigAPI(const sfFDN::FDNConfig& config)
 {
-    const auto validation = sfFDN::ValidateFDNStructure(config);
+    const auto validation = sfFDN::ValidateFDNConfig(config);
     if (!validation)
     {
         for (const auto& issue : validation.error())

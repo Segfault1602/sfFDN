@@ -1,6 +1,5 @@
 #include "sffdn/fdn_config.h"
 
-#include "math_utils.h"
 #include "processor_option_validation.h"
 
 #include <cmath>
@@ -67,130 +66,57 @@ void ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& options, const sfFD
 void ValidateAttenuationFilterBank(const sfFDN::AttenuationFilterBankOptions& options, const std::string& path,
                                    uint32_t fdn_size, bool fdn_size_valid, bool allow_shared_config, Issues& issues)
 {
-    if (!fdn_size_valid)
-    {
-        return;
-    }
-
     const size_t count = options.filter_configs.size();
-    if (count != fdn_size && (!allow_shared_config || count != 1U))
+    const std::string options_path = path + "/AttenuationFilterBankOptions";
+    if (fdn_size_valid && count != fdn_size && (!allow_shared_config || count != 1U))
     {
         const std::string expected =
             allow_shared_config ? "expected 1 or " + std::to_string(fdn_size) : "expected " + std::to_string(fdn_size);
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/AttenuationFilterBankOptions",
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path,
                  expected + " filter configurations, got " + std::to_string(count));
     }
-}
 
-void ValidateTimeVaryingMatrix(const sfFDN::TimeVaryingFeedbackMatrixOptions& options, const std::string& path,
-                               uint32_t fdn_size, bool fdn_size_valid, Issues& issues)
-{
-    const std::string options_path = path + "/TimeVaryingFeedbackMatrixOptions";
-    const bool valid_mode = options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard ||
-                            options.mode == sfFDN::TimeVaryingMatrixMode::RealSchur;
-    if (!valid_mode)
+    for (size_t index = 0; index < count; ++index)
     {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, options_path + "/mode",
-                 "time-varying matrix mode is unsupported");
-    }
-
-    const bool valid_order =
-        options.matrix_size >= 2U && (options.matrix_size % 2U) == 0U &&
-        (options.mode != sfFDN::TimeVaryingMatrixMode::Hadamard || sfFDN::Math::IsPowerOfTwo(options.matrix_size));
-    if (!valid_order)
-    {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, options_path + "/matrix_size",
-                 "matrix size must be even and at least two; Hadamard mode also requires a power of two");
-    }
-
-    if (fdn_size_valid && options.matrix_size != fdn_size)
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
-                 "expected " + std::to_string(fdn_size) + ", got " + std::to_string(options.matrix_size));
-    }
-
-    if (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard && valid_order && !options.time_varying_config.empty() &&
-        options.time_varying_config.size() != options.matrix_size / 2U)
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/time_varying_config",
-                 "expected " + std::to_string(options.matrix_size / 2U) + " modulation options, got " +
-                     std::to_string(options.time_varying_config.size()));
-    }
-
-    for (size_t index = 0; index < options.time_varying_config.size(); ++index)
-    {
-        const auto& modulation = options.time_varying_config[index];
-        const std::string modulation_path = IndexPath(options_path + "/time_varying_config", index);
-        if (!std::isfinite(modulation.frequency))
-        {
-            AddIssue(issues, ConfigErrorCode::InvalidValue, modulation_path + "/frequency", "frequency must be finite");
-        }
-        if (!(std::abs(modulation.amplitude) <= 1.0F))
-        {
-            AddIssue(issues, ConfigErrorCode::InvalidValue, modulation_path + "/amplitude",
-                     "amplitude must be finite and in [-1, 1]");
-        }
-        if (!std::isfinite(modulation.initial_phase) || modulation.initial_phase < 0.0F ||
-            modulation.initial_phase > 1.0F)
-        {
-            AddIssue(issues, ConfigErrorCode::InvalidValue, modulation_path + "/initial_phase",
-                     "initial phase must be finite and in [0, 1]");
-        }
-    }
-}
-
-void ValidateScalarMatrix(const sfFDN::ScalarFeedbackMatrixOptions& options, const std::string& path, uint32_t fdn_size,
-                          bool fdn_size_valid, Issues& issues)
-{
-    const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
-    const bool size_matches = !fdn_size_valid || options.matrix_size == fdn_size;
-    if (fdn_size_valid && !size_matches)
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
-                 "expected " + std::to_string(fdn_size) + ", got " + std::to_string(options.matrix_size));
-    }
-
-    if (size_matches && options.custom_matrix.has_value())
-    {
-        const uint64_t expected_count = static_cast<uint64_t>(options.matrix_size) * options.matrix_size;
-        if (static_cast<uint64_t>(options.custom_matrix->size()) != expected_count)
-        {
-            AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/custom_matrix",
-                     "expected " + std::to_string(expected_count) + " elements, got " +
-                         std::to_string(options.custom_matrix->size()));
-        }
-    }
-
-    if (size_matches && !options.custom_matrix.has_value() && options.type == sfFDN::ScalarMatrixType::Hadamard &&
-        !sfFDN::Math::IsPowerOfTwo(options.matrix_size))
-    {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, options_path + "/matrix_size",
-                 "Hadamard feedback matrices require a power-of-two size");
-    }
-}
-
-void ValidateCascadedMatrix(const sfFDN::CascadedFeedbackMatrixOptions& options, const std::string& path,
-                            uint32_t fdn_size, bool fdn_size_valid, Issues& issues)
-{
-    if (fdn_size_valid && options.matrix_size != fdn_size)
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/CascadedFeedbackMatrixInfo/matrix_size",
-                 "expected " + std::to_string(fdn_size) + ", got " + std::to_string(options.matrix_size));
+        sfFDN::detail::ValidateAttenuationOptions(options.filter_configs[index], IndexPath(options_path, index), issues,
+                                                  allow_shared_config);
     }
 }
 
 void ValidateFeedbackMatrix(const sfFDN::feedback_matrix_variant_t& options, const std::string& path, uint32_t fdn_size,
                             bool fdn_size_valid, Issues& issues)
 {
-    std::visit(sfFDN::overloaded{[&](const sfFDN::CascadedFeedbackMatrixOptions& value) {
-                                     ValidateCascadedMatrix(value, path, fdn_size, fdn_size_valid, issues);
-                                 },
-                                 [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
-                                     ValidateScalarMatrix(value, path, fdn_size, fdn_size_valid, issues);
-                                 },
-                                 [&](const sfFDN::TimeVaryingFeedbackMatrixOptions& value) {
-                                     ValidateTimeVaryingMatrix(value, path, fdn_size, fdn_size_valid, issues);
-                                 }},
+    std::visit(sfFDN::overloaded{
+                   [&](const sfFDN::CascadedFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/CascadedFeedbackMatrixInfo";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
+                   },
+                   [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
+                   },
+                   [&](const sfFDN::TimeVaryingFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/TimeVaryingFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
+                   }},
                options);
 }
 
@@ -217,13 +143,27 @@ void ValidateSingleChannelProcessor(const sfFDN::single_channel_processor_varian
                        sfFDN::detail::ValidateOptions(value, path + "/TimeVaryingSchroederAllpassSectionOptions",
                                                       issues);
                    },
-                   [](const sfFDN::AllpassFilterOptions&) {},
-                   [](const sfFDN::CascadedBiquadsOptions&) {},
-                   [](const sfFDN::FirOptions&) {},
-                   [](const sfFDN::GraphicEQOptions&) {},
-                   [](const sfFDN::ControllableFullWaveRectifierOptions&) {},
-                   [](const sfFDN::SignalDependentFractionalDelayOptions&) {},
-                   [](const sfFDN::RingModulatorOptions&) {},
+                   [&](const sfFDN::AllpassFilterOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/AllpassFilterOptions", issues);
+                   },
+                   [&](const sfFDN::CascadedBiquadsOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/CascadedBiquadsOptions", issues);
+                   },
+                   [&](const sfFDN::FirOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/FirOptions", issues);
+                   },
+                   [&](const sfFDN::GraphicEQOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/GraphicEQOptions", issues);
+                   },
+                   [&](const sfFDN::ControllableFullWaveRectifierOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/ControllableFullWaveRectifierOptions", issues);
+                   },
+                   [&](const sfFDN::SignalDependentFractionalDelayOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/SignalDependentFractionalDelayOptions", issues);
+                   },
+                   [&](const sfFDN::RingModulatorOptions& value) {
+                       sfFDN::detail::ValidateOptions(value, path + "/RingModulatorOptions", issues);
+                   },
                },
                options);
 }
@@ -290,10 +230,24 @@ void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_
                        }
                    },
                    [&](const sfFDN::CascadedFeedbackMatrixOptions& value) {
-                       ValidateCascadedMatrix(value, path, fdn_size, fdn_size_valid, issues);
+                       const std::string options_path = path + "/CascadedFeedbackMatrixInfo";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
                    },
                    [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
-                       ValidateScalarMatrix(value, path, fdn_size, fdn_size_valid, issues);
+                       const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
                    },
                },
                options);
@@ -345,7 +299,7 @@ std::string FDNConfigError::BuildMessage(const std::vector<ConfigIssue>& issues)
     return message;
 }
 
-std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConfig& config)
+std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig& config)
 {
     Issues issues;
     const bool fdn_size_valid = config.fdn_size > 0;

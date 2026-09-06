@@ -207,7 +207,7 @@ namespace sfFDN
 {
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
 {
-    auto validation = ValidateFDNStructure(config);
+    auto validation = ValidateFDNConfig(config);
     if (!validation.has_value())
     {
         throw FDNConfigError(std::move(validation.error()));

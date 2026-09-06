@@ -26,7 +26,8 @@ Use this option when you want a compact, low-cost decay control and do not need 
 Key fields:
 
 - `t60`: Target T60 in seconds.
-- `delay`: Delay in samples used to derive the decay gain. If this value if <= 0, sfFDN will automatically update it from the surrounding FDN configuration.
+- `delay`: Delay in samples used to derive the decay gain. A negative value is an inference
+  sentinel only when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
 - `sample_rate`: Sampling rate used during gain calculation.
 
 ### Two-Band Filter
@@ -38,7 +39,8 @@ The resulting filter is designed by [sfFDN::DesignTwoBandAbsorption](@ref sfFDN:
 Key fields:
 
 - `t60s`: Two target T60 values, for low and high frequencies.
-- `delay`: Delay in samples used by the design equation. If this value if <= 0, sfFDN will automatically update it from the surrounding FDN configuration.
+- `delay`: Delay in samples used by the design equation. A negative value is an inference
+  sentinel only when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
 - `sample_rate`: Sampling rate used during design.
 
 ### Three-Band Filter
@@ -50,7 +52,8 @@ The filter is designed by [sfFDN::DesignThreeBandAbsorption](@ref sfFDN::DesignT
 Key fields:
 
 - `t60s`: Three target T60 values for low, mid, and high bands.
-- `delay`: Delay in samples used by the design equation. If this value if <= 0, sfFDN will automatically update it from the surrounding FDN configuration.
+- `delay`: Delay in samples used by the design equation. A negative value is an inference
+  sentinel only when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
 - `freqs`: Shelf crossover frequencies that separate the three bands.
 - `q`: Shelf Q factor used in the filter design.
 - `sample_rate`: Sampling rate used during design.
@@ -64,7 +67,8 @@ The filter is designed by [sfFDN::DesignTenBandAbsorption](@ref sfFDN::DesignTen
 Key fields:
 
 - `t60s`: Ten target T60 values, one per band.
-- `delay`: Delay in samples used by the design equation. If this is non-positive, sfFDN updates it from the surrounding FDN configuration.
+- `delay`: Delay in samples used by the design equation. A negative value is an inference
+  sentinel only when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
 - `sample_rate`: Sampling rate used during design.
 - `shelf_cutoff`: Shelf crossover used by the design procedure.
 
@@ -102,6 +106,12 @@ auto filter_bank = sfFDN::CreateAttenuationFilterBank(options);
 ```
 
 A version of this function that accepts a single sfFDN::attenuation_filter_variant_t and a list of delay lengths is also provided for convenience. This can be useful when the same filter design is desired across all delay lines, with the only difference being the delay length used in the design equation.
+
+`FDNConfig` accepts a shared attenuation configuration only in its dedicated attenuation slot or
+loop-filter block. That entry is copied for every delay line and its delay is derived from the
+primary delay bank, even if the shared entry supplied a positive delay. Input and output
+multichannel insertion slots require one configuration per channel and do not support delay
+inference: negative attenuation-filter delays are rejected there.
 
 ## References
 

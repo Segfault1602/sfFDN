@@ -1,6 +1,7 @@
 #include "sffdn/filter.h"
 
 #include "json_helper.h"
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -8,9 +9,12 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <ranges>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace
@@ -31,22 +35,30 @@ namespace sfFDN
 {
 
 CascadedBiquads::CascadedBiquads(const CascadedBiquadsOptions& config)
-    : stage_(config.coeffs.size())
+    : stage_(0)
 {
     SetCoefficients(config.coeffs);
 }
 
 void CascadedBiquads::SetCoefficients(std::span<const FilterCoefficients> coeffs)
 {
-    coeffs_.clear();
-    coeffs_.resize(coeffs.size());
-
+    std::vector<FilterCoefficients> normalized;
+    normalized.reserve(coeffs.size());
     for (size_t i = 0; i < coeffs.size(); ++i)
     {
-        coeffs_[i] = coeffs[i].Normalize();
+        std::vector<ConfigIssue> issues;
+        detail::ValidateOptions(coeffs[i], "/coeffs/" + std::to_string(i), issues);
+        if (!issues.empty())
+        {
+            throw std::invalid_argument(issues.front().path + ": " + issues.front().message);
+        }
+        normalized.push_back(coeffs[i].Normalize());
     }
 
-    states_.resize(coeffs.size(), {.s0 = 0.0f, .s1 = 0.0f});
+    auto states = states_;
+    states.resize(coeffs.size(), {.s0 = 0.0f, .s1 = 0.0f});
+    coeffs_ = std::move(normalized);
+    states_ = std::move(states);
     stage_ = static_cast<uint32_t>(coeffs.size());
 }
 

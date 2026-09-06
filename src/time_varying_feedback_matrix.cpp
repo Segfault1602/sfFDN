@@ -3,6 +3,7 @@
 #include "sffdn/time_varying_feedback_matrix.h"
 
 #include "matrix_multiplication.h"
+#include "processor_option_validation.h"
 #include "sffdn/matrix_gallery.h"
 #include "sincos.h"
 #include "time_varying_feedback_matrix_internal.h"
@@ -12,7 +13,6 @@
 #include <Eigen/QR>
 
 #include <algorithm>
-#include <bit>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -50,30 +50,41 @@ void ValidateModulationOption(const sfFDN::ModulationOptions& modulation)
     }
 }
 
-uint32_t ValidateOptions(const sfFDN::TimeVaryingFeedbackMatrixOptions& options)
+bool IsSupportedMode(sfFDN::TimeVaryingMatrixMode mode)
 {
-    if (options.mode != sfFDN::TimeVaryingMatrixMode::Hadamard &&
-        options.mode != sfFDN::TimeVaryingMatrixMode::RealSchur)
+    return mode == sfFDN::TimeVaryingMatrixMode::Hadamard || mode == sfFDN::TimeVaryingMatrixMode::RealSchur;
+}
+
+uint32_t ValidateStandaloneOptions(const sfFDN::TimeVaryingFeedbackMatrixOptions& options,
+                                   std::span<const float> custom_base_matrix)
+{
+    if (custom_base_matrix.empty() || options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard)
+    {
+        return sfFDN::detail::RequireValidOptions(options).matrix_size;
+    }
+
+    if (!IsSupportedMode(options.mode))
     {
         throw std::invalid_argument("TimeVaryingFeedbackMatrix: unknown matrix mode");
     }
-
     if (options.matrix_size < 2U || (options.matrix_size % 2U) != 0U)
     {
         throw std::invalid_argument("TimeVaryingFeedbackMatrix: matrix_size must be even and at least two");
     }
-
-    if (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard && !std::has_single_bit(options.matrix_size))
+    const uint64_t element_count = static_cast<uint64_t>(options.matrix_size) * options.matrix_size;
+    if (custom_base_matrix.size() != static_cast<size_t>(element_count))
     {
         throw std::invalid_argument(
-            "TimeVaryingFeedbackMatrix: Hadamard mode requires an even power-of-two matrix_size");
+            "TimeVaryingFeedbackMatrix: custom RealSchur basis must contain matrix_size squared values");
     }
-
     for (const auto& modulation : options.time_varying_config)
     {
         ValidateModulationOption(modulation);
+        if (modulation.frequency < 0.0F)
+        {
+            throw std::invalid_argument("TimeVaryingFeedbackMatrix: LFO frequency must be non-negative");
+        }
     }
-
     return options.matrix_size;
 }
 
@@ -160,7 +171,7 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
 
 TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMatrixOptions& options,
                                                      std::span<const float> custom_base_matrix)
-    : order_(ValidateOptions(options))
+    : order_(ValidateStandaloneOptions(options, custom_base_matrix))
     , mode_(options.mode)
     , scalar_signs_(order_, 1.0F)
     , scratch_(order_ * kChunkSize)
@@ -188,11 +199,6 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
         }
         else
         {
-            if (custom_base_matrix.size() != static_cast<size_t>(order_) * order_)
-            {
-                throw std::invalid_argument(
-                    "TimeVaryingFeedbackMatrix: custom RealSchur basis must contain matrix_size squared values");
-            }
             base_matrix = Eigen::Map<const Eigen::MatrixXf>(
                 custom_base_matrix.data(), static_cast<Eigen::Index>(order_), static_cast<Eigen::Index>(order_));
         }

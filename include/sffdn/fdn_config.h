@@ -77,13 +77,15 @@ struct FDNConfig
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
 };
 
-/** @brief Validates FDN graph structure, dimensions, and delay, gain, and allpass option domains without constructing
+/** @brief Validates the FDN graph, its dimensions, and every supported processor option domain without constructing
  * processors.
  *
- * Filter, matrix, and nonlinear processor domain coverage remains incomplete. Success does not guarantee that
- * processor preparation will succeed or that the resulting network is numerically stable.
+ * This does not perform numerical decomposition or filter design, guarantee allocation success, or certify acoustic
+ * stability.
+ *
+ * @note This replaces the interim ValidateFDNStructure API and is a source-incompatible rename.
  */
-[[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConfig& config);
+[[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig& config);
 
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
 

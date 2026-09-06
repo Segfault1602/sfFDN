@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "processor_factory.h"
 
+#include "processor_option_validation.h"
 #include "sffdn/dattorro_delay.h"
 #include "sffdn/delay.h"
 #include "sffdn/delay_time_varying.h"
@@ -12,6 +13,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace sfFDN
 {
@@ -33,14 +35,12 @@ std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channe
                        }
                    },
                    [](const AllpassFilterOptions& options) {
-                       auto filter = std::make_unique<AllpassFilter>();
-                       filter->SetCoefficients(options.coeff);
-                       return filter;
+                       detail::RequireValidOptions(options);
+                       return std::make_unique<AllpassFilter>(options);
                    },
                    [](const CascadedBiquadsOptions& options) {
-                       auto filter = std::make_unique<CascadedBiquads>();
-                       filter->SetCoefficients(options.coeffs);
-                       return filter;
+                       detail::RequireValidOptions(options);
+                       return std::make_unique<CascadedBiquads>(options);
                    },
                    [](const FirOptions& options) { return MakeFirFilter(options); },
                    [](const DelayOptions& options) -> std::unique_ptr<AudioProcessor> {
@@ -51,18 +51,25 @@ std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channe
                        return std::make_unique<DelayInterp>(options);
                    },
                    [](const GraphicEQOptions& options) {
-                       auto filter = std::make_unique<CascadedBiquads>();
-                       filter->SetCoefficients(DesignGraphicEQ(options));
-                       return filter;
+                       detail::RequireValidOptions(options);
+                       const auto coefficients = DesignGraphicEQ(options);
+                       CascadedBiquadsOptions filter_options{
+                           std::vector<FilterCoefficients>(coefficients.begin(), coefficients.end())};
+                       return std::make_unique<CascadedBiquads>(filter_options);
                    },
                    [](const DattorroDelayOptions& options) { return std::make_unique<DattorroDelay>(options); },
                    [](const ControllableFullWaveRectifierOptions& options) {
+                       detail::RequireValidOptions(options);
                        return std::make_unique<ControllableFullWaveRectifier>(options);
                    },
                    [](const SignalDependentFractionalDelayOptions& options) {
+                       detail::RequireValidOptions(options);
                        return std::make_unique<SignalDependentFractionalDelay>(options);
                    },
-                   [](const RingModulatorOptions& options) { return std::make_unique<RingModulator>(options); },},
+                   [](const RingModulatorOptions& options) {
+                       detail::RequireValidOptions(options);
+                       return std::make_unique<RingModulator>(options);
+                   },},
         config);
 }
 } // namespace sfFDN

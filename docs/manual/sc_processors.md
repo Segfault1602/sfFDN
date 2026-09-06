@@ -29,11 +29,13 @@ Here, "time-varying" means gain modulation only: the delay is a fixed integer nu
 
 ## Configuration validation
 
-The FDN graph validator and delay, Dattorro, and Schroeder-allpass constructors share the same
-setup-time option checks. Finite numeric public C++ option values are a caller precondition.
-Delay modulation requires non-negative frequency, signed depth, and an initial phase in `[0, 1]`.
-Time-varying Schroeder allpass sections additionally require positive frequency, nonzero depth,
-and a strictly stable gain range. These checks retain the existing interpolation minima, static
-Schroeder truncation and zero-delay minimum, and Dattorro feedback/headroom rules; they do not
-establish a general physical-stability guarantee. Static Schroeder sections also reject empty
-delay/gain arrays at setup.
+`ValidateFDNConfig()` applies the same setup-time option checks to every supported
+single-channel variant that it encounters, including generic-bank channels. Finite numeric public
+C++ option values are a caller precondition. Delay modulation requires non-negative frequency,
+signed depth, and an initial phase in `[0, 1]`. Time-varying Schroeder allpass sections
+additionally require positive frequency, nonzero depth, and a strictly stable gain range. These
+checks retain the existing interpolation minima, static Schroeder truncation and zero-delay
+minimum, and Dattorro feedback/headroom rules; they do not establish a general
+physical-stability guarantee. Static Schroeder sections also reject empty delay/gain arrays at
+setup. User-supplied IIR, allpass, and nonlinear chains are validated for their option domains,
+not certified stable.

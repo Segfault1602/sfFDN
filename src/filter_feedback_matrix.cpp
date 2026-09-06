@@ -2,6 +2,7 @@
 
 #include "json_helper.h"
 #include "matrix_gallery_internal.h"
+#include "processor_option_validation.h"
 #include "rng.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
@@ -38,8 +39,7 @@ Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
 
 Eigen::ArrayXf ShiftMatrixDistribute(uint32_t size, float sparsity, float pulse_size, uint32_t seed)
 {
-    Eigen::ArrayXf shift =
-        sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size, seed) * 0.99f);
+    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size, seed) * 0.99f);
 
     shift = shift.floor() * pulse_size;
     return shift;
@@ -70,14 +70,9 @@ bool HasStructuredKernel(sfFDN::ScalarMatrixType type)
 namespace sfFDN
 {
 FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& options)
-    : channel_count_(options.matrix_size)
+    : channel_count_(detail::RequireValidOptions(options).matrix_size)
 {
-    float sparsity = options.sparsity;
-    if (sparsity < 1.f)
-    {
-        std::cerr << "Sparsity must be at least 1.\n";
-        sparsity = 1.f;
-    }
+    const float sparsity = options.sparsity;
 
     Eigen::MatrixXf r0;
     RNG seed_generator(options.rng_seed);

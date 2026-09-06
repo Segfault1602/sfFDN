@@ -33,12 +33,14 @@ target_sources(
             delay_time_varying.cpp
             delay_utils.cpp
             feedback_matrix.cpp
+            matrix_option_validation.cpp
             fdn.cpp
             config_validation.cpp
             fdn_config.cpp
             fir.cpp
             fft.cpp
             filter.cpp
+            filter_option_validation.cpp
             filterbank.cpp
             filter_design.cpp
             filter_feedback_matrix.cpp

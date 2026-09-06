@@ -2,6 +2,7 @@
 
 #include "sffdn/sffdn.h"
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -207,4 +208,48 @@ TEST_CASE("Schroeder sections validate stage vectors before allocation", "[time_
     time_varying = ValidTimeVaryingSchroederOptions();
     time_varying.time_varying_config.pop_back();
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpassSection(time_varying), std::invalid_argument);
+}
+
+TEST_CASE("CascadedBiquads SetCoefficients retains state on valid updates and failures", "[filter]")
+{
+    const sfFDN::FilterCoefficients old_coefficients{1.F, 0.F, 0.F, 1.F, -0.5F, 0.F};
+    const sfFDN::FilterCoefficients updated_coefficients{2.F, 0.F, 0.F, 1.F, -0.5F, 0.F};
+    const std::array updated_set = {updated_coefficients};
+    const std::array invalid_set = {sfFDN::FilterCoefficients{1.F, 0.F, 0.F, 0.F, 0.F, 0.F}};
+    sfFDN::CascadedBiquads filter({.coeffs = {old_coefficients}});
+
+    std::array<float, 1> impulse = {1.F};
+    std::array<float, 1> warm_output{};
+    sfFDN::AudioBuffer impulse_buffer(impulse);
+    sfFDN::AudioBuffer warm_output_buffer(warm_output);
+    filter.Process(impulse_buffer, warm_output_buffer);
+    auto before_invalid_update = filter.Clone();
+
+    std::array<float, 1> silence = {0.F};
+    std::array<float, 1> after_invalid_output{};
+    std::array<float, 1> control_output{};
+    sfFDN::AudioBuffer silence_buffer(silence);
+    sfFDN::AudioBuffer after_invalid_output_buffer(after_invalid_output);
+    sfFDN::AudioBuffer control_output_buffer(control_output);
+    REQUIRE_THROWS_AS(filter.SetCoefficients(invalid_set), std::invalid_argument);
+    filter.Process(silence_buffer, after_invalid_output_buffer);
+    before_invalid_update->Process(silence_buffer, control_output_buffer);
+    REQUIRE(after_invalid_output == control_output);
+
+    std::array<float, 1> coefficient_control_output{};
+    sfFDN::AudioBuffer coefficient_control_output_buffer(coefficient_control_output);
+    filter.Process(impulse_buffer, warm_output_buffer);
+    before_invalid_update->Process(impulse_buffer, coefficient_control_output_buffer);
+    REQUIRE(warm_output == coefficient_control_output);
+
+    filter.SetCoefficients(updated_set);
+    std::array<float, 1> retained_output{};
+    std::array<float, 1> fresh_output{};
+    sfFDN::AudioBuffer retained_output_buffer(retained_output);
+    sfFDN::AudioBuffer fresh_output_buffer(fresh_output);
+    filter.Process(silence_buffer, retained_output_buffer);
+    sfFDN::CascadedBiquads fresh({.coeffs = {updated_coefficients}});
+    fresh.Process(silence_buffer, fresh_output_buffer);
+    REQUIRE(retained_output[0] == 0.625F);
+    REQUIRE(fresh_output[0] == 0.F);
 }

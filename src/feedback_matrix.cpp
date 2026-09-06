@@ -5,6 +5,7 @@
 #include "sffdn/matrix_gallery.h"
 
 #include "matrix_multiplication.h"
+#include "processor_option_validation.h"
 
 #include <algorithm>
 #include <bit>
@@ -31,7 +32,7 @@ namespace sfFDN
 {
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config)
-    : order_(config.matrix_size)
+    : order_(detail::RequireValidOptions(config).matrix_size)
     , matrix_type_(config.custom_matrix ? ScalarMatrixType::Count : config.type)
 {
     // Eigen lazily queries CPU cache sizes on the first dense product. Initialize that state during setup, not in the

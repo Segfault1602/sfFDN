@@ -1,5 +1,6 @@
 #include "sffdn/filter.h"
 
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter_design.h"
@@ -122,7 +123,7 @@ std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
 }
 
 AllpassFilter::AllpassFilter(const AllpassFilterOptions& config)
-    : coeff_(config.coeff)
+    : coeff_(detail::RequireValidOptions(config).coeff)
     , last_in_(0.0f)
     , last_out_(0.0f)
 {
