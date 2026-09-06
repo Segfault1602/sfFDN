@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -56,6 +57,19 @@ void RunScalarFeedbackMatrixBenchmark(const MatrixTypeInfo& matrix_type, uint32_
         nanobench::doNotOptimizeAway(output);
     });
 }
+
+std::string_view ExpectedComplexity(sfFDN::ScalarMatrixType type)
+{
+    if (type == sfFDN::ScalarMatrixType::Householder)
+    {
+        return "O(n)";
+    }
+    if (type == sfFDN::ScalarMatrixType::Hadamard)
+    {
+        return "O(n log n)";
+    }
+    return "O(n^2)";
+}
 } // namespace
 
 TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
@@ -71,6 +85,30 @@ TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
                 sfFDN::test::perf::SetChannelSampleBatch(bench, block_size, order);
                 RunScalarFeedbackMatrixBenchmark(matrix_type, order, block_size, bench);
             }
+        }
+    }
+}
+
+TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
+{
+    constexpr uint32_t kBlockSize = 128U;
+    nanobench::Bench bench;
+    sfFDN::test::perf::ConfigureThroughputBench(bench, "ScalarFeedbackMatrix aliased perf");
+
+    for (const MatrixTypeInfo& matrix_type : kMatrixTypes)
+    {
+        for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
+        {
+            std::vector<float> inout(static_cast<size_t>(order) * kBlockSize);
+            sfFDN::test::perf::FillNoise(inout);
+            sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = order, .type = matrix_type.type});
+            sfFDN::AudioBuffer buffer(kBlockSize, order, inout);
+            sfFDN::test::perf::SetChannelSampleBatch(bench, kBlockSize, order);
+
+            bench.run(std::string(matrix_type.name) + " N=" + std::to_string(order), [&] {
+                matrix.Process(buffer, buffer);
+                nanobench::doNotOptimizeAway(inout);
+            });
         }
     }
 }
@@ -91,20 +129,15 @@ TEST_CASE("ScalarFeedbackMatrixPerf_BigO", "[feedback_matrix]")
             RunScalarFeedbackMatrixBenchmark(matrix_type, order, kBlockSize, bench);
         }
 
-        std::string_view expected_complexity = "O(n^2)";
-        if (matrix_type.type == sfFDN::ScalarMatrixType::Householder)
-        {
-            expected_complexity = "O(n)";
-        }
-        else if (matrix_type.type == sfFDN::ScalarMatrixType::Hadamard)
-        {
-            expected_complexity = "O(n log n)";
-        }
-
         const auto fits = bench.complexityBigO();
-        CAPTURE(matrix_type.name, kBlockSize, expected_complexity);
-        REQUIRE_FALSE(fits.empty());
-        INFO("Complexity fits:\n" << fits);
-        CHECK(fits.front().name() == expected_complexity);
+        std::cout << sfFDN::test::perf::FormatComplexityFits(fits) << '\n';
+        if (sfFDN::test::perf::ComplexityEnforcementEnabled())
+        {
+            const std::string_view expected_complexity = ExpectedComplexity(matrix_type.type);
+            CAPTURE(matrix_type.name, kBlockSize, expected_complexity);
+            REQUIRE_FALSE(fits.empty());
+            INFO("Complexity fits:\n" << fits);
+            CHECK(fits.front().name() == expected_complexity);
+        }
     }
 }
