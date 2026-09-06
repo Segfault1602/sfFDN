@@ -5,7 +5,6 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_interp.h"
-#include "sffdn/filterbank.h"
 #include "sffdn/oscillator.h"
 #include "sffdn/types.h"
 
@@ -150,15 +149,6 @@ class DattorroDelay : public AudioProcessor
  */
 DattorroDelayOptions MakeDattorroDelayOptions(DattorroEffectType type, float sample_rate);
 
-/** @brief Builds a bank of Dattorro delay-line effects, one per channel.
- * @param options The per-channel configurations. The number of channels of the returned processor is
- * `options.delays.size()`.
- * @return A FilterBank holding one DattorroDelay per entry of `options.delays`.
- * @note Throws std::invalid_argument if any entry has a delay smaller than DattorroDelay::kMinimumDelay, or a delay
- * whose modulation width would take the tap below it.
- */
-std::unique_ptr<FilterBank> MakeMultichannelDattorroDelay(const MultichannelDattorroDelayOptions& options);
-
 /** @brief Returns a decorrelated, multichannel version of one of the classic delay-line effects of Dattorro's Table 1.
  *
  * The gains of the effect are taken unchanged from MakeDattorroDelayOptions(), but the modulation of each channel is
@@ -194,7 +184,7 @@ std::unique_ptr<FilterBank> MakeMultichannelDattorroDelay(const MultichannelDatt
  *   +13 dB respectively once modulated. Placing either in an FDN feedback loop will make the network diverge.
  * - DattorroEffectType::Echo is not modulated, so it stays at its static gain of 1.18 (+1.4 dB).
  */
-MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
-                                                                     uint32_t channel_count);
+MultichannelProcessorOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
+                                                                  uint32_t channel_count);
 
 } // namespace sfFDN

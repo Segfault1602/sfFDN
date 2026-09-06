@@ -2,20 +2,15 @@
 
 #include "json_helper.h"
 #include "math_utils.h"
+#include "processor_factory.h"
 
-#include "sffdn/dattorro_delay.h"
-#include "sffdn/delay.h"
-#include "sffdn/delay_time_varying.h"
 #include "sffdn/delaybank.h"
 #include "sffdn/delaybank_time_varying.h"
 #include "sffdn/feedback_matrix.h"
-#include "sffdn/filter.h"
 #include "sffdn/filter_design.h"
 #include "sffdn/filter_feedback_matrix.h"
 #include "sffdn/filterbank.h"
-#include "sffdn/nonlinear.h"
 #include "sffdn/parallel_gains.h"
-#include "sffdn/schroeder_allpass.h"
 #include "sffdn/time_varying_feedback_matrix.h"
 
 #include <algorithm>
@@ -23,112 +18,14 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <optional>
+#include <stdexcept>
+#include <string>
 #include <variant>
 
 namespace
 {
-template <typename T>
-std::string VariantTypeName()
-{
-    if constexpr (std::is_same_v<T, sfFDN::ParallelGainsOptions>)
-    {
-        return "ParallelGainsOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelSchroederAllpassSectionOptions>)
-    {
-        return "MultichannelSchroederAllpassSectionOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>)
-    {
-        return "MultichannelTimeVaryingSchroederAllpassSectionOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelDattorroDelayOptions>)
-    {
-        return "MultichannelDattorroDelayOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::AttenuationFilterBankOptions>)
-    {
-        return "AttenuationFilterBankOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::SchroederAllpassSectionOptions>)
-    {
-        return "SchroederAllpassSectionOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::TimeVaryingSchroederAllpassSectionOptions>)
-    {
-        return "TimeVaryingSchroederAllpassSectionOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::AllpassFilterOptions>)
-    {
-        return "AllpassFilterOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::CascadedBiquadsOptions>)
-    {
-        return "CascadedBiquadsOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::FirOptions>)
-    {
-        return "FirOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::DelayOptions>)
-    {
-        return "DelayOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::DattorroDelayOptions>)
-    {
-        return "DattorroDelayOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::DelayBankOptions>)
-    {
-        return "DelayBankOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::DelayBankTimeVaryingOptions>)
-    {
-        return "DelayBankTimeVaryingOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::CascadedFeedbackMatrixOptions>)
-    {
-        return "CascadedFeedbackMatrixInfo";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::ScalarFeedbackMatrixOptions>)
-    {
-        return "ScalarFeedbackMatrixOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::ControllableFullWaveRectifierOptions>)
-    {
-        return "ControllableFullWaveRectifierOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::SignalDependentFractionalDelayOptions>)
-    {
-        return "SignalDependentFractionalDelayOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::RingModulatorOptions>)
-    {
-        return "RingModulatorOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelControllableFullWaveRectifierOptions>)
-    {
-        return "MultichannelControllableFullWaveRectifierOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelSignalDependentFractionalDelayOptions>)
-    {
-        return "MultichannelSignalDependentFractionalDelayOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelRingModulatorOptions>)
-    {
-        return "MultichannelRingModulatorOptions";
-    }
-    else if constexpr (std::is_same_v<T, sfFDN::MultichannelFirOptions>)
-    {
-        return "MultichannelFirOptions";
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported variant type");
-    }
-}
-
 bool ValidateDelayBank(const sfFDN::DelayBankOptions& option, const sfFDN::FDNConfig& config)
 {
     if (option.delays.size() != config.fdn_size)
@@ -247,53 +144,10 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 }
                 return true;
             },
-            [&config](const sfFDN::MultichannelSchroederAllpassSectionOptions& schroeder_config) {
-                if (schroeder_config.sections.size() != config.fdn_size)
+            [&config](const sfFDN::MultichannelProcessorOptions& processor_config) {
+                if (processor_config.channels.size() != config.fdn_size)
                 {
-                    std::cerr << "Number of sections in multichannel Schroeder allpass config must match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions& schroeder_config) {
-                if (schroeder_config.sections.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of sections in multichannel time-varying Schroeder allpass config must match "
-                                 "FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) {
-                if (dattorro_config.delays.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of delays in multichannel Dattorro delay config must match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelControllableFullWaveRectifierOptions& rectifier_config) {
-                if (rectifier_config.channels.size() != config.fdn_size)
-                {
-                    std::cerr
-                        << "Number of channels in multichannel full-wave rectifier config must match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelSignalDependentFractionalDelayOptions& sdfd_config) {
-                if (sdfd_config.channels.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of channels in multichannel signal-dependent fractional delay config must "
-                                 "match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelRingModulatorOptions& ring_mod_config) {
-                if (ring_mod_config.channels.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of channels in multichannel ring modulator config must match FDN size\n";
+                    std::cerr << "Number of channels in multichannel processor config must match FDN size\n";
                     return false;
                 }
                 return true;
@@ -312,7 +166,7 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 const sfFDN::feedback_matrix_variant_t matrix_variant = matrix_config;
                 return ValidateMatrix(matrix_variant, config);
             },
-            [](const auto&) { return true; }},
+            [](const auto&) { return true; },},
         processor_options);
 }
 
@@ -392,86 +246,6 @@ bool ValidateConfig(const sfFDN::FDNConfig& config)
     return true;
 }
 
-struct SingleChannelProcessorVisitor
-{
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::SchroederAllpassSectionOptions& config) const
-    {
-        return std::make_unique<sfFDN::SchroederAllpassSection>(config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::TimeVaryingSchroederAllpassSectionOptions& config) const
-    {
-        try
-        {
-            return std::make_unique<sfFDN::TimeVaryingSchroederAllpassSection>(config);
-        }
-        catch (const std::invalid_argument& error)
-        {
-            throw std::runtime_error(std::string("Invalid time-varying Schroeder allpass configuration: ") +
-                                     error.what());
-        }
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::AllpassFilterOptions& config) const
-    {
-        auto filter = std::make_unique<sfFDN::AllpassFilter>();
-        filter->SetCoefficients(config.coeff);
-        return filter;
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::CascadedBiquadsOptions& config) const
-    {
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-        filter->SetCoefficients(config.coeffs);
-        return filter;
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::FirOptions& config) const
-    {
-        auto filter = sfFDN::MakeFirFilter(config);
-        return filter;
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayOptions& config) const
-    {
-        if (config.lfo_config.has_value())
-        {
-            return std::make_unique<sfFDN::DelayTimeVarying>(config);
-        }
-
-        return std::make_unique<sfFDN::DelayInterp>(config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::GraphicEQOptions& config) const
-    {
-        auto sos = sfFDN::DesignGraphicEQ(config);
-        auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-        filter->SetCoefficients(sos);
-        return filter;
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DattorroDelayOptions& config) const
-    {
-        return std::make_unique<sfFDN::DattorroDelay>(config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ControllableFullWaveRectifierOptions& config) const
-    {
-        return std::make_unique<sfFDN::ControllableFullWaveRectifier>(config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::SignalDependentFractionalDelayOptions& config) const
-    {
-        return std::make_unique<sfFDN::SignalDependentFractionalDelay>(config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::RingModulatorOptions& config) const
-    {
-        return std::make_unique<sfFDN::RingModulator>(config);
-    }
-};
-
 struct MultichannelProcessorVisitor
 {
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsOptions& gains_config) const
@@ -479,48 +253,9 @@ struct MultichannelProcessorVisitor
         return MakeParallelGainsFromConfig(gains_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelSchroederAllpassSectionOptions& schroeder_config) const
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelProcessorOptions& config) const
     {
-        return sfFDN::MakeMultichannelSchroederAllpassSection(schroeder_config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions& schroeder_config) const
-    {
-        try
-        {
-            return sfFDN::MakeMultichannelTimeVaryingSchroederAllpassSection(schroeder_config);
-        }
-        catch (const std::invalid_argument& error)
-        {
-            throw std::runtime_error(
-                std::string("Invalid multichannel time-varying Schroeder allpass configuration: ") + error.what());
-        }
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelDattorroDelayOptions& dattorro_config) const
-    {
-        return sfFDN::MakeMultichannelDattorroDelay(dattorro_config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelControllableFullWaveRectifierOptions& rectifier_config) const
-    {
-        return sfFDN::MakeMultichannelControllableFullWaveRectifier(rectifier_config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelSignalDependentFractionalDelayOptions& sdfd_config) const
-    {
-        return sfFDN::MakeMultichannelSignalDependentFractionalDelay(sdfd_config);
-    }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(
-        const sfFDN::MultichannelRingModulatorOptions& ring_mod_config) const
-    {
-        return sfFDN::MakeMultichannelRingModulator(ring_mod_config);
+        return std::make_unique<sfFDN::FilterBank>(config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
@@ -548,17 +283,6 @@ struct MultichannelProcessorVisitor
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
     }
-
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelFirOptions& fir_config) const
-    {
-        auto bank = std::make_unique<sfFDN::FilterBank>();
-        for (const auto& coeffs : fir_config.coeffs)
-        {
-            auto fir = sfFDN::MakeFirFilter(sfFDN::FirOptions{coeffs});
-            bank->AddFilter(std::move(fir));
-        }
-        return bank;
-    }
 };
 
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
@@ -576,7 +300,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
 
     for (const auto& processor_config : config.input_block_config.single_channel_processors)
     {
-        auto processor = std::visit(SingleChannelProcessorVisitor{}, processor_config);
+        auto processor = sfFDN::CreateSingleChannelProcessor(processor_config);
         chain_processor->AddProcessor(std::move(processor));
     }
 
@@ -612,7 +336,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
 
     for (const auto& processor_config : config.output_block_config.single_channel_processors)
     {
-        chain_processor->AddProcessor(std::visit(SingleChannelProcessorVisitor{}, processor_config));
+        chain_processor->AddProcessor(sfFDN::CreateSingleChannelProcessor(processor_config));
     }
 
     return chain_processor;
@@ -765,7 +489,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     {
         if (config.tone_correction_filters.size() == 1)
         {
-            auto processor = std::visit(SingleChannelProcessorVisitor{}, config.tone_correction_filters[0]);
+            auto processor = CreateSingleChannelProcessor(config.tone_correction_filters[0]);
             fdn->SetTCFilter(std::move(processor));
         }
         else
@@ -773,7 +497,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
             for (const auto& processor_config : config.tone_correction_filters)
             {
-                auto processor = std::visit(SingleChannelProcessorVisitor{}, processor_config);
+                auto processor = CreateSingleChannelProcessor(processor_config);
                 tc_filter_chain->AddProcessor(std::move(processor));
             }
             fdn->SetTCFilter(std::move(tc_filter_chain));
@@ -781,7 +505,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
         auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
         for (const auto& processor_config : config.tone_correction_filters)
         {
-            auto processor = std::visit(SingleChannelProcessorVisitor{}, processor_config);
+            auto processor = CreateSingleChannelProcessor(processor_config);
             tc_filter_chain->AddProcessor(std::move(processor));
         }
         fdn->SetTCFilter(std::move(tc_filter_chain));
@@ -807,11 +531,7 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
     nlohmann::json single_channel_processors_json = nlohmann::json::array();
     for (const auto& processor_config : p.input_block_config.single_channel_processors)
     {
-        std::visit(
-            [&](const auto& config) {
-                single_channel_processors_json.push_back({{VariantTypeName<std::decay_t<decltype(config)>>(), config}});
-            },
-            processor_config);
+        single_channel_processors_json.push_back(ToJson(processor_config));
     }
     input_block_json["single_channel_processors"] = single_channel_processors_json;
     input_block_json["parallel_gains_config"] = p.input_block_config.parallel_gains_config;

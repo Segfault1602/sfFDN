@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <string_view>
 #include <vector>
 
+#include "json_helper.h"
 #include "rng.h"
 #include "sffdn/sffdn.h"
 #include "test_utils.h"
@@ -83,6 +85,26 @@ void RequireEqual(const sfFDN::TimeVaryingSchroederAllpassSectionOptions& actual
     }
 }
 
+std::vector<float> RenderFDN(sfFDN::FDN& fdn)
+{
+    constexpr uint32_t kBlockSize = 16U;
+    constexpr uint32_t kBlockCount = 16U;
+    std::vector<float> input(kBlockSize * kBlockCount, 0.F);
+    std::vector<float> output(input.size(), 0.F);
+    input[0] = 1.F;
+
+    for (uint32_t block = 0; block < kBlockCount; ++block)
+    {
+        const auto offset = block * kBlockSize;
+        sfFDN::AudioBuffer input_buffer(kBlockSize, 1U, std::span(input).subspan(offset, kBlockSize));
+        sfFDN::AudioBuffer output_buffer(kBlockSize, 1U, std::span(output).subspan(offset, kBlockSize));
+        std::fill(output.begin() + offset, output.begin() + offset + kBlockSize, 0.F);
+        fdn.Process(input_buffer, output_buffer);
+    }
+
+    return output;
+}
+
 } // namespace
 
 TEST_CASE("FDNConfig round-trips all configured processor options", "[serialization]")
@@ -130,11 +152,11 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
 
     config.output_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Merge, {0.7f, 0.6f, 0.5f, 0.4f}, {}};
 
-    sfFDN::MultichannelDattorroDelayOptions dattorro_bank_config;
-    dattorro_bank_config.delays.resize(4);
-    for (size_t i = 0; i < dattorro_bank_config.delays.size(); ++i)
+    sfFDN::MultichannelProcessorOptions dattorro_bank_config;
+    dattorro_bank_config.channels.resize(4);
+    for (size_t i = 0; i < dattorro_bank_config.channels.size(); ++i)
     {
-        auto& channel = dattorro_bank_config.delays[i];
+        sfFDN::DattorroDelayOptions channel;
         channel.blend = 0.5f + (0.01f * static_cast<float>(i));
         channel.feedforward = 1.f;
         channel.feedback = 0.25f;
@@ -142,7 +164,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
         channel.delay_config.max_delay = 256;
         channel.delay_config.interp_type = sfFDN::DelayInterpolationType::Allpass;
         // Leave the last channel unmodulated, so that the optional lfo_config is exercised both ways.
-        if (i + 1 < dattorro_bank_config.delays.size())
+        if (i + 1 < dattorro_bank_config.channels.size())
         {
             channel.delay_config.lfo_config = sfFDN::ModulationOptions{
                 .frequency = 0.0002f, .amplitude = 4.f, .initial_phase = 0.25f * static_cast<float>(i)};
@@ -151,6 +173,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
         {
             channel.delay_config.lfo_config = std::nullopt;
         }
+        dattorro_bank_config.channels[i] = channel;
     }
     config.input_block_config.multichannel_processors = {dattorro_bank_config};
 
@@ -163,8 +186,13 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
         sfFDN::SignalDependentFractionalDelayOptions{.d = 0.4f});
     config.input_block_config.single_channel_processors.emplace_back(
         sfFDN::RingModulatorOptions{.frequency = 0.002f, .amplitude = 1.4142f, .initial_phase = 0.375f});
+    config.input_block_config.single_channel_processors.emplace_back(sfFDN::GraphicEQOptions{
+        .gains_db = {},
+        .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+        .sample_rate = 48000.F,
+    });
 
-    sfFDN::MultichannelControllableFullWaveRectifierOptions rectifier_bank_config;
+    sfFDN::MultichannelProcessorOptions rectifier_bank_config;
     rectifier_bank_config.channels.resize(4);
     for (size_t i = 0; i + 1 < rectifier_bank_config.channels.size(); ++i)
     {
@@ -175,7 +203,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
                                                         .sample_rate = 48000.f};
     }
 
-    sfFDN::MultichannelSignalDependentFractionalDelayOptions sdfd_bank_config;
+    sfFDN::MultichannelProcessorOptions sdfd_bank_config;
     sdfd_bank_config.channels.resize(4);
     for (size_t i = 0; i + 1 < sdfd_bank_config.channels.size(); ++i)
     {
@@ -183,7 +211,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
             sfFDN::SignalDependentFractionalDelayOptions{.d = 0.2f * static_cast<float>(i + 1)};
     }
 
-    sfFDN::MultichannelRingModulatorOptions ring_mod_bank_config;
+    sfFDN::MultichannelProcessorOptions ring_mod_bank_config;
     ring_mod_bank_config.channels.resize(4);
     for (size_t i = 0; i + 1 < ring_mod_bank_config.channels.size(); ++i)
     {
@@ -203,8 +231,9 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     REQUIRE(nlohmann::json(deserialized_config) == j);
 
     const auto& single_channel_procs = deserialized_config.input_block_config.single_channel_processors;
-    REQUIRE(single_channel_procs.size() == 6);
+    REQUIRE(single_channel_procs.size() == 7);
     REQUIRE(std::holds_alternative<sfFDN::DattorroDelayOptions>(single_channel_procs[2]));
+    REQUIRE(std::holds_alternative<sfFDN::GraphicEQOptions>(single_channel_procs[6]));
 
     const auto& dattorro = std::get<sfFDN::DattorroDelayOptions>(single_channel_procs[2]);
     REQUIRE_THAT(dattorro.blend, Catch::Matchers::WithinAbs(0.7071f, 1e-5f));
@@ -218,13 +247,13 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
 
     const auto& multichannel_procs = deserialized_config.input_block_config.multichannel_processors;
     REQUIRE(multichannel_procs.size() == 1);
-    REQUIRE(std::holds_alternative<sfFDN::MultichannelDattorroDelayOptions>(multichannel_procs[0]));
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelProcessorOptions>(multichannel_procs[0]));
 
-    const auto& dattorro_bank = std::get<sfFDN::MultichannelDattorroDelayOptions>(multichannel_procs[0]);
-    REQUIRE(dattorro_bank.delays.size() == 4);
-    for (size_t i = 0; i < dattorro_bank.delays.size(); ++i)
+    const auto& dattorro_bank = std::get<sfFDN::MultichannelProcessorOptions>(multichannel_procs[0]);
+    REQUIRE(dattorro_bank.channels.size() == 4);
+    for (size_t i = 0; i < dattorro_bank.channels.size(); ++i)
     {
-        const auto& channel = dattorro_bank.delays[i];
+        const auto& channel = std::get<sfFDN::DattorroDelayOptions>(dattorro_bank.channels[i].value());
         REQUIRE_THAT(channel.blend, Catch::Matchers::WithinAbs(0.5f + (0.01f * static_cast<float>(i)), 1e-5f));
         REQUIRE_THAT(channel.feedforward, Catch::Matchers::WithinAbs(1.f, 1e-5f));
         REQUIRE_THAT(channel.feedback, Catch::Matchers::WithinAbs(0.25f, 1e-5f));
@@ -232,7 +261,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
                      Catch::Matchers::WithinAbs(64.f + (8.f * static_cast<float>(i)), 1e-5f));
         REQUIRE(channel.delay_config.interp_type == sfFDN::DelayInterpolationType::Allpass);
 
-        if (i + 1 < dattorro_bank.delays.size())
+        if (i + 1 < dattorro_bank.channels.size())
         {
             REQUIRE(channel.delay_config.lfo_config.has_value());
             REQUIRE_THAT(channel.delay_config.lfo_config->frequency, Catch::Matchers::WithinAbs(0.0002f, 1e-8f));
@@ -268,40 +297,40 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     const auto& loop_filters = deserialized_config.loop_filter_configs;
     REQUIRE(loop_filters.size() == 3);
 
-    REQUIRE(std::holds_alternative<sfFDN::MultichannelControllableFullWaveRectifierOptions>(loop_filters[0]));
-    const auto& rectifier_bank = std::get<sfFDN::MultichannelControllableFullWaveRectifierOptions>(loop_filters[0]);
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelProcessorOptions>(loop_filters[0]));
+    const auto& rectifier_bank = std::get<sfFDN::MultichannelProcessorOptions>(loop_filters[0]);
     REQUIRE(rectifier_bank.channels.size() == 4);
     REQUIRE_FALSE(rectifier_bank.channels[3].has_value());
     for (size_t i = 0; i + 1 < rectifier_bank.channels.size(); ++i)
     {
         REQUIRE(rectifier_bank.channels[i].has_value());
-        REQUIRE_THAT(rectifier_bank.channels[i]->alpha,
-                     Catch::Matchers::WithinAbs(0.1f * static_cast<float>(i + 1), 1e-6f));
-        REQUIRE(rectifier_bank.channels[i]->antialiasing == ((i % 2) == 0));
-        REQUIRE(rectifier_bank.channels[i]->dc_block == ((i % 2) == 1));
+        const auto& channel = std::get<sfFDN::ControllableFullWaveRectifierOptions>(rectifier_bank.channels[i].value());
+        REQUIRE_THAT(channel.alpha, Catch::Matchers::WithinAbs(0.1f * static_cast<float>(i + 1), 1e-6f));
+        REQUIRE(channel.antialiasing == ((i % 2) == 0));
+        REQUIRE(channel.dc_block == ((i % 2) == 1));
     }
 
-    REQUIRE(std::holds_alternative<sfFDN::MultichannelSignalDependentFractionalDelayOptions>(loop_filters[1]));
-    const auto& sdfd_bank = std::get<sfFDN::MultichannelSignalDependentFractionalDelayOptions>(loop_filters[1]);
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelProcessorOptions>(loop_filters[1]));
+    const auto& sdfd_bank = std::get<sfFDN::MultichannelProcessorOptions>(loop_filters[1]);
     REQUIRE(sdfd_bank.channels.size() == 4);
     REQUIRE_FALSE(sdfd_bank.channels[3].has_value());
     for (size_t i = 0; i + 1 < sdfd_bank.channels.size(); ++i)
     {
         REQUIRE(sdfd_bank.channels[i].has_value());
-        REQUIRE_THAT(sdfd_bank.channels[i]->d, Catch::Matchers::WithinAbs(0.2f * static_cast<float>(i + 1), 1e-6f));
+        REQUIRE_THAT(std::get<sfFDN::SignalDependentFractionalDelayOptions>(sdfd_bank.channels[i].value()).d,
+                     Catch::Matchers::WithinAbs(0.2f * static_cast<float>(i + 1), 1e-6f));
     }
 
-    REQUIRE(std::holds_alternative<sfFDN::MultichannelRingModulatorOptions>(loop_filters[2]));
-    const auto& ring_mod_bank = std::get<sfFDN::MultichannelRingModulatorOptions>(loop_filters[2]);
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelProcessorOptions>(loop_filters[2]));
+    const auto& ring_mod_bank = std::get<sfFDN::MultichannelProcessorOptions>(loop_filters[2]);
     REQUIRE(ring_mod_bank.channels.size() == 4);
     REQUIRE_FALSE(ring_mod_bank.channels[3].has_value());
     for (size_t i = 0; i + 1 < ring_mod_bank.channels.size(); ++i)
     {
         REQUIRE(ring_mod_bank.channels[i].has_value());
-        REQUIRE_THAT(ring_mod_bank.channels[i]->frequency,
-                     Catch::Matchers::WithinAbs(0.001f * static_cast<float>(i + 1), 1e-9f));
-        REQUIRE_THAT(ring_mod_bank.channels[i]->initial_phase,
-                     Catch::Matchers::WithinAbs(0.25f * static_cast<float>(i), 1e-6f));
+        const auto& channel = std::get<sfFDN::RingModulatorOptions>(ring_mod_bank.channels[i].value());
+        REQUIRE_THAT(channel.frequency, Catch::Matchers::WithinAbs(0.001f * static_cast<float>(i + 1), 1e-9f));
+        REQUIRE_THAT(channel.initial_phase, Catch::Matchers::WithinAbs(0.25f * static_cast<float>(i), 1e-6f));
     }
 
     // The configuration must also survive being turned into an actual FDN.
@@ -409,7 +438,7 @@ TEST_CASE("FDNConfig rejects invalid processor graphs during construction", "[se
     REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_parallel_mode));
 
     auto invalid_channel_count = MakeTimeVaryingFDNConfig();
-    invalid_channel_count.loop_filter_configs.emplace_back(sfFDN::MultichannelRingModulatorOptions{
+    invalid_channel_count.loop_filter_configs.emplace_back(sfFDN::MultichannelProcessorOptions{
         .channels = {sfFDN::RingModulatorOptions{.frequency = 0.001F, .amplitude = 1.F, .initial_phase = 0.F}}});
     REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_channel_count));
 
@@ -417,6 +446,243 @@ TEST_CASE("FDNConfig rejects invalid processor graphs during construction", "[se
     invalid_custom_matrix.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
         .matrix_size = 4U, .type = sfFDN::ScalarMatrixType::Random, .custom_matrix = std::vector<float>{1.F, 0.F, 0.F}};
     REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_custom_matrix));
+}
+
+TEST_CASE("FDNConfig accepts generic banks in every multichannel placement", "[serialization]")
+{
+    for (const bool transposed : {false, true})
+    {
+        const sfFDN::MultichannelProcessorOptions bank{
+            .channels = {sfFDN::FirOptions{.coeffs = {0.5F, 0.25F, -0.125F}},
+                         sfFDN::AllpassFilterOptions{.coeff = -0.4F},
+                         sfFDN::DelayOptions{.delay = 3.F, .max_delay = 8U},
+                         sfFDN::SignalDependentFractionalDelayOptions{.d = 0.5F}},
+        };
+        for (const char* placement : {"input", "loop", "output"})
+        {
+            auto config = MakeTimeVaryingFDNConfig();
+            config.transposed = transposed;
+            if (std::string_view(placement) == "input")
+            {
+                config.input_block_config.multichannel_processors.emplace_back(bank);
+            }
+            else if (std::string_view(placement) == "loop")
+            {
+                config.loop_filter_configs.emplace_back(bank);
+            }
+            else
+            {
+                config.output_block_config.multichannel_processors.emplace_back(bank);
+            }
+
+            const auto rendered = RenderFDN(*sfFDN::CreateFDNFromConfig(config));
+            auto no_bank = MakeTimeVaryingFDNConfig();
+            no_bank.transposed = transposed;
+            const auto baseline = RenderFDN(*sfFDN::CreateFDNFromConfig(no_bank));
+            REQUIRE(rendered != baseline);
+
+            auto invalid = config;
+            if (std::string_view(placement) == "input")
+            {
+                std::get<sfFDN::MultichannelProcessorOptions>(invalid.input_block_config.multichannel_processors[0])
+                    .channels.pop_back();
+            }
+            else if (std::string_view(placement) == "loop")
+            {
+                std::get<sfFDN::MultichannelProcessorOptions>(invalid.loop_filter_configs[0])
+                    .channels.emplace_back(sfFDN::FirOptions{.coeffs = {1.F}});
+            }
+            else
+            {
+                std::get<sfFDN::MultichannelProcessorOptions>(invalid.output_block_config.multichannel_processors[0])
+                    .channels.clear();
+            }
+            REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(invalid), std::runtime_error);
+        }
+    }
+}
+
+TEST_CASE("MultichannelProcessorOptions JSON rejects legacy and malformed forms", "[serialization]")
+{
+    for (const char* legacy :
+         {"MultichannelSchroederAllpassSectionOptions", "MultichannelTimeVaryingSchroederAllpassSectionOptions",
+          "MultichannelDattorroDelayOptions", "MultichannelFirOptions",
+          "MultichannelControllableFullWaveRectifierOptions", "MultichannelSignalDependentFractionalDelayOptions",
+          "MultichannelRingModulatorOptions"})
+    {
+        const nlohmann::json old = {{legacy, nlohmann::json::object()}};
+        REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(old));
+    }
+
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(
+        {{"MultichannelProcessorOptions", {{"channels", nlohmann::json::object()}}}}));
+    REQUIRE_THROWS(nlohmann::json{
+        {"MultichannelProcessorOptions", {{"channels", nlohmann::json::array({nlohmann::json::object()})}}}}
+                       .at("MultichannelProcessorOptions")
+                       .get<sfFDN::MultichannelProcessorOptions>());
+    REQUIRE_THROWS(nlohmann::json{
+        {"MultichannelProcessorOptions", {{"channels", nlohmann::json::array({{{"UnknownOptions", {}}}})}}}}
+                       .at("MultichannelProcessorOptions")
+                       .get<sfFDN::MultichannelProcessorOptions>());
+    REQUIRE_THROWS(nlohmann::json{
+        {"MultichannelProcessorOptions",
+         {{"channels",
+           nlohmann::json::array({{{"FirOptions", {{"coeffs", {1.F}}}},
+                                   {"DelayOptions", {{"delay", 2.F}, {"max_delay", 4U}, {"interp_type", "None"}}}}})}}}}
+                       .at("MultichannelProcessorOptions")
+                       .get<sfFDN::MultichannelProcessorOptions>());
+}
+
+TEST_CASE("MultichannelProcessorOptions round-trips every single-channel option", "[serialization]")
+{
+    const sfFDN::MultichannelProcessorOptions options{
+        .channels =
+            {
+                sfFDN::SchroederAllpassSectionOptions{.delays = {2.F}, .gains = {0.25F}},
+                sfFDN::TimeVaryingSchroederAllpassSectionOptions{
+                    .delays = {3.F},
+                    .gains = {0.25F},
+                    .time_varying_config = {{.frequency = 0.01F, .amplitude = 0.1F, .initial_phase = 0.F}}},
+                sfFDN::AllpassFilterOptions{.coeff = 0.25F},
+                sfFDN::CascadedBiquadsOptions{.coeffs = {{1.F, 0.F, 0.F, 1.F, 0.F, 0.F}}},
+                sfFDN::FirOptions{.coeffs = {1.F}},
+                sfFDN::DelayOptions{.delay = 2.F, .max_delay = 4U},
+                sfFDN::DelayOptions{
+                    .delay = 3.F,
+                    .max_delay = 5U,
+                    .interp_type = sfFDN::DelayInterpolationType::Linear,
+                    .lfo_config =
+                        sfFDN::ModulationOptions{.frequency = 0.01F, .amplitude = 0.25F, .initial_phase = 0.F}},
+                sfFDN::GraphicEQOptions{
+                    .gains_db = {},
+                    .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+                    .sample_rate = 48000.F},
+                sfFDN::DattorroDelayOptions{.delay_config = {.delay = 4.F, .max_delay = 8U}},
+                sfFDN::ControllableFullWaveRectifierOptions{.alpha = 0.5F, .dc_block = false},
+                sfFDN::SignalDependentFractionalDelayOptions{.d = 0.5F},
+                sfFDN::RingModulatorOptions{.frequency = 0.01F, .amplitude = 1.F, .initial_phase = 0.F},
+                std::nullopt,
+            },
+    };
+
+    const nlohmann::json serialized = options;
+    const auto round_tripped = serialized.get<sfFDN::MultichannelProcessorOptions>();
+    REQUIRE(nlohmann::json(round_tripped) == serialized);
+    REQUIRE_FALSE(round_tripped.channels.back().has_value());
+
+    nlohmann::json reused = {{"stale_wrapper", {{"version", 1U}}}};
+    sfFDN::to_json(reused, options);
+    REQUIRE(reused == serialized);
+    REQUIRE_NOTHROW(reused.get<sfFDN::MultichannelProcessorOptions>());
+}
+
+TEST_CASE("JSON readers preserve established metadata tolerance outside generic banks", "[serialization]")
+{
+    const nlohmann::json single_channel = {
+        {"FirOptions", {{"coeffs", {0.5F, -0.25F}}}},
+        {"metadata", {{"source", "preset"}}},
+    };
+    const auto decoded_single = sfFDN::SingleChannelProcessorFromJson(single_channel);
+    REQUIRE(std::holds_alternative<sfFDN::FirOptions>(decoded_single));
+    REQUIRE(std::get<sfFDN::FirOptions>(decoded_single).coeffs == std::vector<float>{0.5F, -0.25F});
+
+    const nlohmann::json retained_multichannel = {
+        {"ParallelGainsConfig",
+         {{"mode", "Parallel"}, {"gains", {0.5F}}, {"time_varying_config", nlohmann::json::array()}}},
+        {"metadata", {{"source", "preset"}}},
+    };
+    const auto decoded_multichannel = sfFDN::MultichannelProcessorFromJson(retained_multichannel);
+    REQUIRE(std::holds_alternative<sfFDN::ParallelGainsOptions>(decoded_multichannel));
+    REQUIRE(std::get<sfFDN::ParallelGainsOptions>(decoded_multichannel).gains == std::vector<float>{0.5F});
+
+    const nlohmann::json generic_multichannel = {
+        {"MultichannelProcessorOptions", {{"channels", nlohmann::json::array()}}},
+        {"metadata", {{"source", "preset"}}},
+    };
+    REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(generic_multichannel));
+
+    const nlohmann::json generic_channels = {
+        {"channels", nlohmann::json::array()},
+        {"metadata", {{"source", "preset"}}},
+    };
+    REQUIRE_THROWS(generic_channels.get<sfFDN::MultichannelProcessorOptions>());
+}
+
+TEST_CASE("Multichannel processor alternatives use canonical JSON forms", "[serialization]")
+{
+    const nlohmann::json parallel_gains = {
+        {"ParallelGainsConfig",
+         {{"mode", "Parallel"},
+          {"gains", {0.25F, -0.5F}},
+          {"time_varying_config", {{{"frequency", 0.001F}, {"amplitude", 0.25F}, {"initial_phase", 0.5F}}}}}},
+    };
+    const nlohmann::json attenuation = {
+        {"AttenuationFilterBankOptions",
+         {{{"TwoBandFilterConfig", {{"t60s", {1.F, 0.5F}}, {"delay", 12.F}, {"sample_rate", 48000.F}}}}}},
+    };
+    const nlohmann::json delay_bank = {
+        {"DelayBankOptions", {{"delays", {3.F, 5.F}}, {"block_size", 16U}, {"interpolation_type", "Linear"}}},
+    };
+    const nlohmann::json time_varying_delay_bank = {
+        {"DelayBankTimeVaryingOptions",
+         {{"delays", {3.F, 5.F}},
+          {"max_delay", 8U},
+          {"interpolation_type", "Linear"},
+          {"time_varying_config",
+           {{{"frequency", 0.001F}, {"amplitude", 0.25F}, {"initial_phase", 0.5F}},
+            {{"frequency", 0.002F}, {"amplitude", -0.25F}, {"initial_phase", 0.25F}}}}}},
+    };
+    const nlohmann::json cascaded_matrix = {
+        {"CascadedFeedbackMatrixInfo",
+         {{"matrix_size", 4U},
+          {"stage_count", 2U},
+          {"sparsity", 3.F},
+          {"type", "Hadamard"},
+          {"gain_per_samples", 0.8F}}},
+    };
+    const nlohmann::json scalar_matrix = {
+        {"ScalarFeedbackMatrixOptions",
+         {{"matrix_size", 2U},
+          {"type", "VariableDiffusion"},
+          {"custom_matrix", {1.F, 0.F, 0.F, 1.F}},
+          {"rng_seed", 17U},
+          {"arg", 0.75F}}},
+    };
+
+    for (const auto& fixture :
+         {parallel_gains, attenuation, delay_bank, time_varying_delay_bank, cascaded_matrix, scalar_matrix})
+    {
+        REQUIRE(fixture.is_object());
+        REQUIRE(fixture.size() == 1U);
+        const auto decoded = sfFDN::MultichannelProcessorFromJson(fixture);
+        const nlohmann::json serialized = sfFDN::ToJson(decoded);
+        REQUIRE(serialized == fixture);
+    }
+
+    const auto parallel = sfFDN::MultichannelProcessorFromJson(parallel_gains);
+    REQUIRE(std::holds_alternative<sfFDN::ParallelGainsOptions>(parallel));
+    REQUIRE(std::get<sfFDN::ParallelGainsOptions>(parallel).gains == std::vector<float>{0.25F, -0.5F});
+
+    const auto attenuation_bank = sfFDN::MultichannelProcessorFromJson(attenuation);
+    REQUIRE(std::holds_alternative<sfFDN::AttenuationFilterBankOptions>(attenuation_bank));
+    REQUIRE(std::holds_alternative<sfFDN::TwoBandFilterOptions>(
+        std::get<sfFDN::AttenuationFilterBankOptions>(attenuation_bank).filter_configs[0]));
+
+    const auto delays = sfFDN::MultichannelProcessorFromJson(delay_bank);
+    REQUIRE(std::holds_alternative<sfFDN::DelayBankOptions>(delays));
+    REQUIRE(std::get<sfFDN::DelayBankOptions>(delays).interpolation_type == sfFDN::DelayInterpolationType::Linear);
+
+    const auto time_varying_delays = sfFDN::MultichannelProcessorFromJson(time_varying_delay_bank);
+    REQUIRE(std::holds_alternative<sfFDN::DelayBankTimeVaryingOptions>(time_varying_delays));
+    REQUIRE(std::get<sfFDN::DelayBankTimeVaryingOptions>(time_varying_delays).time_varying_config.size() == 2U);
+
+    const auto cascaded = sfFDN::MultichannelProcessorFromJson(cascaded_matrix);
+    REQUIRE(std::holds_alternative<sfFDN::CascadedFeedbackMatrixOptions>(cascaded));
+    REQUIRE(std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascaded).stage_count == 2U);
+
+    const auto scalar = sfFDN::MultichannelProcessorFromJson(scalar_matrix);
+    REQUIRE(std::holds_alternative<sfFDN::ScalarFeedbackMatrixOptions>(scalar));
+    REQUIRE(std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar).custom_matrix.has_value());
 }
 
 TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization]")
@@ -561,8 +827,7 @@ TEST_CASE("FDNConfig rejects invalid time-varying feedback matrix options before
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(sentinel_mode), std::runtime_error);
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSectionOptions round-trip with multichannel banks through JSON",
-          "[serialization]")
+TEST_CASE("MultichannelProcessorOptions round-trips time-varying allpass banks through JSON", "[serialization]")
 {
     const sfFDN::TimeVaryingSchroederAllpassSectionOptions section{
         .delays = {7.F, 13.F},
@@ -574,19 +839,22 @@ TEST_CASE("TimeVaryingSchroederAllpassSectionOptions round-trip with multichanne
             },
         .parallel = true,
     };
-    const sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions bank{
-        .sections = {section, section},
+    const sfFDN::MultichannelProcessorOptions bank{
+        .channels = {section, std::nullopt, section},
     };
 
     const nlohmann::json section_json = section;
     const nlohmann::json bank_json = bank;
     RequireEqual(section_json.get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(), section);
 
-    const auto round_tripped_bank = bank_json.get<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>();
-    REQUIRE(round_tripped_bank.sections.size() == bank.sections.size());
-    for (size_t index = 0; index < bank.sections.size(); ++index)
+    const auto round_tripped_bank = bank_json.get<sfFDN::MultichannelProcessorOptions>();
+    REQUIRE(round_tripped_bank.channels.size() == bank.channels.size());
+    REQUIRE_FALSE(round_tripped_bank.channels[1].has_value());
+    for (const size_t index : {0U, 2U})
     {
-        RequireEqual(round_tripped_bank.sections[index], bank.sections[index]);
+        RequireEqual(
+            std::get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(round_tripped_bank.channels[index].value()),
+            std::get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(bank.channels[index].value()));
     }
 }
 
@@ -600,10 +868,10 @@ TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses", "
     };
     config.input_block_config.single_channel_processors.emplace_back(input_section);
 
-    sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions loop_bank;
+    sfFDN::MultichannelProcessorOptions loop_bank;
     for (uint32_t channel = 0; channel < config.fdn_size; ++channel)
     {
-        loop_bank.sections.push_back({
+        loop_bank.channels.emplace_back(sfFDN::TimeVaryingSchroederAllpassSectionOptions{
             .delays = {7.F + static_cast<float>(channel)},
             .gains = {0.35F},
             .time_varying_config = {{.frequency = 0.0005F * static_cast<float>(channel + 1U),
@@ -617,13 +885,12 @@ TEST_CASE("FDNConfig serializes and creates time-varying Schroeder allpasses", "
     const nlohmann::json json = config;
     REQUIRE(json["input_block_config"]["single_channel_processors"][0].contains(
         "TimeVaryingSchroederAllpassSectionOptions"));
-    REQUIRE(json["loop_filter_configs"][0].contains("MultichannelTimeVaryingSchroederAllpassSectionOptions"));
+    REQUIRE(json["loop_filter_configs"][0].contains("MultichannelProcessorOptions"));
 
     const auto round_tripped = json.get<sfFDN::FDNConfig>();
     REQUIRE(std::holds_alternative<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(
         round_tripped.input_block_config.single_channel_processors[0]));
-    REQUIRE(std::holds_alternative<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>(
-        round_tripped.loop_filter_configs[0]));
+    REQUIRE(std::holds_alternative<sfFDN::MultichannelProcessorOptions>(round_tripped.loop_filter_configs[0]));
     REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(round_tripped));
 
     auto invalid = round_tripped;

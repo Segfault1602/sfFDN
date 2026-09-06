@@ -4,7 +4,6 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay_interp.h"
-#include "sffdn/filterbank.h"
 
 #include <algorithm>
 #include <array>
@@ -334,20 +333,10 @@ DattorroDelayOptions MakeDattorroDelayOptions(DattorroEffectType type, float sam
     return options;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelDattorroDelay(const MultichannelDattorroDelayOptions& options)
+MultichannelProcessorOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
+                                                                   uint32_t channel_count)
 {
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& delay_config : options.delays)
-    {
-        bank->AddFilter(std::make_unique<DattorroDelay>(delay_config));
-    }
-    return bank;
-}
-
-MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
-                                                                     uint32_t channel_count)
-{
-    MultichannelDattorroDelayOptions options;
+    MultichannelProcessorOptions options;
     if (channel_count == 0)
     {
         return options;
@@ -355,7 +344,7 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
 
     const DattorroDelayOptions base = MakeDattorroDelayOptions(type, sample_rate);
 
-    options.delays.reserve(channel_count);
+    options.channels.reserve(channel_count);
     for (auto channel = 0u; channel < channel_count; ++channel)
     {
         DattorroDelayOptions channel_options = base;
@@ -363,9 +352,9 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
         // Spread the channels symmetrically around the nominal preset, so that the average across the bank stays on
         // the values of the paper. A single channel gets a spread of exactly 0 and therefore reproduces
         // MakeDattorroDelayOptions() field for field.
-        const float spread =
-            (channel_count > 1) ? ((static_cast<float>(channel) / static_cast<float>(channel_count - 1)) - 0.5f) * 2.f
-                                : 0.f;
+        const float spread = (channel_count > 1)
+                                 ? ((static_cast<float>(channel) / static_cast<float>(channel_count - 1)) - 0.5f) * 2.f
+                                 : 0.f;
         const float scale = 1.f + (kChannelSpread * spread);
 
         const float delay = std::max(base.delay_config.delay * scale, sfFDN::DattorroDelay::kMinimumDelay);
@@ -378,10 +367,11 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
             // Staggering the initial phase is the primary decorrelator: the channels never reach the extremes of
             // their modulation at the same time.
             const float phase = static_cast<float>(channel) / static_cast<float>(channel_count);
-            const float width = std::clamp(base_lfo.amplitude * scale, 0.f, delay - sfFDN::DattorroDelay::kMinimumDelay);
+            const float width =
+                std::clamp(base_lfo.amplitude * scale, 0.f, delay - sfFDN::DattorroDelay::kMinimumDelay);
 
-            channel_options.delay_config.lfo_config = ModulationOptions{
-                .frequency = base_lfo.frequency * scale, .amplitude = width, .initial_phase = phase};
+            channel_options.delay_config.lfo_config =
+                ModulationOptions{.frequency = base_lfo.frequency * scale, .amplitude = width, .initial_phase = phase};
 
             // Allpass interpolation rather than the linear interpolation of the single-channel presets: a
             // multichannel bank is meant for the feedback loop, where the magnitude droop of linear interpolation
@@ -394,7 +384,7 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
             channel_options.delay_config.max_delay = RequiredMaximumDelay(delay, 0.f);
         }
 
-        options.delays.push_back(channel_options);
+        options.channels.emplace_back(channel_options);
     }
 
     return options;

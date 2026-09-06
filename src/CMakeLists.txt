@@ -50,6 +50,7 @@ target_sources(
             partitioned_convolver.cpp
             oscillator.cpp
             parallel_gains.cpp
+            processor_factory.cpp
             rng.cpp
             schroeder_allpass.cpp
             sparse_fir.cpp

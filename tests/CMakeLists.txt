@@ -55,6 +55,7 @@ target_sources(
             dattorro_delay_tests.cpp
             delay_tests.cpp
             filter_tests.cpp
+            filter_bank_tests.cpp
             mixmat_tests.cpp
             matrix_multiplication_tests.cpp
             nonlinear_tests.cpp

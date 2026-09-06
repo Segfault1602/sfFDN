@@ -5,7 +5,6 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay.h"
-#include "sffdn/filterbank.h"
 #include "sffdn/oscillator.h"
 #include "sffdn/types.h"
 
@@ -259,9 +258,6 @@ class SchroederAllpassSection : public AudioProcessor
     bool parallel_ = false;
 };
 
-std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
-    const MultichannelSchroederAllpassSectionOptions& options);
-
 /** @brief A single-channel section of energy-preserving time-varying Schroeder allpasses. */
 class TimeVaryingSchroederAllpassSection : public AudioProcessor
 {
@@ -287,9 +283,5 @@ class TimeVaryingSchroederAllpassSection : public AudioProcessor
     std::vector<TimeVaryingSchroederAllpass> allpasses_;
     bool parallel_{false};
 };
-
-/** @brief Builds a multichannel bank with one time-varying Schroeder allpass section per channel. */
-std::unique_ptr<FilterBank> MakeMultichannelTimeVaryingSchroederAllpassSection(
-    const MultichannelTimeVaryingSchroederAllpassSectionOptions& options);
 
 } // namespace sfFDN

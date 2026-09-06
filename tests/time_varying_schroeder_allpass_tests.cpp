@@ -316,13 +316,11 @@ TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, cl
     REQUIRE(cleared_output == fresh_output);
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSection multichannel bank keeps channels independent without allocation",
-          "[time_varying_allpass]")
+TEST_CASE("FilterBank keeps time-varying allpass channels independent without allocation", "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 64;
-    sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions options{
-        .sections = {SectionOptions(), SectionOptions(true), SectionOptions()}};
-    auto bank = sfFDN::MakeMultichannelTimeVaryingSchroederAllpassSection(options);
+    sfFDN::MultichannelProcessorOptions options{.channels = {SectionOptions(), SectionOptions(true), SectionOptions()}};
+    auto bank = std::make_unique<sfFDN::FilterBank>(options);
     std::vector<float> bank_input(3 * kSamples, 0.f);
     std::vector<float> bank_output(3 * kSamples, 0.f);
     bank_input[0] = 1.f;

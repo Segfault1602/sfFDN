@@ -42,7 +42,8 @@ struct FDNConfig
         //! Configuration for parallel gain processing applied to the input signal. Must always be in Split mode.
         ParallelGainsOptions parallel_gains_config{
             .mode = ParallelGainsMode::Split, .gains = {}, .time_varying_config = {}};
-        //! A vector of multi-channel processors to apply to the input signal after the parallel gains.
+        //! A vector of multi-channel processors to apply to the input signal after the parallel gains. A
+        //! MultichannelProcessorOptions bank has exactly fdn_size channels.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
     } input_block_config;
 
@@ -52,14 +53,14 @@ struct FDNConfig
     //! Attenuation filter bank block
     std::optional<AttenuationFilterBankOptions> attenuation_filter_bank_config;
 
-    //! Loop filter block
+    //! Loop filter block. A MultichannelProcessorOptions bank has exactly fdn_size channels.
     std::vector<multi_channel_processor_variant_t> loop_filter_configs;
 
     //! Output gain block
     struct
     {
         //! A vector of multi-channel processors to apply to the output signal before it gets mixed down to a single
-        //! channel.
+        //! channel. A MultichannelProcessorOptions bank has exactly fdn_size channels.
         std::vector<multi_channel_processor_variant_t> multichannel_processors;
         //! Configuration for parallel gain processing applied to the output signal. Must always be in Merge mode.
         ParallelGainsOptions parallel_gains_config{

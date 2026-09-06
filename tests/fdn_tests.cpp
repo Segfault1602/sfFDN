@@ -538,10 +538,10 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
             .time_varying_config = {},
         };
 
-        sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions bank;
+        sfFDN::MultichannelProcessorOptions bank;
         for (uint32_t channel = 0; channel < kFdnSize; ++channel)
         {
-            bank.sections.push_back({
+            bank.channels.emplace_back(sfFDN::TimeVaryingSchroederAllpassSectionOptions{
                 .delays = {5.F + (2.F * static_cast<float>(channel))},
                 .gains = {0.45F - (0.05F * static_cast<float>(channel))},
                 .time_varying_config = {{.frequency =
@@ -600,16 +600,16 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
     REQUIRE(rms(attenuated, kSampleCount - kWindowSize) < rms(attenuated, 20000));
 
     auto bad_config = make_config(false);
-    auto& bad_bank =
-        std::get<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>(bad_config.loop_filter_configs[0]);
-    bad_bank.sections.pop_back();
+    auto& bad_bank = std::get<sfFDN::MultichannelProcessorOptions>(bad_config.loop_filter_configs[0]);
+    bad_bank.channels.pop_back();
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 
     bad_config = make_config(false);
-    auto& invalid_bank =
-        std::get<sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions>(bad_config.loop_filter_configs[0]);
-    invalid_bank.sections[0].gains[0] = 0.8F;
-    invalid_bank.sections[0].time_varying_config[0].amplitude = 0.2F;
+    auto& invalid_bank = std::get<sfFDN::MultichannelProcessorOptions>(bad_config.loop_filter_configs[0]);
+    auto& invalid_section =
+        std::get<sfFDN::TimeVaryingSchroederAllpassSectionOptions>(invalid_bank.channels[0].value());
+    invalid_section.gains[0] = 0.8F;
+    invalid_section.time_varying_config[0].amplitude = 0.2F;
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 

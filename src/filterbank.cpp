@@ -1,6 +1,7 @@
 #include "sffdn/filterbank.h"
 
-#include "json_helper.h"
+#include "passthrough.h"
+#include "processor_factory.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -13,6 +14,16 @@
 namespace sfFDN
 {
 FilterBank::FilterBank() = default;
+
+FilterBank::FilterBank(const MultichannelProcessorOptions& options)
+{
+    filters_.reserve(options.channels.size());
+    for (const auto& channel : options.channels)
+    {
+        filters_.push_back(channel.has_value() ? CreateSingleChannelProcessor(channel.value())
+                                               : std::make_unique<PassThrough>());
+    }
+}
 
 void FilterBank::Clear()
 {

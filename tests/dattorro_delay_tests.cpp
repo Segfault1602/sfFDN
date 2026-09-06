@@ -742,22 +742,22 @@ TEST_CASE("DattorroDelay white chorus preserves a flat magnitude response", "[da
     REQUIRE(ripple_db < 1.f);
 }
 
-TEST_CASE("MultichannelDattorroDelay reports its channel count", "[dattorro]")
+TEST_CASE("FilterBank reports Dattorro channel count", "[dattorro]")
 {
-    sfFDN::MultichannelDattorroDelayOptions options;
-    REQUIRE(sfFDN::MakeMultichannelDattorroDelay(options)->InputChannelCount() == 0);
+    sfFDN::MultichannelProcessorOptions options;
+    REQUIRE(sfFDN::FilterBank(options).InputChannelCount() == 0);
 
     constexpr uint32_t kChannelCount = 6;
     options =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount);
-    REQUIRE(options.delays.size() == kChannelCount);
+    REQUIRE(options.channels.size() == kChannelCount);
 
-    auto bank = sfFDN::MakeMultichannelDattorroDelay(options);
+    auto bank = std::make_unique<sfFDN::FilterBank>(options);
     REQUIRE(bank->InputChannelCount() == kChannelCount);
     REQUIRE(bank->OutputChannelCount() == kChannelCount);
 }
 
-TEST_CASE("MultichannelDattorroDelay preserves per-channel independence", "[dattorro]")
+TEST_CASE("FilterBank preserves Dattorro per-channel independence", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 64;
@@ -766,14 +766,14 @@ TEST_CASE("MultichannelDattorroDelay preserves per-channel independence", "[datt
     const auto options =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount);
 
-    auto bank = sfFDN::MakeMultichannelDattorroDelay(options);
+    auto bank = std::make_unique<sfFDN::FilterBank>(options);
 
     // One standalone processor per channel, built from the same config, to compare against.
     std::vector<sfFDN::DattorroDelay> references;
     references.reserve(kChannelCount);
-    for (const auto& channel_options : options.delays)
+    for (const auto& channel_options : options.channels)
     {
-        references.emplace_back(channel_options);
+        references.emplace_back(std::get<sfFDN::DattorroDelayOptions>(channel_options.value()));
     }
 
     sfFDN::RNG rng;
@@ -812,11 +812,12 @@ TEST_CASE("MakeMultichannelDattorroDelayOptions decorrelates channels", "[dattor
     const auto base = sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate);
     const auto options =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, kChannelCount);
-    REQUIRE(options.delays.size() == kChannelCount);
+    REQUIRE(options.channels.size() == kChannelCount);
 
     std::vector<float> phases;
-    for (const auto& channel_options : options.delays)
+    for (const auto& channel : options.channels)
     {
+        const auto& channel_options = std::get<sfFDN::DattorroDelayOptions>(channel.value());
         // The gains are the values of the paper and are shared by every channel.
         REQUIRE_THAT(channel_options.blend, Catch::Matchers::WithinAbs(base.blend, 1e-6f));
         REQUIRE_THAT(channel_options.feedforward, Catch::Matchers::WithinAbs(base.feedforward, 1e-6f));
@@ -845,36 +846,39 @@ TEST_CASE("MakeMultichannelDattorroDelayOptions decorrelates channels", "[dattor
     REQUIRE(std::ranges::adjacent_find(phases) == phases.end());
 
     // The nominal delay and the LFO rate are spread across the bank rather than shared.
-    REQUIRE(options.delays.front().delay_config.delay < options.delays.back().delay_config.delay);
-    REQUIRE(options.delays.front().delay_config.lfo_config->frequency <
-            options.delays.back().delay_config.lfo_config->frequency);
+    const auto& first = std::get<sfFDN::DattorroDelayOptions>(options.channels.front().value());
+    const auto& last = std::get<sfFDN::DattorroDelayOptions>(options.channels.back().value());
+    REQUIRE(first.delay_config.delay < last.delay_config.delay);
+    REQUIRE(first.delay_config.lfo_config->frequency < last.delay_config.lfo_config->frequency);
 
     // A single channel reproduces the single-channel preset exactly, spread and all.
     const auto mono =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, kSampleRate, 1);
-    REQUIRE(mono.delays.size() == 1);
-    REQUIRE_THAT(mono.delays[0].delay_config.delay, Catch::Matchers::WithinAbs(base.delay_config.delay, 1e-6f));
-    REQUIRE_THAT(mono.delays[0].delay_config.lfo_config->amplitude,
+    REQUIRE(mono.channels.size() == 1);
+    const auto& mono_options = std::get<sfFDN::DattorroDelayOptions>(mono.channels[0].value());
+    REQUIRE_THAT(mono_options.delay_config.delay, Catch::Matchers::WithinAbs(base.delay_config.delay, 1e-6f));
+    REQUIRE_THAT(mono_options.delay_config.lfo_config->amplitude,
                  Catch::Matchers::WithinAbs(base.delay_config.lfo_config->amplitude, 1e-6f));
-    REQUIRE_THAT(mono.delays[0].delay_config.lfo_config->frequency,
+    REQUIRE_THAT(mono_options.delay_config.lfo_config->frequency,
                  Catch::Matchers::WithinAbs(base.delay_config.lfo_config->frequency, 1e-9f));
-    REQUIRE_THAT(mono.delays[0].delay_config.lfo_config->initial_phase, Catch::Matchers::WithinAbs(0.f, 1e-6f));
+    REQUIRE_THAT(mono_options.delay_config.lfo_config->initial_phase, Catch::Matchers::WithinAbs(0.f, 1e-6f));
 
     // Echo is not modulated, so it needs no interpolation.
     const auto echo = sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Echo, kSampleRate, 4);
-    for (const auto& channel_options : echo.delays)
+    for (const auto& channel : echo.channels)
     {
+        const auto& channel_options = std::get<sfFDN::DattorroDelayOptions>(channel.value());
         REQUIRE_FALSE(channel_options.delay_config.lfo_config.has_value());
         REQUIRE(channel_options.delay_config.interp_type == sfFDN::DelayInterpolationType::None);
     }
 }
 
-TEST_CASE("MultichannelDattorroDelay does not allocate", "[dattorro]")
+TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 8;
     constexpr uint32_t kBlockSize = 64;
 
-    auto bank = sfFDN::MakeMultichannelDattorroDelay(
+    auto bank = std::make_unique<sfFDN::FilterBank>(
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount));
 
     sfFDN::RNG rng;
@@ -898,12 +902,12 @@ TEST_CASE("MultichannelDattorroDelay does not allocate", "[dattorro]")
     }
 }
 
-TEST_CASE("MultichannelDattorroDelay preserves state when cloned and restores initial state when cleared", "[dattorro]")
+TEST_CASE("FilterBank preserves Dattorro state when cloned and cleared", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 32;
 
-    auto bank = sfFDN::MakeMultichannelDattorroDelay(
+    auto bank = std::make_unique<sfFDN::FilterBank>(
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount));
 
     sfFDN::RNG rng;
@@ -942,7 +946,7 @@ TEST_CASE("MultichannelDattorroDelay preserves state when cloned and restores in
     }
 
     bank->Clear();
-    auto fresh = sfFDN::MakeMultichannelDattorroDelay(
+    auto fresh = std::make_unique<sfFDN::FilterBank>(
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount));
     std::ranges::fill(original_output, 0.f);
     std::ranges::fill(clone_output, 0.f);

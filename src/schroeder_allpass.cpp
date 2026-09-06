@@ -399,18 +399,6 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
     return clone;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
-    const MultichannelSchroederAllpassSectionOptions& options)
-{
-    auto bank = std::make_unique<sfFDN::FilterBank>();
-    for (const auto& section_config : options.sections)
-    {
-        auto schroeder = std::make_unique<sfFDN::SchroederAllpassSection>(section_config);
-        bank->AddFilter(std::move(schroeder));
-    }
-    return bank;
-}
-
 TimeVaryingSchroederAllpassSection::TimeVaryingSchroederAllpassSection(
     const TimeVaryingSchroederAllpassSectionOptions& config)
     : parallel_(config.parallel)
@@ -500,17 +488,6 @@ void TimeVaryingSchroederAllpassSection::Clear()
 std::unique_ptr<AudioProcessor> TimeVaryingSchroederAllpassSection::Clone() const
 {
     return std::make_unique<TimeVaryingSchroederAllpassSection>(*this);
-}
-
-std::unique_ptr<FilterBank> MakeMultichannelTimeVaryingSchroederAllpassSection(
-    const MultichannelTimeVaryingSchroederAllpassSectionOptions& options)
-{
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& section_config : options.sections)
-    {
-        bank->AddFilter(std::make_unique<TimeVaryingSchroederAllpassSection>(section_config));
-    }
-    return bank;
 }
 
 // ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)
