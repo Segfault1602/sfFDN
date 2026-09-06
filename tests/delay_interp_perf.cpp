@@ -21,10 +21,10 @@ struct InterpolationInfo
 };
 
 constexpr std::array kInterpolationTypes = {
-    InterpolationInfo{sfFDN::DelayInterpolationType::None, "None"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Linear, "Linear"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Allpass, "Allpass"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Lagrange, "Lagrange"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::None, .name = "None"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Linear, .name = "Linear"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Allpass, .name = "Allpass"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Lagrange, .name = "Lagrange"},
 };
 } // namespace
 
@@ -38,7 +38,7 @@ TEST_CASE("DelayInterpPerf", "[delay]")
 
     for (const InterpolationInfo& interpolation : kInterpolationTypes)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             std::vector<float> input(block_size);
             std::vector<float> block_output(block_size);
@@ -54,8 +54,7 @@ TEST_CASE("DelayInterpPerf", "[delay]")
             sfFDN::DelayInterp tick_delay(options);
             const sfFDN::AudioBuffer input_buffer(input);
             sfFDN::AudioBuffer output_buffer(block_output);
-            const std::string suffix =
-                " " + std::string(interpolation.name) + " B=" + std::to_string(block_size);
+            const std::string suffix = " " + std::string(interpolation.name) + " B=" + std::to_string(block_size);
 
             sfFDN::test::perf::SetChannelSampleBatch(bench, block_size);
             bench.run("Process" + suffix, [&] {

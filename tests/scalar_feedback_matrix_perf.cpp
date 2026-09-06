@@ -26,15 +26,15 @@ struct MatrixTypeInfo
 };
 
 constexpr std::array kMatrixTypes = {
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Identity, "Identity"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Random, "Random"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Householder, "Householder"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::RandomHouseholder, "RandomHouseholder"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Hadamard, "Hadamard"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Circulant, "Circulant"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::Allpass, "Allpass"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::NestedAllpass, "NestedAllpass"},
-    MatrixTypeInfo{sfFDN::ScalarMatrixType::VariableDiffusion, "VariableDiffusion"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Identity, .name = "Identity"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Random, .name = "Random"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Householder, .name = "Householder"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::RandomHouseholder, .name = "RandomHouseholder"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Hadamard, .name = "Hadamard"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Circulant, .name = "Circulant"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::Allpass, .name = "Allpass"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::NestedAllpass, .name = "NestedAllpass"},
+    MatrixTypeInfo{.type = sfFDN::ScalarMatrixType::VariableDiffusion, .name = "VariableDiffusion"},
 };
 
 static_assert(kMatrixTypes.size() == std::to_underlying(sfFDN::ScalarMatrixType::Count));
@@ -80,7 +80,7 @@ TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
     bool first_benchmark = true;
     for (const MatrixTypeInfo& matrix_type : kMatrixTypes)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t order : std::array{4u, 8u, 16u, 32u, 64u})
             {
@@ -112,8 +112,7 @@ TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
     {
         for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
         {
-            const bool needs_iteration_floor =
-                matrix_type.type == sfFDN::ScalarMatrixType::Allpass && order == 32U;
+            const bool needs_iteration_floor = matrix_type.type == sfFDN::ScalarMatrixType::Allpass && order == 32U;
             bench.minEpochIterations(needs_iteration_floor ? 25'000U : 1U);
             std::vector<float> inout(static_cast<size_t>(order) * kBlockSize);
             sfFDN::test::perf::FillNoise(inout);
@@ -135,9 +134,9 @@ TEST_CASE("ScalarFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
     for (const MatrixTypeInfo& matrix_type : kMatrixTypes)
     {
         nanobench::Bench bench;
-        sfFDN::test::perf::ConfigureComplexityBench(
-            bench,
-            std::string("ScalarFeedbackMatrix ") + std::string(matrix_type.name) + " B=" + std::to_string(kBlockSize));
+        sfFDN::test::perf::ConfigureComplexityBench(bench, std::string("ScalarFeedbackMatrix ") +
+                                                               std::string(matrix_type.name) +
+                                                               " B=" + std::to_string(kBlockSize));
 
         for (const uint32_t order : std::array{4u, 8u, 16u, 32u, 64u})
         {

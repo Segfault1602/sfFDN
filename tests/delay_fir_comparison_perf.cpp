@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <random>
 #include <vector>
 
 using namespace ankerl;
@@ -21,13 +20,11 @@ TEST_CASE("DelayFirComparisonPerf", "[delay][.diagnostic]")
     constexpr uint32_t kMaxTap = 8192U;
     constexpr uint32_t kBlockSize = 128U;
 
-    std::mt19937 generator(0x9E3779B9U);
-    std::uniform_int_distribution<uint32_t> distribution(kMinTap, kMaxTap);
     std::vector<uint32_t> taps;
     taps.reserve(kTapCount);
     for (uint32_t tap = 0; tap < kTapCount; ++tap)
     {
-        taps.push_back(distribution(generator));
+        taps.push_back(kMinTap + ((tap * 509U) % (kMaxTap - kMinTap + 1U)));
     }
 
     std::vector<float> input(kBlockSize);

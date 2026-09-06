@@ -29,7 +29,7 @@ std::vector<uint32_t> MakeDelays(uint32_t order)
 void RunDelayMatrixBenchmark(uint32_t order, uint32_t block_size, nanobench::Bench& bench)
 {
     const std::vector<uint32_t> delays = MakeDelays(order);
-    sfFDN::ScalarFeedbackMatrix mixing_matrix({
+    const sfFDN::ScalarFeedbackMatrix mixing_matrix({
         .matrix_size = order,
         .type = sfFDN::ScalarMatrixType::Random,
         .rng_seed = 4242U,
@@ -54,7 +54,7 @@ TEST_CASE("DelayMatrixPerf", "[feedback_matrix]")
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DelayMatrix perf");
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
         {

@@ -26,8 +26,8 @@ struct ModeInfo
 };
 
 constexpr std::array kModes = {
-    ModeInfo{sfFDN::TimeVaryingMatrixMode::Hadamard, "Hadamard"},
-    ModeInfo{sfFDN::TimeVaryingMatrixMode::RealSchur, "RealSchur"},
+    ModeInfo{.mode = sfFDN::TimeVaryingMatrixMode::Hadamard, .name = "Hadamard"},
+    ModeInfo{.mode = sfFDN::TimeVaryingMatrixMode::RealSchur, .name = "RealSchur"},
 };
 
 static_assert(kModes.size() == std::to_underlying(sfFDN::TimeVaryingMatrixMode::Count));
@@ -79,7 +79,7 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
 
     for (const ModeInfo& mode : kModes)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
             {

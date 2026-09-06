@@ -21,24 +21,24 @@ struct PresetInfo
 };
 
 constexpr std::array kPresets = {
-    PresetInfo{sfFDN::DattorroEffectType::Vibrato, "Vibrato"},
-    PresetInfo{sfFDN::DattorroEffectType::Flanger, "Flanger"},
-    PresetInfo{sfFDN::DattorroEffectType::WhiteChorus, "WhiteChorus"},
-    PresetInfo{sfFDN::DattorroEffectType::Doubling, "Doubling"},
-    PresetInfo{sfFDN::DattorroEffectType::Echo, "Echo"},
+    PresetInfo{.type = sfFDN::DattorroEffectType::Vibrato, .name = "Vibrato"},
+    PresetInfo{.type = sfFDN::DattorroEffectType::Flanger, .name = "Flanger"},
+    PresetInfo{.type = sfFDN::DattorroEffectType::WhiteChorus, .name = "WhiteChorus"},
+    PresetInfo{.type = sfFDN::DattorroEffectType::Doubling, .name = "Doubling"},
+    PresetInfo{.type = sfFDN::DattorroEffectType::Echo, .name = "Echo"},
 };
 } // namespace
 
 TEST_CASE("DattorroDelayPerf", "[delay]")
 {
-    constexpr float kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
+    constexpr auto kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DattorroDelay perf");
 
     for (const PresetInfo& preset : kPresets)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             std::vector<float> input(block_size);
             std::vector<float> output(block_size);

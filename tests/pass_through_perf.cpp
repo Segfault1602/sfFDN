@@ -16,7 +16,7 @@ TEST_CASE("PassThroughPerf", "[processor_chain]")
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "PassThrough perf", std::chrono::milliseconds(20), 100'000);
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         std::vector<float> input(block_size);
         std::vector<float> output(block_size);

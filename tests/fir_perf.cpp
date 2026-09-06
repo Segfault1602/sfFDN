@@ -38,7 +38,7 @@ TEST_CASE("FirPerf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "Fir perf");
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         for (const uint32_t tap_count : kTapCounts)
         {

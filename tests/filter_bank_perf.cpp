@@ -44,7 +44,7 @@ TEST_CASE("FilterBankPerf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "FilterBank perf");
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
         {

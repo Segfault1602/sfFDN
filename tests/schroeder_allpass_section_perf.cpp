@@ -56,7 +56,7 @@ TEST_CASE("SchroederAllpassSectionPerf", "[filter]")
     for (const bool parallel : {false, true})
     {
         bench.minEpochTime(parallel ? std::chrono::milliseconds(10) : std::chrono::milliseconds(50));
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t stage_count : kStageCounts)
             {

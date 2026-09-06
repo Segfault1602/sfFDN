@@ -23,22 +23,22 @@ struct RectifierVariant
 };
 
 constexpr std::array kVariants = {
-    RectifierVariant{false, false, "plain"},
-    RectifierVariant{false, true, "plain + dc blocker"},
-    RectifierVariant{true, false, "antialiasing"},
-    RectifierVariant{true, true, "antialiasing + dc blocker"},
+    RectifierVariant{.antialiasing = false, .dc_block = false, .name = "plain"},
+    RectifierVariant{.antialiasing = false, .dc_block = true, .name = "plain + dc blocker"},
+    RectifierVariant{.antialiasing = true, .dc_block = false, .name = "antialiasing"},
+    RectifierVariant{.antialiasing = true, .dc_block = true, .name = "antialiasing + dc blocker"},
 };
 } // namespace
 
 TEST_CASE("ControllableFullWaveRectifierPerf", "[nonlinear]")
 {
-    constexpr float kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
+    constexpr auto kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 
     nanobench::Bench bench;
-    sfFDN::test::perf::ConfigureThroughputBench(
-        bench, "ControllableFullWaveRectifier perf", std::chrono::milliseconds(200), 2000);
+    sfFDN::test::perf::ConfigureThroughputBench(bench, "ControllableFullWaveRectifier perf",
+                                                std::chrono::milliseconds(200), 2000);
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         std::vector<float> input(block_size);
         std::vector<float> output(block_size);

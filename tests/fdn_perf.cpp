@@ -33,8 +33,8 @@ struct FamilyInfo
 };
 
 constexpr std::array kFamilies = {
-    FamilyInfo{FDNFamily::HouseholderElevenStage, "Householder 11-stage"},
-    FamilyInfo{FDNFamily::RandomTwoBand, "Random two-band"},
+    FamilyInfo{.family = FDNFamily::HouseholderElevenStage, .name = "Householder 11-stage"},
+    FamilyInfo{.family = FDNFamily::RandomTwoBand, .name = "Random two-band"},
 };
 
 std::vector<float> MakeDelays(uint32_t order, uint32_t block_size)
@@ -111,7 +111,7 @@ TEST_CASE("FDNPerf", "[fdn]")
 
     for (const FamilyInfo& family : kFamilies)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
             {
@@ -148,7 +148,7 @@ TEST_CASE("FDNPerf_FIR", "[fdn]")
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "FDN FIR-loop perf");
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         auto fdn = MakeFDN(FDNFamily::HouseholderElevenStage, block_size, kOrder);
         auto filter_bank = std::make_unique<sfFDN::FilterBank>();
@@ -184,7 +184,7 @@ TEST_CASE("FDNPerf_FFM", "[fdn]")
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "FDN FilterFeedbackMatrix perf");
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         auto fdn = MakeFDN(FDNFamily::HouseholderElevenStage, block_size, kOrder);
         REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::FilterFeedbackMatrix>(

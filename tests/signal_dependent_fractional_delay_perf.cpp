@@ -17,7 +17,7 @@ TEST_CASE("SignalDependentFractionalDelayPerf", "[nonlinear]")
     sfFDN::test::perf::ConfigureThroughputBench(
         bench, "SignalDependentFractionalDelay perf", std::chrono::milliseconds(200), 2000);
 
-    for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+    for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         std::vector<float> input(block_size);
         std::vector<float> output(block_size);

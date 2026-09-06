@@ -23,10 +23,10 @@ struct InterpolationInfo
 };
 
 constexpr std::array kInterpolationTypes = {
-    InterpolationInfo{sfFDN::DelayInterpolationType::None, "None"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Linear, "Linear"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Allpass, "Allpass"},
-    InterpolationInfo{sfFDN::DelayInterpolationType::Lagrange, "Lagrange"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::None, .name = "None"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Linear, .name = "Linear"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Allpass, .name = "Allpass"},
+    InterpolationInfo{.type = sfFDN::DelayInterpolationType::Lagrange, .name = "Lagrange"},
 };
 
 std::vector<float> MakeDelays(uint32_t channel_count, sfFDN::DelayInterpolationType interpolation)
@@ -71,7 +71,7 @@ TEST_CASE("DelayBankPerf", "[delay]")
     bool first_benchmark = true;
     for (const InterpolationInfo& interpolation : kInterpolationTypes)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
             {

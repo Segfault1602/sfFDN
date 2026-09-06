@@ -26,10 +26,26 @@ struct Configuration
 };
 
 constexpr std::array kConfigurations = {
-    Configuration{sfFDN::ScalarMatrixType::Hadamard, 1.F, "Hadamard structured"},
-    Configuration{sfFDN::ScalarMatrixType::Householder, 1.F, "Householder structured"},
-    Configuration{sfFDN::ScalarMatrixType::Random, 1.F, "Random dense"},
-    Configuration{sfFDN::ScalarMatrixType::Hadamard, 0.9999F, "Hadamard with decay"},
+    Configuration{
+        .type = sfFDN::ScalarMatrixType::Hadamard,
+        .gain_per_samples = 1.F,
+        .name = "Hadamard structured",
+    },
+    Configuration{
+        .type = sfFDN::ScalarMatrixType::Householder,
+        .gain_per_samples = 1.F,
+        .name = "Householder structured",
+    },
+    Configuration{
+        .type = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 1.F,
+        .name = "Random dense",
+    },
+    Configuration{
+        .type = sfFDN::ScalarMatrixType::Hadamard,
+        .gain_per_samples = 0.9999F,
+        .name = "Hadamard with decay",
+    },
 };
 
 uint64_t EstimateDelayStorage(uint32_t order, uint32_t stage_count, float sparsity)
@@ -89,7 +105,7 @@ TEST_CASE("FilterFeedbackMatrixPerf", "[feedback_matrix]")
 
     for (const Configuration& configuration : kConfigurations)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t order : sfFDN::test::perf::kChannelCounts)
             {
@@ -116,8 +132,8 @@ TEST_CASE("FilterFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
     for (const Configuration& configuration : kConfigurations)
     {
         nanobench::Bench bench;
-        sfFDN::test::perf::ConfigureComplexityBench(
-            bench, "FilterFeedbackMatrix " + std::string(configuration.name) + " N=" + std::to_string(kOrder));
+        sfFDN::test::perf::ConfigureComplexityBench(bench, "FilterFeedbackMatrix " + std::string(configuration.name) +
+                                                               " N=" + std::to_string(kOrder));
 
         for (const uint32_t stage_count : kStageCounts)
         {

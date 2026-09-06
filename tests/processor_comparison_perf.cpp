@@ -16,15 +16,16 @@ using namespace std::chrono_literals;
 TEST_CASE("AudioProcessorChainComparisonPerf", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
-    constexpr std::array<sfFDN::FilterCoefficients, 2> kCoefficients = {{
-        {.b0 = 0.75F, .b1 = -0.25F, .b2 = 0.1F, .a0 = 1.F, .a1 = -0.4F, .a2 = 0.2F},
-        {.b0 = 0.6F, .b1 = 0.15F, .b2 = -0.05F, .a0 = 1.F, .a1 = -0.3F, .a2 = 0.1F},
-    }};
+    constexpr std::array<sfFDN::FilterCoefficients, 2> kCoefficients = {
+        {
+            {.b0 = 0.75F, .b1 = -0.25F, .b2 = 0.1F, .a0 = 1.F, .a1 = -0.4F, .a2 = 0.2F},
+            {.b0 = 0.6F, .b1 = 0.15F, .b2 = -0.05F, .a0 = 1.F, .a1 = -0.3F, .a2 = 0.1F},
+        },
+    };
 
     auto chain = std::make_unique<sfFDN::AudioProcessorChain>(kBlockSize);
     REQUIRE(chain->AddProcessor(std::make_unique<sfFDN::OnePoleFilter>(0.7F, -0.3F)));
-    REQUIRE(chain->AddProcessor(std::make_unique<sfFDN::AllpassFilter>(
-        sfFDN::AllpassFilterOptions{.coeff = 0.5F})));
+    REQUIRE(chain->AddProcessor(std::make_unique<sfFDN::AllpassFilter>(sfFDN::AllpassFilterOptions{.coeff = 0.5F})));
     auto chain_cascade = std::make_unique<sfFDN::CascadedBiquads>();
     chain_cascade->SetCoefficients(kCoefficients);
     REQUIRE(chain->AddProcessor(std::move(chain_cascade)));

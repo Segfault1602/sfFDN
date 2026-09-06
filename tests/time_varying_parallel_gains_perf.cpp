@@ -23,9 +23,9 @@ struct ModeInfo
 };
 
 constexpr std::array kModes = {
-    ModeInfo{sfFDN::ParallelGainsMode::Split, "Split"},
-    ModeInfo{sfFDN::ParallelGainsMode::Merge, "Merge"},
-    ModeInfo{sfFDN::ParallelGainsMode::Parallel, "Parallel"},
+    ModeInfo{.mode = sfFDN::ParallelGainsMode::Split, .name = "Split"},
+    ModeInfo{.mode = sfFDN::ParallelGainsMode::Merge, .name = "Merge"},
+    ModeInfo{.mode = sfFDN::ParallelGainsMode::Parallel, .name = "Parallel"},
 };
 
 sfFDN::ParallelGainsOptions MakeOptions(const ModeInfo& mode, uint32_t channel_count)
@@ -78,7 +78,7 @@ TEST_CASE("TimeVaryingParallelGainsPerf", "[parallel_gains]")
 
     for (const ModeInfo& mode : kModes)
     {
-        for (const uint32_t block_size : sfFDN::test::perf::kBlockSizes)
+        for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
         {
             for (const uint32_t channel_count : sfFDN::test::perf::kChannelCounts)
             {
