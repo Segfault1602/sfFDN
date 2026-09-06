@@ -907,6 +907,84 @@ TEST_CASE("DelayBank non-native remainder blocks match per-sample delays", "[del
     }
 }
 
+TEST_CASE("DelayBank preserves interpolated output across unpadded ring wraps", "[delay]")
+{
+    constexpr uint32_t kChannelCount = 3;
+
+    struct DelayBankCase
+    {
+        uint32_t local_block_size;
+        sfFDN::DelayInterpolationType interpolation_type;
+        std::array<float, kChannelCount> delays;
+    };
+
+    constexpr std::array<DelayBankCase, 4> kCases = {{
+        {1U, sfFDN::DelayInterpolationType::None, {0.F, 2.F, 5.F}},
+        {3U, sfFDN::DelayInterpolationType::Linear, {1.25F, 3.5F, 6.75F}},
+        {8U, sfFDN::DelayInterpolationType::Allpass, {0.5F, 4.25F, 9.5F}},
+        {3U, sfFDN::DelayInterpolationType::Lagrange, {1.5F, 5.25F, 10.75F}},
+    }};
+    constexpr std::array<uint32_t, 5> kChunkSizes = {5U, 11U, 2U, 9U, 13U};
+
+    for (const auto& test_case : kCases)
+    {
+        CAPTURE(test_case.local_block_size, static_cast<int>(test_case.interpolation_type));
+        sfFDN::DelayBank bank({
+            .delays = std::vector<float>(test_case.delays.begin(), test_case.delays.end()),
+            .block_size = test_case.local_block_size,
+            .interpolation_type = test_case.interpolation_type,
+        });
+        std::array<sfFDN::DelayInterp, kChannelCount> references = {
+            sfFDN::DelayInterp({test_case.delays[0], 256U, test_case.interpolation_type}),
+            sfFDN::DelayInterp({test_case.delays[1], 256U, test_case.interpolation_type}),
+            sfFDN::DelayInterp({test_case.delays[2], 256U, test_case.interpolation_type}),
+        };
+        uint32_t sample_index = 0;
+
+        const auto process_chunks = [&] {
+            for (uint32_t repeat = 0; repeat < 12U; ++repeat)
+            {
+                for (const uint32_t chunk_size : kChunkSizes)
+                {
+                    std::vector<float> input(kChannelCount * chunk_size);
+                    std::vector<float> output(input.size());
+                    for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+                    {
+                        for (uint32_t sample = 0; sample < chunk_size; ++sample)
+                        {
+                            input[(channel * chunk_size) + sample] =
+                                static_cast<float>((sample_index * (channel + 3U)) % 19U) - 9.F;
+                            ++sample_index;
+                        }
+                    }
+
+                    sfFDN::AudioBuffer input_buffer(chunk_size, kChannelCount, input);
+                    sfFDN::AudioBuffer output_buffer(chunk_size, kChannelCount, output);
+                    bank.Process(input_buffer, output_buffer);
+
+                    for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+                    {
+                        for (uint32_t sample = 0; sample < chunk_size; ++sample)
+                        {
+                            const float expected = references[channel].Tick(input[(channel * chunk_size) + sample]);
+                            REQUIRE_THAT(output[(channel * chunk_size) + sample],
+                                         Catch::Matchers::WithinAbs(expected, 1e-6F));
+                        }
+                    }
+                }
+            }
+        };
+
+        process_chunks();
+        bank.Clear();
+        for (auto& reference : references)
+        {
+            reference.Clear();
+        }
+        process_chunks();
+    }
+}
+
 TEST_CASE("Delay and DelayBank do not allocate during wrapped steady state processing", "[delay]")
 {
     constexpr uint32_t kBlockSize = 7;

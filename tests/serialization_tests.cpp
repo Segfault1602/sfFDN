@@ -116,7 +116,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     config.block_size = 128;
     config.sample_rate = 48000;
     config.delay_bank_config = {
-        {4, 7, 13, 23},
+        {128, 131, 137, 149},
         128,
         sfFDN::DelayInterpolationType::None,
     };
@@ -334,7 +334,9 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     }
 
     // The configuration must also survive being turned into an actual FDN.
-    REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(deserialized_config));
+    std::unique_ptr<sfFDN::FDN> fdn;
+    REQUIRE_NOTHROW(fdn = sfFDN::CreateFDNFromConfig(deserialized_config));
+    REQUIRE(fdn->GetDelayBank().GetDelays() == deserialized_config.delay_bank_config.delays);
 }
 
 TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly", "[serialization]")

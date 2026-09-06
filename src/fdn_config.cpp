@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -34,7 +35,71 @@ bool ValidateDelayBank(const sfFDN::DelayBankOptions& option, const sfFDN::FDNCo
         return false;
     }
 
+    constexpr uint32_t kMaxCapacity = std::numeric_limits<uint32_t>::max();
+    if (option.block_size > kMaxCapacity / 2U)
+    {
+        std::cerr << "Delay bank block size is too large\n";
+        return false;
+    }
+
+    const uint32_t block_padding = option.block_size * 2U;
+    for (const float delay : option.delays)
+    {
+        if (!std::isfinite(delay) || delay < 0.f)
+        {
+            std::cerr << "Delay bank contains an unsupported delay\n";
+            return false;
+        }
+
+        // Matching float arithmetic but comparing in double keeps the integer limit exact.
+        const float buffer_capacity = delay + static_cast<float>(block_padding);
+        if (static_cast<double>(buffer_capacity) > static_cast<double>(kMaxCapacity))
+        {
+            std::cerr << "Delay bank contains an unsupported delay\n";
+            return false;
+        }
+    }
+
     return true;
+}
+
+bool ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& option, const sfFDN::FDNConfig& config)
+{
+    if (!ValidateDelayBank(option, config))
+    {
+        return false;
+    }
+
+    if (option.block_size == 0 || option.block_size < config.block_size)
+    {
+        std::cerr << "Primary delay bank block size must be at least the FDN block size\n";
+        return false;
+    }
+
+    for (const float delay : option.delays)
+    {
+        if (delay < static_cast<float>(config.block_size))
+        {
+            std::cerr << "Primary delay bank contains a delay smaller than the FDN block size\n";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ValidateAttenuationFilterBank(const sfFDN::AttenuationFilterBankOptions& option, uint32_t fdn_size,
+                                   bool allow_shared_config)
+{
+    const size_t count = option.filter_configs.size();
+    if (count == fdn_size || (allow_shared_config && count == 1U))
+    {
+        return true;
+    }
+
+    std::cerr << "Attenuation filter bank must have " << (allow_shared_config ? "one or FDN-size" : "FDN-size")
+              << " filter configurations\n";
+    return false;
 }
 
 bool ValidateDelayBank(const sfFDN::DelayBankTimeVaryingOptions& option, const sfFDN::FDNConfig& config)
@@ -152,6 +217,9 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
                 }
                 return true;
             },
+            [&config](const sfFDN::AttenuationFilterBankOptions& attenuation_config) {
+                return ValidateAttenuationFilterBank(attenuation_config, config.fdn_size, false);
+            },
             [&config](const sfFDN::DelayBankOptions& delay_bank_config) {
                 return ValidateDelayBank(delay_bank_config, config);
             },
@@ -168,6 +236,17 @@ bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_op
             },
             [](const auto&) { return true; },},
         processor_options);
+}
+
+bool ValidateLoopFilterConfig(const sfFDN::multi_channel_processor_variant_t& processor_options,
+                              const sfFDN::FDNConfig& config)
+{
+    if (const auto* attenuation_config = std::get_if<sfFDN::AttenuationFilterBankOptions>(&processor_options))
+    {
+        return ValidateAttenuationFilterBank(*attenuation_config, config.fdn_size, true);
+    }
+
+    return ValidateConfig(processor_options, config);
 }
 
 bool ValidateConfig(const sfFDN::FDNConfig& config)
@@ -190,7 +269,7 @@ bool ValidateConfig(const sfFDN::FDNConfig& config)
         return false;
     }
 
-    if (!ValidateDelayBank(config.delay_bank_config, config))
+    if (!ValidatePrimaryDelayBank(config.delay_bank_config, config))
     {
         return false;
     }
@@ -231,13 +310,13 @@ bool ValidateConfig(const sfFDN::FDNConfig& config)
     }
 
     if (config.attenuation_filter_bank_config.has_value() &&
-        !ValidateConfig(config.attenuation_filter_bank_config.value(), config))
+        !ValidateAttenuationFilterBank(*config.attenuation_filter_bank_config, config.fdn_size, true))
     {
         return false;
     }
 
     if (std::ranges::any_of(config.loop_filter_configs, [&config](const auto& processor_config) {
-            return !ValidateConfig(processor_config, config);
+            return !ValidateLoopFilterConfig(processor_config, config);
         }))
     {
         return false;
@@ -285,6 +364,15 @@ struct MultichannelProcessorVisitor
     }
 };
 
+void AddProcessorOrThrow(sfFDN::AudioProcessorChain& chain, std::unique_ptr<sfFDN::AudioProcessor> processor,
+                         const char* context)
+{
+    if (!chain.AddProcessor(std::move(processor)))
+    {
+        throw std::runtime_error(std::string("Failed to add ") + context + " to audio processor chain");
+    }
+}
+
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
 {
     std::unique_ptr<sfFDN::AudioProcessor> input_gains =
@@ -301,14 +389,14 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     for (const auto& processor_config : config.input_block_config.single_channel_processors)
     {
         auto processor = sfFDN::CreateSingleChannelProcessor(processor_config);
-        chain_processor->AddProcessor(std::move(processor));
+        AddProcessorOrThrow(*chain_processor, std::move(processor), "input single-channel processor");
     }
 
-    chain_processor->AddProcessor(std::move(input_gains));
+    AddProcessorOrThrow(*chain_processor, std::move(input_gains), "input gains");
     for (const auto& processor_config : config.input_block_config.multichannel_processors)
     {
         auto processor = std::visit(MultichannelProcessorVisitor{}, processor_config);
-        chain_processor->AddProcessor(std::move(processor));
+        AddProcessorOrThrow(*chain_processor, std::move(processor), "input multichannel processor");
     }
 
     return chain_processor;
@@ -329,14 +417,16 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
 
     for (const auto& processor_config : config.output_block_config.multichannel_processors)
     {
-        chain_processor->AddProcessor(std::visit(MultichannelProcessorVisitor{}, processor_config));
+        AddProcessorOrThrow(*chain_processor, std::visit(MultichannelProcessorVisitor{}, processor_config),
+                            "output multichannel processor");
     }
 
-    chain_processor->AddProcessor(std::move(output_gains));
+    AddProcessorOrThrow(*chain_processor, std::move(output_gains), "output gains");
 
     for (const auto& processor_config : config.output_block_config.single_channel_processors)
     {
-        chain_processor->AddProcessor(sfFDN::CreateSingleChannelProcessor(processor_config));
+        AddProcessorOrThrow(*chain_processor, sfFDN::CreateSingleChannelProcessor(processor_config),
+                            "output single-channel processor");
     }
 
     return chain_processor;
@@ -429,15 +519,24 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     fdn->SetDirectGain(config.direct_gain);
 
     // Delaybank
-    fdn->SetDelayBank(config.delay_bank_config);
+    if (!fdn->SetDelayBank(config.delay_bank_config))
+    {
+        throw std::runtime_error("Failed to set FDN delay bank");
+    }
 
     // Input gain Block
-    fdn->SetInputGains(CreateInputGainsFromConfig(config));
+    if (!fdn->SetInputGains(CreateInputGainsFromConfig(config)))
+    {
+        throw std::runtime_error("Failed to set FDN input gains");
+    }
 
     // Feedback matrix block
     try
     {
-        fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config));
+        if (!fdn->SetFeedbackMatrix(std::visit(FeedbackMatrixVisitor{}, config.feedback_matrix_config)))
+        {
+            throw std::runtime_error("Failed to set FDN feedback matrix");
+        }
     }
     catch (const std::exception& error)
     {
@@ -459,7 +558,10 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
         {
             auto updated_config = UpdateAttenuationFilterBank(config.loop_filter_configs[0], config);
             auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
-            fdn->SetLoopFilter(std::move(processor));
+            if (!fdn->SetLoopFilter(std::move(processor)))
+            {
+                throw std::runtime_error("Failed to set FDN loop filter");
+            }
         }
         else if (!config.loop_filter_configs.empty())
         {
@@ -467,21 +569,27 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
 
             if (attenuation_filter_bank != nullptr)
             {
-                loop_filter_chain->AddProcessor(std::move(attenuation_filter_bank));
+                AddProcessorOrThrow(*loop_filter_chain, std::move(attenuation_filter_bank), "attenuation filter bank");
             }
 
             for (const auto& processor_config : config.loop_filter_configs)
             {
                 auto updated_config = UpdateAttenuationFilterBank(processor_config, config);
                 auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
-                loop_filter_chain->AddProcessor(std::move(processor));
+                AddProcessorOrThrow(*loop_filter_chain, std::move(processor), "loop filter");
             }
-            fdn->SetLoopFilter(std::move(loop_filter_chain));
+            if (!fdn->SetLoopFilter(std::move(loop_filter_chain)))
+            {
+                throw std::runtime_error("Failed to set FDN loop filter");
+            }
         }
     }
     else
     {
-        fdn->SetLoopFilter(std::move(attenuation_filter_bank));
+        if (!fdn->SetLoopFilter(std::move(attenuation_filter_bank)))
+        {
+            throw std::runtime_error("Failed to set FDN loop filter");
+        }
     }
 
     // TC filters
@@ -490,7 +598,10 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
         if (config.tone_correction_filters.size() == 1)
         {
             auto processor = CreateSingleChannelProcessor(config.tone_correction_filters[0]);
-            fdn->SetTCFilter(std::move(processor));
+            if (!fdn->SetTCFilter(std::move(processor)))
+            {
+                throw std::runtime_error("Failed to set FDN tone correction filter");
+            }
         }
         else
         {
@@ -498,21 +609,20 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             for (const auto& processor_config : config.tone_correction_filters)
             {
                 auto processor = CreateSingleChannelProcessor(processor_config);
-                tc_filter_chain->AddProcessor(std::move(processor));
+                AddProcessorOrThrow(*tc_filter_chain, std::move(processor), "tone correction filter");
             }
-            fdn->SetTCFilter(std::move(tc_filter_chain));
+            if (!fdn->SetTCFilter(std::move(tc_filter_chain)))
+            {
+                throw std::runtime_error("Failed to set FDN tone correction filter");
+            }
         }
-        auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
-        for (const auto& processor_config : config.tone_correction_filters)
-        {
-            auto processor = CreateSingleChannelProcessor(processor_config);
-            tc_filter_chain->AddProcessor(std::move(processor));
-        }
-        fdn->SetTCFilter(std::move(tc_filter_chain));
     }
 
     // Output gain block
-    fdn->SetOutputGains(CreateOutputGainsFromConfig(config));
+    if (!fdn->SetOutputGains(CreateOutputGainsFromConfig(config)))
+    {
+        throw std::runtime_error("Failed to set FDN output gains");
+    }
 
     return fdn;
 }

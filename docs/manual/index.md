@@ -119,8 +119,9 @@ Another way to create the same FDN is to use the `CreateFDNFromConfig()` functio
 The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
 
 ```c++
-sfFDN::FDNConfig config;
+sfFDN::FDNConfig config{};
 config.fdn_size = 8;
+config.transposed = false;
 config.direct_gain = 1.f;
 config.block_size = 128;
 config.sample_rate = 48000;
@@ -160,6 +161,12 @@ config.output_block_config.parallel_gains_config = output_gains_options;
 
 auto fdn = sfFDN::CreateFDNFromConfig(config);
 ```
+
+The primary `delay_bank_config` must contain one finite delay per FDN channel. Each delay must be
+at least `config.block_size`, and its `block_size` must be nonzero and at least the FDN block size.
+For attenuation banks in the dedicated attenuation slot or loop-filter block, provide either one
+shared filter configuration or one configuration per FDN channel. Attenuation banks inserted in
+the input or output blocks require exactly one configuration per FDN channel.
 
 ## Build
 

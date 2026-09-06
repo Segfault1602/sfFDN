@@ -16,21 +16,21 @@ namespace sfFDN
 struct FDNConfig
 {
     //! Size of the FDN (number of channels)
-    uint32_t fdn_size;
+    uint32_t fdn_size{0};
 
     //! Whether to use transposed configuration
-    bool transposed;
+    bool transposed{false};
 
     //! Direct path gain
-    float direct_gain;
+    float direct_gain{0.f};
 
     //! Internal block size for processing audio. Ideally should match the block size of the system.
-    uint32_t block_size;
+    uint32_t block_size{kDefaultBlockSize};
 
     //! Sample rate for the FDN. This is used to configure time-based components like delays and filters.
-    float sample_rate;
+    float sample_rate{static_cast<float>(kDefaultSampleRate)};
 
-    //! Delay bank configuration
+    //! Delay bank configuration. Its block size must be nonzero and at least this configuration's block size.
     DelayBankOptions delay_bank_config;
 
     //! Input gain Block

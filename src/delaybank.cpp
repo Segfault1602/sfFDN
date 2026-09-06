@@ -19,12 +19,7 @@ DelayBank::DelayBank(const DelayBankOptions& config)
 {
     for (auto delay : config.delays)
     {
-        uint32_t max_delay = delay + block_size_ * 2;
-        if (max_delay % 64 != 0)
-        {
-            max_delay += 64 - (max_delay % 64);
-        }
-
+        const uint32_t max_delay = delay + block_size_ * 2;
         delays_.emplace_back(DelayOptions{.delay = delay, .max_delay = max_delay, .interp_type = interpolation_type_});
     }
 }
