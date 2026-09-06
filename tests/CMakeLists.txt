@@ -62,6 +62,7 @@ target_sources(
             fdn_tests.cpp
             filter_design_tests.cpp
             fft_tests.cpp
+            fdn_config_tests.cpp
             oscillator_tests.cpp
             upols_tests.cpp
             nupols_tests.cpp
@@ -88,6 +89,11 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
+
+add_library(sfFDN.public_config_api OBJECT public_config_api_compile.cpp)
+target_link_libraries(sfFDN.public_config_api PRIVATE sfFDN::sfFDN)
+set_target_properties(sfFDN.public_config_api PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+add_dependencies(sfFDN.tests sfFDN.public_config_api)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(

@@ -1,9 +1,12 @@
 #pragma once
 
+#include "sffdn/config_diagnostics.h"
 #include "sffdn/fdn.h"
 #include "sffdn/types.h"
 
 #include <cstdint>
+#include <expected>
+#include <memory>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -73,6 +76,13 @@ struct FDNConfig
     //! Tone correction filter block
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
 };
+
+/** @brief Validates FDN graph structure and dimensions without constructing processors.
+ *
+ * Structural success does not guarantee that processor preparation will succeed or that the resulting network is
+ * numerically stable.
+ */
+[[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNStructure(const FDNConfig& config);
 
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
 

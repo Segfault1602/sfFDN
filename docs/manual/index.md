@@ -172,6 +172,38 @@ For attenuation banks in the dedicated attenuation slot or loop-filter block, pr
 shared filter configuration or one configuration per FDN channel. Attenuation banks inserted in
 the input or output blocks require exactly one configuration per FDN channel.
 
+### Validating an FDN configuration
+
+`ValidateFDNStructure()` checks the FDN structure and established configuration guards without
+constructing processors, writing diagnostics, or changing the configuration. It reports all
+independent structural problems as paths and explanations:
+
+```c++
+const auto result = sfFDN::ValidateFDNStructure(config);
+if (!result) {
+    for (const auto& issue : result.error()) {
+        Log(issue.path + ": " + issue.message);
+    }
+}
+```
+
+`CreateFDNFromConfig()` performs the same structural precheck and throws
+`sfFDN::FDNConfigError`, derived from `std::runtime_error`, when it fails:
+
+```c++
+try {
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+} catch (const sfFDN::FDNConfigError& error) {
+    for (const auto& issue : error.Issues()) {
+        Log(issue.path + ": " + issue.message);
+    }
+}
+```
+
+This validation covers structure and the established configuration guards; it is not a complete
+check of every processor parameter or a certification that all numerical processing will succeed.
+Callers may log the report, but the validator itself does not.
+
 ## Build
 
 The library is built using CMake. **sfFDN** uses [CPM](https://github.com/cpm-cmake/CPM.cmake) to manage dependencies. CMake presets are provided for building with Ninja and LLVM.

@@ -33,7 +33,7 @@ target_sources(
             delay_utils.cpp
             feedback_matrix.cpp
             fdn.cpp
-            # fdn_config.cpp
+            config_validation.cpp
             fdn_config.cpp
             fir.cpp
             fft.cpp
@@ -77,8 +77,8 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_time_varying.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delaybank_time_varying.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/config_diagnostics.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn.h
-           # ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/fdn_config.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_design.h
@@ -107,7 +107,7 @@ target_link_libraries(
 
 target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
 
-target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_20)
+target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_23)
 
 sffdn_enable_lto(sfFDN.sfFDN)
 

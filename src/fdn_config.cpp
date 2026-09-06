@@ -1,7 +1,6 @@
 #include "sffdn/fdn_config.h"
 
 #include "json_helper.h"
-#include "math_utils.h"
 #include "processor_factory.h"
 
 #include "sffdn/delaybank.h"
@@ -13,12 +12,8 @@
 #include "sffdn/parallel_gains.h"
 #include "sffdn/time_varying_feedback_matrix.h"
 
-#include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <iostream>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -27,304 +22,6 @@
 
 namespace
 {
-bool ValidateDelayBank(const sfFDN::DelayBankOptions& option, const sfFDN::FDNConfig& config)
-{
-    if (option.delays.size() != config.fdn_size)
-    {
-        std::cerr << "Delay bank config must have the same number of delays as the FDN size\n";
-        return false;
-    }
-
-    constexpr uint32_t kMaxCapacity = std::numeric_limits<uint32_t>::max();
-    if (option.block_size > kMaxCapacity / 2U)
-    {
-        std::cerr << "Delay bank block size is too large\n";
-        return false;
-    }
-
-    const uint32_t block_padding = option.block_size * 2U;
-    for (const float delay : option.delays)
-    {
-        if (!std::isfinite(delay) || delay < 0.f)
-        {
-            std::cerr << "Delay bank contains an unsupported delay\n";
-            return false;
-        }
-
-        // Matching float arithmetic but comparing in double keeps the integer limit exact.
-        const float buffer_capacity = delay + static_cast<float>(block_padding);
-        if (static_cast<double>(buffer_capacity) > static_cast<double>(kMaxCapacity))
-        {
-            std::cerr << "Delay bank contains an unsupported delay\n";
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& option, const sfFDN::FDNConfig& config)
-{
-    if (!ValidateDelayBank(option, config))
-    {
-        return false;
-    }
-
-    if (option.block_size == 0 || option.block_size < config.block_size)
-    {
-        std::cerr << "Primary delay bank block size must be at least the FDN block size\n";
-        return false;
-    }
-
-    for (const float delay : option.delays)
-    {
-        if (delay < static_cast<float>(config.block_size))
-        {
-            std::cerr << "Primary delay bank contains a delay smaller than the FDN block size\n";
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool ValidateAttenuationFilterBank(const sfFDN::AttenuationFilterBankOptions& option, uint32_t fdn_size,
-                                   bool allow_shared_config)
-{
-    const size_t count = option.filter_configs.size();
-    if (count == fdn_size || (allow_shared_config && count == 1U))
-    {
-        return true;
-    }
-
-    std::cerr << "Attenuation filter bank must have " << (allow_shared_config ? "one or FDN-size" : "FDN-size")
-              << " filter configurations\n";
-    return false;
-}
-
-bool ValidateDelayBank(const sfFDN::DelayBankTimeVaryingOptions& option, const sfFDN::FDNConfig& config)
-{
-    if (option.delays.size() != config.fdn_size)
-    {
-        std::cerr << "Delay bank config must have the same number of delays as the FDN size\n";
-        return false;
-    }
-
-    return true;
-}
-
-bool ValidateMatrix(const sfFDN::feedback_matrix_variant_t& matrix_options, const sfFDN::FDNConfig& config)
-{
-    return std::visit(
-        sfFDN::overloaded{[&config](const sfFDN::CascadedFeedbackMatrixOptions& options) {
-                              if (options.matrix_size != config.fdn_size)
-                              {
-                                  std::cerr << "Cascaded feedback matrix size must match FDN size\n";
-                                  return false;
-                              }
-                              return true;
-                          },
-                          [&config](const sfFDN::ScalarFeedbackMatrixOptions& options) {
-                              if (options.matrix_size != config.fdn_size)
-                              {
-                                  std::cerr << "Scalar feedback matrix size must match FDN size\n";
-                                  return false;
-                              }
-
-                              if (options.custom_matrix.has_value() &&
-                                  options.custom_matrix->size() != config.fdn_size * config.fdn_size)
-                              {
-                                  std::cerr << "Custom feedback matrix size must be equal to FDN size squared\n";
-                                  return false;
-                              }
-
-                              if (!options.custom_matrix.has_value() &&
-                                  options.type == sfFDN::ScalarMatrixType::Hadamard &&
-                                  !sfFDN::Math::IsPowerOfTwo(config.fdn_size))
-                              {
-                                  std::cerr << "Hadamard feedback matrix requires FDN size to be a power of two\n";
-                                  return false;
-                              }
-
-                              return true;
-                          },
-                          [&config](const sfFDN::TimeVaryingFeedbackMatrixOptions& options) {
-                              if (options.matrix_size != config.fdn_size)
-                              {
-                                  std::cerr << "Time-varying feedback matrix size must match FDN size\n";
-                                  return false;
-                              }
-
-                              if (options.matrix_size < 2U || (options.matrix_size % 2U) != 0U ||
-                                  (options.mode != sfFDN::TimeVaryingMatrixMode::Hadamard &&
-                                   options.mode != sfFDN::TimeVaryingMatrixMode::RealSchur) ||
-                                  (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard &&
-                                   !sfFDN::Math::IsPowerOfTwo(options.matrix_size)))
-                              {
-                                  std::cerr << "Time-varying feedback matrix size must be even and, for Hadamard mode, "
-                                               "a power of two\n";
-                                  return false;
-                              }
-
-                              if (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard &&
-                                  !options.time_varying_config.empty() &&
-                                  options.time_varying_config.size() != options.matrix_size / 2U)
-                              {
-                                  std::cerr << "Hadamard time-varying feedback matrix requires one modulation option "
-                                               "per rotation block\n";
-                                  return false;
-                              }
-
-                              for (const auto& modulation : options.time_varying_config)
-                              {
-                                  if (!std::isfinite(modulation.frequency) ||
-                                      !(std::abs(modulation.amplitude) <= 1.0F) ||
-                                      !std::isfinite(modulation.initial_phase) || modulation.initial_phase < 0.0F ||
-                                      modulation.initial_phase > 1.0F)
-                                  {
-                                      std::cerr << "Time-varying feedback matrix modulation parameters are invalid\n";
-                                      return false;
-                                  }
-                              }
-
-                              return true;
-                          }},
-        matrix_options);
-}
-
-bool ValidateConfig(const sfFDN::multi_channel_processor_variant_t& processor_options, const sfFDN::FDNConfig& config)
-{
-    return std::visit(
-        sfFDN::overloaded{
-            [&config](const sfFDN::ParallelGainsOptions& gains_config) {
-                if (gains_config.mode != sfFDN::ParallelGainsMode::Parallel)
-                {
-                    std::cerr << "Parallel gains config in multi-channel processor block must be in Parallel mode\n";
-                    return false;
-                }
-                if (gains_config.gains.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of gains in parallel gains config must match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::MultichannelProcessorOptions& processor_config) {
-                if (processor_config.channels.size() != config.fdn_size)
-                {
-                    std::cerr << "Number of channels in multichannel processor config must match FDN size\n";
-                    return false;
-                }
-                return true;
-            },
-            [&config](const sfFDN::AttenuationFilterBankOptions& attenuation_config) {
-                return ValidateAttenuationFilterBank(attenuation_config, config.fdn_size, false);
-            },
-            [&config](const sfFDN::DelayBankOptions& delay_bank_config) {
-                return ValidateDelayBank(delay_bank_config, config);
-            },
-            [&config](const sfFDN::DelayBankTimeVaryingOptions& delay_bank_config) {
-                return ValidateDelayBank(delay_bank_config, config);
-            },
-            [&config](const sfFDN::CascadedFeedbackMatrixOptions& matrix_config) {
-                const sfFDN::feedback_matrix_variant_t matrix_variant = matrix_config;
-                return ValidateMatrix(matrix_variant, config);
-            },
-            [&config](const sfFDN::ScalarFeedbackMatrixOptions& matrix_config) {
-                const sfFDN::feedback_matrix_variant_t matrix_variant = matrix_config;
-                return ValidateMatrix(matrix_variant, config);
-            },
-            [](const auto&) { return true; },},
-        processor_options);
-}
-
-bool ValidateLoopFilterConfig(const sfFDN::multi_channel_processor_variant_t& processor_options,
-                              const sfFDN::FDNConfig& config)
-{
-    if (const auto* attenuation_config = std::get_if<sfFDN::AttenuationFilterBankOptions>(&processor_options))
-    {
-        return ValidateAttenuationFilterBank(*attenuation_config, config.fdn_size, true);
-    }
-
-    return ValidateConfig(processor_options, config);
-}
-
-bool ValidateConfig(const sfFDN::FDNConfig& config)
-{
-    if (config.fdn_size == 0)
-    {
-        std::cerr << "FDN size must be greater than 0\n";
-        return false;
-    }
-
-    if (config.block_size == 0)
-    {
-        std::cerr << "Block size must be greater than 0\n";
-        return false;
-    }
-
-    if (config.sample_rate <= 0.f)
-    {
-        std::cerr << "Sample rate must be greater than 0\n";
-        return false;
-    }
-
-    if (!ValidatePrimaryDelayBank(config.delay_bank_config, config))
-    {
-        return false;
-    }
-
-    const auto& input_gains_config = config.input_block_config.parallel_gains_config;
-    if (input_gains_config.mode != sfFDN::ParallelGainsMode::Split ||
-        input_gains_config.gains.size() != config.fdn_size)
-    {
-        std::cerr << "Number of gains in input parallel gains config must match FDN size and be in Split mode\n";
-        return false;
-    }
-
-    const auto& output_gains_config = config.output_block_config.parallel_gains_config;
-    if (output_gains_config.mode != sfFDN::ParallelGainsMode::Merge ||
-        output_gains_config.gains.size() != config.fdn_size)
-    {
-        std::cerr << "Number of gains in output parallel gains config must match FDN size and be in Merge mode\n";
-        return false;
-    }
-
-    if (!ValidateMatrix(config.feedback_matrix_config, config))
-    {
-        return false;
-    }
-
-    if (std::ranges::any_of(config.input_block_config.multichannel_processors, [&config](const auto& processor_config) {
-            return !ValidateConfig(processor_config, config);
-        }))
-    {
-        return false;
-    }
-
-    if (std::ranges::any_of(
-            config.output_block_config.multichannel_processors,
-            [&config](const auto& processor_config) { return !ValidateConfig(processor_config, config); }))
-    {
-        return false;
-    }
-
-    if (config.attenuation_filter_bank_config.has_value() &&
-        !ValidateAttenuationFilterBank(*config.attenuation_filter_bank_config, config.fdn_size, true))
-    {
-        return false;
-    }
-
-    if (std::ranges::any_of(config.loop_filter_configs, [&config](const auto& processor_config) {
-            return !ValidateLoopFilterConfig(processor_config, config);
-        }))
-    {
-        return false;
-    }
-
-    return true;
-}
-
 struct MultichannelProcessorVisitor
 {
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsOptions& gains_config) const
@@ -510,9 +207,10 @@ namespace sfFDN
 {
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
 {
-    if (!ValidateConfig(config))
+    auto validation = ValidateFDNStructure(config);
+    if (!validation.has_value())
     {
-        throw std::runtime_error("Invalid FDNConfig");
+        throw FDNConfigError(std::move(validation.error()));
     }
     auto fdn = std::make_unique<FDN>(config.fdn_size, config.block_size);
     fdn->SetTranspose(config.transposed);
