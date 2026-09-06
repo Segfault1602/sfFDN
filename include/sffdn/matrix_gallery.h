@@ -19,7 +19,7 @@ namespace sfFDN
 /** @brief Generates a square matrix of size mat_size x mat_size based on the specified type.
  * @param mat_size The size of the matrix (number of rows and columns).
  * @param type The type of matrix to generate.
- * @param seed Seed for random number generation (used for Random and RandomHouseholder types).
+ * @param seed Seed for every random gallery type; zero selects fresh randomness.
  * @param arg Optional argument for certain matrix types.
  * @return A flat vector in row-major order: `matrix[row * mat_size + column]` is \f$A_{row,column}\f$.
  * The matrix maps input/source columns to output/destination rows (\f$y = A x\f$).

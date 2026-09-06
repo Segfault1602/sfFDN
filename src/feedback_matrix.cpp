@@ -51,7 +51,7 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
     }
     else
     {
-        matrix_data_ = GenerateMatrix(config.matrix_size, config.type);
+        matrix_data_ = GenerateMatrix(config.matrix_size, config.type, config.rng_seed, config.arg);
     }
 }
 

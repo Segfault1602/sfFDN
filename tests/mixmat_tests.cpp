@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <numbers>
@@ -56,6 +57,34 @@ void RequireFiniteOrthogonal(std::span<const float> matrix, uint32_t order)
             REQUIRE_THAT(dot, Catch::Matchers::WithinAbs(row == other_row ? 1.f : 0.f, 1e-5f));
         }
     }
+}
+
+void RequireNear(std::span<const float> actual, std::span<const float> expected, float tolerance = 2e-5f)
+{
+    REQUIRE(actual.size() == expected.size());
+    for (const auto [actual_value, expected_value] : std::views::zip(actual, expected))
+    {
+        REQUIRE_THAT(actual_value, Catch::Matchers::WithinAbs(expected_value, tolerance));
+    }
+}
+
+std::vector<float> RenderCascade(sfFDN::FilterFeedbackMatrix& matrix, uint32_t block_size, uint32_t block_count)
+{
+    const uint32_t order = matrix.InputChannelCount();
+    std::vector<float> input(static_cast<size_t>(order) * block_size * block_count, 0.f);
+    std::vector<float> output(input.size(), 0.f);
+    input[0] = 1.f;
+
+    const size_t block_samples = static_cast<size_t>(order) * block_size;
+    for (uint32_t block = 0; block < block_count; ++block)
+    {
+        const auto offset = static_cast<size_t>(block) * block_samples;
+        sfFDN::AudioBuffer input_buffer(block_size, order, std::span(input).subspan(offset, block_samples));
+        sfFDN::AudioBuffer output_buffer(block_size, order, std::span(output).subspan(offset, block_samples));
+        matrix.Process(input_buffer, output_buffer);
+    }
+
+    return output;
 }
 } // namespace
 
@@ -405,6 +434,99 @@ TEST_CASE("GenerateMatrix creates an orthogonal Random matrix", "[feedback_matri
     {
         REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(reference, 1e-6f));
     }
+}
+
+TEST_CASE("ScalarFeedbackMatrix forwards nonzero seeds to generated matrices", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kBlockSize = 3U;
+    constexpr uint32_t kSeed = 0x1BADB002U;
+    constexpr std::array kTypes = {
+        sfFDN::ScalarMatrixType::Random,
+        sfFDN::ScalarMatrixType::RandomHouseholder,
+        sfFDN::ScalarMatrixType::Circulant,
+        sfFDN::ScalarMatrixType::Allpass,
+        sfFDN::ScalarMatrixType::NestedAllpass,
+    };
+    std::array<float, kOrder * kBlockSize> input = {
+        0.25f, -0.5f, 0.75f, 1.f, -0.25f, 0.5f, -0.75f, -1.f, 0.125f, -0.375f, 0.625f, -0.875f,
+    };
+
+    for (const auto type : kTypes)
+    {
+        const auto expected_matrix = sfFDN::GenerateMatrix(kOrder, type, kSeed);
+        sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = kOrder, .type = type, .rng_seed = kSeed});
+        sfFDN::ScalarFeedbackMatrix repeated({.matrix_size = kOrder, .type = type, .rng_seed = kSeed});
+        std::vector<float> actual_matrix(kOrder * kOrder);
+        std::vector<float> repeated_matrix(kOrder * kOrder);
+        REQUIRE(matrix.GetMatrix(actual_matrix));
+        REQUIRE(repeated.GetMatrix(repeated_matrix));
+        INFO("type=" << static_cast<int>(type));
+        REQUIRE(actual_matrix == expected_matrix);
+        REQUIRE(repeated_matrix == expected_matrix);
+
+        std::array<float, kOrder * kBlockSize> output{};
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kOrder, output);
+        matrix.Process(input_buffer, output_buffer);
+        RequireNear(output, DenseReference(expected_matrix, kOrder, kBlockSize, input));
+    }
+
+    const auto first = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::Random, kSeed);
+    const auto second = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::Random, kSeed + 1U);
+    REQUIRE(first != second);
+}
+
+TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processing", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kBlockSize = 2U;
+    std::array<float, kOrder * kBlockSize> input = {1.f, -0.5f, 0.25f, -0.75f,
+                                                     0.5f, -1.f, 0.125f, -0.25f};
+    const auto default_matrix = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::VariableDiffusion);
+
+    for (const float arg : {0.25f, 0.75f})
+    {
+        const auto expected_matrix =
+            sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::VariableDiffusion, 0, arg);
+        sfFDN::ScalarFeedbackMatrix matrix(
+            {.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::VariableDiffusion, .arg = arg});
+        std::vector<float> actual_matrix(kOrder * kOrder);
+        REQUIRE(matrix.GetMatrix(actual_matrix));
+        REQUIRE(actual_matrix == expected_matrix);
+        REQUIRE(actual_matrix != default_matrix);
+
+        std::array<float, kOrder * kBlockSize> output{};
+        sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
+        sfFDN::AudioBuffer output_buffer(kBlockSize, kOrder, output);
+        matrix.Process(input_buffer, output_buffer);
+        RequireNear(output, DenseReference(expected_matrix, kOrder, kBlockSize, input));
+    }
+}
+
+TEST_CASE("ScalarFeedbackMatrix prioritizes custom coefficients over generated options", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 3U;
+    constexpr uint32_t kBlockSize = 2U;
+    const std::array<float, kOrder * kOrder> custom = {0.5f, -0.25f, 0.75f, 1.f, 0.f, -0.5f, -0.75f, 0.25f, 0.5f};
+    std::array<float, kOrder * kBlockSize> input = {1.f, -0.5f, 0.25f, 0.75f, -1.f, 0.5f};
+    sfFDN::ScalarFeedbackMatrix matrix({
+        .matrix_size = kOrder,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .custom_matrix = std::vector<float>(custom.begin(), custom.end()),
+        .rng_seed = 0x12345678U,
+        .arg = 0.25f,
+    });
+
+    std::vector<float> actual_matrix(kOrder * kOrder);
+    REQUIRE(matrix.GetMatrix(actual_matrix));
+    REQUIRE(actual_matrix == std::vector<float>(custom.begin(), custom.end()));
+
+    std::array<float, kOrder * kBlockSize> output{};
+    sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize, kOrder, output);
+    matrix.Process(input_buffer, output_buffer);
+    RequireNear(output, DenseReference(custom, kOrder, kBlockSize, input));
 }
 
 TEST_CASE("DelayMatrix follows the row-major dest*N+src convention", "[feedback_matrix]")
@@ -781,4 +903,105 @@ TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout", "[feed
     // GetFirstMatrix must fail on wrong-size span.
     std::vector<float> wrong(N * N - 1);
     REQUIRE_FALSE(ffm.GetFirstMatrix(wrong));
+}
+
+TEST_CASE("FilterFeedbackMatrix reproduces seeded random cascades", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kBlockSize = 16U;
+    constexpr uint32_t kBlockCount = 24U;
+    const sfFDN::CascadedFeedbackMatrixOptions options = {
+        .matrix_size = kOrder,
+        .stage_count = 2U,
+        .sparsity = 2.5f,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 0.98f,
+        .rng_seed = 0x5EED1234U,
+    };
+    sfFDN::FilterFeedbackMatrix first(options);
+    sfFDN::FilterFeedbackMatrix repeated(options);
+    auto different_options = options;
+    different_options.rng_seed += 1U;
+    sfFDN::FilterFeedbackMatrix different(different_options);
+
+    std::vector<float> first_matrix(kOrder * kOrder);
+    std::vector<float> repeated_matrix(kOrder * kOrder);
+    std::vector<float> different_matrix(kOrder * kOrder);
+    REQUIRE(first.GetFirstMatrix(first_matrix));
+    REQUIRE(repeated.GetFirstMatrix(repeated_matrix));
+    REQUIRE(different.GetFirstMatrix(different_matrix));
+    REQUIRE(first_matrix == repeated_matrix);
+    REQUIRE(first_matrix != different_matrix);
+
+    const auto first_output = RenderCascade(first, kBlockSize, kBlockCount);
+    const auto repeated_output = RenderCascade(repeated, kBlockSize, kBlockCount);
+    const auto different_output = RenderCascade(different, kBlockSize, kBlockCount);
+    REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
+    RequireNear(repeated_output, first_output);
+    REQUIRE(different_output != first_output);
+}
+
+TEST_CASE("FilterFeedbackMatrix reproduces seeded structured cascade delays", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kBlockSize = 16U;
+    constexpr uint32_t kBlockCount = 24U;
+    constexpr std::array kTypes = {sfFDN::ScalarMatrixType::Hadamard, sfFDN::ScalarMatrixType::Householder};
+
+    for (const auto type : kTypes)
+    {
+        const sfFDN::CascadedFeedbackMatrixOptions options = {
+            .matrix_size = kOrder,
+            .stage_count = 2U,
+            .sparsity = 3.f,
+            .type = type,
+            .gain_per_samples = 1.f,
+            .rng_seed = 0xA11CE55U,
+        };
+        sfFDN::FilterFeedbackMatrix first(options);
+        sfFDN::FilterFeedbackMatrix repeated(options);
+        auto different_options = options;
+        different_options.rng_seed = 0xA11CE56U;
+        sfFDN::FilterFeedbackMatrix different(different_options);
+        std::vector<float> first_matrix(kOrder * kOrder);
+        std::vector<float> different_matrix(kOrder * kOrder);
+        REQUIRE(first.GetFirstMatrix(first_matrix));
+        REQUIRE(different.GetFirstMatrix(different_matrix));
+        REQUIRE(first_matrix == different_matrix);
+
+        const auto first_output = RenderCascade(first, kBlockSize, kBlockCount);
+        const auto repeated_output = RenderCascade(repeated, kBlockSize, kBlockCount);
+        const auto different_output = RenderCascade(different, kBlockSize, kBlockCount);
+        INFO("type=" << static_cast<int>(type));
+        REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
+        REQUIRE(std::ranges::any_of(different_output, [](float sample) { return sample != 0.f; }));
+        RequireNear(repeated_output, first_output);
+        REQUIRE(different_output != first_output);
+    }
+}
+
+TEST_CASE("FilterFeedbackMatrix reproduces UINT32_MAX cascade seeds", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    const sfFDN::CascadedFeedbackMatrixOptions options = {
+        .matrix_size = kOrder,
+        .stage_count = 2U,
+        .sparsity = 2.f,
+        .type = sfFDN::ScalarMatrixType::RandomHouseholder,
+        .gain_per_samples = 0.99f,
+        .rng_seed = std::numeric_limits<uint32_t>::max(),
+    };
+    sfFDN::FilterFeedbackMatrix first(options);
+    sfFDN::FilterFeedbackMatrix repeated(options);
+
+    std::vector<float> first_matrix(kOrder * kOrder);
+    std::vector<float> repeated_matrix(kOrder * kOrder);
+    REQUIRE(first.GetFirstMatrix(first_matrix));
+    REQUIRE(repeated.GetFirstMatrix(repeated_matrix));
+    REQUIRE(first_matrix == repeated_matrix);
+
+    const auto first_output = RenderCascade(first, 16U, 24U);
+    const auto repeated_output = RenderCascade(repeated, 16U, 24U);
+    REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
+    RequireNear(repeated_output, first_output);
 }

@@ -149,7 +149,7 @@ struct ScalarFeedbackMatrixOptions
     //! must be matrix_size*matrix_size. If this is set, `type` is ignored.
     std::optional<std::vector<float>> custom_matrix{std::nullopt};
 
-    //! Optional. Seed for random number generation when type is Random or RandomHouseholder.
+    //! Optional. Seed for every random gallery type; zero selects fresh randomness.
     uint32_t rng_seed{0};
 
     //! Optional argument for certain matrix types. For example, for the VariableDiffusion type, this could represent
@@ -173,6 +173,7 @@ struct CascadedFeedbackMatrixOptions
     ScalarMatrixType type{
         ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
     float gain_per_samples{1.f};   /**< Gain per sample. */
+    uint32_t rng_seed{0};          /**< Seed for all stage matrices and delay shifts; zero selects fresh randomness. */
 };
 
 /** @brief Options for configuring signal modulation. */
@@ -565,7 +566,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TimeVaryingMatrixMode, {{TimeVaryingMatrixMode::Had
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, sparsity, type,
-                                   gain_per_samples);
+                                   gain_per_samples, rng_seed);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationOptions, frequency, amplitude, initial_phase);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TimeVaryingFeedbackMatrixOptions, matrix_size, mode, time_varying_config, rng_seed);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsOptions, mode, gains, time_varying_config);

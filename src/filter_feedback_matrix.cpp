@@ -2,6 +2,7 @@
 
 #include "json_helper.h"
 #include "matrix_gallery_internal.h"
+#include "rng.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/feedback_matrix.h"
@@ -23,8 +24,7 @@ namespace
 // Generate a random array of floats in the range [0, 1)
 Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
 {
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::ArrayXf random_vector(size);
@@ -36,9 +36,10 @@ Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
     return random_vector;
 }
 
-Eigen::ArrayXf ShiftMatrixDistribute(uint32_t size, float sparsity, float pulse_size)
+Eigen::ArrayXf ShiftMatrixDistribute(uint32_t size, float sparsity, float pulse_size, uint32_t seed)
 {
-    Eigen::ArrayXf shift = sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size) * 0.99f);
+    Eigen::ArrayXf shift =
+        sparsity * (Eigen::ArrayXf::LinSpaced(size, 0, size - 1) + RandArray(size, seed) * 0.99f);
 
     shift = shift.floor() * pulse_size;
     return shift;
@@ -79,17 +80,25 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
     }
 
     Eigen::MatrixXf r0;
+    RNG seed_generator(options.rng_seed);
+    const auto next_seed = [&options, &seed_generator]() {
+        return options.rng_seed == 0 ? 0u : seed_generator.NextUint();
+    };
+
+    // Nonzero roots yield initial-matrix, then matrix-and-shift seeds for each stage.
+    const uint32_t initial_matrix_seed = next_seed();
 
     // For Hadamard and Householder matrices we can use the faster implementation but ScalarFeedbackMatrix needs to be
     // constructed with the correct type. For other types, we need to generate the matrix and pass it in.
     const bool has_structured_kernel = HasStructuredKernel(options.type);
     if (has_structured_kernel)
     {
-        matrix_.emplace_back(ScalarFeedbackMatrixOptions{.matrix_size = options.matrix_size, .type = options.type});
+        matrix_.emplace_back(ScalarFeedbackMatrixOptions{
+            .matrix_size = options.matrix_size, .type = options.type, .rng_seed = initial_matrix_seed});
     }
     else
     {
-        r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
+        r0 = GenerateMatrixInternal(options.matrix_size, options.type, initial_matrix_seed);
         matrix_.emplace_back(EigenToMatrixOptions(r0));
     }
 
@@ -100,11 +109,14 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
     for (auto i = 0u; i < options.stage_count; ++i)
     {
-        const Eigen::ArrayXf shift_left = ShiftMatrixDistribute(options.matrix_size, sparsity_vec[i], pulse_size);
+        const uint32_t stage_matrix_seed = next_seed();
+        const uint32_t stage_shift_seed = next_seed();
+        const Eigen::ArrayXf shift_left =
+            ShiftMatrixDistribute(options.matrix_size, sparsity_vec[i], pulse_size, stage_shift_seed);
 
         const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(
             Eigen::pow(options.gain_per_samples, shift_left).matrix());
-        r0 = GenerateMatrixInternal(options.matrix_size, options.type, 0);
+        r0 = GenerateMatrixInternal(options.matrix_size, options.type, stage_matrix_seed);
         const Eigen::MatrixXf r1 = r0 * g1;
 
         pulse_size = pulse_size * options.matrix_size * sparsity_vec[i];
@@ -124,7 +136,8 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
         if (has_structured_kernel && options.gain_per_samples == 1.f)
         {
-            matrix_.emplace_back(ScalarFeedbackMatrixOptions{.matrix_size = options.matrix_size, .type = options.type});
+            matrix_.emplace_back(ScalarFeedbackMatrixOptions{
+                .matrix_size = options.matrix_size, .type = options.type, .rng_seed = stage_matrix_seed});
         }
         else
         {

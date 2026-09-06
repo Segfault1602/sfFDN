@@ -58,8 +58,7 @@ Eigen::MatrixXf NestedAllpassMatrixInternal(uint32_t mat_size, uint32_t seed,
                                             std::span<float> output_gains = std::span<float>())
 {
     Eigen::VectorXf g(mat_size);
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size; ++i)
     {
@@ -230,8 +229,7 @@ Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, sfFDN::ScalarMatrixTyp
 Eigen::MatrixXf RandN(uint32_t mat_size, uint32_t seed)
 {
     // Generate random matrix from normal distribution (equivalent to randn(n))
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::MatrixXf random_matrix(mat_size, mat_size);
@@ -278,8 +276,7 @@ Eigen::MatrixXf HouseholderMatrix(Eigen::VectorXf v)
 
 Eigen::MatrixXf RandomHouseholder(uint32_t mat_size, uint32_t seed)
 {
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::VectorXf v(mat_size);
@@ -322,8 +319,7 @@ Eigen::MatrixXf HadamardMatrix(uint32_t mat_size)
 Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
 {
     std::vector<std::complex<float>> r(mat_size, {0.0f, 0.0f});
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size; ++i)
     {
@@ -357,7 +353,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
         v[i] = r[i].real();
     }
 
-    std::mt19937 dir_gen(seed == 0 ? rd() : seed + 1);
+    std::mt19937 dir_gen(seed == 0 ? std::random_device{}() : seed + 1);
     const int dir = (dir_gen() % 2 == 0) ? 1 : -1;
     Eigen::MatrixXf matrix(mat_size, mat_size);
     switch (dir)
@@ -407,8 +403,7 @@ Eigen::MatrixXf AllpassMatrix(uint32_t mat_size, uint32_t seed)
     }
 
     Eigen::VectorXf g(mat_size / 2);
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size / 2; ++i)
     {

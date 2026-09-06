@@ -25,8 +25,12 @@ This section describes the multi-channel processors provided by sfFDN. These are
   coefficients are row-major (`matrix[row * N + column] = A[row, column]`) and apply \f$y = A x\f$; this is the
   same convention as a pyFDN/NumPy `(out, in)` matrix flattened with
   `numpy.asarray(A).ravel(order="C")` and evaluated as `x @ A.T`. The FDN's transposed topology is a signal-flow
-  arrangement, not an instruction to apply \f$A^T\f$.
+  arrangement, not an instruction to apply \f$A^T\f$. Set a nonzero `rng_seed` to reproduce a generated random
+  gallery matrix; zero retains nondeterministic random generation. `custom_matrix`, when supplied, takes precedence
+  over matrix generation.
 - [Filter Feedback Matrix](@ref sfFDN::FilterFeedbackMatrix): Implementation of a Filter Feedback Matrix based on the design by S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks.” A filter feedback matrix consists of a series of scalar matrix interleaved with banks of delay lines.
+  A nonzero `CascadedFeedbackMatrixOptions::rng_seed` reproduces every generated stage matrix and stage delay
+  distribution; zero retains nondeterministic random generation.
 - [Attenuation Filter Bank](@ref sfFDN::AttenuationFilterBankOptions): A parallel bank of attenuation filters. These filters are usually designed to target a specific RT60 and their gains are scaled according to the length of the delay lines. See also the [Filtering](filters.md) manual page for the four attenuation filter variants and the associated design helpers.
 
 

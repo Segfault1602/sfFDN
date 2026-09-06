@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <ranges>
 #include <string_view>
 #include <vector>
 
@@ -640,7 +641,8 @@ TEST_CASE("Multichannel processor alternatives use canonical JSON forms", "[seri
           {"stage_count", 2U},
           {"sparsity", 3.F},
           {"type", "Hadamard"},
-          {"gain_per_samples", 0.8F}}},
+          {"gain_per_samples", 0.8F},
+          {"rng_seed", 0x5EED1234U}}},
     };
     const nlohmann::json scalar_matrix = {
         {"ScalarFeedbackMatrixOptions",
@@ -681,6 +683,7 @@ TEST_CASE("Multichannel processor alternatives use canonical JSON forms", "[seri
     const auto cascaded = sfFDN::MultichannelProcessorFromJson(cascaded_matrix);
     REQUIRE(std::holds_alternative<sfFDN::CascadedFeedbackMatrixOptions>(cascaded));
     REQUIRE(std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascaded).stage_count == 2U);
+    REQUIRE(std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascaded).rng_seed == 0x5EED1234U);
 
     const auto scalar = sfFDN::MultichannelProcessorFromJson(scalar_matrix);
     REQUIRE(std::holds_alternative<sfFDN::ScalarFeedbackMatrixOptions>(scalar));
@@ -710,6 +713,43 @@ TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization
     }
 
     REQUIRE(original_output == round_tripped_output);
+}
+
+TEST_CASE("FDNConfig JSON preserves seeded scalar and cascaded feedback matrices", "[serialization]")
+{
+    auto scalar_config = MakeTimeVaryingFDNConfig();
+    scalar_config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .matrix_size = scalar_config.fdn_size,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .rng_seed = 0x1234ABCDU,
+    };
+    const auto scalar_round_tripped = nlohmann::json(scalar_config).get<sfFDN::FDNConfig>();
+    const auto& scalar_options = std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar_round_tripped.feedback_matrix_config);
+    REQUIRE(scalar_options.rng_seed == 0x1234ABCDU);
+
+    auto cascaded_config = MakeTimeVaryingFDNConfig();
+    cascaded_config.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
+        .matrix_size = cascaded_config.fdn_size,
+        .stage_count = 2U,
+        .sparsity = 2.5f,
+        .type = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 0.98f,
+        .rng_seed = 0x5EED1234U,
+    };
+    const auto cascaded_round_tripped = nlohmann::json(cascaded_config).get<sfFDN::FDNConfig>();
+    const auto& cascaded_options =
+        std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascaded_round_tripped.feedback_matrix_config);
+    REQUIRE(cascaded_options.rng_seed == 0x5EED1234U);
+
+    const auto original_fdn = sfFDN::CreateFDNFromConfig(cascaded_config);
+    const auto round_tripped_fdn = sfFDN::CreateFDNFromConfig(cascaded_round_tripped);
+    const auto original_output = RenderFDN(*original_fdn);
+    const auto round_tripped_output = RenderFDN(*round_tripped_fdn);
+    REQUIRE(std::ranges::any_of(original_output, [](float sample) { return sample != 0.f; }));
+    for (const auto [actual, expected] : std::views::zip(round_tripped_output, original_output))
+    {
+        REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected, 2e-5f));
+    }
 }
 
 TEST_CASE("TimeVaryingFeedbackMatrixOptions round-trips through JSON", "[serialization]")
