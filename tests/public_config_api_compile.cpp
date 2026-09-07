@@ -27,6 +27,9 @@ static_assert(std::same_as<decltype(sfFDN::RandomizeMatrixSeeds(std::declval<sfF
 static_assert(std::same_as<sfFDN::MatrixGeneratorOptions,
                            std::variant<sfFDN::ScalarMatrixType, sfFDN::VariableDiffusionOptions>>);
 static_assert(std::is_aggregate_v<sfFDN::StageGainsOptions>);
+static_assert(std::is_aggregate_v<sfFDN::ChannelMatrixOptions>);
+static_assert(std::equality_comparable<sfFDN::ChannelMatrixOptions>);
+static_assert(std::derived_from<sfFDN::ChannelMatrix, sfFDN::AudioProcessor>);
 static_assert(std::is_aggregate_v<sfFDN::GeneratedMatrixOptions>);
 static_assert(std::is_aggregate_v<sfFDN::InputStageConfig>);
 static_assert(std::is_aggregate_v<sfFDN::OutputStageConfig>);

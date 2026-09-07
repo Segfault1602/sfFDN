@@ -48,3 +48,6 @@ imgui.ini
 
 *.wav
 
+
+# Golden-file fixtures are owned by the tests and must be tracked; only generated audio is ignored.
+!tests/data/*.wav

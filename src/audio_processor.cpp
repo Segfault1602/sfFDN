@@ -129,6 +129,10 @@ void AudioProcessorChain::ProcessInternal(const AudioBuffer& input, AudioBuffer&
         assert(processors_[i]->InputChannelCount() == buffer_in.ChannelCount());
         assert(processors_[i]->OutputChannelCount() == buffer_out.ChannelCount());
 
+        for (uint32_t channel = 0; channel < buffer_out.ChannelCount(); ++channel)
+        {
+            std::ranges::fill(buffer_out.GetChannelSpan(channel), 0.f);
+        }
         processors_[i]->Process(buffer_in, buffer_out);
         std::swap(ptr_a, ptr_b);
     }

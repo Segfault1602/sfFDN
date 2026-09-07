@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -39,9 +40,13 @@ constexpr std::array kFamilies = {
 
 std::vector<float> MakeDelays(uint32_t order, uint32_t block_size)
 {
+    // A fixed seed is mandatory here: with the default seed of 0, GetDelayLengths draws from std::random_device, so
+    // every process run would get different delay lengths and therefore different delay-line working sets. That makes
+    // any before/after comparison across runs meaningless.
+    constexpr uint32_t kDelaySeed = 0x5F4E3D2CU;
     const uint32_t minimum_delay = std::max(512U, block_size + 64U);
-    return sfFDN::GetDelayLengths(order, minimum_delay, minimum_delay + 8192U,
-                                 sfFDN::DelayLengthType::Uniform);
+    return sfFDN::GetDelayLengths(order, minimum_delay, minimum_delay + 8192U, sfFDN::DelayLengthType::Uniform,
+                                  kDelaySeed);
 }
 
 std::unique_ptr<sfFDN::FDN> MakeFDN(FDNFamily family, uint32_t block_size, uint32_t order)
@@ -111,7 +116,10 @@ void RunFDNBenchmark(const FamilyInfo& family, uint32_t order, uint32_t block_si
 TEST_CASE("FDNPerf", "[fdn]")
 {
     nanobench::Bench bench;
-    sfFDN::test::perf::ConfigureThroughputBench(bench, "FDN perf");
+    // A whole FDN block is tens of microseconds, so the default 10 ms epoch only buys a couple of hundred iterations
+    // and nanobench flags the eleven-stage row as unstable at over 20% err. A longer epoch is what makes this row
+    // usable for before/after comparison.
+    sfFDN::test::perf::ConfigureThroughputBench(bench, "FDN perf", std::chrono::milliseconds(150));
 
     for (const FamilyInfo& family : kFamilies)
     {

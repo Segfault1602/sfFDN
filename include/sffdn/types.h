@@ -237,6 +237,20 @@ struct ParallelGainsOptions
     bool operator==(const ParallelGainsOptions&) const = default;
 };
 
+/** @brief Options for a static dense channel matrix.
+ *
+ * Coefficients are row-major by output row and input column. The coefficient at output `row` and input `column` is
+ * stored at `coefficients[row * input_channel_count + column]`.
+ */
+struct ChannelMatrixOptions
+{
+    uint32_t input_channel_count{0};
+    uint32_t output_channel_count{0};
+    std::vector<float> coefficients;
+
+    bool operator==(const ChannelMatrixOptions&) const = default;
+};
+
 /** @brief Gain configuration for an FDN input or output stage.
  *
  * Stage placement determines routing. Modulation is empty or has exactly one entry per gain.

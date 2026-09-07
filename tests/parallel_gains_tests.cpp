@@ -259,12 +259,40 @@ TEST_CASE("TimeVaryingParallelGains processes Merge and Parallel modes without a
 
 TEST_CASE("MakeParallelGainsFromConfig selects static and time-varying implementations", "[parallel_gains]")
 {
-    const sfFDN::ParallelGainsOptions static_options{
-        .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {2.f, 3.f}, .time_varying_config = {}};
-    const auto static_gains = sfFDN::MakeParallelGainsFromConfig(static_options);
-    REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(static_gains.get()) != nullptr);
-    REQUIRE(static_gains->InputChannelCount() == 2);
-    REQUIRE(static_gains->OutputChannelCount() == 2);
+    SECTION("static modes continue to construct ParallelGains")
+    {
+        for (const auto mode :
+             {sfFDN::ParallelGainsMode::Split, sfFDN::ParallelGainsMode::Merge, sfFDN::ParallelGainsMode::Parallel})
+        {
+            const sfFDN::ParallelGainsOptions static_options{
+                .mode = mode, .gains = {2.f, 3.f}, .time_varying_config = {}};
+            const auto static_gains = sfFDN::MakeParallelGainsFromConfig(static_options);
+            REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(static_gains.get()) != nullptr);
+            REQUIRE(static_gains->InputChannelCount() == (mode == sfFDN::ParallelGainsMode::Split ? 1U : 2U));
+            REQUIRE(static_gains->OutputChannelCount() == (mode == sfFDN::ParallelGainsMode::Merge ? 1U : 2U));
+        }
+    }
+
+    SECTION("Merge still accumulates and Parallel still supports in-place scaling")
+    {
+        const sfFDN::ParallelGainsOptions merge_options{
+            .mode = sfFDN::ParallelGainsMode::Merge, .gains = {2.f, 3.f}, .time_varying_config = {}};
+        const auto merge = sfFDN::MakeParallelGainsFromConfig(merge_options);
+        std::array<float, 2> merge_input = {4.F, 5.F};
+        std::array<float, 1> merge_output = {7.F};
+        const sfFDN::AudioBuffer merge_input_buffer(1U, 2U, merge_input);
+        sfFDN::AudioBuffer merge_output_buffer(merge_output);
+        merge->Process(merge_input_buffer, merge_output_buffer);
+        REQUIRE(merge_output[0] == 30.F);
+
+        const sfFDN::ParallelGainsOptions parallel_options{
+            .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {2.f, 3.f}, .time_varying_config = {}};
+        const auto parallel = sfFDN::MakeParallelGainsFromConfig(parallel_options);
+        std::array<float, 2> in_place = {4.F, 5.F};
+        sfFDN::AudioBuffer in_place_buffer(1U, 2U, in_place);
+        parallel->Process(in_place_buffer, in_place_buffer);
+        REQUIRE(in_place == std::array{8.F, 15.F});
+    }
 
     const sfFDN::ParallelGainsOptions time_varying_options{
         .mode = sfFDN::ParallelGainsMode::Split,

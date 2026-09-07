@@ -6,6 +6,7 @@
 #include "audio_processor.h"
 #include "types.h"
 
+#include "channel_matrix.h"
 #include "dattorro_delay.h"
 #include "delay.h"
 #include "delay_interp.h"

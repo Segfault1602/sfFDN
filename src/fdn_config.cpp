@@ -2,6 +2,7 @@
 
 #include "processor_factory.h"
 
+#include "sffdn/channel_matrix.h"
 #include "sffdn/delaybank.h"
 #include "sffdn/delaybank_time_varying.h"
 #include "sffdn/delay_utils.h"
@@ -79,10 +80,95 @@ sfFDN::ParallelGainsOptions MakeStageGainsOptions(const sfFDN::StageGainsOptions
     return {.mode = mode, .gains = stage_options.gains, .time_varying_config = stage_options.time_varying_config};
 }
 
+std::unique_ptr<sfFDN::AudioProcessor> CreateStageRoutingFromConfig(const sfFDN::StageGainsOptions& stage_options,
+                                                                    sfFDN::ParallelGainsMode mode)
+{
+    if (!stage_options.time_varying_config.empty())
+    {
+        return MakeParallelGainsFromConfig(MakeStageGainsOptions(stage_options, mode));
+    }
+
+    const auto gain_count = static_cast<uint32_t>(stage_options.gains.size());
+    if (mode == sfFDN::ParallelGainsMode::Split)
+    {
+        return std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+            .input_channel_count = 1U,
+            .output_channel_count = gain_count,
+            .coefficients = stage_options.gains,
+        });
+    }
+    if (mode == sfFDN::ParallelGainsMode::Merge)
+    {
+        return std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+            .input_channel_count = gain_count,
+            .output_channel_count = 1U,
+            .coefficients = stage_options.gains,
+        });
+    }
+
+    throw std::logic_error("FDN stage routing must use Split or Merge mode");
+}
+
+/** Builds one single-channel chain, or nullptr when nothing is configured. */
+std::unique_ptr<sfFDN::AudioProcessor> CreateSingleChannelChain(
+    const std::vector<sfFDN::single_channel_processor_variant_t>& configs, uint32_t block_size, const char* context)
+{
+    if (configs.empty())
+    {
+        return nullptr;
+    }
+    if (configs.size() == 1)
+    {
+        return sfFDN::CreateSingleChannelProcessor(configs[0]);
+    }
+
+    auto chain = std::make_unique<sfFDN::AudioProcessorChain>(block_size);
+    for (const auto& processor_config : configs)
+    {
+        AddProcessorOrThrow(*chain, sfFDN::CreateSingleChannelProcessor(processor_config), context);
+    }
+    return chain;
+}
+
+/** Appends a single-channel stage, replicating the whole ordered chain once per channel when it is not mono.
+ *
+ * Each replica is an independent instance, so per-channel filter state never aliases. A mono stage is appended
+ * flat, keeping the one-in, one-out construction identical to a network without external channels.
+ */
+void AddSingleChannelStage(sfFDN::AudioProcessorChain& chain,
+                           const std::vector<sfFDN::single_channel_processor_variant_t>& configs, uint32_t block_size,
+                           uint32_t channel_count, const char* context)
+{
+    if (configs.empty())
+    {
+        return;
+    }
+
+    if (channel_count == 1U)
+    {
+        for (const auto& processor_config : configs)
+        {
+            AddProcessorOrThrow(chain, sfFDN::CreateSingleChannelProcessor(processor_config), context);
+        }
+        return;
+    }
+
+    auto bank = std::make_unique<sfFDN::FilterBank>();
+    for (uint32_t channel = 0; channel < channel_count; ++channel)
+    {
+        bank->AddFilter(CreateSingleChannelChain(configs, block_size, context));
+    }
+    AddProcessorOrThrow(chain, std::move(bank), context);
+}
+
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
 {
-    std::unique_ptr<sfFDN::AudioProcessor> input_gains = MakeParallelGainsFromConfig(
-        MakeStageGainsOptions(config.input_block_config.parallel_gains_config, sfFDN::ParallelGainsMode::Split));
+    std::unique_ptr<sfFDN::AudioProcessor> input_gains =
+        config.input_block_config.boundary_matrix.has_value()
+            ? std::unique_ptr<sfFDN::AudioProcessor>(
+                  std::make_unique<sfFDN::ChannelMatrix>(*config.input_block_config.boundary_matrix))
+            : CreateStageRoutingFromConfig(config.input_block_config.parallel_gains_config,
+                                           sfFDN::ParallelGainsMode::Split);
 
     if (config.input_block_config.single_channel_processors.empty() &&
         config.input_block_config.multichannel_processors.empty())
@@ -92,11 +178,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
 
     auto chain_processor = std::make_unique<sfFDN::AudioProcessorChain>(config.block_size);
 
-    for (const auto& processor_config : config.input_block_config.single_channel_processors)
-    {
-        auto processor = sfFDN::CreateSingleChannelProcessor(processor_config);
-        AddProcessorOrThrow(*chain_processor, std::move(processor), "input single-channel processor");
-    }
+    AddSingleChannelStage(*chain_processor, config.input_block_config.single_channel_processors, config.block_size,
+                          config.input_channel_count, "input single-channel processor");
 
     AddProcessorOrThrow(*chain_processor, std::move(input_gains), "input gains");
     for (const auto& processor_config : config.input_block_config.multichannel_processors)
@@ -110,8 +193,12 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
 
 std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::FDNConfig& config)
 {
-    std::unique_ptr<sfFDN::AudioProcessor> output_gains = MakeParallelGainsFromConfig(
-        MakeStageGainsOptions(config.output_block_config.parallel_gains_config, sfFDN::ParallelGainsMode::Merge));
+    std::unique_ptr<sfFDN::AudioProcessor> output_gains =
+        config.output_block_config.boundary_matrix.has_value()
+            ? std::unique_ptr<sfFDN::AudioProcessor>(
+                  std::make_unique<sfFDN::ChannelMatrix>(*config.output_block_config.boundary_matrix))
+            : CreateStageRoutingFromConfig(config.output_block_config.parallel_gains_config,
+                                           sfFDN::ParallelGainsMode::Merge);
 
     if (config.output_block_config.single_channel_processors.empty() &&
         config.output_block_config.multichannel_processors.empty())
@@ -129,11 +216,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
 
     AddProcessorOrThrow(*chain_processor, std::move(output_gains), "output gains");
 
-    for (const auto& processor_config : config.output_block_config.single_channel_processors)
-    {
-        AddProcessorOrThrow(*chain_processor, sfFDN::CreateSingleChannelProcessor(processor_config),
-                            "output single-channel processor");
-    }
+    AddSingleChannelStage(*chain_processor, config.output_block_config.single_channel_processors, config.block_size,
+                          config.output_channel_count, "output single-channel processor");
 
     return chain_processor;
 }
@@ -199,6 +283,29 @@ sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
     return processor_config;
 }
 
+/** Tone correction is a per-output-channel filter, so a multichannel output gets one independent replica per channel.
+ */
+std::unique_ptr<sfFDN::AudioProcessor> CreateToneCorrectionFromConfig(const sfFDN::FDNConfig& config)
+{
+    if (config.tone_correction_filters.empty())
+    {
+        return nullptr;
+    }
+    if (config.output_channel_count == 1U)
+    {
+        return CreateSingleChannelChain(config.tone_correction_filters, config.block_size,
+                                        "tone correction filter");
+    }
+
+    auto bank = std::make_unique<sfFDN::FilterBank>();
+    for (uint32_t channel = 0; channel < config.output_channel_count; ++channel)
+    {
+        bank->AddFilter(
+            CreateSingleChannelChain(config.tone_correction_filters, config.block_size, "tone correction filter"));
+    }
+    return bank;
+}
+
 } // namespace
 
 namespace sfFDN
@@ -227,6 +334,8 @@ FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size, uint32_t block_size, float sam
 
     FDNConfig config;
     config.fdn_size = fdn_size;
+    config.input_channel_count = 1U;
+    config.output_channel_count = 1U;
     config.transposed = false;
     config.direct_gain = 0.f;
     config.block_size = block_size;
@@ -316,9 +425,27 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     {
         throw FDNConfigError(std::move(validation.error()));
     }
-    auto fdn = std::make_unique<FDN>(config.fdn_size, config.block_size);
-    fdn->SetTranspose(config.transposed);
-    fdn->SetDirectGain(config.direct_gain);
+    auto fdn = std::make_unique<FDN>(FDNTopology{
+        .order = config.fdn_size,
+        .block_size = config.block_size,
+        .input_channel_count = config.input_channel_count,
+        .output_channel_count = config.output_channel_count,
+        .transposed = config.transposed,
+    });
+
+    if (config.direct_matrix.has_value())
+    {
+        if (!fdn->SetDirectPath(std::make_unique<ChannelMatrix>(*config.direct_matrix)))
+        {
+            throw std::runtime_error("Failed to set FDN direct path");
+        }
+    }
+    else if (config.input_channel_count == config.output_channel_count)
+    {
+        // The scalar gain is a diagonal path. Validation already rejects a nonzero gain when the counts differ, so a
+        // mismatch here means the gain is zero and the direct contribution is silent anyway.
+        fdn->SetDirectGain(config.direct_gain);
+    }
 
     // Delaybank
     if (!fdn->SetDelayBank(config.delay_bank_config))
@@ -395,29 +522,9 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     }
 
     // TC filters
-    if (!config.tone_correction_filters.empty())
+    if (!fdn->SetTCFilter(CreateToneCorrectionFromConfig(config)))
     {
-        if (config.tone_correction_filters.size() == 1)
-        {
-            auto processor = CreateSingleChannelProcessor(config.tone_correction_filters[0]);
-            if (!fdn->SetTCFilter(std::move(processor)))
-            {
-                throw std::runtime_error("Failed to set FDN tone correction filter");
-            }
-        }
-        else
-        {
-            auto tc_filter_chain = std::make_unique<AudioProcessorChain>(config.block_size);
-            for (const auto& processor_config : config.tone_correction_filters)
-            {
-                auto processor = CreateSingleChannelProcessor(processor_config);
-                AddProcessorOrThrow(*tc_filter_chain, std::move(processor), "tone correction filter");
-            }
-            if (!fdn->SetTCFilter(std::move(tc_filter_chain)))
-            {
-                throw std::runtime_error("Failed to set FDN tone correction filter");
-            }
-        }
+        throw std::runtime_error("Failed to set FDN tone correction filter");
     }
 
     // Output gain block

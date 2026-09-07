@@ -183,6 +183,32 @@ sfFDN::FDNConfig MakeEveryOptionConfig()
     return config;
 }
 
+sfFDN::FDNConfig MakeMimoConfig()
+{
+    auto config = MakeRenderableConfig();
+    config.input_channel_count = 2U;
+    config.output_channel_count = 3U;
+    config.direct_gain = 0.F;
+    config.direct_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 3U,
+        .coefficients = {0.1F, 0.2F, 0.3F, -0.1F, -0.2F, -0.3F},
+    };
+    config.input_block_config.parallel_gains_config = {};
+    config.input_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = config.fdn_size,
+        .coefficients = {1.F, 0.F, 0.F, 1.F, 0.5F, 0.5F, 0.5F, -0.5F},
+    };
+    config.output_block_config.parallel_gains_config = {};
+    config.output_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = config.fdn_size,
+        .output_channel_count = 3U,
+        .coefficients = {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 0.5F, 0.5F},
+    };
+    return config;
+}
+
 std::vector<float> RenderFDN(sfFDN::FDN& fdn)
 {
     constexpr uint32_t kBlockSize = 16U;
@@ -199,6 +225,25 @@ std::vector<float> RenderFDN(sfFDN::FDN& fdn)
         std::fill(output.begin() + offset, output.begin() + offset + kBlockSize, 0.F);
         fdn.Process(input_buffer, output_buffer);
     }
+    return output;
+}
+
+std::vector<float> RenderMimoFDN(sfFDN::FDN& fdn)
+{
+    constexpr uint32_t kBlockSize = 16U;
+    constexpr uint32_t kBlockCount = 16U;
+    const uint32_t input_channels = fdn.InputChannelCount();
+    const uint32_t output_channels = fdn.OutputChannelCount();
+
+    std::vector<float> input(static_cast<size_t>(kBlockSize) * kBlockCount * input_channels, 0.F);
+    std::vector<float> output(static_cast<size_t>(kBlockSize) * kBlockCount * output_channels, 0.F);
+    const sfFDN::AudioBuffer input_buffer(kBlockSize * kBlockCount, input_channels, input);
+    sfFDN::AudioBuffer output_buffer(kBlockSize * kBlockCount, output_channels, output);
+    for (uint32_t channel = 0; channel < input_channels; ++channel)
+    {
+        input[static_cast<size_t>(channel) * kBlockSize * kBlockCount] = 1.F;
+    }
+    fdn.Process(input_buffer, output_buffer);
     return output;
 }
 
@@ -237,13 +282,61 @@ TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serial
         .rng_seed = 17U,
     };
 
-    for (const auto& original : {populated, absent_optionals, scalar_feedback, cascaded_feedback})
+    for (const auto& original : {populated, absent_optionals, scalar_feedback, cascaded_feedback, MakeMimoConfig()})
     {
         const nlohmann::json serialized = original;
         const auto round_tripped = serialized.get<sfFDN::FDNConfig>();
         REQUIRE(round_tripped == original);
         REQUIRE(nlohmann::json(round_tripped) == serialized);
     }
+}
+
+TEST_CASE("FDNConfig JSON accepts files written before MIMO support", "[serialization]")
+{
+    const auto legacy_config = MakeRenderableConfig();
+    nlohmann::json legacy = legacy_config;
+
+    // Reproduce the pre-MIMO key set exactly.
+    legacy.erase("input_channel_count");
+    legacy.erase("output_channel_count");
+    legacy.erase("direct_matrix");
+    legacy["input_block_config"].erase("boundary_matrix");
+    legacy["output_block_config"].erase("boundary_matrix");
+    REQUIRE(legacy["input_block_config"].size() == 3);
+    REQUIRE(legacy["output_block_config"].size() == 3);
+
+    const auto loaded = legacy.get<sfFDN::FDNConfig>();
+    REQUIRE(loaded == legacy_config);
+    REQUIRE(loaded.input_channel_count == 1U);
+    REQUIRE(loaded.output_channel_count == 1U);
+    REQUIRE_FALSE(loaded.direct_matrix.has_value());
+    REQUIRE_FALSE(loaded.input_block_config.boundary_matrix.has_value());
+    REQUIRE_FALSE(loaded.output_block_config.boundary_matrix.has_value());
+
+    // An explicit null is equivalent to an omitted key.
+    nlohmann::json nulled = legacy;
+    nulled["direct_matrix"] = nullptr;
+    nulled["input_block_config"]["boundary_matrix"] = nullptr;
+    nulled["output_block_config"]["boundary_matrix"] = nullptr;
+    REQUIRE(nulled.get<sfFDN::FDNConfig>() == legacy_config);
+}
+
+TEST_CASE("FDNConfig JSON round-trip preserves MIMO rendered output", "[serialization]")
+{
+    const auto config = MakeMimoConfig();
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+    const auto round_tripped = nlohmann::json(config).get<sfFDN::FDNConfig>();
+    REQUIRE(round_tripped == config);
+
+    const auto original_fdn = sfFDN::CreateFDNFromConfig(config);
+    const auto round_tripped_fdn = sfFDN::CreateFDNFromConfig(round_tripped);
+    REQUIRE(original_fdn->InputChannelCount() == 2U);
+    REQUIRE(original_fdn->OutputChannelCount() == 3U);
+
+    const auto rendered = RenderMimoFDN(*original_fdn);
+    // Guard against a vacuous comparison of two silent renders.
+    REQUIRE(std::ranges::any_of(rendered, [](float sample) { return sample != 0.F; }));
+    REQUIRE(rendered == RenderMimoFDN(*round_tripped_fdn));
 }
 
 TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization]")
@@ -304,6 +397,22 @@ TEST_CASE("Serialization uses canonical JSON contracts", "[serialization]")
         {"source", {{"MatrixData", {{"order", 2U}, {"coefficients", {1.F, 2.F, 3.F, 4.F}}}}}},
     };
     REQUIRE(nlohmann::json(explicit_data) == expected_explicit);
+
+    const sfFDN::ChannelMatrixOptions channel_matrix = {
+        .input_channel_count = 2U,
+        .output_channel_count = 3U,
+        .coefficients = {1.F, 2.F, 3.F, 4.F, 5.F, 6.F},
+    };
+    REQUIRE(nlohmann::json(channel_matrix) == nlohmann::json{
+                                                  {"input_channel_count", 2U},
+                                                  {"output_channel_count", 3U},
+                                                  {"coefficients", {1.F, 2.F, 3.F, 4.F, 5.F, 6.F}},
+                                              });
+
+    // An absent boundary matrix emits null rather than being omitted, so the shape does not depend on the value.
+    const nlohmann::json mono_stage = sfFDN::InputStageConfig{};
+    REQUIRE(mono_stage.size() == 4);
+    REQUIRE(mono_stage.at("boundary_matrix").is_null());
 }
 
 TEST_CASE("FDNConfig JSON rejects representative malformed input", "[serialization]")
@@ -331,6 +440,26 @@ TEST_CASE("FDNConfig JSON rejects representative malformed input", "[serializati
     auto null_number = valid;
     null_number["direct_gain"] = nullptr;
     malformed.push_back(std::move(null_number));
+
+    auto unknown_stage_key = valid;
+    unknown_stage_key["input_block_config"]["unexpected"] = 1;
+    malformed.push_back(std::move(unknown_stage_key));
+
+    auto too_many_stage_keys = nlohmann::json(MakeMimoConfig());
+    too_many_stage_keys["output_block_config"]["unexpected"] = 1;
+    malformed.push_back(std::move(too_many_stage_keys));
+
+    auto malformed_channel_matrix = nlohmann::json(MakeMimoConfig());
+    malformed_channel_matrix["direct_matrix"].erase("coefficients");
+    malformed.push_back(std::move(malformed_channel_matrix));
+
+    auto extra_channel_matrix_key = nlohmann::json(MakeMimoConfig());
+    extra_channel_matrix_key["input_block_config"]["boundary_matrix"]["unexpected"] = 1;
+    malformed.push_back(std::move(extra_channel_matrix_key));
+
+    auto negative_channel_count = nlohmann::json(MakeMimoConfig());
+    negative_channel_count["input_channel_count"] = -1;
+    malformed.push_back(std::move(negative_channel_count));
 
     for (const auto& value : malformed)
     {

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -147,6 +148,76 @@ sfFDN::FDNConfig MakeFactoryConfig(bool transposed = false)
     return config;
 }
 
+sfFDN::FDNConfig MakeOneSampleCharacterizationConfig()
+{
+    constexpr uint32_t kOrder = 4;
+    sfFDN::FDNConfig config{};
+    config.fdn_size = kOrder;
+    config.direct_gain = 0.F;
+    config.block_size = 1U;
+    config.sample_rate = 48000.F;
+    config.delay_bank_config = {
+        .delays = {1.F, 1.F, 1.F, 1.F},
+        .block_size = config.block_size,
+        .interpolation_type = sfFDN::DelayInterpolationType::None,
+    };
+    config.input_block_config.parallel_gains_config = {
+        .gains = {1.F, 0.F, 0.F, 0.F},
+        .time_varying_config = {},
+    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kOrder,
+                .generator = sfFDN::ScalarMatrixType::Identity,
+            },
+    };
+    config.output_block_config.parallel_gains_config = {
+        .gains = {1.F, 0.F, 0.F, 0.F},
+        .time_varying_config = {},
+    };
+    return config;
+}
+
+std::unique_ptr<sfFDN::FDN> CreateMimoTestFDN(bool transposed, uint32_t block_size = 1U)
+{
+    constexpr uint32_t kOrder = 4U;
+    auto fdn = std::make_unique<sfFDN::FDN>(sfFDN::FDNTopology{
+        .order = kOrder,
+        .block_size = block_size,
+        .input_channel_count = 2U,
+        .output_channel_count = 2U,
+        .transposed = transposed,
+    });
+    REQUIRE(fdn->SetDelays(std::array{static_cast<float>(block_size), static_cast<float>(block_size),
+                                      static_cast<float>(block_size), static_cast<float>(block_size)}));
+    REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = kOrder,
+                                               .generator = sfFDN::ScalarMatrixType::Identity,
+                                           }})));
+
+    auto input = std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = kOrder,
+        .coefficients = {1.F, 0.F, 0.F, 1.F, 1.F, 1.F, 1.F, -1.F},
+    });
+    auto output = std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kOrder,
+        .output_channel_count = 2U,
+        .coefficients = {1.F, 2.F, 0.F, 0.F, 0.F, 0.F, 3.F, 4.F},
+    });
+    auto direct = std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 2U,
+        .coefficients = {0.5F, 0.F, 0.F, -0.25F},
+    });
+    REQUIRE(fdn->SetInputGains(std::move(input)));
+    REQUIRE(fdn->SetOutputGains(std::move(output)));
+    REQUIRE(fdn->SetDirectPath(std::move(direct)));
+    return fdn;
+}
+
 sfFDN::AttenuationFilterBankOptions MakeAttenuationBank(size_t count)
 {
     sfFDN::AttenuationFilterBankOptions bank;
@@ -177,7 +248,135 @@ std::vector<float> RenderFactoryConfig(const sfFDN::FDNConfig& config)
     return output;
 }
 
+/** Builds the sfFDN counterpart of tests/gen_gold_mimo_fdn.py.
+ *
+ * Every matrix is asymmetric with no zero entries so that transposing B, C, or D, or swapping B with C, changes the
+ * response. pyFDN's (out, in) NumPy matrices in C order map directly onto sfFDN's row-major coefficient arrays.
+ */
+std::unique_ptr<sfFDN::FDN> CreateMimoGoldFDN()
+{
+    constexpr uint32_t kBlockSize = 4;
+    constexpr uint32_t kFDNOrder = 4;
+    constexpr uint32_t kExternalChannels = 2;
+    constexpr float kInvSqrt2 = 0.7071067811865476f;
+    constexpr std::array<float, kFDNOrder> kDelays = {7.f, 11.f, 13.f, 17.f};
+    // Row is the destination, column is the source, matching ChannelMatrixOptions.
+    constexpr std::array<float, kFDNOrder * kExternalChannels> kInputMatrix = {0.60f,  -0.25f, //
+                                                                               -0.40f, 0.55f,  //
+                                                                               0.80f,  0.30f,  //
+                                                                               -0.70f, -0.45f};
+    constexpr std::array<float, kExternalChannels * kFDNOrder> kOutputMatrix = {0.50f, -0.60f, 0.70f,  -0.30f, //
+                                                                                0.20f, 0.35f,  -0.45f, 0.65f};
+    constexpr std::array<float, kExternalChannels * kExternalChannels> kDirectMatrix = {0.50f, 0.10f, //
+                                                                                        -0.20f, 0.25f};
+    constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {kInvSqrt2, 0.f,        0.5f,  0.5f,  //
+                                                                        0.f,       -kInvSqrt2, 0.5f,  -0.5f, //
+                                                                        kInvSqrt2, 0.f,        -0.5f, -0.5f, //
+                                                                        0.f,       -kInvSqrt2, -0.5f, 0.5f};
+    constexpr std::array<sfFDN::FilterCoefficients, kFDNOrder> kLoopFilters = {
+        sfFDN::FilterCoefficients{0.3f, 0.f, 0.f, 1.f, -0.7f, 0.f},
+        sfFDN::FilterCoefficients{0.4f, 0.f, 0.f, 1.f, -0.6f, 0.f},
+        sfFDN::FilterCoefficients{0.5f, 0.f, 0.f, 1.f, -0.5f, 0.f},
+        sfFDN::FilterCoefficients{0.6f, 0.f, 0.f, 1.f, -0.4f, 0.f}};
+
+    auto fdn = std::make_unique<sfFDN::FDN>(sfFDN::FDNTopology{
+        .order = kFDNOrder,
+        .block_size = kBlockSize,
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kExternalChannels,
+    });
+
+    REQUIRE(fdn->SetInputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kFDNOrder,
+        .coefficients = std::vector<float>(kInputMatrix.begin(), kInputMatrix.end()),
+    })));
+    REQUIRE(fdn->SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kFDNOrder,
+        .output_channel_count = kExternalChannels,
+        .coefficients = std::vector<float>(kOutputMatrix.begin(), kOutputMatrix.end()),
+    })));
+    REQUIRE(fdn->SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kExternalChannels,
+        .coefficients = std::vector<float>(kDirectMatrix.begin(), kDirectMatrix.end()),
+    })));
+    REQUIRE(fdn->SetDelays(kDelays));
+
+    const sfFDN::ScalarFeedbackMatrixOptions mix_mat_config{
+        .source = sfFDN::MatrixData{kFDNOrder, std::vector<float>(kMixingMatrix.begin(), kMixingMatrix.end())}};
+    REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config)));
+
+    auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    filter_bank->SetFilter(kLoopFilters, kFDNOrder);
+    REQUIRE(fdn->SetLoopFilter(std::move(filter_bank)));
+    return fdn;
+}
+
 } // namespace
+
+TEST_CASE("FDN matches the MIMO pyFDN golden reference", "[fdn]")
+{
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kIter = 4096;
+    constexpr uint32_t kChannels = 2;
+    constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_mimo_test.wav";
+
+    auto fdn = CreateMimoGoldFDN();
+    auto clone_fdn = fdn->Clone();
+
+    // Both external inputs are driven, with the impulses offset so that swapping the input channels is also visible.
+    std::vector<float> input(static_cast<size_t>(kIter) * kChannels, 0.f);
+    input[0] = 1.f;
+    input[kIter + 1] = 1.f;
+
+    std::vector<float> output(input.size(), 0.f);
+    auto clone_input = input;
+    auto clone_output = output;
+
+    const sfFDN::AudioBuffer input_buffer(kIter, kChannels, input);
+    sfFDN::AudioBuffer output_buffer(kIter, kChannels, output);
+    fdn->Process(input_buffer, output_buffer);
+
+    const sfFDN::AudioBuffer clone_input_buffer(kIter, kChannels, clone_input);
+    sfFDN::AudioBuffer clone_output_buffer(kIter, kChannels, clone_output);
+    clone_fdn->Process(clone_input_buffer, clone_output_buffer);
+
+    // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+    SF_INFO sfinfo{};
+    SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
+    REQUIRE(expected_output_file != nullptr);
+    REQUIRE(sfinfo.channels == static_cast<int>(kChannels));
+    REQUIRE(sfinfo.samplerate == kSampleRate);
+    REQUIRE(sfinfo.frames == static_cast<sf_count_t>(kIter));
+    REQUIRE((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
+
+    std::vector<float> interleaved_expected(static_cast<size_t>(sfinfo.frames) * kChannels);
+    const sf_count_t read = sf_readf_float(expected_output_file, interleaved_expected.data(), sfinfo.frames);
+    REQUIRE(read == sfinfo.frames);
+    sf_close(expected_output_file);
+
+    float signal_energy = 0.f;
+    float signal_error = 0.f;
+    for (uint32_t channel = 0; channel < kChannels; ++channel)
+    {
+        const auto actual = output_buffer.GetChannelSpan(channel);
+        const auto cloned = clone_output_buffer.GetChannelSpan(channel);
+        for (uint32_t frame = 0; frame < kIter; ++frame)
+        {
+            const float expected = interleaved_expected[(static_cast<size_t>(frame) * kChannels) + channel];
+            REQUIRE_THAT(actual[frame], Catch::Matchers::WithinAbs(expected, 1e-5));
+            signal_energy += expected * expected;
+            signal_error += (actual[frame] - expected) * (actual[frame] - expected);
+            REQUIRE_THAT(cloned[frame], Catch::Matchers::WithinAbs(actual[frame], 1e-7));
+        }
+    }
+    const float snr = 10.f * std::log10(signal_energy / signal_error);
+    INFO("MIMO FDN SNR: " << snr << " dB");
+
+    // The two channels must differ; identical channels would mean the asymmetric matrices were not applied.
+    REQUIRE_FALSE(std::ranges::equal(output_buffer.GetChannelSpan(0), output_buffer.GetChannelSpan(1)));
+}
 
 TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
 {
@@ -587,11 +786,11 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
             .gains = std::vector<float>(kFdnSize, 0.5F),
             .time_varying_config = {},
         };
-        config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-            .source = sfFDN::GeneratedMatrixOptions{
-                .matrix_size = kFdnSize,
-                .generator = sfFDN::ScalarMatrixType::Hadamard,
-            }};
+        config.feedback_matrix_config =
+            sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                   .matrix_size = kFdnSize,
+                                                   .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                               }};
         config.output_block_config.parallel_gains_config = {
             .gains = std::vector<float>(kFdnSize, 0.5F),
             .time_varying_config = {},
@@ -703,6 +902,320 @@ TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output",
     }
 }
 
+TEST_CASE("FDN output composition overwrites the destination with wet and direct paths", "[fdn]")
+{
+    std::array<float, 1> impulse = {1.F};
+    std::array<float, 1> silence = {0.F};
+    const sfFDN::AudioBuffer impulse_buffer(impulse);
+    const sfFDN::AudioBuffer silence_buffer(silence);
+
+    // The destination is deliberately seeded with 10.F. Process overwrites it, so the previous contents must not
+    // appear in the result; a regression to accumulating semantics would show up as an extra 10.F.
+    const auto render_second_sample = [&](sfFDN::FDNConfig config) {
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+        std::array<float, 1> first_output{};
+        sfFDN::AudioBuffer first_output_buffer(first_output);
+        fdn->Process(impulse_buffer, first_output_buffer);
+
+        std::array<float, 1> dirty_output = {10.F};
+        sfFDN::AudioBuffer dirty_output_buffer(dirty_output);
+        fdn->Process(silence_buffer, dirty_output_buffer);
+        return dirty_output[0];
+    };
+
+    SECTION("a bare merge discards the previous destination contents")
+    {
+        REQUIRE(render_second_sample(MakeOneSampleCharacterizationConfig()) == Catch::Approx(1.F));
+    }
+
+    SECTION("a post-output processor sees only the wet path")
+    {
+        auto config = MakeOneSampleCharacterizationConfig();
+        config.output_block_config.single_channel_processors.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
+        REQUIRE(render_second_sample(config) == Catch::Approx(2.F));
+    }
+
+    SECTION("tone correction processes only wet output")
+    {
+        auto config = MakeOneSampleCharacterizationConfig();
+        config.tone_correction_filters.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
+        REQUIRE(render_second_sample(config) == Catch::Approx(2.F));
+    }
+}
+
+TEST_CASE("FDN applies static MIMO boundary matrices in both topologies", "[fdn]")
+{
+    std::array<float, 2> input = {2.F, 4.F};
+    std::array<float, 2> silence{};
+    const sfFDN::AudioBuffer input_buffer(1U, 2U, input);
+    const sfFDN::AudioBuffer silence_buffer(1U, 2U, silence);
+
+    SECTION("normal topology delays the wet path")
+    {
+        auto fdn = CreateMimoTestFDN(false);
+        REQUIRE(fdn->InputChannelCount() == 2U);
+        REQUIRE(fdn->OutputChannelCount() == 2U);
+
+        // Seeded with 100/200 to pin that Process overwrites rather than accumulates.
+        std::array<float, 2> first_output = {100.F, 200.F};
+        sfFDN::AudioBuffer first_output_buffer(1U, 2U, first_output);
+        fdn->Process(input_buffer, first_output_buffer);
+        REQUIRE(first_output[0] == Catch::Approx(1.F));
+        REQUIRE(first_output[1] == Catch::Approx(-1.F));
+
+        std::array<float, 2> second_output{};
+        sfFDN::AudioBuffer second_output_buffer(1U, 2U, second_output);
+        fdn->Process(silence_buffer, second_output_buffer);
+        REQUIRE(second_output[0] == Catch::Approx(10.F));
+        REQUIRE(second_output[1] == Catch::Approx(10.F));
+    }
+
+    SECTION("transposed topology exposes the injected state immediately")
+    {
+        auto fdn = CreateMimoTestFDN(true);
+        std::array<float, 2> first_output = {100.F, 200.F};
+        sfFDN::AudioBuffer first_output_buffer(1U, 2U, first_output);
+        fdn->Process(input_buffer, first_output_buffer);
+        REQUIRE(first_output[0] == Catch::Approx(11.F));
+        REQUIRE(first_output[1] == Catch::Approx(9.F));
+
+        std::array<float, 2> second_output{};
+        sfFDN::AudioBuffer second_output_buffer(1U, 2U, second_output);
+        fdn->Process(silence_buffer, second_output_buffer);
+        REQUIRE(second_output[0] == Catch::Approx(10.F));
+        REQUIRE(second_output[1] == Catch::Approx(10.F));
+    }
+}
+
+TEST_CASE("FDN processes external channel counts larger than its order", "[fdn]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kChannels = 5U;
+    sfFDN::FDN fdn(sfFDN::FDNTopology{
+        .order = kOrder,
+        .block_size = 1U,
+        .input_channel_count = kChannels,
+        .output_channel_count = kChannels,
+    });
+    REQUIRE(fdn.SetDelays(std::array{1.F, 1.F, 1.F, 1.F}));
+    REQUIRE(fdn.SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = kOrder,
+                                               .generator = sfFDN::ScalarMatrixType::Identity,
+                                           }})));
+
+    std::vector<float> input_coefficients(kOrder * kChannels, 0.F);
+    std::vector<float> output_coefficients(kChannels * kOrder, 0.F);
+    std::vector<float> direct_coefficients(kChannels * kChannels, 0.F);
+    for (uint32_t channel = 0; channel < kOrder; ++channel)
+    {
+        input_coefficients[channel * kChannels + channel] = 1.F;
+        output_coefficients[channel * kOrder + channel] = 1.F;
+    }
+    for (uint32_t channel = 0; channel < kChannels; ++channel)
+    {
+        direct_coefficients[channel * kChannels + channel] = 1.F;
+    }
+
+    REQUIRE(fdn.SetInputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kChannels,
+        .output_channel_count = kOrder,
+        .coefficients = input_coefficients,
+    })));
+    REQUIRE(fdn.SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kOrder,
+        .output_channel_count = kChannels,
+        .coefficients = output_coefficients,
+    })));
+    REQUIRE(fdn.SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kChannels,
+        .output_channel_count = kChannels,
+        .coefficients = direct_coefficients,
+    })));
+
+    std::array<float, kChannels> input = {1.F, 2.F, 3.F, 4.F, 5.F};
+    std::array<float, kChannels> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, kChannels, input);
+    sfFDN::AudioBuffer output_buffer(1U, kChannels, output);
+    fdn.Process(input_buffer, output_buffer);
+    REQUIRE(output == input);
+}
+
+TEST_CASE("FDN MIMO processing is independent of callback partitioning", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 7U;
+    for (const bool transposed : {false, true})
+    {
+        auto whole = CreateMimoTestFDN(transposed, 4U);
+        auto chunked = CreateMimoTestFDN(transposed, 4U);
+        std::array<float, kSampleCount * 2U> input = {1.F,  2.F, 3.F,  4.F, 5.F,  6.F, 7.F,
+                                                      -1.F, 1.F, -2.F, 2.F, -3.F, 3.F, -4.F};
+        std::array<float, kSampleCount * 2U> whole_output{};
+        std::array<float, kSampleCount * 2U> chunked_output{};
+        const sfFDN::AudioBuffer input_buffer(kSampleCount, 2U, input);
+        sfFDN::AudioBuffer whole_output_buffer(kSampleCount, 2U, whole_output);
+        sfFDN::AudioBuffer chunked_output_buffer(kSampleCount, 2U, chunked_output);
+
+        whole->Process(input_buffer, whole_output_buffer);
+        const sfFDN::AudioBuffer first_input = input_buffer.Offset(0U, 2U);
+        sfFDN::AudioBuffer first_output = chunked_output_buffer.Offset(0U, 2U);
+        chunked->Process(first_input, first_output);
+        const sfFDN::AudioBuffer second_input = input_buffer.Offset(2U, 5U);
+        sfFDN::AudioBuffer second_output = chunked_output_buffer.Offset(2U, 5U);
+        chunked->Process(second_input, second_output);
+
+        REQUIRE(chunked_output == whole_output);
+    }
+}
+
+TEST_CASE("FDN applies multichannel tone correction only to wet output", "[fdn]")
+{
+    auto fdn = CreateMimoTestFDN(false);
+    REQUIRE(fdn->SetTCFilter(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 2U,
+        .coefficients = {2.F, 0.F, 0.F, 3.F},
+    })));
+
+    std::array<float, 2> input = {2.F, 4.F};
+    std::array<float, 2> silence{};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, 2U, input);
+    const sfFDN::AudioBuffer silence_buffer(1U, 2U, silence);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+    fdn->Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == Catch::Approx(1.F));
+    REQUIRE(output[1] == Catch::Approx(-1.F));
+
+    std::ranges::fill(output, 0.F);
+    fdn->Process(silence_buffer, output_buffer);
+    REQUIRE(output[0] == Catch::Approx(20.F));
+    REQUIRE(output[1] == Catch::Approx(30.F));
+}
+
+TEST_CASE("FDN rejects routing processors that do not match the fixed topology", "[fdn]")
+{
+    auto fdn = CreateMimoTestFDN(false);
+    auto* const input = fdn->GetInputGains();
+    auto* const output = fdn->GetOutputGains();
+    auto* const direct = fdn->GetDirectPath();
+
+    REQUIRE_FALSE(fdn->SetInputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 3U,
+        .output_channel_count = 4U,
+        .coefficients = std::vector<float>(12U, 0.F),
+    })));
+    REQUIRE_FALSE(fdn->SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 4U,
+        .output_channel_count = 3U,
+        .coefficients = std::vector<float>(12U, 0.F),
+    })));
+    REQUIRE_FALSE(fdn->SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 1U,
+        .output_channel_count = 2U,
+        .coefficients = {0.F, 0.F},
+    })));
+    REQUIRE_FALSE(fdn->SetInputGains(std::array{1.F, 1.F, 1.F, 1.F}));
+    REQUIRE_FALSE(fdn->SetOutputGains(std::array{1.F, 1.F, 1.F, 1.F}));
+
+    REQUIRE(fdn->GetOrder() == 4U);
+    REQUIRE(fdn->GetInputGains() == input);
+    REQUIRE(fdn->GetOutputGains() == output);
+    REQUIRE(fdn->GetDirectPath() == direct);
+    REQUIRE(fdn->InputChannelCount() == 2U);
+    REQUIRE(fdn->OutputChannelCount() == 2U);
+}
+
+TEST_CASE("FDN SetDirectPath removes the direct processor and restores the scalar gain", "[fdn]")
+{
+    auto fdn = CreateMimoTestFDN(false);
+    REQUIRE(fdn->GetDirectPath() != nullptr);
+    REQUIRE(fdn->SetDirectPath(nullptr));
+    REQUIRE(fdn->GetDirectPath() == nullptr);
+
+    // M == K, so the scalar gain is a valid diagonal direct path.
+    fdn->SetDirectGain(0.F);
+
+    std::array<float, 2> input{1.F, 0.F};
+    std::array<float, 2> silence{};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, 2U, input);
+    const sfFDN::AudioBuffer silence_buffer(1U, 2U, silence);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+    fdn->Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == 0.F);
+    REQUIRE(output[1] == 0.F);
+
+    // B routes input 0 into delays {0, 2, 3}; the identity matrix and unit delays return them on the next block, and C
+    // maps them to [1*1, 3*1 + 4*1].
+    fdn->Process(silence_buffer, output_buffer);
+    REQUIRE(output[0] == Catch::Approx(1.F));
+    REQUIRE(output[1] == Catch::Approx(7.F));
+}
+
+TEST_CASE("FDN construction rejects degenerate topologies", "[fdn]")
+{
+    REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 0U, .block_size = 8U})), std::invalid_argument);
+    REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 4U, .block_size = 0U})), std::invalid_argument);
+    REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 4U, .block_size = 8U, .input_channel_count = 0U})),
+                      std::invalid_argument);
+    REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 4U, .block_size = 8U, .output_channel_count = 0U})),
+                      std::invalid_argument);
+}
+
+TEST_CASE("FDN SetDirectGain is rejected when the input and output channel counts differ", "[fdn]")
+{
+    sfFDN::FDN fdn(sfFDN::FDNTopology{
+        .order = 4U,
+        .block_size = 1U,
+        .input_channel_count = 1U,
+        .output_channel_count = 2U,
+    });
+    REQUIRE(fdn.GetDirectPath() == nullptr);
+    fdn.SetDirectGain(0.75F);
+    REQUIRE(fdn.GetDirectPath() == nullptr);
+
+    // With no direct path and M != K the dry contribution is silent, so a zeroed wet network produces silence.
+    REQUIRE(fdn.SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 4U,
+        .output_channel_count = 2U,
+        .coefficients = std::vector<float>(8U, 0.F),
+    })));
+
+    std::array<float, 1> input{1.F};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, 1U, input);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+    fdn.Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == 0.F);
+    REQUIRE(output[1] == 0.F);
+
+    // A rectangular direct processor is still accepted.
+    REQUIRE(fdn.SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 1U,
+        .output_channel_count = 2U,
+        .coefficients = {0.5F, -0.5F},
+    })));
+    output.fill(0.F);
+    fdn.Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == Catch::Approx(0.5F));
+    REQUIRE(output[1] == Catch::Approx(-0.5F));
+}
+
+TEST_CASE("FDN MIMO processing is allocation-free for remainder blocks", "[fdn]")
+{
+    auto fdn = CreateMimoTestFDN(false, 4U);
+    std::array<float, 6> input{};
+    std::array<float, 6> output{};
+    const sfFDN::AudioBuffer input_buffer(3U, 2U, input);
+    sfFDN::AudioBuffer output_buffer(3U, 2U, output);
+    fdn->Process(input_buffer, output_buffer);
+
+    const sfFDNTest::ScopedAllocationCounter allocation_counter;
+    fdn->Process(input_buffer, output_buffer);
+    REQUIRE(allocation_counter.Count() == 0U);
+}
+
 TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
@@ -740,8 +1253,14 @@ TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", 
 TEST_CASE("FDN rejects incompatible setters without replacing configured processors", "[fdn]")
 {
     sfFDN::FDN fdn(4, 8);
+    auto* const input_gains = fdn.GetInputGains();
     auto* const output_gains = fdn.GetOutputGains();
     auto* const feedback_matrix = fdn.GetFeedbackMatrix();
+
+    REQUIRE_FALSE(fdn.SetInputGains(std::unique_ptr<sfFDN::AudioProcessor>{}));
+    REQUIRE_FALSE(fdn.SetOutputGains(std::unique_ptr<sfFDN::AudioProcessor>{}));
+    REQUIRE(fdn.GetInputGains() == input_gains);
+    REQUIRE(fdn.GetOutputGains() == output_gains);
 
     auto wrong_output = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge);
     wrong_output->SetGains(std::array{1.f, 1.f, 1.f});
@@ -760,22 +1279,195 @@ TEST_CASE("FDN rejects incompatible setters without replacing configured process
     REQUIRE(fdn.GetDelayBank().InputChannelCount() == 4);
 }
 
-TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpose", "[fdn]")
+TEST_CASE("FDN construction fixes the topology and preserves transpose", "[fdn]")
 {
-    sfFDN::FDN fdn(4, 8, true);
-    fdn.SetLoopFilter(
-        std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel, std::array{1.f, 1.f, 1.f, 1.f}));
-    fdn.SetOrder(6);
-    REQUIRE(fdn.GetOrder() == 6);
+    sfFDN::FDN fdn(sfFDN::FDNTopology{
+        .order = 6U,
+        .block_size = 8U,
+        .input_channel_count = 2U,
+        .output_channel_count = 3U,
+        .transposed = true,
+    });
+    REQUIRE(fdn.GetOrder() == 6U);
     REQUIRE(fdn.GetTranspose());
+    REQUIRE(fdn.InputChannelCount() == 2U);
+    REQUIRE(fdn.OutputChannelCount() == 3U);
     REQUIRE(fdn.GetLoopFilter() == nullptr);
-    REQUIRE(fdn.GetInputGains()->OutputChannelCount() == 6);
-    REQUIRE(fdn.GetOutputGains()->InputChannelCount() == 6);
+    REQUIRE(fdn.GetInputGains()->InputChannelCount() == 2U);
+    REQUIRE(fdn.GetInputGains()->OutputChannelCount() == 6U);
+    REQUIRE(fdn.GetOutputGains()->InputChannelCount() == 6U);
+    REQUIRE(fdn.GetOutputGains()->OutputChannelCount() == 3U);
 
     fdn.SetTranspose(false);
     REQUIRE_FALSE(fdn.GetTranspose());
-    fdn.SetOrder(3);
-    REQUIRE(fdn.GetOrder() == 6);
+    REQUIRE(fdn.GetOrder() == 6U);
+}
+
+TEST_CASE("FDN default and span boundary routing use ChannelMatrix", "[fdn]")
+{
+    SECTION("mono defaults preserve the legacy half-gain routing")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 1> external_input = {2.F};
+        std::array<float, 4> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 4U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{1.F, 1.F, 1.F, 1.F});
+
+        std::array<float, 4> internal_input = {2.F, 4.F, 6.F, 8.F};
+        std::array<float, 1> external_output = {99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 4U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output[0] == 10.F);
+    }
+
+    SECTION("MIMO defaults use the same dense half-gain rule")
+    {
+        sfFDN::FDN fdn(sfFDN::FDNTopology{
+            .order = 3U,
+            .block_size = 1U,
+            .input_channel_count = 2U,
+            .output_channel_count = 2U,
+        });
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 2> external_input = {2.F, 4.F};
+        std::array<float, 3> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(1U, 2U, external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 3U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{3.F, 3.F, 3.F});
+
+        std::array<float, 3> internal_input = {2.F, 4.F, 6.F};
+        std::array<float, 2> external_output = {99.F, 99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 3U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(1U, 2U, external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output == std::array{6.F, 6.F});
+    }
+
+    SECTION("span adapters preserve signed nonuniform gain order")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        constexpr std::array kInputGains = {0.5F, -1.F, 2.F, -0.25F};
+        constexpr std::array kOutputGains = {-0.5F, 1.F, 0.25F, 2.F};
+        REQUIRE(fdn.SetInputGains(kInputGains));
+        REQUIRE(fdn.SetOutputGains(kOutputGains));
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 1> external_input = {4.F};
+        std::array<float, 4> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 4U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{2.F, -4.F, 8.F, -1.F});
+
+        std::array<float, 4> internal_input = {2.F, 4.F, 6.F, 8.F};
+        std::array<float, 1> external_output = {99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 4U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output[0] == 20.5F);
+    }
+
+    SECTION("order one remains valid")
+    {
+        sfFDN::FDN fdn(1U, 1U);
+        REQUIRE(fdn.SetInputGains(std::array{2.F}));
+        REQUIRE(fdn.SetOutputGains(std::array{-0.5F}));
+
+        std::array<float, 1> input = {3.F};
+        std::array<float, 1> routed{};
+        const sfFDN::AudioBuffer input_buffer(input);
+        sfFDN::AudioBuffer routed_buffer(routed);
+        fdn.GetInputGains()->Process(input_buffer, routed_buffer);
+        REQUIRE(routed[0] == 6.F);
+
+        std::array<float, 1> output{};
+        const sfFDN::AudioBuffer output_input_buffer(routed);
+        sfFDN::AudioBuffer output_buffer(output);
+        fdn.GetOutputGains()->Process(output_input_buffer, output_buffer);
+        REQUIRE(output[0] == -3.F);
+    }
+
+    SECTION("caller-supplied ParallelGains processors remain supported")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        auto input =
+            std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, std::array{1.F, 2.F, 3.F, 4.F});
+        auto output =
+            std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, std::array{4.F, 3.F, 2.F, 1.F});
+        REQUIRE(fdn.SetInputGains(std::move(input)));
+        REQUIRE(fdn.SetOutputGains(std::move(output)));
+        REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(fdn.GetOutputGains()) != nullptr);
+    }
+}
+
+TEST_CASE("FDN move operations preserve active processing state", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 32;
+    std::array<float, kSampleCount> impulse{};
+    impulse[0] = 1.F;
+    std::array<float, kSampleCount> silence{};
+    const sfFDN::AudioBuffer impulse_buffer(impulse);
+    const sfFDN::AudioBuffer silence_buffer(silence);
+
+    auto reference = CreatePyFDNGoldFDN();
+    auto move_source = CreatePyFDNGoldFDN();
+    auto assignment_source = CreatePyFDNGoldFDN();
+    std::array<float, kSampleCount> warm_output{};
+    sfFDN::AudioBuffer warm_output_buffer(warm_output);
+    reference->Process(impulse_buffer, warm_output_buffer);
+    std::ranges::fill(warm_output, 0.F);
+    move_source->Process(impulse_buffer, warm_output_buffer);
+    std::ranges::fill(warm_output, 0.F);
+    assignment_source->Process(impulse_buffer, warm_output_buffer);
+
+    std::array<float, kSampleCount> reference_output{};
+    sfFDN::AudioBuffer reference_output_buffer(reference_output);
+    reference->Process(silence_buffer, reference_output_buffer);
+
+    sfFDN::FDN move_constructed(std::move(*move_source));
+    std::array<float, kSampleCount> move_output{};
+    sfFDN::AudioBuffer move_output_buffer(move_output);
+    move_constructed.Process(silence_buffer, move_output_buffer);
+    REQUIRE(move_output == reference_output);
+
+    sfFDN::FDN move_assigned(4, 4);
+    move_assigned = std::move(*assignment_source);
+    std::array<float, kSampleCount> assignment_output{};
+    sfFDN::AudioBuffer assignment_output_buffer(assignment_output);
+    move_assigned.Process(silence_buffer, assignment_output_buffer);
+    REQUIRE(assignment_output == reference_output);
+
+    auto mimo = CreateMimoTestFDN(false);
+    std::array<float, 2> mimo_input = {2.F, 4.F};
+    std::array<float, 2> mimo_first_output{};
+    const sfFDN::AudioBuffer mimo_input_buffer(1U, 2U, mimo_input);
+    sfFDN::AudioBuffer mimo_first_output_buffer(1U, 2U, mimo_first_output);
+    mimo->Process(mimo_input_buffer, mimo_first_output_buffer);
+    auto mimo_clone = mimo->Clone();
+
+    sfFDN::FDN moved_mimo(std::move(*mimo));
+    std::array<float, 2> mimo_silence{};
+    std::array<float, 2> moved_tail{};
+    const sfFDN::AudioBuffer mimo_silence_buffer(1U, 2U, mimo_silence);
+    sfFDN::AudioBuffer moved_tail_buffer(1U, 2U, moved_tail);
+    moved_mimo.Process(mimo_silence_buffer, moved_tail_buffer);
+    REQUIRE(moved_tail == std::array{10.F, 10.F});
+
+    std::array<float, 2> clone_first_output{};
+    sfFDN::AudioBuffer clone_first_output_buffer(1U, 2U, clone_first_output);
+    mimo_clone->Process(mimo_input_buffer, clone_first_output_buffer);
+    REQUIRE(clone_first_output == mimo_first_output);
 }
 
 TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks", "[fdn]")
@@ -795,11 +1487,11 @@ TEST_CASE("FDN processing is allocation-free for normal, transposed, and configu
     config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
     config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                        .time_varying_config = {}};
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .source = sfFDN::GeneratedMatrixOptions{
-            .matrix_size = config.fdn_size,
-            .generator = sfFDN::ScalarMatrixType::Hadamard,
-        }};
+    config.feedback_matrix_config =
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = config.fdn_size,
+                                               .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                           }};
     config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                         .time_varying_config = {}};
     auto configured = sfFDN::CreateFDNFromConfig(config);
@@ -814,6 +1506,102 @@ TEST_CASE("FDN processing is allocation-free for normal, transposed, and configu
         configured->Process(input_buffer, output_buffer);
         REQUIRE(allocation_counter.Count() == 0);
     }
+}
+
+TEST_CASE("FDN renders a mono-to-stereo impulse response audition", "[fdn][.diagnostic]")
+{
+    constexpr uint32_t kOrder = 8U;
+    constexpr uint32_t kBlockSize = 128U;
+    constexpr uint32_t kSampleRate = 48000U;
+    // Deliberately not a multiple of the block size, so Process() ends on a remainder block and any seam between the
+    // full-block and remainder paths would show up in the audio.
+    constexpr uint32_t kDurationSamples = (kSampleRate * 2U) + 37U;
+
+    sfFDN::FDN fdn(sfFDN::FDNTopology{
+        .order = kOrder,
+        .block_size = kBlockSize,
+        .input_channel_count = 1U,
+        .output_channel_count = 2U,
+    });
+
+    REQUIRE(fdn.SetDelays(GetDefaultDelays(kOrder)));
+    REQUIRE(fdn.SetInputGains(GetDefaultInputGains(kOrder)));
+    REQUIRE(fdn.SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = kOrder,
+                                               .generator = sfFDN::ScalarMatrixType::Householder,
+                                           }})));
+    REQUIRE(fdn.SetLoopFilter(GetLoopFilter(kOrder, 11U)));
+
+    // Even delay lines feed the left channel and odd ones the right. The Householder matrix spreads energy across all
+    // eight lines, but their delay lengths differ, so the two channels stay decorrelated.
+    constexpr float kOutputGain = 0.5F;
+    std::vector<float> output_coefficients(2U * kOrder, 0.F);
+    for (uint32_t line = 0; line < kOrder; ++line)
+    {
+        output_coefficients[(line % 2U) * kOrder + line] = kOutputGain;
+    }
+    REQUIRE(fdn.SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kOrder,
+        .output_channel_count = 2U,
+        .coefficients = output_coefficients,
+    })));
+
+    // Tone correction is a K-channel processor now, so a stereo FDN needs one filter per output channel.
+    auto tone_correction = std::make_unique<sfFDN::FilterBank>();
+    tone_correction->AddFilter(GetDefaultTCFilter());
+    tone_correction->AddFilter(GetDefaultTCFilter());
+    REQUIRE(fdn.SetTCFilter(std::move(tone_correction)));
+
+    REQUIRE(fdn.SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 1U,
+        .output_channel_count = 2U,
+        .coefficients = {0.1F, 0.1F},
+    })));
+
+    std::vector<float> impulse(kDurationSamples, 0.F);
+    impulse[0] = 1.F;
+    const sfFDN::AudioBuffer input_buffer(kDurationSamples, 1U, impulse);
+
+    // Process() splits the request into block_size chunks internally, so the whole response renders in one call. The
+    // FDN accumulates, so the destination starts zeroed.
+    std::vector<float> planar_output(static_cast<size_t>(kDurationSamples) * 2U, 0.F);
+    sfFDN::AudioBuffer output_buffer(kDurationSamples, 2U, planar_output);
+    fdn.Process(input_buffer, output_buffer);
+
+    std::vector<float> interleaved = InterleaveAudioBuffer(output_buffer);
+
+    REQUIRE(std::ranges::all_of(interleaved, [](float sample) { return std::isfinite(sample); }));
+
+    // The two channels must both carry signal and must not be copies of one another; a mono-broadcast regression would
+    // make them identical.
+    float left_energy = 0.F;
+    float right_energy = 0.F;
+    float difference_energy = 0.F;
+    for (size_t frame = 0; frame < kDurationSamples; ++frame)
+    {
+        const float left = interleaved[(frame * 2U)];
+        const float right = interleaved[(frame * 2U) + 1U];
+        left_energy += left * left;
+        right_energy += right * right;
+        difference_energy += (left - right) * (left - right);
+    }
+    REQUIRE(left_energy > 0.F);
+    REQUIRE(right_energy > 0.F);
+    REQUIRE(difference_energy > 0.01F * (left_energy + right_energy));
+
+    // Normalize so the file is comfortable to listen to. The assertions above run on the unnormalized response.
+    const float peak = std::ranges::max(std::views::transform(interleaved, [](float s) { return std::abs(s); }));
+    if (peak > 0.F)
+    {
+        const float gain = 0.9F / peak;
+        for (float& sample : interleaved)
+        {
+            sample *= gain;
+        }
+    }
+
+    WriteWavFile("fdn_mono_to_stereo_ir.wav", interleaved, 2U);
 }
 
 TEST_CASE("FDNConfig defaults are defined and reject an incomplete draft", "[fdn]")
@@ -832,13 +1620,9 @@ TEST_CASE("FDNConfig validates primary delay bank values and sizing", "[fdn]")
 {
     SECTION("rejects malformed primary delays")
     {
-        for (const float delay : {std::numeric_limits<float>::quiet_NaN(),
-                                  std::numeric_limits<float>::infinity(),
-                                  -std::numeric_limits<float>::infinity(),
-                                  0.F,
-                                  -1.F,
-                                  7.F,
-                                  std::numeric_limits<float>::max()})
+        for (const float delay :
+             {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity(),
+              -std::numeric_limits<float>::infinity(), 0.F, -1.F, 7.F, std::numeric_limits<float>::max()})
         {
             auto config = MakeFactoryConfig();
             config.delay_bank_config.delays[0] = delay;

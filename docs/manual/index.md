@@ -23,7 +23,21 @@ This topology can be separated into seven building blocks: the input gains (gree
 
 <summary> Input/Output gains </summary>
 
-The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain (\f$b_i\f$, \f$c_i\f$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into \f$N\f$ output channels (input gains) or sum \f$N\f$ input channels into a single output channel (output gains). FIR filters are commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining a `Fir` processor with `ParallelGains`. For longer FIR filters, `PartitionedConvolver` can reduce convolution cost. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented with `SparseFir`, which efficiently represents sparse FIR filters suited to velvet-noise sequences. `FilterBank` can also create a bank of parallel filters, allowing each channel to have its own FIR or velvet-noise filter.
+The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation applies one scalar gain (\f$b_i\f$, \f$c_i\f$) per delay line. `FDN::SetInputGains(span)`, `FDN::SetOutputGains(span)`, and unmodulated `StageGainsOptions` keep that compact gain-list interface but construct a `ChannelMatrix` internally. `ParallelGains` remains available as a standalone split, merge, or diagonal processor, and `TimeVaryingParallelGains` implements modulated stage gains. FIR filters are commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining a `Fir` processor with the boundary routing. For longer FIR filters, `PartitionedConvolver` can reduce convolution cost. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented with `SparseFir`, which efficiently represents sparse FIR filters suited to velvet-noise sequences. `FilterBank` can also create a bank of parallel filters, allowing each channel to have its own FIR or velvet-noise filter.
+
+More generally, the network takes \f$M\f$ external input channels and produces \f$K\f$ external output channels. The input gains block is then the boundary matrix \f$B\f$ mapping \f$M\f$ to \f$N\f$, and the output gains block is \f$C\f$ mapping \f$N\f$ to \f$K\f$; `ChannelMatrix` implements both. \f$M\f$, \f$N\f$ and \f$K\f$ are fixed for the lifetime of an `FDN` and are supplied at construction through `FDNTopology`:
+
+```c++
+sfFDN::FDN fdn(sfFDN::FDNTopology{
+    .order = 8,
+    .block_size = 128,
+    .input_channel_count = 1,
+    .output_channel_count = 2,
+});
+```
+
+Every processor installed afterwards is validated against those counts, so a setter either installs a compatible processor or leaves the network untouched; there is no way to resize an existing FDN. `FDN::Process` requires an input buffer with exactly \f$M\f$ channels. It requires exactly \f$K\f$ output channels, except that a network with \f$K = 1\f$ also accepts a wider output buffer and duplicates channel zero into the rest. `FDN::Process` overwrites its output buffer, so callers driving it block by block do not have to clear the destination; any previous contents are discarded rather than mixed into the response.
+
 
 </details>
 
@@ -168,9 +182,54 @@ uses normalized input and output gains of `1 / sqrt(N)`, applies one second of h
 chooses Hadamard feedback for power-of-two orders or Householder feedback otherwise.
 `FDNConfig{}` is an initialized but invalid empty draft. Configuration equality compares stored members exactly.
 
-`InputStageConfig` and `OutputStageConfig` use `StageGainsOptions` for their gains. The factory uses Split routing
-for the input stage and Merge routing for the output stage. `ParallelGainsOptions` retains its explicit `mode` for
-standalone and multichannel gain processors.
+`InputStageConfig` and `OutputStageConfig` use `StageGainsOptions` for their compact gain-list representation.
+With no modulation, the factory converts those lists to N-by-1 and 1-by-N `ChannelMatrix` processors. A nonempty
+modulation vector selects `TimeVaryingParallelGains`; this is based on whether modulation is configured, not on
+whether its current amplitude happens to be zero. `ParallelGainsOptions` retains its explicit `mode` for standalone
+and multichannel gain processors.
+
+The public config and JSON representation does not change when a static stage is built as a matrix. Likewise,
+`FDN::SetInputGains(span)` and `SetOutputGains(span)` remain the recommended convenience APIs. The
+`GetInputGains()` and `GetOutputGains()` accessors return `AudioProcessor*`; code must not assume that an
+automatically constructed static boundary can be downcast to `ParallelGains`. Install an explicit compatible
+processor through the owning setter when its concrete type or accumulating semantics are required.
+
+### Multi-input, multi-output configurations
+
+`FDNConfig::input_channel_count` (M) and `output_channel_count` (K) declare the external shape of the network and
+both default to `1`. A count other than `1` requires the corresponding stage to carry an explicit
+`boundary_matrix` instead of stage gains:
+
+```c++
+config.input_channel_count = 2;
+config.output_channel_count = 2;
+
+config.input_block_config.parallel_gains_config = {}; // Must be empty when a boundary matrix is set.
+config.input_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+    .input_channel_count = config.input_channel_count,
+    .output_channel_count = config.fdn_size,
+    .coefficients = std::vector<float>(config.input_channel_count * config.fdn_size, 0.5f)};
+
+config.output_block_config.parallel_gains_config = {};
+config.output_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+    .input_channel_count = config.fdn_size,
+    .output_channel_count = config.output_channel_count,
+    .coefficients = std::vector<float>(config.output_channel_count * config.fdn_size, 0.5f)};
+```
+
+The selection is explicit in both directions and never inferred: a boundary matrix present means the matrix is
+used and the stage gains must be empty; a boundary matrix absent means the stage gains are used and the
+corresponding channel count must be `1`.
+
+The direct path follows the same rule. `direct_gain` is a diagonal `gain * I` and therefore requires M to equal K;
+set `direct_matrix` for any other shape. A nonzero `direct_gain` together with a `direct_matrix` is rejected as
+ambiguous.
+
+Two placement rules follow from the topology. `single_channel_processors` on the input stage run *before* the
+input matrix and on the output stage run *after* the output matrix, so they sit on the external side of the
+boundary. With M or K greater than 1 the whole ordered chain is replicated once per external channel, each replica
+an independent instance with its own filter state. Tone correction follows the same rule on the K output channels.
+
 
 Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON and link JSON consumers to
 `sfFDN::serialization`. Reads are transactional: malformed input leaves the destination unchanged.

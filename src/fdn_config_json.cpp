@@ -23,22 +23,25 @@ void to_json(nlohmann::json& j, const InputStageConfig& p)
         multichannel_processors_json.push_back(ToJson(processor_config));
     }
     json["multichannel_processors"] = multichannel_processors_json;
+    json["boundary_matrix"] = p.boundary_matrix.has_value() ? nlohmann::json(*p.boundary_matrix) : nlohmann::json();
     j = std::move(json);
 }
 
 void from_json(const nlohmann::json& j, InputStageConfig& p)
 {
     json_detail::RequireObject(j, "InputStageConfig");
-    if (j.size() != 3 || !j.contains("single_channel_processors") || !j.contains("parallel_gains_config") ||
-        !j.contains("multichannel_processors"))
+    // boundary_matrix is optional so that files written before MIMO support still load.
+    if (!j.contains("single_channel_processors") || !j.contains("parallel_gains_config") ||
+        !j.contains("multichannel_processors") || j.size() > 4 || (j.size() == 4 && !j.contains("boundary_matrix")))
     {
         throw std::invalid_argument(
-            "InputStageConfig must contain exactly single_channel_processors, parallel_gains_config, and "
-            "multichannel_processors");
+            "InputStageConfig must contain exactly single_channel_processors, parallel_gains_config, "
+            "multichannel_processors, and optionally boundary_matrix");
     }
 
     InputStageConfig candidate;
     candidate.parallel_gains_config = j.at("parallel_gains_config").get<StageGainsOptions>();
+    json_detail::ReadOptionalObject(j, "boundary_matrix", candidate.boundary_matrix);
     const auto& single = j.at("single_channel_processors");
     const auto& multi = j.at("multichannel_processors");
     if (!single.is_array() || !multi.is_array())
@@ -74,22 +77,25 @@ void to_json(nlohmann::json& j, const OutputStageConfig& p)
         single_channel_processors_json.push_back(ToJson(processor_config));
     }
     json["single_channel_processors"] = single_channel_processors_json;
+    json["boundary_matrix"] = p.boundary_matrix.has_value() ? nlohmann::json(*p.boundary_matrix) : nlohmann::json();
     j = std::move(json);
 }
 
 void from_json(const nlohmann::json& j, OutputStageConfig& p)
 {
     json_detail::RequireObject(j, "OutputStageConfig");
-    if (j.size() != 3 || !j.contains("multichannel_processors") || !j.contains("parallel_gains_config") ||
-        !j.contains("single_channel_processors"))
+    // boundary_matrix is optional so that files written before MIMO support still load.
+    if (!j.contains("multichannel_processors") || !j.contains("parallel_gains_config") ||
+        !j.contains("single_channel_processors") || j.size() > 4 || (j.size() == 4 && !j.contains("boundary_matrix")))
     {
         throw std::invalid_argument(
-            "OutputStageConfig must contain exactly multichannel_processors, parallel_gains_config, and "
-            "single_channel_processors");
+            "OutputStageConfig must contain exactly multichannel_processors, parallel_gains_config, "
+            "single_channel_processors, and optionally boundary_matrix");
     }
 
     OutputStageConfig candidate;
     candidate.parallel_gains_config = j.at("parallel_gains_config").get<StageGainsOptions>();
+    json_detail::ReadOptionalObject(j, "boundary_matrix", candidate.boundary_matrix);
     const auto& multi = j.at("multichannel_processors");
     const auto& single = j.at("single_channel_processors");
     if (!multi.is_array() || !single.is_array())
@@ -113,8 +119,11 @@ void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p)
 {
     nlohmann::json json;
     json["fdn_size"] = p.fdn_size;
+    json["input_channel_count"] = p.input_channel_count;
+    json["output_channel_count"] = p.output_channel_count;
     json["transposed"] = p.transposed;
     json["direct_gain"] = p.direct_gain;
+    json["direct_matrix"] = p.direct_matrix.has_value() ? nlohmann::json(*p.direct_matrix) : nlohmann::json();
     json["block_size"] = p.block_size;
     json["sample_rate"] = p.sample_rate;
     json["delay_bank_config"] = p.delay_bank_config;
@@ -148,8 +157,12 @@ void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p)
     json_detail::RequireObject(j, "FDNConfig");
     FDNConfig candidate;
     json_detail::ReadField(j, "fdn_size", candidate.fdn_size);
+    // The MIMO fields are optional so that files written before MIMO support still load as one-in, one-out networks.
+    json_detail::ReadOptionalField(j, "input_channel_count", candidate.input_channel_count);
+    json_detail::ReadOptionalField(j, "output_channel_count", candidate.output_channel_count);
     json_detail::ReadField(j, "transposed", candidate.transposed);
     json_detail::ReadField(j, "direct_gain", candidate.direct_gain);
+    json_detail::ReadOptionalObject(j, "direct_matrix", candidate.direct_matrix);
     json_detail::ReadField(j, "block_size", candidate.block_size);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
     json_detail::ReadField(j, "delay_bank_config", candidate.delay_bank_config);
