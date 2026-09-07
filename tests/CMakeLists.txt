@@ -161,6 +161,7 @@ set(
     time_varying_parallel_gains_perf.cpp
     partitioned_convolver_perf.cpp
     time_varying_feedback_matrix_perf.cpp
+    channel_matrix_perf.cpp
 )
 set(
     SFFDN_COMPARISON_PERF_SOURCES
@@ -168,6 +169,7 @@ set(
     delay_fir_comparison_perf.cpp
     filter_bank_comparison_perf.cpp
     feedback_matrix_comparison_perf.cpp
+    channel_matrix_comparison_perf.cpp
     processor_comparison_perf.cpp
 )
 set(

@@ -53,10 +53,11 @@ std::vector<ProductionFDNWorkload> CreateProductionFDNWorkloads()
     constexpr std::array<float, 6> kOptDelays6 = {997.f, 1153.f, 1327.f, 1559.f, 1801.f, 2099.f};
     constexpr std::array<float, 8> kOptDelays8 = {809.f, 877.f, 937.f, 1049.f,
                                                  1151.f, 1249.f, 1373.f, 1499.f};
-    const auto opt_delays16 =
-        sfFDN::GetDelayLengths(16, 512, 3000, sfFDN::DelayLengthType::Uniform);
-    const auto opt_delays32 =
-        sfFDN::GetDelayLengths(32, 512, 3000, sfFDN::DelayLengthType::Uniform);
+    // A fixed seed is mandatory: with the default seed of 0, GetDelayLengths draws from std::random_device, so every
+    // process run would use different delay lengths and the workloads would not be comparable across runs.
+    constexpr uint32_t kDelaySeed = 0x5F4E3D2CU;
+    const auto opt_delays16 = sfFDN::GetDelayLengths(16, 512, 3000, sfFDN::DelayLengthType::Uniform, kDelaySeed);
+    const auto opt_delays32 = sfFDN::GetDelayLengths(32, 512, 3000, sfFDN::DelayLengthType::Uniform, kDelaySeed);
     const sfFDN::ThreeBandFilterOptions three_band{
         .t60s = {1.5f, 1.f, 0.5f}, .delay = 0.f, .sample_rate = kSampleRate};
     const sfFDN::TwoBandFilterOptions two_band{

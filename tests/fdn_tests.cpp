@@ -902,13 +902,15 @@ TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output",
     }
 }
 
-TEST_CASE("FDN output composition accumulates wet and direct paths", "[fdn]")
+TEST_CASE("FDN output composition overwrites the destination with wet and direct paths", "[fdn]")
 {
     std::array<float, 1> impulse = {1.F};
     std::array<float, 1> silence = {0.F};
     const sfFDN::AudioBuffer impulse_buffer(impulse);
     const sfFDN::AudioBuffer silence_buffer(silence);
 
+    // The destination is deliberately seeded with 10.F. Process overwrites it, so the previous contents must not
+    // appear in the result; a regression to accumulating semantics would show up as an extra 10.F.
     const auto render_second_sample = [&](sfFDN::FDNConfig config) {
         auto fdn = sfFDN::CreateFDNFromConfig(config);
         std::array<float, 1> first_output{};
@@ -921,23 +923,23 @@ TEST_CASE("FDN output composition accumulates wet and direct paths", "[fdn]")
         return dirty_output[0];
     };
 
-    SECTION("bare merge accumulates wet output into the destination")
+    SECTION("a bare merge discards the previous destination contents")
     {
-        REQUIRE(render_second_sample(MakeOneSampleCharacterizationConfig()) == Catch::Approx(11.F));
+        REQUIRE(render_second_sample(MakeOneSampleCharacterizationConfig()) == Catch::Approx(1.F));
     }
 
-    SECTION("post-output processor contributes without overwriting the destination")
+    SECTION("a post-output processor sees only the wet path")
     {
         auto config = MakeOneSampleCharacterizationConfig();
         config.output_block_config.single_channel_processors.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
-        REQUIRE(render_second_sample(config) == Catch::Approx(12.F));
+        REQUIRE(render_second_sample(config) == Catch::Approx(2.F));
     }
 
     SECTION("tone correction processes only wet output")
     {
         auto config = MakeOneSampleCharacterizationConfig();
         config.tone_correction_filters.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
-        REQUIRE(render_second_sample(config) == Catch::Approx(12.F));
+        REQUIRE(render_second_sample(config) == Catch::Approx(2.F));
     }
 }
 
@@ -954,11 +956,12 @@ TEST_CASE("FDN applies static MIMO boundary matrices in both topologies", "[fdn]
         REQUIRE(fdn->InputChannelCount() == 2U);
         REQUIRE(fdn->OutputChannelCount() == 2U);
 
+        // Seeded with 100/200 to pin that Process overwrites rather than accumulates.
         std::array<float, 2> first_output = {100.F, 200.F};
         sfFDN::AudioBuffer first_output_buffer(1U, 2U, first_output);
         fdn->Process(input_buffer, first_output_buffer);
-        REQUIRE(first_output[0] == Catch::Approx(101.F));
-        REQUIRE(first_output[1] == Catch::Approx(199.F));
+        REQUIRE(first_output[0] == Catch::Approx(1.F));
+        REQUIRE(first_output[1] == Catch::Approx(-1.F));
 
         std::array<float, 2> second_output{};
         sfFDN::AudioBuffer second_output_buffer(1U, 2U, second_output);
@@ -973,8 +976,8 @@ TEST_CASE("FDN applies static MIMO boundary matrices in both topologies", "[fdn]
         std::array<float, 2> first_output = {100.F, 200.F};
         sfFDN::AudioBuffer first_output_buffer(1U, 2U, first_output);
         fdn->Process(input_buffer, first_output_buffer);
-        REQUIRE(first_output[0] == Catch::Approx(111.F));
-        REQUIRE(first_output[1] == Catch::Approx(209.F));
+        REQUIRE(first_output[0] == Catch::Approx(11.F));
+        REQUIRE(first_output[1] == Catch::Approx(9.F));
 
         std::array<float, 2> second_output{};
         sfFDN::AudioBuffer second_output_buffer(1U, 2U, second_output);

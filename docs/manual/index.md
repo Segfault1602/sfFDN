@@ -36,7 +36,7 @@ sfFDN::FDN fdn(sfFDN::FDNTopology{
 });
 ```
 
-Every processor installed afterwards is validated against those counts, so a setter either installs a compatible processor or leaves the network untouched; there is no way to resize an existing FDN. `FDN::Process` requires an input buffer with exactly \f$M\f$ channels. It requires exactly \f$K\f$ output channels, except that a network with \f$K = 1\f$ also accepts a wider output buffer and duplicates channel zero into the rest. `FDN::Process` accumulates into its output buffer, so callers driving it block by block must zero the destination before every call.
+Every processor installed afterwards is validated against those counts, so a setter either installs a compatible processor or leaves the network untouched; there is no way to resize an existing FDN. `FDN::Process` requires an input buffer with exactly \f$M\f$ channels. It requires exactly \f$K\f$ output channels, except that a network with \f$K = 1\f$ also accepts a wider output buffer and duplicates channel zero into the rest. `FDN::Process` overwrites its output buffer, so callers driving it block by block do not have to clear the destination; any previous contents are discarded rather than mixed into the response.
 
 
 </details>

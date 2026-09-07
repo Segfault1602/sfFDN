@@ -233,10 +233,13 @@ class FDN : public AudioProcessor
      */
     AudioProcessor* GetTCFilter() const;
 
-    /** @brief Process audio buffers and accumulate the result into output.
+    /** @brief Process audio buffers, overwriting the output.
      * @param input The input audio buffer. Its channel count must equal InputChannelCount().
      * @param output The output audio buffer. Its channel count must equal OutputChannelCount(). A mono FDN also
      * accepts additional output channels and duplicates channel zero for backward compatibility.
+     *
+     * The output buffer is overwritten, so the caller does not have to clear it between blocks. Any previous contents
+     * are discarded rather than mixed with the response.
      *
      * The input and output buffers must have the same sample count.
      * input.SampleCount() does not have to be equal to block_size but it is recommended for optimal performance.
@@ -266,7 +269,8 @@ class FDN : public AudioProcessor
 
   private:
     void PrepareOutput(const AudioBuffer& input, const AudioBuffer& wet_input) noexcept SFFDN_NONBLOCKING;
-    void AccumulateOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
+    bool HasDirectContribution() const noexcept SFFDN_NONBLOCKING;
+    void WriteOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void TickTranspose(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;

@@ -492,21 +492,24 @@ void FDN::PrepareOutput(const AudioBuffer& input, const AudioBuffer& wet_input) 
         AudioBuffer direct_output(sample_count, output_channel_count_, direct_output_);
         direct_path_->Process(input, direct_output);
     }
-    else if (input_channel_count_ == output_channel_count_)
+    else if (direct_gain_ != 0.f)
     {
+        // A nonzero scalar gain is only reachable when the input and output channel counts match.
         AudioBuffer direct_output(sample_count, output_channel_count_, direct_output_);
         for (uint32_t channel = 0; channel < output_channel_count_; ++channel)
         {
             ArrayMath::Scale(input.GetChannelSpan(channel), direct_gain_, direct_output.GetChannelSpan(channel));
         }
     }
-    else
-    {
-        std::ranges::fill(std::span(direct_output_).first(output_sample_count), 0.f);
-    }
+    // Otherwise there is no dry contribution at all and direct_output_ is never read.
 }
 
-void FDN::AccumulateOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
+bool FDN::HasDirectContribution() const noexcept SFFDN_NONBLOCKING
+{
+    return direct_path_ != nullptr || direct_gain_ != 0.f;
+}
+
+void FDN::WriteOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t sample_count = output.SampleCount();
     const size_t output_sample_count = static_cast<size_t>(sample_count) * output_channel_count_;
@@ -520,11 +523,21 @@ void FDN::AccumulateOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
         processed_wet = &tone_output;
     }
 
-    AudioBuffer direct_output(sample_count, output_channel_count_, direct_output_);
+    // The output is overwritten, not accumulated into, so the caller does not have to zero it first.
+    if (HasDirectContribution())
+    {
+        const AudioBuffer direct_output(sample_count, output_channel_count_, direct_output_);
+        for (uint32_t channel = 0; channel < output_channel_count_; ++channel)
+        {
+            ArrayMath::Add(processed_wet->GetChannelSpan(channel), direct_output.GetChannelSpan(channel),
+                           output.GetChannelSpan(channel));
+        }
+        return;
+    }
+
     for (uint32_t channel = 0; channel < output_channel_count_; ++channel)
     {
-        ArrayMath::Accumulate(output.GetChannelSpan(channel), processed_wet->GetChannelSpan(channel));
-        ArrayMath::Accumulate(output.GetChannelSpan(channel), direct_output.GetChannelSpan(channel));
+        std::ranges::copy(processed_wet->GetChannelSpan(channel), output.GetChannelSpan(channel).begin());
     }
 }
 
@@ -558,7 +571,7 @@ void FDN::TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept S
                    std::span(feedback_).first(internal_sample_count));
 
     delay_bank_.AddNextInputs(feedback_buffer);
-    AccumulateOutput(output);
+    WriteOutput(output);
 }
 
 void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
@@ -592,7 +605,7 @@ void FDN::TickTransposeInternal(const AudioBuffer& input, AudioBuffer& output) n
     delay_bank_.AddNextInputs(temp_buffer);
 
     PrepareOutput(input, temp_buffer);
-    AccumulateOutput(output);
+    WriteOutput(output);
 }
 
 void FDN::Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING
