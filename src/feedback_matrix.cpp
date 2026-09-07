@@ -32,28 +32,23 @@ namespace sfFDN
 {
 
 ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& config)
-    : order_(detail::RequireValidOptions(config).matrix_size)
-    , matrix_type_(config.custom_matrix ? ScalarMatrixType::Count : config.type)
+    : order_(detail::RequireValidOptions(config).MatrixSize())
+    , matrix_type_(
+          std::visit(overloaded{[](const GeneratedMatrixOptions& source) { return GetMatrixType(source.generator); },
+                                [](const MatrixData&) { return ScalarMatrixType::Count; }},
+                     config.source))
 {
     // Eigen lazily queries CPU cache sizes on the first dense product. Initialize that state during setup, not in the
     // audio callback.
     static_cast<void>(Eigen::l1CacheSize());
 
-    if (config.custom_matrix)
-    {
-        const size_t expected = static_cast<size_t>(config.matrix_size) * config.matrix_size;
-        if (config.custom_matrix->size() != expected)
-        {
-            throw std::invalid_argument("ScalarFeedbackMatrix: custom_matrix size must equal matrix_size^2 (got " +
-                                        std::to_string(config.custom_matrix->size()) + ", expected " +
-                                        std::to_string(expected) + ")");
-        }
-        matrix_data_ = *config.custom_matrix;
-    }
-    else
-    {
-        matrix_data_ = GenerateMatrix(config.matrix_size, config.type, config.rng_seed, config.arg);
-    }
+    std::visit(overloaded{[this](const GeneratedMatrixOptions& source) {
+                              matrix_data_ = GenerateMatrix(source.matrix_size, source.generator, source.rng_seed);
+                          },
+                          [this](const MatrixData& source) {
+                              matrix_data_.assign(source.Values().begin(), source.Values().end());
+                          }},
+               config.source);
 }
 
 bool ScalarFeedbackMatrix::SetMatrix(const std::span<const float> matrix)

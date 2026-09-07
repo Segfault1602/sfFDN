@@ -23,7 +23,11 @@ static_assert(std::derived_from<sfFDN::FDNConfigError, std::runtime_error>);
 static_assert(std::same_as<decltype(sfFDN::CreateFDNFromConfig(std::declval<const sfFDN::FDNConfig&>())),
                            std::unique_ptr<sfFDN::FDN>>);
 static_assert(std::same_as<decltype(sfFDN::MakeDefaultFDNConfig()), sfFDN::FDNConfig>);
+static_assert(std::same_as<decltype(sfFDN::RandomizeMatrixSeeds(std::declval<sfFDN::FDNConfig&>())), void>);
+static_assert(std::same_as<sfFDN::MatrixGeneratorOptions,
+                           std::variant<sfFDN::ScalarMatrixType, sfFDN::VariableDiffusionOptions>>);
 static_assert(std::is_aggregate_v<sfFDN::StageGainsOptions>);
+static_assert(std::is_aggregate_v<sfFDN::GeneratedMatrixOptions>);
 static_assert(std::is_aggregate_v<sfFDN::InputStageConfig>);
 static_assert(std::is_aggregate_v<sfFDN::OutputStageConfig>);
 static_assert(std::is_aggregate_v<sfFDN::FDNConfig>);
@@ -31,3 +35,6 @@ static_assert(std::equality_comparable<sfFDN::InputStageConfig>);
 static_assert(std::equality_comparable<sfFDN::OutputStageConfig>);
 static_assert(std::equality_comparable<sfFDN::FDNConfig>);
 static_assert(!HasMode<sfFDN::StageGainsOptions>);
+static_assert(std::same_as<decltype(std::declval<const sfFDN::ScalarFeedbackMatrixOptions&>().MatrixSize()), uint32_t>);
+static_assert(std::same_as<decltype(std::declval<const sfFDN::MatrixData&>().Order()), uint32_t>);
+static_assert(std::equality_comparable<sfFDN::MatrixData>);

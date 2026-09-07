@@ -28,6 +28,30 @@ std::string IndexPath(const std::string& path, size_t index)
     return path + "/" + std::to_string(index);
 }
 
+void ValidateScalarMatrixDimension(const sfFDN::ScalarFeedbackMatrixOptions& options, const std::string& path,
+                                   uint32_t fdn_size, bool fdn_size_valid, Issues& issues)
+{
+    std::visit(sfFDN::overloaded{
+                   [&](const sfFDN::GeneratedMatrixOptions& source) {
+                       if (fdn_size_valid && source.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch,
+                                    path + "/source/GeneratedMatrixOptions/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(source.matrix_size));
+                       }
+                   },
+                   [&](const sfFDN::MatrixData& source) {
+                       if (fdn_size_valid && source.Order() != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/source/MatrixData/order",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(source.Order()));
+                       }
+                   }},
+               options.source);
+}
+
 void ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& options, const sfFDN::FDNConfig& config,
                               bool fdn_size_valid, bool block_size_valid, Issues& issues)
 {
@@ -100,12 +124,7 @@ void ValidateFeedbackMatrix(const sfFDN::feedback_matrix_variant_t& options, con
                    [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
                        const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
                        sfFDN::detail::ValidateOptions(value, options_path, issues);
-                       if (fdn_size_valid && value.matrix_size != fdn_size)
-                       {
-                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
-                                    "expected " + std::to_string(fdn_size) + ", got " +
-                                        std::to_string(value.matrix_size));
-                       }
+                       ValidateScalarMatrixDimension(value, options_path, fdn_size, fdn_size_valid, issues);
                    },
                    [&](const sfFDN::TimeVaryingFeedbackMatrixOptions& value) {
                        const std::string options_path = path + "/TimeVaryingFeedbackMatrixOptions";
@@ -242,12 +261,7 @@ void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_
                    [&](const sfFDN::ScalarFeedbackMatrixOptions& value) {
                        const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
                        sfFDN::detail::ValidateOptions(value, options_path, issues);
-                       if (fdn_size_valid && value.matrix_size != fdn_size)
-                       {
-                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
-                                    "expected " + std::to_string(fdn_size) + ", got " +
-                                        std::to_string(value.matrix_size));
-                       }
+                       ValidateScalarMatrixDimension(value, options_path, fdn_size, fdn_size_valid, issues);
                    },
                },
                options);

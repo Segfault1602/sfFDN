@@ -30,7 +30,6 @@ constexpr size_t kChunkSize = 128U;
 constexpr float kSchurSubDiagonalTolerance = 32.0F * std::numeric_limits<float>::epsilon();
 // Both norms accumulate O(order) float32 round-off from Eigen's real Schur iteration.
 constexpr float kSchurErrorTolerancePerOrder = 256.0F * std::numeric_limits<float>::epsilon();
-constexpr uint32_t kDefaultRealSchurSeed = 0x5EED1234U;
 
 void ValidateModulationOption(const sfFDN::ModulationOptions& modulation)
 {
@@ -192,8 +191,7 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
         {
             // GenerateMatrix is row-major, so Eigen's default column-major Map sees A.T. Preserve this mapping:
             // changing it would alter the deterministic RealSchur DSP output.
-            const uint32_t seed = options.rng_seed == 0U ? kDefaultRealSchurSeed : options.rng_seed;
-            const auto matrix_data = GenerateMatrix(order_, ScalarMatrixType::Random, seed);
+            const auto matrix_data = GenerateMatrix(order_, ScalarMatrixType::Random, options.rng_seed);
             base_matrix = Eigen::Map<const Eigen::MatrixXf>(matrix_data.data(), static_cast<Eigen::Index>(order_),
                                                             static_cast<Eigen::Index>(order_));
         }

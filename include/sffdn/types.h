@@ -8,6 +8,8 @@
 #include <variant>
 #include <vector>
 
+#include "sffdn/matrix_data.h"
+
 namespace sfFDN
 {
 
@@ -26,6 +28,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 constexpr uint32_t kDefaultSampleRate = 48000;
 constexpr uint32_t kDefaultBlockSize = 128;
+inline constexpr uint32_t kDefaultMatrixSeed = 0x5EED1234U;
 
 /** @defgroup AudioProcessorOptions Audio Processors Options
  * @brief Structs for configuring audio processors used in the FDN.
@@ -131,29 +134,38 @@ enum class TimeVaryingMatrixMode : uint8_t
 
 // STRUCTS
 
+struct VariableDiffusionOptions
+{
+    float diffusion{1.f};
+
+    bool operator==(const VariableDiffusionOptions&) const = default;
+};
+
+using MatrixGeneratorOptions = std::variant<ScalarMatrixType, VariableDiffusionOptions>;
+
+struct GeneratedMatrixOptions
+{
+    uint32_t matrix_size{0};
+    MatrixGeneratorOptions generator{ScalarMatrixType::Random};
+    uint32_t rng_seed{kDefaultMatrixSeed};
+
+    bool operator==(const GeneratedMatrixOptions&) const = default;
+};
+
 /** @brief Options for configuring a scalar feedback matrix.
  *
  * Can be use to construct a ScalarFeedbackMatrix.
  */
 struct ScalarFeedbackMatrixOptions
 {
-    //! Size of the feedback matrix
-    uint32_t matrix_size{0};
+    std::variant<GeneratedMatrixOptions, MatrixData> source;
 
-    //! Type of the feedback matrix
-    ScalarMatrixType type{ScalarMatrixType::Random};
-
-    //! Optional custom matrix values in row-major order: custom_matrix[row * matrix_size + column] is
-    //! A[row, column], mapping source/input columns to destination/output rows (y = A*x). The size of the vector
-    //! must be matrix_size*matrix_size. If this is set, `type` is ignored.
-    std::optional<std::vector<float>> custom_matrix{std::nullopt};
-
-    //! Optional. Seed for every random gallery type; zero selects fresh randomness.
-    uint32_t rng_seed{0};
-
-    //! Optional argument for certain matrix types. For example, for the VariableDiffusion type, this could represent
-    // the diffusion parameter.
-    std::optional<float> arg{std::nullopt};
+    uint32_t MatrixSize() const
+    {
+        return std::visit(overloaded{[](const GeneratedMatrixOptions& generated) { return generated.matrix_size; },
+                                     [](const MatrixData& matrix) { return matrix.Order(); }},
+                          source);
+    }
 
     bool operator==(const ScalarFeedbackMatrixOptions&) const = default;
 };
@@ -171,10 +183,9 @@ struct CascadedFeedbackMatrixOptions
     uint32_t stage_count{0}; /**< Number of stages */
     float sparsity{1.f};     /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
                                 values correspond to sparser matrices. */
-    ScalarMatrixType type{
-        ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
-    float gain_per_samples{1.f};   /**< Gain per sample. */
-    uint32_t rng_seed{0};          /**< Seed for all stage matrices and delay shifts; zero selects fresh randomness. */
+    MatrixGeneratorOptions generator{ScalarMatrixType::Random}; /**< Matrix recipe used for all stages. */
+    float gain_per_samples{1.f};                                /**< Gain per sample. */
+    uint32_t rng_seed{kDefaultMatrixSeed};                      /**< Seed for all stage matrices and delay shifts. */
 
     bool operator==(const CascadedFeedbackMatrixOptions&) const = default;
 };
@@ -205,8 +216,8 @@ struct TimeVaryingFeedbackMatrixOptions
     TimeVaryingMatrixMode mode{TimeVaryingMatrixMode::Hadamard}; /**< Construction mode for the orthogonal matrix. */
     std::vector<ModulationOptions>
         time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
-    uint32_t rng_seed{0};    /**< Seed for the RealSchur random orthogonal basis. In RealSchur mode, zero selects a
-                                fixed seed so configurations are reproducible; Hadamard mode ignores it. */
+    uint32_t rng_seed{kDefaultMatrixSeed}; /**< Seed for the RealSchur random orthogonal basis; Hadamard mode ignores
+                                              it. */
 
     bool operator==(const TimeVaryingFeedbackMatrixOptions&) const = default;
 };

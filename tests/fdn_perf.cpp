@@ -56,22 +56,26 @@ std::unique_ptr<sfFDN::FDN> MakeFDN(FDNFamily family, uint32_t block_size, uint3
 
     if (family == FDNFamily::HouseholderElevenStage)
     {
-        REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-            sfFDN::ScalarFeedbackMatrixOptions{
-                .matrix_size = order,
-                .type = sfFDN::ScalarMatrixType::Householder,
-            })));
+        REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::GeneratedMatrixOptions{
+                    .matrix_size = order,
+                    .generator = sfFDN::ScalarMatrixType::Householder,
+                },
+        })));
         REQUIRE(fdn->SetLoopFilter(GetLoopFilter(order, 11U)));
         REQUIRE(fdn->SetTCFilter(GetDefaultTCFilter()));
         return fdn;
     }
 
-    REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrixOptions{
-            .matrix_size = order,
-            .type = sfFDN::ScalarMatrixType::Random,
-            .rng_seed = 4242U,
-        })));
+    REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = order,
+                .generator = sfFDN::ScalarMatrixType::Random,
+                .rng_seed = 4242U,
+            },
+    })));
     REQUIRE(fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(
         sfFDN::TwoBandFilterOptions{
             .t60s = {1.5F, 0.5F},
@@ -187,12 +191,12 @@ TEST_CASE("FDNPerf_FFM", "[fdn]")
     for (const uint32_t block_size : sfFDN::test::perf::BlockSizes())
     {
         auto fdn = MakeFDN(FDNFamily::HouseholderElevenStage, block_size, kOrder);
-        REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::FilterFeedbackMatrix>(
-            sfFDN::CascadedFeedbackMatrixOptions{
+        REQUIRE(
+            fdn->SetFeedbackMatrix(std::make_unique<sfFDN::FilterFeedbackMatrix>(sfFDN::CascadedFeedbackMatrixOptions{
                 .matrix_size = kOrder,
                 .stage_count = 2U,
                 .sparsity = 1.F,
-                .type = sfFDN::ScalarMatrixType::Hadamard,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
                 .gain_per_samples = 1.F,
             })));
 

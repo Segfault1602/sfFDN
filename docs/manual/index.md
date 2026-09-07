@@ -51,7 +51,7 @@ deviation.
 <details>
 <summary> Feedback Matrix </summary>
 
-The feedback matrix supports any processor that takes N channels of audio as input and outputs \f$N\f$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. Arbitrary matrix can also be constructed by providing the matrix coefficient directly. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7]. The matrix multiplications are performed using [Eigen](https://libeigen.gitlab.io) for fast performance.
+The feedback matrix supports any processor that takes N channels of audio as input and outputs \f$N\f$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. A scalar matrix is either a generated recipe or explicit `MatrixData`; the latter owns its coefficients. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7].
 
 </details>
 
@@ -69,6 +69,33 @@ pyFDN evaluates the same mapping as `x @ A.T`. This is unrelated to sfFDN's **tr
 topology** (`FDN::SetTranspose`): that setting reorders the FDN signal-flow topology; it does not
 apply \f$A^T\f$ to a supplied feedback matrix. Supply an explicitly transposed matrix when
 \f$A^T\f$ is desired.
+
+## Matrix sources, seeds, and migration
+
+`ScalarFeedbackMatrixOptions::source` is either a generated `GeneratedMatrixOptions` recipe or
+owned, shape-checked `MatrixData`. `MatrixData(order, coefficients)` verifies that its row-major
+coefficient vector has exactly `order * order` values; use its `Values()` spans to inspect or edit
+those owned values.
+
+```c++
+// Generated recipe
+sfFDN::ScalarFeedbackMatrixOptions generated{
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = kFDNOrder,
+        .generator = sfFDN::ScalarMatrixType::Hadamard,
+        .rng_seed = sfFDN::kDefaultMatrixSeed}};
+
+// Explicit row-major data for y = A x
+sfFDN::ScalarFeedbackMatrixOptions explicit_matrix{
+    .source = sfFDN::MatrixData{2, {1.f, 0.f, 0.f, 1.f}}};
+
+// Parameterized Variable Diffusion recipe
+sfFDN::ScalarFeedbackMatrixOptions diffusion{
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = kFDNOrder,
+        .generator = sfFDN::VariableDiffusionOptions{.diffusion = 0.5f},
+        .rng_seed = 0U}};
+```
 
 <details>
 <summary> Loop Filters </summary>
@@ -99,8 +126,9 @@ fdn.SetOutputGains(output_gains);
 
 // Set Hadamard feedback matrix
 sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options;
-feedback_matrix_options.matrix_size = kFDNOrder;
-feedback_matrix_options.type = sfFDN::ScalarMatrixType::Hadamard;
+feedback_matrix_options.source = sfFDN::GeneratedMatrixOptions{
+    .matrix_size = kFDNOrder,
+    .generator = sfFDN::ScalarMatrixType::Hadamard};
 auto feedback_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(feedback_matrix_options);
 fdn.SetFeedbackMatrix(std::move(feedback_matrix));
 
@@ -168,8 +196,9 @@ sfFDN::StageGainsOptions input_gains_options{
 config.input_block_config.parallel_gains_config = input_gains_options;
 
 sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{
-    .matrix_size = config.fdn_size,
-    .type = sfFDN::ScalarMatrixType::Hadamard};
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = config.fdn_size,
+        .generator = sfFDN::ScalarMatrixType::Hadamard}};
 
 config.feedback_matrix_config = feedback_matrix_options;
 

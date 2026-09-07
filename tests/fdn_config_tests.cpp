@@ -42,8 +42,10 @@ sfFDN::FDNConfig MakeValidConfig()
         .time_varying_config = {},
     };
     config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = kOrder,
-        .type = sfFDN::ScalarMatrixType::Hadamard,
+        .source = sfFDN::GeneratedMatrixOptions{
+            .matrix_size = kOrder,
+            .generator = sfFDN::ScalarMatrixType::Hadamard,
+        },
     };
     config.output_block_config.parallel_gains_config = {
         .gains = std::vector<float>(kOrder, 1.F),
@@ -105,6 +107,46 @@ std::vector<float> RenderDefaultFDN(sfFDN::FDN& fdn, const sfFDN::FDNConfig& con
     }
 
     return output;
+}
+
+void NormalizeMatrixSeed(sfFDN::ScalarFeedbackMatrixOptions& options)
+{
+    if (auto* generated = std::get_if<sfFDN::GeneratedMatrixOptions>(&options.source))
+    {
+        generated->rng_seed = sfFDN::kDefaultMatrixSeed;
+    }
+}
+
+void NormalizeMatrixSeed(sfFDN::CascadedFeedbackMatrixOptions& options)
+{
+    options.rng_seed = sfFDN::kDefaultMatrixSeed;
+}
+
+void NormalizeMatrixSeed(sfFDN::TimeVaryingFeedbackMatrixOptions& options)
+{
+    options.rng_seed = sfFDN::kDefaultMatrixSeed;
+}
+
+void NormalizeMatrixSeeds(sfFDN::FDNConfig& config)
+{
+    const auto normalize = [](auto& options) {
+        using Options = std::remove_cvref_t<decltype(options)>;
+        if constexpr (std::same_as<Options, sfFDN::ScalarFeedbackMatrixOptions> ||
+                      std::same_as<Options, sfFDN::CascadedFeedbackMatrixOptions> ||
+                      std::same_as<Options, sfFDN::TimeVaryingFeedbackMatrixOptions>)
+        {
+            NormalizeMatrixSeed(options);
+        }
+    };
+    std::visit(normalize, config.feedback_matrix_config);
+    for (auto* placement : {&config.input_block_config.multichannel_processors,
+                            &config.output_block_config.multichannel_processors, &config.loop_filter_configs})
+    {
+        for (auto& options : *placement)
+        {
+            std::visit(normalize, options);
+        }
+    }
 }
 
 } // namespace
@@ -228,14 +270,7 @@ TEST_CASE("FDNConfig reports empty structural arrays without indexing them", "[f
 
 TEST_CASE("FDNConfig reports feedback matrix dimensions", "[fdn]")
 {
-    auto custom_matrix = MakeValidConfig();
-    custom_matrix.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = custom_matrix.fdn_size,
-        .custom_matrix = std::vector<float>(3, 0.F),
-    };
-    const auto& custom_issues = RequireIssues(sfFDN::ValidateFDNConfig(custom_matrix));
-    REQUIRE(HasIssue(custom_issues, sfFDN::ConfigErrorCode::SizeMismatch,
-                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/custom_matrix"));
+    REQUIRE_THROWS_AS(sfFDN::MatrixData(2U, std::vector<float>(3U, 0.F)), std::invalid_argument);
 
     auto hadamard = MakeValidConfig();
     hadamard.fdn_size = 3;
@@ -243,12 +278,15 @@ TEST_CASE("FDNConfig reports feedback matrix dimensions", "[fdn]")
     hadamard.input_block_config.parallel_gains_config.gains.pop_back();
     hadamard.output_block_config.parallel_gains_config.gains.pop_back();
     hadamard.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = hadamard.fdn_size,
-        .type = sfFDN::ScalarMatrixType::Hadamard,
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = hadamard.fdn_size,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            },
     };
     const auto& hadamard_issues = RequireIssues(sfFDN::ValidateFDNConfig(hadamard));
     REQUIRE(HasIssue(hadamard_issues, sfFDN::ConfigErrorCode::InvalidValue,
-                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/matrix_size"));
+                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/source/GeneratedMatrixOptions/matrix_size"));
 }
 
 TEST_CASE("FDNConfig reports capacity overflow without constructing", "[fdn]")
@@ -532,12 +570,6 @@ TEST_CASE("FDNConfig validates supported filter and nonlinear processor domains"
 TEST_CASE("FDNConfig validates attenuation and matrix domains at legacy option paths", "[fdn]")
 {
     auto config = MakeValidConfig();
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = 4,
-        .type = sfFDN::ScalarMatrixType::Count,
-        .custom_matrix =
-            std::vector<float>{2.F, 0.F, 0.F, 0.F, 0.F, 2.F, 0.F, 0.F, 0.F, 0.F, 2.F, 0.F, 0.F, 0.F, 0.F, 2.F},
-    };
     config.attenuation_filter_bank_config = sfFDN::AttenuationFilterBankOptions{
         .filter_configs =
             {
@@ -580,12 +612,12 @@ TEST_CASE("FDNConfig validates attenuation and matrix domains at legacy option p
 
     auto invalid_matrix = config;
     invalid_matrix.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
-        .matrix_size = 4, .stage_count = 1, .sparsity = 0.F, .type = sfFDN::ScalarMatrixType::Count};
+        .matrix_size = 4, .stage_count = 1, .sparsity = 0.F, .generator = sfFDN::ScalarMatrixType::Count};
     const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(invalid_matrix));
     REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
                      "/feedback_matrix_config/CascadedFeedbackMatrixInfo/sparsity"));
     REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue,
-                     "/feedback_matrix_config/CascadedFeedbackMatrixInfo/type"));
+                     "/feedback_matrix_config/CascadedFeedbackMatrixInfo/generator"));
 
     auto invalid_time_varying = config;
     invalid_time_varying.feedback_matrix_config = sfFDN::TimeVaryingFeedbackMatrixOptions{
@@ -611,22 +643,32 @@ TEST_CASE("FDNConfig accepts supported matrix types and rejects matrix and atten
     {
         auto config = MakeValidConfig();
         config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-            .matrix_size = config.fdn_size, .type = type, .rng_seed = 42U, .arg = 0.5F};
+            .source = sfFDN::GeneratedMatrixOptions{
+                .matrix_size = config.fdn_size,
+                .generator = type == sfFDN::ScalarMatrixType::VariableDiffusion
+                                 ? sfFDN::MatrixGeneratorOptions{sfFDN::VariableDiffusionOptions{.diffusion = 0.5F}}
+                                 : sfFDN::MatrixGeneratorOptions{type},
+                .rng_seed = 42U,
+            }};
         REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
     }
 
     auto invalid_scalar = MakeValidConfig();
-    invalid_scalar.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = 4, .type = sfFDN::ScalarMatrixType::VariableDiffusion, .arg = 2.F};
+    invalid_scalar.feedback_matrix_config =
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = 4,
+                                               .generator = sfFDN::VariableDiffusionOptions{.diffusion = 2.F},
+                                           }};
     REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(invalid_scalar)), sfFDN::ConfigErrorCode::InvalidValue,
-                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/arg"));
+                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/source/GeneratedMatrixOptions/generator/"
+                     "VariableDiffusionOptions/diffusion"));
 
     auto valid_cascade = MakeValidConfig();
     valid_cascade.feedback_matrix_config =
         sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = valid_cascade.fdn_size,
                                              .stage_count = 0U,
                                              .sparsity = 1.F,
-                                             .type = sfFDN::ScalarMatrixType::Random};
+                                             .generator = sfFDN::ScalarMatrixType::Random};
     REQUIRE(sfFDN::ValidateFDNConfig(valid_cascade).has_value());
 
     auto overflow_cascade = valid_cascade;
@@ -642,21 +684,22 @@ TEST_CASE("FDNConfig accepts supported matrix types and rejects matrix and atten
     shift_overflow.input_block_config.parallel_gains_config.gains.assign(64U, 1.F);
     shift_overflow.output_block_config.parallel_gains_config.gains.assign(64U, 1.F);
     shift_overflow.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
-        .matrix_size = 64U, .stage_count = 6U, .sparsity = 1.F, .type = sfFDN::ScalarMatrixType::Random};
+        .matrix_size = 64U, .stage_count = 6U, .sparsity = 1.F, .generator = sfFDN::ScalarMatrixType::Random};
     REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(shift_overflow)), sfFDN::ConfigErrorCode::CapacityOverflow,
                      "/feedback_matrix_config/CascadedFeedbackMatrixInfo/stage_count"));
 
     auto shift_neighbor = shift_overflow;
     shift_neighbor.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
-        .matrix_size = 64U, .stage_count = 5U, .sparsity = 1.F, .type = sfFDN::ScalarMatrixType::Random};
+        .matrix_size = 64U, .stage_count = 5U, .sparsity = 1.F, .generator = sfFDN::ScalarMatrixType::Random};
     REQUIRE(sfFDN::ValidateFDNConfig(shift_neighbor).has_value());
 
     auto gain_overflow = MakeValidConfig();
-    gain_overflow.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U,
-                                                                                .stage_count = 2U,
-                                                                                .sparsity = 3.F,
-                                                                                .type = sfFDN::ScalarMatrixType::Random,
-                                                                                .gain_per_samples = 100.F};
+    gain_overflow.feedback_matrix_config =
+        sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U,
+                                             .stage_count = 2U,
+                                             .sparsity = 3.F,
+                                             .generator = sfFDN::ScalarMatrixType::Random,
+                                             .gain_per_samples = 100.F};
     REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(gain_overflow)), sfFDN::ConfigErrorCode::CapacityOverflow,
                      "/feedback_matrix_config/CascadedFeedbackMatrixInfo/gain_per_samples"));
 
@@ -668,11 +711,12 @@ TEST_CASE("FDNConfig accepts supported matrix types and rejects matrix and atten
                      "/feedback_matrix_config/CascadedFeedbackMatrixInfo/gain_per_samples"));
 
     auto gain_neighbor = MakeValidConfig();
-    gain_neighbor.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U,
-                                                                                .stage_count = 2U,
-                                                                                .sparsity = 3.F,
-                                                                                .type = sfFDN::ScalarMatrixType::Random,
-                                                                                .gain_per_samples = 1.F};
+    gain_neighbor.feedback_matrix_config =
+        sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U,
+                                             .stage_count = 2U,
+                                             .sparsity = 3.F,
+                                             .generator = sfFDN::ScalarMatrixType::Random,
+                                             .gain_per_samples = 1.F};
     REQUIRE(sfFDN::ValidateFDNConfig(gain_neighbor).has_value());
     auto& gain_neighbor_options = std::get<sfFDN::CascadedFeedbackMatrixOptions>(gain_neighbor.feedback_matrix_config);
     gain_neighbor_options.gain_per_samples = -1.F;
@@ -683,7 +727,7 @@ TEST_CASE("FDNConfig accepts supported matrix types and rejects matrix and atten
         sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U,
                                              .stage_count = 2U,
                                              .sparsity = 1.1F,
-                                             .type = sfFDN::ScalarMatrixType::Random,
+                                             .generator = sfFDN::ScalarMatrixType::Random,
                                              .gain_per_samples = -0.5F};
     REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(fractional_negative_gain)),
                      sfFDN::ConfigErrorCode::InvalidValue,
@@ -810,6 +854,51 @@ TEST_CASE("FDNConfig compares every configured value structurally", "[fdn]")
     REQUIRE(changed_attenuation != changed_t60);
 }
 
+TEST_CASE("RandomizeMatrixSeeds changes only generated matrix recipes", "[fdn]")
+{
+    auto config = MakeValidConfig();
+    const auto generated = sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                                  .matrix_size = config.fdn_size,
+                                                                  .generator = sfFDN::ScalarMatrixType::Random,
+                                                              }};
+    const auto explicit_data = sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::MatrixData{config.fdn_size,
+                                    {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F}}};
+    const auto cascade = sfFDN::CascadedFeedbackMatrixOptions{
+        .matrix_size = config.fdn_size,
+        .stage_count = 1U,
+        .generator = sfFDN::ScalarMatrixType::Random,
+    };
+    const auto varying = sfFDN::TimeVaryingFeedbackMatrixOptions{
+        .matrix_size = config.fdn_size,
+        .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
+        .rng_seed = sfFDN::kDefaultMatrixSeed,
+    };
+
+    config.feedback_matrix_config = varying;
+    config.input_block_config.multichannel_processors = {generated, explicit_data, cascade};
+    config.output_block_config.multichannel_processors = {generated, cascade};
+    config.loop_filter_configs = {generated, cascade};
+    const auto before = config;
+
+    sfFDN::RandomizeMatrixSeeds(config);
+
+    const auto& original_data = std::get<sfFDN::MatrixData>(
+        std::get<sfFDN::ScalarFeedbackMatrixOptions>(before.input_block_config.multichannel_processors[1]).source);
+    const auto& randomized_data = std::get<sfFDN::MatrixData>(
+        std::get<sfFDN::ScalarFeedbackMatrixOptions>(config.input_block_config.multichannel_processors[1]).source);
+    REQUIRE(randomized_data == original_data);
+    REQUIRE(std::ranges::equal(randomized_data.Values(), original_data.Values()));
+
+    auto normalized = config;
+    NormalizeMatrixSeeds(normalized);
+    REQUIRE(normalized == before);
+
+    const auto first = sfFDN::CreateFDNFromConfig(config);
+    const auto second = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(RenderDefaultFDN(*first, config) == RenderDefaultFDN(*second, config));
+}
+
 TEST_CASE("MakeDefaultFDNConfig creates deterministic usable wet configurations", "[fdn]")
 {
     struct DefaultCase
@@ -849,9 +938,11 @@ TEST_CASE("MakeDefaultFDNConfig creates deterministic usable wet configurations"
         }
 
         const auto& matrix = std::get<sfFDN::ScalarFeedbackMatrixOptions>(config.feedback_matrix_config);
-        REQUIRE(matrix.matrix_size == order);
-        REQUIRE(matrix.type == ((order & (order - 1U)) == 0U ? sfFDN::ScalarMatrixType::Hadamard
-                                                             : sfFDN::ScalarMatrixType::Householder));
+        REQUIRE(matrix.MatrixSize() == order);
+        const auto& source = std::get<sfFDN::GeneratedMatrixOptions>(matrix.source);
+        REQUIRE(source.generator == ((order & (order - 1U)) == 0U
+                                         ? sfFDN::MatrixGeneratorOptions{sfFDN::ScalarMatrixType::Hadamard}
+                                         : sfFDN::MatrixGeneratorOptions{sfFDN::ScalarMatrixType::Householder}));
         REQUIRE(config.attenuation_filter_bank_config.has_value());
         REQUIRE(config.attenuation_filter_bank_config->filter_configs.size() == 1U);
         for (const auto& filter : config.attenuation_filter_bank_config->filter_configs)

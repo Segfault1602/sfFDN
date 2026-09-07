@@ -107,6 +107,12 @@ struct FDNConfig
  */
 [[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig& config);
 
+/** @brief Assigns fresh seeds to every generated matrix recipe in an FDN configuration.
+ *
+ * Explicit matrix data and all non-matrix configuration values are unchanged.
+ */
+void RandomizeMatrixSeeds(FDNConfig& config);
+
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
 
 } // namespace sfFDN

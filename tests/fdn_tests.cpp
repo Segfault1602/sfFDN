@@ -49,9 +49,8 @@ std::unique_ptr<sfFDN::FDN> CreatePyFDNGoldFDN()
     fdn->SetDirectGain(0.5f);
     fdn->SetDelays(kDelays);
 
-    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config;
-    mix_mat_config.matrix_size = kFDNOrder;
-    mix_mat_config.custom_matrix = std::vector<float>(kMixingMatrix.begin(), kMixingMatrix.end());
+    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config{
+        .source = sfFDN::MatrixData{kFDNOrder, std::vector<float>(kMixingMatrix.begin(), kMixingMatrix.end())}};
     fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config));
 
     auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
@@ -90,9 +89,7 @@ std::unique_ptr<sfFDN::FDN> CreateReferenceFDN(bool transpose)
     fdn->SetDirectGain(0.f);
     fdn->SetDelays(kDelays);
 
-    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config;
-    mix_mat_config.matrix_size = kFDNOrder;
-    mix_mat_config.custom_matrix = kMixingMatrix;
+    sfFDN::ScalarFeedbackMatrixOptions mix_mat_config{.source = sfFDN::MatrixData{kFDNOrder, kMixingMatrix}};
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config);
 
@@ -138,10 +135,11 @@ sfFDN::FDNConfig MakeFactoryConfig(bool transposed = false)
         .gains = std::vector<float>(kOrder, 1.F),
         .time_varying_config = {},
     };
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = kOrder,
-        .type = sfFDN::ScalarMatrixType::Hadamard,
-    };
+    config.feedback_matrix_config =
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = kOrder,
+                                               .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                           }};
     config.output_block_config.parallel_gains_config = {
         .gains = std::vector<float>(kOrder, 1.F),
         .time_varying_config = {},
@@ -424,8 +422,10 @@ TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
 
     config.input_block_config.parallel_gains_config = input_gains_options;
 
-    sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{.matrix_size = config.fdn_size,
-                                                               .type = sfFDN::ScalarMatrixType::Hadamard};
+    sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{.source = sfFDN::GeneratedMatrixOptions{
+                                                                   .matrix_size = config.fdn_size,
+                                                                   .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                                               }};
 
     config.feedback_matrix_config = feedback_matrix_options;
 
@@ -490,7 +490,10 @@ TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay netwo
                                                        .time_varying_config = {}};
 
     config.feedback_matrix_config =
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = config.fdn_size, .type = sfFDN::ScalarMatrixType::Hadamard};
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = config.fdn_size,
+                                               .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                           }};
 
     sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
     attenuation_filter_bank_options.filter_configs.emplace_back(
@@ -585,9 +588,10 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
             .time_varying_config = {},
         };
         config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-            .matrix_size = kFdnSize,
-            .type = sfFDN::ScalarMatrixType::Hadamard,
-        };
+            .source = sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kFdnSize,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            }};
         config.output_block_config.parallel_gains_config = {
             .gains = std::vector<float>(kFdnSize, 0.5F),
             .time_varying_config = {},
@@ -745,7 +749,10 @@ TEST_CASE("FDN rejects incompatible setters without replacing configured process
     REQUIRE(fdn.GetOutputGains() == output_gains);
 
     auto wrong_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = 3, .type = sfFDN::ScalarMatrixType::Identity});
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = 3,
+                                               .generator = sfFDN::ScalarMatrixType::Identity,
+                                           }});
     REQUIRE_FALSE(fdn.SetFeedbackMatrix(std::move(wrong_matrix)));
     REQUIRE(fdn.GetFeedbackMatrix() == feedback_matrix);
 
@@ -788,8 +795,11 @@ TEST_CASE("FDN processing is allocation-free for normal, transposed, and configu
     config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
     config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                        .time_varying_config = {}};
-    config.feedback_matrix_config =
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = config.fdn_size, .type = sfFDN::ScalarMatrixType::Hadamard};
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::GeneratedMatrixOptions{
+            .matrix_size = config.fdn_size,
+            .generator = sfFDN::ScalarMatrixType::Hadamard,
+        }};
     config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                         .time_varying_config = {}};
     auto configured = sfFDN::CreateFDNFromConfig(config);

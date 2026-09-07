@@ -2,7 +2,6 @@
 
 #include "matrix_gallery_internal.h"
 #include "processor_option_validation.h"
-#include "rng.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/feedback_matrix.h"
@@ -22,9 +21,9 @@
 namespace
 {
 // Generate a random array of floats in the range [0, 1)
-Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = 0)
+Eigen::ArrayXf RandArray(uint32_t size, uint32_t seed = sfFDN::kDefaultMatrixSeed)
 {
-    std::mt19937 gen(seed == 0 ? std::random_device{}() : seed);
+    std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::ArrayXf random_vector(size);
@@ -55,12 +54,13 @@ sfFDN::ScalarFeedbackMatrixOptions EigenToMatrixOptions(const Eigen::MatrixXf& m
             flat_matrix.push_back(matrix(i, j));
         }
     }
-    return sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = static_cast<uint32_t>(matrix.rows()),
-                                              .custom_matrix = flat_matrix};
+    return sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::MatrixData{static_cast<uint32_t>(matrix.rows()), std::move(flat_matrix)}};
 }
 
-bool HasStructuredKernel(sfFDN::ScalarMatrixType type)
+bool HasStructuredKernel(const sfFDN::MatrixGeneratorOptions& generator)
 {
+    const auto type = sfFDN::GetMatrixType(generator);
     return type == sfFDN::ScalarMatrixType::Hadamard || type == sfFDN::ScalarMatrixType::Householder;
 }
 
@@ -74,25 +74,24 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
     const float sparsity = options.sparsity;
 
     Eigen::MatrixXf r0;
-    RNG seed_generator(options.rng_seed);
-    const auto next_seed = [&options, &seed_generator]() {
-        return options.rng_seed == 0 ? 0u : seed_generator.NextUint();
-    };
+    std::mt19937 seed_generator(options.rng_seed);
+    const auto next_seed = [&seed_generator]() { return seed_generator(); };
 
-    // Nonzero roots yield initial-matrix, then matrix-and-shift seeds for each stage.
+    // Each cascade consumes one initial-matrix seed, then one matrix and one shift seed per stage.
     const uint32_t initial_matrix_seed = next_seed();
 
     // For Hadamard and Householder matrices we can use the faster implementation but ScalarFeedbackMatrix needs to be
     // constructed with the correct type. For other types, we need to generate the matrix and pass it in.
-    const bool has_structured_kernel = HasStructuredKernel(options.type);
+    const bool has_structured_kernel = HasStructuredKernel(options.generator);
     if (has_structured_kernel)
     {
         matrix_.emplace_back(ScalarFeedbackMatrixOptions{
-            .matrix_size = options.matrix_size, .type = options.type, .rng_seed = initial_matrix_seed});
+            .source = GeneratedMatrixOptions{
+                .matrix_size = options.matrix_size, .generator = options.generator, .rng_seed = initial_matrix_seed}});
     }
     else
     {
-        r0 = GenerateMatrixInternal(options.matrix_size, options.type, initial_matrix_seed);
+        r0 = GenerateMatrixInternal(options.matrix_size, options.generator, initial_matrix_seed);
         matrix_.emplace_back(EigenToMatrixOptions(r0));
     }
 
@@ -110,7 +109,7 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
         const Eigen::DiagonalMatrix<float, Eigen::Dynamic> g1(
             Eigen::pow(options.gain_per_samples, shift_left).matrix());
-        r0 = GenerateMatrixInternal(options.matrix_size, options.type, stage_matrix_seed);
+        r0 = GenerateMatrixInternal(options.matrix_size, options.generator, stage_matrix_seed);
         const Eigen::MatrixXf r1 = r0 * g1;
 
         pulse_size = pulse_size * options.matrix_size * sparsity_vec[i];
@@ -130,8 +129,10 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
         if (has_structured_kernel && options.gain_per_samples == 1.f)
         {
-            matrix_.emplace_back(ScalarFeedbackMatrixOptions{
-                .matrix_size = options.matrix_size, .type = options.type, .rng_seed = stage_matrix_seed});
+            matrix_.emplace_back(
+                ScalarFeedbackMatrixOptions{.source = GeneratedMatrixOptions{.matrix_size = options.matrix_size,
+                                                                             .generator = options.generator,
+                                                                             .rng_seed = stage_matrix_seed}});
         }
         else
         {

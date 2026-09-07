@@ -46,6 +46,7 @@ target_sources(
             filter_feedback_matrix.cpp
             iirfilterbank.cpp
             math_utils.cpp
+            matrix_data.cpp
             matrix_gallery.cpp
             matrix_multiplication.cpp
             nonlinear.cpp
@@ -88,6 +89,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filterbank.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/matrix_data.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/matrix_gallery.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/nonlinear.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/parallel_gains.h

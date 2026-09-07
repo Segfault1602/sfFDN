@@ -28,38 +28,142 @@ const nlohmann::json& TaggedValue(const nlohmann::json& j, std::initializer_list
     }
     throw std::invalid_argument("Unknown processor config type");
 }
+
 } // namespace
+
+void to_json(nlohmann::json& j, const VariableDiffusionOptions& config)
+{
+    j = {{"diffusion", config.diffusion}};
+}
+
+void from_json(const nlohmann::json& j, VariableDiffusionOptions& config)
+{
+    if (!j.is_object() || j.size() != 1 || !j.contains("diffusion"))
+    {
+        throw std::invalid_argument("VariableDiffusionOptions must contain exactly diffusion");
+    }
+    VariableDiffusionOptions candidate;
+    json_detail::ReadField(j, "diffusion", candidate.diffusion);
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const MatrixGeneratorOptions& config)
+{
+    std::visit(
+        overloaded{[&j](ScalarMatrixType type) { j = type; },
+                   [&j](const VariableDiffusionOptions& options) { j = {{"VariableDiffusionOptions", options}}; }},
+        config);
+}
+
+void from_json(const nlohmann::json& j, MatrixGeneratorOptions& config)
+{
+    MatrixGeneratorOptions candidate;
+    if (j.is_string())
+    {
+        candidate = j.get<ScalarMatrixType>();
+    }
+    else
+    {
+        const auto& options = TaggedValue(j, {"VariableDiffusionOptions"});
+        candidate = options.get<VariableDiffusionOptions>();
+    }
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const GeneratedMatrixOptions& config)
+{
+    j = {{"matrix_size", config.matrix_size}, {"generator", config.generator}, {"rng_seed", config.rng_seed}};
+}
+
+void from_json(const nlohmann::json& j, GeneratedMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 3 || !j.contains("matrix_size") || !j.contains("generator") ||
+        !j.contains("rng_seed"))
+    {
+        throw std::invalid_argument("GeneratedMatrixOptions must contain exactly matrix_size, generator and rng_seed");
+    }
+    GeneratedMatrixOptions candidate;
+    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
+    candidate.generator = j.at("generator").get<MatrixGeneratorOptions>();
+    json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const MatrixData& config)
+{
+    const auto values = config.Values();
+    j = {{"order", config.Order()}, {"coefficients", std::vector<float>(values.begin(), values.end())}};
+}
+
+void from_json(const nlohmann::json& j, MatrixData& config)
+{
+    if (!j.is_object() || j.size() != 2 || !j.contains("order") || !j.contains("coefficients"))
+    {
+        throw std::invalid_argument("MatrixData must contain exactly order and coefficients");
+    }
+    const auto order = json_detail::ReadUint32(j.at("order"));
+    auto coefficients = json_detail::ReadVector<float>(j.at("coefficients"));
+    MatrixData candidate(order, std::move(coefficients));
+    config = std::move(candidate);
+}
 
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 {
-    j["matrix_size"] = config.matrix_size;
-    j["type"] = config.type;
-    if (config.custom_matrix.has_value())
-    {
-        j["custom_matrix"] = config.custom_matrix.value();
-    }
-    j["rng_seed"] = config.rng_seed;
-    if (config.arg.has_value())
-    {
-        j["arg"] = config.arg.value();
-    }
+    nlohmann::json source;
+    std::visit(
+        overloaded{[&source](const GeneratedMatrixOptions& options) { source = {{"GeneratedMatrixOptions", options}}; },
+                   [&source](const MatrixData& data) { source = {{"MatrixData", data}}; }},
+        config.source);
+    j = {{"source", std::move(source)}};
 }
 
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config)
 {
-    json_detail::RequireObject(j, "ScalarFeedbackMatrixOptions");
+    if (!j.is_object() || j.size() != 1 || !j.contains("source"))
+    {
+        throw std::invalid_argument("ScalarFeedbackMatrixOptions must contain exactly source");
+    }
+    const auto& source = TaggedValue(j.at("source"), {"GeneratedMatrixOptions", "MatrixData"});
+
     ScalarFeedbackMatrixOptions candidate;
+    if (j.at("source").contains("GeneratedMatrixOptions"))
+    {
+        candidate.source = source.get<GeneratedMatrixOptions>();
+    }
+    else
+    {
+        candidate.source = source.get<MatrixData>();
+    }
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const CascadedFeedbackMatrixOptions& config)
+{
+    j = {{"matrix_size", config.matrix_size},
+         {"stage_count", config.stage_count},
+         {"sparsity", config.sparsity},
+         {"generator", config.generator},
+         {"gain_per_samples", config.gain_per_samples},
+         {"rng_seed", config.rng_seed}};
+}
+
+void from_json(const nlohmann::json& j, CascadedFeedbackMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 6 || !j.contains("matrix_size") || !j.contains("stage_count") ||
+        !j.contains("sparsity") || !j.contains("generator") || !j.contains("gain_per_samples") ||
+        !j.contains("rng_seed"))
+    {
+        throw std::invalid_argument(
+            "CascadedFeedbackMatrixOptions must contain exactly matrix_size, stage_count, sparsity, generator, "
+            "gain_per_samples and rng_seed");
+    }
+    CascadedFeedbackMatrixOptions candidate;
     json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
-    json_detail::ReadField(j, "type", candidate.type);
-    if (j.contains("custom_matrix") && !j["custom_matrix"].is_null())
-    {
-        candidate.custom_matrix = json_detail::ReadVector<float>(j["custom_matrix"]);
-    }
+    json_detail::ReadField(j, "stage_count", candidate.stage_count);
+    json_detail::ReadField(j, "sparsity", candidate.sparsity);
+    candidate.generator = j.at("generator").get<MatrixGeneratorOptions>();
+    json_detail::ReadField(j, "gain_per_samples", candidate.gain_per_samples);
     json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
-    if (j.contains("arg") && !j["arg"].is_null())
-    {
-        candidate.arg = json_detail::ReadFloat(j["arg"]);
-    }
     config = std::move(candidate);
 }
 

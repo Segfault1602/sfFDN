@@ -23,6 +23,10 @@ void ValidateOptions(const TimeVaryingSchroederAllpassSectionOptions& options, c
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const ScalarFeedbackMatrixOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
+void ValidateOptions(const GeneratedMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const VariableDiffusionOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
 void ValidateOptions(const CascadedFeedbackMatrixOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const TimeVaryingFeedbackMatrixOptions& options, const std::string& path,

@@ -15,7 +15,7 @@ std::unique_ptr<sfFDN::FilterFeedbackMatrix> CreateFFM(uint32_t mat_size, uint32
     sfFDN::CascadedFeedbackMatrixOptions info = {.matrix_size = mat_size,
                                                  .stage_count = stage_count,
                                                  .sparsity = sparsity,
-                                                 .type = sfFDN::ScalarMatrixType::Random,
+                                                 .generator = sfFDN::ScalarMatrixType::Random,
                                                  .gain_per_samples = 1.f};
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(info);
@@ -88,7 +88,10 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order)
     fdn->SetDelays(GetDefaultDelays(fdn_order));
 
     auto mix_mat = std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrix({fdn_order, sfFDN::ScalarMatrixType::Householder}));
+        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                               .matrix_size = fdn_order,
+                                               .generator = sfFDN::ScalarMatrixType::Householder,
+                                           }});
     fdn->SetFeedbackMatrix(std::move(mix_mat));
 
     auto filter_bank = GetLoopFilter(fdn_order, 11);

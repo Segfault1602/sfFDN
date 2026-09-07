@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <limits>
 #include <ranges>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -145,8 +147,10 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     config.input_block_config.parallel_gains_config = {.gains = {0.5f, 0.3f, 0.4f, 0.8f}, .time_varying_config = {}};
 
     config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = 4,
-        .type = sfFDN::ScalarMatrixType::Hadamard,
+        .source = sfFDN::GeneratedMatrixOptions{
+            .matrix_size = 4U,
+            .generator = sfFDN::ScalarMatrixType::Hadamard,
+        },
     };
 
     sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_config;
@@ -356,12 +360,8 @@ TEST_CASE("FDNConfig JSON round-trips defaults, optionals, and variants exactly"
     auto populated_optionals_and_variants = MakeTimeVaryingFDNConfig();
     populated_optionals_and_variants.direct_gain = 0.25F;
     populated_optionals_and_variants.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = 4U,
-        .type = sfFDN::ScalarMatrixType::Random,
-        .custom_matrix =
-            std::vector<float>{1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F},
-        .rng_seed = 42U,
-        .arg = 0.75F,
+        .source = sfFDN::MatrixData{
+            4U, {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F}},
     };
     populated_optionals_and_variants.input_block_config.single_channel_processors.emplace_back(sfFDN::DelayOptions{
         .delay = 12.5F,
@@ -407,17 +407,15 @@ TEST_CASE("FDNConfig JSON rejects malformed required fields and variants", "[ser
         REQUIRE_NOTHROW(nullable_attenuation.get<sfFDN::FDNConfig>());
     }
 
-    SECTION("wrong field types and non-finite values represented as null")
+    SECTION("wrong field types and external non-finite values represented as null")
     {
         auto wrong_type = valid;
         wrong_type["block_size"] = "sixteen";
         REQUIRE_THROWS(wrong_type.get<sfFDN::FDNConfig>());
 
-        auto non_finite = valid;
-        non_finite["direct_gain"] = std::numeric_limits<float>::infinity();
-        const auto reparsed = nlohmann::json::parse(non_finite.dump());
-        REQUIRE(reparsed["direct_gain"].is_null());
-        REQUIRE_THROWS(reparsed.get<sfFDN::FDNConfig>());
+        auto external_non_finite = valid;
+        external_non_finite["direct_gain"] = nullptr;
+        REQUIRE_THROWS(external_non_finite.get<sfFDN::FDNConfig>());
     }
 
     SECTION("empty, unknown, and multiple unknown processor tags")
@@ -458,10 +456,7 @@ TEST_CASE("FDNConfig rejects invalid processor graphs during construction", "[se
         .channels = {sfFDN::RingModulatorOptions{.frequency = 0.001F, .amplitude = 1.F, .initial_phase = 0.F}}});
     REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_channel_count));
 
-    auto invalid_custom_matrix = MakeTimeVaryingFDNConfig();
-    invalid_custom_matrix.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = 4U, .type = sfFDN::ScalarMatrixType::Random, .custom_matrix = std::vector<float>{1.F, 0.F, 0.F}};
-    REQUIRE_THROWS(sfFDN::CreateFDNFromConfig(invalid_custom_matrix));
+    REQUIRE_THROWS_AS(sfFDN::MatrixData(4U, std::vector<float>{1.F, 0.F, 0.F}), std::invalid_argument);
 }
 
 TEST_CASE("FDNConfig accepts generic banks in every multichannel placement", "[serialization]")
@@ -649,18 +644,16 @@ TEST_CASE("Multichannel processor alternatives use canonical JSON forms", "[seri
          {{"matrix_size", 4U},
           {"stage_count", 2U},
           {"sparsity", 3.F},
-          {"type", "Hadamard"},
+          {"generator", "Hadamard"},
           {"gain_per_samples", 0.8F},
-          {"rng_seed", 0x5EED1234U}}},
+          {"rng_seed", sfFDN::kDefaultMatrixSeed}}},
     };
-    const nlohmann::json scalar_matrix = {
-        {"ScalarFeedbackMatrixOptions",
-         {{"matrix_size", 2U},
-          {"type", "VariableDiffusion"},
-          {"custom_matrix", {1.F, 0.F, 0.F, 1.F}},
-          {"rng_seed", 17U},
-          {"arg", 0.75F}}},
+    nlohmann::json scalar_payload = {{"source", nlohmann::json::object()}};
+    scalar_payload["source"]["MatrixData"] = {
+        {"order", 2U},
+        {"coefficients", {1.F, 0.F, 0.F, 1.F}},
     };
+    const nlohmann::json scalar_matrix = {{"ScalarFeedbackMatrixOptions", scalar_payload}};
 
     for (const auto& fixture :
          {parallel_gains, attenuation, delay_bank, time_varying_delay_bank, cascaded_matrix, scalar_matrix})
@@ -696,7 +689,9 @@ TEST_CASE("Multichannel processor alternatives use canonical JSON forms", "[seri
 
     const auto scalar = sfFDN::MultichannelProcessorFromJson(scalar_matrix);
     REQUIRE(std::holds_alternative<sfFDN::ScalarFeedbackMatrixOptions>(scalar));
-    REQUIRE(std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar).custom_matrix.has_value());
+    const auto& scalar_source = std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar).source;
+    REQUIRE(std::holds_alternative<sfFDN::MatrixData>(scalar_source));
+    REQUIRE(std::get<sfFDN::MatrixData>(scalar_source).Order() == 2U);
 }
 
 TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization]")
@@ -726,30 +721,44 @@ TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization
 
 TEST_CASE("FDNConfig JSON preserves seeded scalar and cascaded feedback matrices", "[serialization]")
 {
-    auto scalar_config = MakeTimeVaryingFDNConfig();
-    scalar_config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = scalar_config.fdn_size,
-        .type = sfFDN::ScalarMatrixType::Random,
-        .rng_seed = 0x1234ABCDU,
-    };
-    const auto scalar_round_tripped = nlohmann::json(scalar_config).get<sfFDN::FDNConfig>();
-    const auto& scalar_options =
-        std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar_round_tripped.feedback_matrix_config);
-    REQUIRE(scalar_options.rng_seed == 0x1234ABCDU);
+    for (const uint32_t seed : {0U, sfFDN::kDefaultMatrixSeed, std::numeric_limits<uint32_t>::max()})
+    {
+        auto scalar_config = MakeTimeVaryingFDNConfig();
+        scalar_config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::GeneratedMatrixOptions{
+                    .matrix_size = scalar_config.fdn_size,
+                    .generator = sfFDN::ScalarMatrixType::Random,
+                    .rng_seed = seed,
+                },
+        };
+        const nlohmann::json serialized = scalar_config;
+        REQUIRE(serialized.at(nlohmann::json::json_pointer(
+                    "/feedback_matrix_config/ScalarFeedbackMatrixOptions/source/GeneratedMatrixOptions/rng_seed")) ==
+                seed);
+        const auto scalar_round_tripped = serialized.get<sfFDN::FDNConfig>();
+        const auto& scalar_options =
+            std::get<sfFDN::ScalarFeedbackMatrixOptions>(scalar_round_tripped.feedback_matrix_config);
+        REQUIRE(std::get<sfFDN::GeneratedMatrixOptions>(scalar_options.source).rng_seed == seed);
+
+        const auto original_fdn = sfFDN::CreateFDNFromConfig(scalar_config);
+        const auto round_tripped_fdn = sfFDN::CreateFDNFromConfig(scalar_round_tripped);
+        REQUIRE(RenderFDN(*original_fdn) == RenderFDN(*round_tripped_fdn));
+    }
 
     auto cascaded_config = MakeTimeVaryingFDNConfig();
     cascaded_config.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
         .matrix_size = cascaded_config.fdn_size,
         .stage_count = 2U,
         .sparsity = 2.5f,
-        .type = sfFDN::ScalarMatrixType::Random,
+        .generator = sfFDN::ScalarMatrixType::Random,
         .gain_per_samples = 0.98f,
-        .rng_seed = 0x5EED1234U,
+        .rng_seed = sfFDN::kDefaultMatrixSeed,
     };
     const auto cascaded_round_tripped = nlohmann::json(cascaded_config).get<sfFDN::FDNConfig>();
     const auto& cascaded_options =
         std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascaded_round_tripped.feedback_matrix_config);
-    REQUIRE(cascaded_options.rng_seed == 0x5EED1234U);
+    REQUIRE(cascaded_options.rng_seed == sfFDN::kDefaultMatrixSeed);
 
     const auto original_fdn = sfFDN::CreateFDNFromConfig(cascaded_config);
     const auto round_tripped_fdn = sfFDN::CreateFDNFromConfig(cascaded_round_tripped);
@@ -958,20 +967,19 @@ TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custo
     constexpr uint32_t N = 3;
     const std::vector<float> kMatrix = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
 
-    sfFDN::ScalarFeedbackMatrixOptions original;
-    original.matrix_size = N;
-    original.type = sfFDN::ScalarMatrixType::Random;
-    original.custom_matrix = kMatrix;
+    const sfFDN::ScalarFeedbackMatrixOptions original{
+        .source = sfFDN::MatrixData{N, kMatrix},
+    };
 
     const nlohmann::json j = original;
     const auto deserialized = j.get<sfFDN::ScalarFeedbackMatrixOptions>();
 
-    REQUIRE(deserialized.matrix_size == N);
-    REQUIRE(deserialized.custom_matrix.has_value());
-    REQUIRE(deserialized.custom_matrix->size() == N * N);
+    REQUIRE(deserialized.MatrixSize() == N);
+    const auto& data = std::get<sfFDN::MatrixData>(deserialized.source);
+    REQUIRE(data.Values().size() == N * N);
     for (size_t i = 0; i < kMatrix.size(); ++i)
     {
-        REQUIRE((*deserialized.custom_matrix)[i] == kMatrix[i]);
+        REQUIRE(data.Values()[i] == kMatrix[i]);
     }
 
     // Constructing from the deserialized options must produce a matrix with the same
@@ -983,6 +991,115 @@ TEST_CASE("ScalarFeedbackMatrixOptions JSON round-trip preserves row-major custo
         {
             REQUIRE_THAT(mat.GetCoefficient(row, col), Catch::Matchers::WithinAbs(kMatrix[row * N + col], 0.f));
         }
+    }
+}
+
+TEST_CASE("ScalarFeedbackMatrixOptions uses tagged generated and explicit JSON sources", "[serialization]")
+{
+    const sfFDN::ScalarFeedbackMatrixOptions generated = {
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = 4U,
+                .generator = sfFDN::VariableDiffusionOptions{.diffusion = 0.5F},
+                .rng_seed = sfFDN::kDefaultMatrixSeed,
+            },
+    };
+    const sfFDN::ScalarFeedbackMatrixOptions explicit_data = {
+        .source = sfFDN::MatrixData{2U, {1.F, 0.F, 0.F, 1.F}},
+    };
+    nlohmann::json expected_generated = {{"source", nlohmann::json::object()}};
+    auto& generated_payload = expected_generated["source"]["GeneratedMatrixOptions"];
+    generated_payload["matrix_size"] = 4U;
+    generated_payload["generator"] = {{"VariableDiffusionOptions", {{"diffusion", 0.5F}}}};
+    generated_payload["rng_seed"] = sfFDN::kDefaultMatrixSeed;
+
+    nlohmann::json expected_explicit = {{"source", nlohmann::json::object()}};
+    expected_explicit["source"]["MatrixData"] = {
+        {"order", 2U},
+        {"coefficients", {1.F, 0.F, 0.F, 1.F}},
+    };
+
+    REQUIRE(nlohmann::json(generated) == expected_generated);
+    REQUIRE(nlohmann::json(explicit_data) == expected_explicit);
+    REQUIRE(expected_generated.get<sfFDN::ScalarFeedbackMatrixOptions>() == generated);
+    REQUIRE(expected_explicit.get<sfFDN::ScalarFeedbackMatrixOptions>() == explicit_data);
+
+    const auto round_tripped = expected_generated.get<sfFDN::ScalarFeedbackMatrixOptions>();
+    const auto& generator = std::get<sfFDN::GeneratedMatrixOptions>(round_tripped.source).generator;
+    REQUIRE(std::get<sfFDN::VariableDiffusionOptions>(generator).diffusion == 0.5F);
+    REQUIRE(sfFDN::GenerateMatrix(4U, generator) ==
+            sfFDN::GenerateMatrix(4U, sfFDN::VariableDiffusionOptions{.diffusion = 0.5F}));
+
+    auto replacing_destination = generated;
+    expected_explicit.get_to(replacing_destination);
+    REQUIRE(replacing_destination == explicit_data);
+    REQUIRE(std::holds_alternative<sfFDN::MatrixData>(replacing_destination.source));
+
+    nlohmann::json reused = {{"custom_matrix", {1.F}}, {"arg", 0.5F}, {"type", "Random"}};
+    sfFDN::to_json(reused, generated);
+    REQUIRE(reused == expected_generated);
+    REQUIRE_FALSE(reused.contains("custom_matrix"));
+    REQUIRE_FALSE(reused.contains("arg"));
+    REQUIRE_FALSE(reused.contains("type"));
+}
+
+TEST_CASE("ScalarFeedbackMatrixOptions JSON rejects obsolete and malformed source data transactionally",
+          "[serialization]")
+{
+    const sfFDN::ScalarFeedbackMatrixOptions retained = {
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = 2U,
+                .generator = sfFDN::ScalarMatrixType::Random,
+                .rng_seed = 17U,
+            },
+    };
+    const nlohmann::json valid = retained;
+
+    std::vector<nlohmann::json> malformed = {
+        {{"matrix_size", 2U}, {"type", "Random"}, {"rng_seed", 17U}},
+    };
+
+    auto obsolete_generated_field = valid;
+    obsolete_generated_field[nlohmann::json::json_pointer("/source/GeneratedMatrixOptions/type")] = "Random";
+    malformed.push_back(std::move(obsolete_generated_field));
+
+    auto multiple_source_tags = valid;
+    multiple_source_tags[nlohmann::json::json_pointer("/source/MatrixData")] = {
+        {"order", 2U},
+        {"coefficients", {1.F, 0.F, 0.F, 1.F}},
+    };
+    malformed.push_back(std::move(multiple_source_tags));
+
+    auto missing_generated_size = valid;
+    missing_generated_size[nlohmann::json::json_pointer("/source/GeneratedMatrixOptions")].erase("matrix_size");
+    malformed.push_back(std::move(missing_generated_size));
+
+    auto missing_explicit_coefficients = valid;
+    missing_explicit_coefficients["source"] = {{"MatrixData", {{"order", 2U}}}};
+    malformed.push_back(std::move(missing_explicit_coefficients));
+
+    auto invalid_explicit_shape = valid;
+    invalid_explicit_shape["source"] = {{"MatrixData", {{"order", 2U}, {"coefficients", {1.F, 0.F, 0.F}}}}};
+    malformed.push_back(std::move(invalid_explicit_shape));
+
+    auto huge_order_short_coefficients = valid;
+    huge_order_short_coefficients["source"] = {
+        {"MatrixData", {{"order", std::numeric_limits<uint32_t>::max()}, {"coefficients", {1.F}}}},
+    };
+    malformed.push_back(std::move(huge_order_short_coefficients));
+
+    auto metadata_source = valid;
+    metadata_source["source"]["metadata"] = nlohmann::json::object();
+    malformed.push_back(std::move(metadata_source));
+
+    auto missing_seed = valid;
+    missing_seed[nlohmann::json::json_pointer("/source/GeneratedMatrixOptions")].erase("rng_seed");
+    malformed.push_back(std::move(missing_seed));
+
+    for (const auto& malformed_source : malformed)
+    {
+        RequireUnchangedAfterFailedRead(malformed_source, retained);
     }
 }
 
@@ -1023,13 +1140,13 @@ TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
     const auto max_uint32 = nlohmann::json(std::numeric_limits<uint32_t>::max());
 
     const nlohmann::json scalar = {
-        {"matrix_size", 0U},
-        {"type", "Identity"},
-        {"rng_seed", 0U},
+        {"source",
+         {{"GeneratedMatrixOptions",
+           {{"matrix_size", 0U}, {"generator", "Identity"}, {"rng_seed", 0U}}}}},
     };
     const nlohmann::json cascaded = {
         {"matrix_size", 0U},  {"stage_count", 0U},       {"sparsity", 1.F},
-        {"type", "Identity"}, {"gain_per_samples", 1.F}, {"rng_seed", 0U},
+        {"generator", "Identity"}, {"gain_per_samples", 1.F}, {"rng_seed", 0U},
     };
     const nlohmann::json delay = {
         {"delay", 1.F},
@@ -1066,7 +1183,7 @@ TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
         for (const auto* field : {"matrix_size", "rng_seed"})
         {
             malformed = scalar;
-            malformed[field] = size;
+            malformed[nlohmann::json::json_pointer(std::string("/source/GeneratedMatrixOptions/") + field)] = size;
             REQUIRE_THROWS(malformed.get<sfFDN::ScalarFeedbackMatrixOptions>());
         }
 
@@ -1105,8 +1222,8 @@ TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
     }
 
     auto bounded_scalar = scalar;
-    bounded_scalar["matrix_size"] = max_uint32;
-    bounded_scalar["rng_seed"] = max_uint32;
+    bounded_scalar[nlohmann::json::json_pointer("/source/GeneratedMatrixOptions/matrix_size")] = max_uint32;
+    bounded_scalar[nlohmann::json::json_pointer("/source/GeneratedMatrixOptions/rng_seed")] = max_uint32;
     REQUIRE_NOTHROW(bounded_scalar.get<sfFDN::ScalarFeedbackMatrixOptions>());
 
     auto bounded_cascaded = cascaded;
@@ -1157,8 +1274,7 @@ TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
     REQUIRE_THAT(fractional_rate_json.get<sfFDN::FDNConfig>().sample_rate, Catch::Matchers::WithinAbs(48000.5F, 0.F));
 
     for (const auto& value :
-         {nlohmann::json("48000"), nlohmann::json(true), nlohmann::json(std::numeric_limits<double>::infinity()),
-          nlohmann::json(std::numeric_limits<double>::max())})
+         {nlohmann::json("48000"), nlohmann::json(true), nlohmann::json(std::numeric_limits<double>::max())})
     {
         auto malformed = fractional_rate_json;
         malformed["sample_rate"] = value;
@@ -1168,32 +1284,20 @@ TEST_CASE("JSON readers enforce numeric kinds and ranges", "[serialization]")
 
 TEST_CASE("JSON readers preserve optional and transactional destinations", "[serialization]")
 {
-    const sfFDN::ScalarFeedbackMatrixOptions populated_matrix = {
-        .matrix_size = 2U,
-        .type = sfFDN::ScalarMatrixType::VariableDiffusion,
-        .custom_matrix = std::vector<float>{1.F, 0.F, 0.F, 1.F},
-        .rng_seed = 7U,
-        .arg = 0.5F,
+    const sfFDN::ScalarFeedbackMatrixOptions generated_matrix = {
+        .source = sfFDN::GeneratedMatrixOptions{
+            .matrix_size = 2U,
+            .generator = sfFDN::VariableDiffusionOptions{.diffusion = 0.5F},
+            .rng_seed = 7U,
+        },
     };
-    auto absent_optionals = nlohmann::json(populated_matrix);
-    absent_optionals.erase("custom_matrix");
-    absent_optionals.erase("arg");
-    auto cleared_matrix = populated_matrix;
-    absent_optionals.get_to(cleared_matrix);
-    REQUIRE_FALSE(cleared_matrix.custom_matrix.has_value());
-    REQUIRE_FALSE(cleared_matrix.arg.has_value());
-
-    auto null_optionals = nlohmann::json(populated_matrix);
-    null_optionals["custom_matrix"] = nullptr;
-    null_optionals["arg"] = nullptr;
-    null_optionals.get_to(cleared_matrix);
-    REQUIRE_FALSE(cleared_matrix.custom_matrix.has_value());
-    REQUIRE_FALSE(cleared_matrix.arg.has_value());
-
-    auto empty_matrix = nlohmann::json(populated_matrix);
-    empty_matrix["custom_matrix"] = nlohmann::json::array();
-    empty_matrix.get_to(cleared_matrix);
-    REQUIRE(cleared_matrix.custom_matrix == std::vector<float>{});
+    const sfFDN::ScalarFeedbackMatrixOptions explicit_matrix = {
+        .source = sfFDN::MatrixData{2U, {1.F, 0.F, 0.F, 1.F}},
+    };
+    auto replaced_matrix = explicit_matrix;
+    nlohmann::json(generated_matrix).get_to(replaced_matrix);
+    REQUIRE(replaced_matrix == generated_matrix);
+    REQUIRE(std::holds_alternative<sfFDN::GeneratedMatrixOptions>(replaced_matrix.source));
 
     const sfFDN::DelayOptions populated_delay = {
         .delay = 2.F,
@@ -1211,9 +1315,10 @@ TEST_CASE("JSON readers preserve optional and transactional destinations", "[ser
     null_lfo.get_to(cleared_delay);
     REQUIRE_FALSE(cleared_delay.lfo_config.has_value());
 
-    auto malformed_matrix = nlohmann::json(populated_matrix);
-    malformed_matrix["arg"] = "late";
-    RequireUnchangedAfterFailedRead(malformed_matrix, populated_matrix);
+    auto malformed_matrix = nlohmann::json(generated_matrix);
+    malformed_matrix[nlohmann::json::json_pointer(
+        "/source/GeneratedMatrixOptions/generator/VariableDiffusionOptions/diffusion")] = "late";
+    RequireUnchangedAfterFailedRead(malformed_matrix, generated_matrix);
 
     const sfFDN::ParallelGainsOptions populated_gains = {
         .mode = sfFDN::ParallelGainsMode::Parallel,
@@ -1296,7 +1401,10 @@ TEST_CASE("JSON readers require exact array and wrapper forms", "[serialization]
          {{"mode", "Parallel"}, {"gains", {1.F}}, {"time_varying_config", nlohmann::json::array()}}},
     };
     const nlohmann::json matrix = {
-        {"ScalarFeedbackMatrixOptions", {{"matrix_size", 1U}, {"type", "Identity"}, {"rng_seed", 0U}}},
+        {"ScalarFeedbackMatrixOptions",
+         {{"source",
+           {{"GeneratedMatrixOptions",
+             {{"matrix_size", 1U}, {"generator", "Identity"}, {"rng_seed", sfFDN::kDefaultMatrixSeed}}}}}}},
     };
 
     for (const auto& wrapper :
@@ -1328,9 +1436,9 @@ TEST_CASE("JSON readers require exact array and wrapper forms", "[serialization]
                           {{"matrix_size", 1U},
                            {"stage_count", 1U},
                            {"sparsity", 1.F},
-                           {"type", "Identity"},
+                          {"generator", "Identity"},
                            {"gain_per_samples", 1.F},
-                           {"rng_seed", 0U}}}},
+                          {"rng_seed", sfFDN::kDefaultMatrixSeed}}}},
           nlohmann::json{{"ScalarFeedbackMatrixOptions", matrix.at("ScalarFeedbackMatrixOptions")},
                          {"UnknownOptions", {}}},
           nlohmann::json{{"metadata", nlohmann::json::object()}},

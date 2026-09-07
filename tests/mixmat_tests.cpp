@@ -8,11 +8,13 @@
 #include <numbers>
 #include <ranges>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/matrix_gallery.h"
+#include "sffdn/matrix_data.h"
 #include "sffdn/sffdn.h"
 
 #include "allocation_counter.h"
@@ -98,7 +100,7 @@ TEST_CASE("FilterFeedbackMatrix produces a nonzero response after Clear", "[feed
     sfFDN::CascadedFeedbackMatrixOptions ffm_info = {.matrix_size = kMatSize,
                                                      .stage_count = kStageCount,
                                                      .sparsity = kSparsity,
-                                                     .type = sfFDN::ScalarMatrixType::Random,
+                                                     .generator = sfFDN::ScalarMatrixType::Random,
                                                      .gain_per_samples = kCascadeGain};
 
     auto ffm = std::make_unique<sfFDN::FilterFeedbackMatrix>(ffm_info);
@@ -133,7 +135,7 @@ TEST_CASE("FilterFeedbackMatrix produces a nonzero response after Clear", "[feed
 TEST_CASE("GenerateMatrix creates an orthogonal VariableDiffusion matrix", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 2;
-    const auto mat = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::VariableDiffusion, 0, 0.5f);
+    const auto mat = sfFDN::GenerateMatrix(kMatSize, sfFDN::VariableDiffusionOptions{.diffusion = 0.5f}, 0);
     const float theta = std::numbers::pi_v<float> / 8.f;
     const std::array<float, 4> expected = {std::cos(theta), std::sin(theta), -std::sin(theta), std::cos(theta)};
 
@@ -145,11 +147,91 @@ TEST_CASE("GenerateMatrix creates an orthogonal VariableDiffusion matrix", "[fee
     RequireFiniteOrthogonal(mat, kMatSize);
 }
 
+TEST_CASE("MatrixData owns square coefficients and preserves value semantics", "[feedback_matrix]")
+{
+    sfFDN::MatrixData empty;
+    REQUIRE(empty.Order() == 0U);
+    REQUIRE(empty.Values().empty());
+
+    std::vector<float> source = {1.f, 2.f, 3.f, 4.f};
+    sfFDN::MatrixData data(2U, source);
+    source[0] = -1.f;
+    REQUIRE(data.Values()[0] == 1.f);
+    REQUIRE(data.Values().size() == 4U);
+
+    data.Values()[1] = -2.f;
+    sfFDN::MatrixData copy = data;
+    REQUIRE(copy == data);
+    data.Values()[1] = 2.f;
+    REQUIRE(copy.Values()[1] == -2.f);
+    REQUIRE(copy != data);
+
+    sfFDN::MatrixData moved = std::move(copy);
+    REQUIRE(moved.Order() == 2U);
+    REQUIRE(moved.Values()[1] == -2.f);
+    REQUIRE(copy.Order() == 0U);
+    REQUIRE(copy.Values().empty());
+
+    sfFDN::MatrixData moved_empty = std::move(empty);
+    REQUIRE(moved_empty.Order() == 0U);
+    REQUIRE(moved_empty.Values().empty());
+    REQUIRE(empty.Order() == 0U);
+    REQUIRE(empty.Values().empty());
+
+    moved = moved;
+    REQUIRE(moved.Order() == 2U);
+    REQUIRE(moved.Values()[1] == -2.f);
+
+    REQUIRE_THROWS_AS(sfFDN::MatrixData(2U, std::vector<float>(3U, 0.f)), std::invalid_argument);
+}
+
+TEST_CASE("ScalarFeedbackMatrix source alternatives are distinct and deterministic", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    const sfFDN::ScalarFeedbackMatrixOptions generated = {
+        .source = sfFDN::GeneratedMatrixOptions{.matrix_size = kOrder, .generator = sfFDN::ScalarMatrixType::Random}};
+    const sfFDN::ScalarFeedbackMatrixOptions explicit_data = {
+        .source = sfFDN::MatrixData{kOrder, std::vector<float>(kOrder * kOrder, 0.f)}};
+    REQUIRE(generated.MatrixSize() == kOrder);
+    REQUIRE(explicit_data.MatrixSize() == kOrder);
+    REQUIRE(generated != explicit_data);
+
+    const sfFDN::ScalarFeedbackMatrixOptions generated_zero = {
+        .source = sfFDN::GeneratedMatrixOptions{
+            .matrix_size = kOrder, .generator = sfFDN::ScalarMatrixType::Random, .rng_seed = 0U}};
+    sfFDN::ScalarFeedbackMatrix default_first(generated);
+    sfFDN::ScalarFeedbackMatrix default_repeated(generated);
+    sfFDN::ScalarFeedbackMatrix zero_first(generated_zero);
+    sfFDN::ScalarFeedbackMatrix zero_repeated(generated_zero);
+    std::vector<float> default_matrix(kOrder * kOrder);
+    std::vector<float> default_repeated_matrix(kOrder * kOrder);
+    std::vector<float> zero_matrix(kOrder * kOrder);
+    std::vector<float> zero_repeated_matrix(kOrder * kOrder);
+    REQUIRE(default_first.GetMatrix(default_matrix));
+    REQUIRE(default_repeated.GetMatrix(default_repeated_matrix));
+    REQUIRE(zero_first.GetMatrix(zero_matrix));
+    REQUIRE(zero_repeated.GetMatrix(zero_repeated_matrix));
+    REQUIRE(default_matrix == default_repeated_matrix);
+    REQUIRE(zero_matrix == zero_repeated_matrix);
+    REQUIRE(default_matrix != zero_matrix);
+
+    std::array<float, kOrder> input = {1.f, -0.5f, 0.25f, -0.75f};
+    std::array<float, kOrder> default_output{};
+    std::array<float, kOrder> zero_output{};
+    const sfFDN::AudioBuffer input_buffer(1U, kOrder, input);
+    sfFDN::AudioBuffer default_output_buffer(1U, kOrder, default_output);
+    sfFDN::AudioBuffer zero_output_buffer(1U, kOrder, zero_output);
+    default_first.Process(input_buffer, default_output_buffer);
+    zero_first.Process(input_buffer, zero_output_buffer);
+    REQUIRE(default_output != zero_output);
+}
+
 TEST_CASE("ScalarFeedbackMatrix preserves samples with an Identity matrix", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
-    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize, sfFDN::ScalarMatrixType::Identity});
+    sfFDN::ScalarFeedbackMatrix mix_mat({.source = sfFDN::GeneratedMatrixOptions{
+                                             .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Identity}});
 
     std::array<float, kMatSize * kBlockSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
     std::array<float, kMatSize * kBlockSize> output{};
@@ -187,7 +269,7 @@ TEST_CASE("ScalarFeedbackMatrix supports aliased processing", "[feedback_matrix]
                                                                 0.f, 0.25f, 1.f, 0.f, 0.f,  0.f, 0.75f, 1.f};
 
     sfFDN::ScalarFeedbackMatrix matrix(
-        {.matrix_size = kMatSize, .custom_matrix = std::vector<float>(kMatrix.begin(), kMatrix.end())});
+        {.source = sfFDN::MatrixData{kMatSize, std::vector<float>(kMatrix.begin(), kMatrix.end())}});
 
     std::array<float, kMatSize * kBlockSize> input = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f, 10.f, 11.f, 12.f};
     std::array<float, kMatSize * kBlockSize> expected{};
@@ -210,7 +292,9 @@ TEST_CASE("ScalarFeedbackMatrix applies a Householder reflection", "[feedback_ma
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Householder});
+    auto mix_mat =
+        sfFDN::ScalarFeedbackMatrix({.source = sfFDN::GeneratedMatrixOptions{
+                                         .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Householder}});
 
     std::vector<float> input(kMatSize * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -259,7 +343,9 @@ TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders
     SECTION("Hadamard_4")
     {
         constexpr uint32_t kMatSize = 4;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
+        auto mix_mat =
+            sfFDN::ScalarFeedbackMatrix({.source = sfFDN::GeneratedMatrixOptions{
+                                             .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Hadamard}});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4};
         std::array<float, kMatSize> output{};
@@ -280,7 +366,9 @@ TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders
     SECTION("Hadamard_8")
     {
         constexpr uint32_t kMatSize = 8;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
+        auto mix_mat =
+            sfFDN::ScalarFeedbackMatrix({.source = sfFDN::GeneratedMatrixOptions{
+                                             .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Hadamard}});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8};
         std::array<float, kMatSize> output{};
@@ -302,7 +390,9 @@ TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders
     SECTION("Hadamard_16")
     {
         constexpr uint32_t kMatSize = 16;
-        auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
+        auto mix_mat =
+            sfFDN::ScalarFeedbackMatrix({.source = sfFDN::GeneratedMatrixOptions{
+                                             .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Hadamard}});
 
         std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
         std::array<float, kMatSize> output{};
@@ -356,7 +446,9 @@ TEST_CASE("ScalarFeedbackMatrix applies a Hadamard transform across a block", "[
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
-    auto mix_mat = sfFDN::ScalarFeedbackMatrix({kMatSize, sfFDN::ScalarMatrixType::Hadamard});
+    auto mix_mat =
+        sfFDN::ScalarFeedbackMatrix({.source = sfFDN::GeneratedMatrixOptions{
+                                         .matrix_size = kMatSize, .generator = sfFDN::ScalarMatrixType::Hadamard}});
 
     std::vector<float> input(kMatSize * kBlockSize, 0.f);
     // Input vector is deinterleaved by delay line: {d0_0, d0_1, d0_2, ..., d1_0, d1_1, d1_2, ..., dN_0, dN_1, dN_2}
@@ -390,7 +482,7 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix copies assigned coefficients", "[feedb
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
-    sfFDN::ScalarFeedbackMatrix mix_mat({kMatSize});
+    sfFDN::ScalarFeedbackMatrix mix_mat({.source = sfFDN::GeneratedMatrixOptions{.matrix_size = kMatSize}});
 
     std::array<float, kMatSize * kMatSize> matrix = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
@@ -419,7 +511,7 @@ TEST_CASE("GenerateMatrix creates an orthogonal Random matrix", "[feedback_matri
 
     const auto matrix = sfFDN::GenerateMatrix(kMatSize, sfFDN::ScalarMatrixType::Random, 1234);
     RequireFiniteOrthogonal(matrix, kMatSize);
-    sfFDN::ScalarFeedbackMatrix mix_mat({.matrix_size = kMatSize, .custom_matrix = matrix});
+    sfFDN::ScalarFeedbackMatrix mix_mat({.source = sfFDN::MatrixData{kMatSize, matrix}});
 
     std::array<float, kMatSize> input = {1, 2, 3, 4, 5, 6};
     std::array<float, kMatSize> output = {0.f};
@@ -455,8 +547,10 @@ TEST_CASE("ScalarFeedbackMatrix forwards nonzero seeds to generated matrices", "
     for (const auto type : kTypes)
     {
         const auto expected_matrix = sfFDN::GenerateMatrix(kOrder, type, kSeed);
-        sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = kOrder, .type = type, .rng_seed = kSeed});
-        sfFDN::ScalarFeedbackMatrix repeated({.matrix_size = kOrder, .type = type, .rng_seed = kSeed});
+        const auto options = sfFDN::ScalarFeedbackMatrixOptions{
+            .source = sfFDN::GeneratedMatrixOptions{.matrix_size = kOrder, .generator = type, .rng_seed = kSeed}};
+        sfFDN::ScalarFeedbackMatrix matrix(options);
+        sfFDN::ScalarFeedbackMatrix repeated(options);
         std::vector<float> actual_matrix(kOrder * kOrder);
         std::vector<float> repeated_matrix(kOrder * kOrder);
         REQUIRE(matrix.GetMatrix(actual_matrix));
@@ -488,9 +582,10 @@ TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processi
     for (const float arg : {0.25f, 0.75f})
     {
         const auto expected_matrix =
-            sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::VariableDiffusion, 0, arg);
+            sfFDN::GenerateMatrix(kOrder, sfFDN::VariableDiffusionOptions{.diffusion = arg}, 0);
         sfFDN::ScalarFeedbackMatrix matrix(
-            {.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::VariableDiffusion, .arg = arg});
+            {.source = sfFDN::GeneratedMatrixOptions{.matrix_size = kOrder,
+                                                     .generator = sfFDN::VariableDiffusionOptions{.diffusion = arg}}});
         std::vector<float> actual_matrix(kOrder * kOrder);
         REQUIRE(matrix.GetMatrix(actual_matrix));
         REQUIRE(actual_matrix == expected_matrix);
@@ -504,19 +599,14 @@ TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processi
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix prioritizes custom coefficients over generated options", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix applies explicit matrix data unchanged", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 3U;
     constexpr uint32_t kBlockSize = 2U;
     const std::array<float, kOrder * kOrder> custom = {0.5f, -0.25f, 0.75f, 1.f, 0.f, -0.5f, -0.75f, 0.25f, 0.5f};
     std::array<float, kOrder * kBlockSize> input = {1.f, -0.5f, 0.25f, 0.75f, -1.f, 0.5f};
-    sfFDN::ScalarFeedbackMatrix matrix({
-        .matrix_size = kOrder,
-        .type = sfFDN::ScalarMatrixType::Random,
-        .custom_matrix = std::vector<float>(custom.begin(), custom.end()),
-        .rng_seed = 0x12345678U,
-        .arg = 0.25f,
-    });
+    sfFDN::ScalarFeedbackMatrix matrix(
+        {.source = sfFDN::MatrixData{kOrder, std::vector<float>(custom.begin(), custom.end())}});
 
     std::vector<float> actual_matrix(kOrder * kOrder);
     REQUIRE(matrix.GetMatrix(actual_matrix));
@@ -545,7 +635,7 @@ TEST_CASE("DelayMatrix follows the row-major dest*N+src convention", "[feedback_
     //   dest=2: src=0→2, src=1→7, src=2→3
     constexpr std::array<uint32_t, N * N> kDelays = {3, 5, 2, 4, 1, 6, 2, 7, 3};
 
-    sfFDN::ScalarFeedbackMatrix mixing_matrix({.matrix_size = N, .custom_matrix = kGains});
+    sfFDN::ScalarFeedbackMatrix mixing_matrix({.source = sfFDN::MatrixData{N, kGains}});
     sfFDN::DelayMatrix delay_matrix(N, kDelays, mixing_matrix);
 
     // Stagger one impulse per source so every route contributes at a known sample.
@@ -648,8 +738,9 @@ TEST_CASE("Structured feedback matrices match dense processing without allocatio
                 }
 
                 const auto matrix_data = sfFDN::GenerateMatrix(order, type);
-                sfFDN::ScalarFeedbackMatrix structured({.matrix_size = order, .type = type});
-                sfFDN::ScalarFeedbackMatrix dense({.matrix_size = order, .type = type, .custom_matrix = matrix_data});
+                sfFDN::ScalarFeedbackMatrix structured(
+                    {.source = sfFDN::GeneratedMatrixOptions{.matrix_size = order, .generator = type}});
+                sfFDN::ScalarFeedbackMatrix dense({.source = sfFDN::MatrixData{order, matrix_data}});
 
                 std::vector<float> expected(input.size());
                 std::vector<float> actual(input.size());
@@ -686,9 +777,9 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix disables structured processing", "[fee
     constexpr uint32_t kOrder = 8;
     constexpr uint32_t kBlockSize = 3;
     const auto matrix_data = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::Random);
-    sfFDN::ScalarFeedbackMatrix updated({.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Hadamard});
-    sfFDN::ScalarFeedbackMatrix dense(
-        {.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Random, .custom_matrix = matrix_data});
+    sfFDN::ScalarFeedbackMatrix updated({.source = sfFDN::GeneratedMatrixOptions{
+                                             .matrix_size = kOrder, .generator = sfFDN::ScalarMatrixType::Hadamard}});
+    sfFDN::ScalarFeedbackMatrix dense({.source = sfFDN::MatrixData{kOrder, matrix_data}});
     REQUIRE(updated.SetMatrix(matrix_data));
 
     std::array<float, kOrder * kBlockSize> input{};
@@ -722,11 +813,11 @@ TEST_CASE("FilterFeedbackMatrix uses structured stage-zero processing", "[feedba
             .matrix_size = kOrder,
             .stage_count = 0,
             .sparsity = 1.f,
-            .type = type,
+            .generator = type,
             .gain_per_samples = 1.f,
         });
         const auto matrix_data = sfFDN::GenerateMatrix(kOrder, type);
-        sfFDN::ScalarFeedbackMatrix dense({.matrix_size = kOrder, .type = type, .custom_matrix = matrix_data});
+        sfFDN::ScalarFeedbackMatrix dense({.source = sfFDN::MatrixData{kOrder, matrix_data}});
 
         std::array<float, kOrder * kBlockSize> input{};
         for (auto i = 0u; i < input.size(); ++i)
@@ -765,7 +856,7 @@ TEST_CASE("ScalarFeedbackMatrix uses row-major SetMatrix GetMatrix GetCoefficien
     constexpr uint32_t N = 3;
     const std::vector<float> kMatrix = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
 
-    sfFDN::ScalarFeedbackMatrix mat({.matrix_size = N, .custom_matrix = kMatrix});
+    sfFDN::ScalarFeedbackMatrix mat({.source = sfFDN::MatrixData{N, kMatrix}});
 
     // GetCoefficient uses row-major A[row,col] = flat[row*N+col].
     REQUIRE(mat.GetCoefficient(0, 0) == 1.f);
@@ -832,11 +923,9 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix rejects wrong size and leaves state un
     constexpr uint32_t N = 3;
     const std::vector<float> kInit = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
 
-    REQUIRE_THROWS_AS(
-        sfFDN::ScalarFeedbackMatrix({.matrix_size = N, .custom_matrix = std::vector<float>(N * N - 1, 0.f)}),
-        std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::MatrixData(N, std::vector<float>(N * N - 1, 0.f)), std::invalid_argument);
 
-    sfFDN::ScalarFeedbackMatrix mat({.matrix_size = N, .custom_matrix = kInit});
+    sfFDN::ScalarFeedbackMatrix mat({.source = sfFDN::MatrixData{N, kInit}});
 
     // One element short.
     std::vector<float> short_vec(N * N - 1, 0.f);
@@ -875,7 +964,7 @@ TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout", "[feed
         .matrix_size = N,
         .stage_count = 0,
         .sparsity = 1.f,
-        .type = sfFDN::ScalarMatrixType::Random,
+        .generator = sfFDN::ScalarMatrixType::Random,
         .gain_per_samples = 1.f,
     };
     sfFDN::FilterFeedbackMatrix ffm(opts);
@@ -914,7 +1003,7 @@ TEST_CASE("FilterFeedbackMatrix reproduces seeded random cascades", "[feedback_m
         .matrix_size = kOrder,
         .stage_count = 2U,
         .sparsity = 2.5f,
-        .type = sfFDN::ScalarMatrixType::Random,
+        .generator = sfFDN::ScalarMatrixType::Random,
         .gain_per_samples = 0.98f,
         .rng_seed = 0x5EED1234U,
     };
@@ -941,6 +1030,59 @@ TEST_CASE("FilterFeedbackMatrix reproduces seeded random cascades", "[feedback_m
     REQUIRE(different_output != first_output);
 }
 
+TEST_CASE("FilterFeedbackMatrix repeats default and zero-seed cascade recipes", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 4U;
+    constexpr uint32_t kBlockSize = 16U;
+    constexpr uint32_t kBlockCount = 24U;
+    constexpr std::array kGenerators = {
+        sfFDN::ScalarMatrixType::Random,
+        sfFDN::ScalarMatrixType::Hadamard,
+        sfFDN::ScalarMatrixType::Householder,
+    };
+
+    for (const auto generator : kGenerators)
+    {
+        const sfFDN::CascadedFeedbackMatrixOptions default_options = {
+            .matrix_size = kOrder,
+            .stage_count = 2U,
+            .sparsity = 2.5f,
+            .generator = generator,
+            .gain_per_samples = 0.98f,
+        };
+        auto zero_options = default_options;
+        zero_options.rng_seed = 0U;
+        sfFDN::FilterFeedbackMatrix default_first(default_options);
+        sfFDN::FilterFeedbackMatrix default_repeated(default_options);
+        sfFDN::FilterFeedbackMatrix zero_first(zero_options);
+        sfFDN::FilterFeedbackMatrix zero_repeated(zero_options);
+        std::vector<float> default_matrix(kOrder * kOrder);
+        std::vector<float> default_repeated_matrix(kOrder * kOrder);
+        std::vector<float> zero_matrix(kOrder * kOrder);
+        std::vector<float> zero_repeated_matrix(kOrder * kOrder);
+        REQUIRE(default_first.GetFirstMatrix(default_matrix));
+        REQUIRE(default_repeated.GetFirstMatrix(default_repeated_matrix));
+        REQUIRE(zero_first.GetFirstMatrix(zero_matrix));
+        REQUIRE(zero_repeated.GetFirstMatrix(zero_repeated_matrix));
+        REQUIRE(default_matrix == default_repeated_matrix);
+        REQUIRE(zero_matrix == zero_repeated_matrix);
+
+        const auto default_output = RenderCascade(default_first, kBlockSize, kBlockCount);
+        const auto default_repeated_output = RenderCascade(default_repeated, kBlockSize, kBlockCount);
+        const auto zero_output = RenderCascade(zero_first, kBlockSize, kBlockCount);
+        const auto zero_repeated_output = RenderCascade(zero_repeated, kBlockSize, kBlockCount);
+        INFO("generator=" << static_cast<int>(generator));
+        RequireNear(default_repeated_output, default_output);
+        RequireNear(zero_repeated_output, zero_output);
+
+        if (generator == sfFDN::ScalarMatrixType::Random)
+        {
+            REQUIRE(default_matrix != zero_matrix);
+            REQUIRE(default_output != zero_output);
+        }
+    }
+}
+
 TEST_CASE("FilterFeedbackMatrix reproduces seeded structured cascade delays", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
@@ -954,7 +1096,7 @@ TEST_CASE("FilterFeedbackMatrix reproduces seeded structured cascade delays", "[
             .matrix_size = kOrder,
             .stage_count = 2U,
             .sparsity = 3.f,
-            .type = type,
+            .generator = type,
             .gain_per_samples = 1.f,
             .rng_seed = 0xA11CE55U,
         };
@@ -987,7 +1129,7 @@ TEST_CASE("FilterFeedbackMatrix reproduces UINT32_MAX cascade seeds", "[feedback
         .matrix_size = kOrder,
         .stage_count = 2U,
         .sparsity = 2.f,
-        .type = sfFDN::ScalarMatrixType::RandomHouseholder,
+        .generator = sfFDN::ScalarMatrixType::RandomHouseholder,
         .gain_per_samples = 0.99f,
         .rng_seed = std::numeric_limits<uint32_t>::max(),
     };

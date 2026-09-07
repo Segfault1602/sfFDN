@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -155,20 +156,6 @@ struct FeedbackMatrixVisitor
         return std::make_unique<sfFDN::TimeVaryingFeedbackMatrix>(matrix_config);
     }
 
-    std::unique_ptr<sfFDN::AudioProcessor> operator()(const std::vector<float>& matrix_config) const
-    {
-        const auto matrix_size = static_cast<uint32_t>(std::sqrt(matrix_config.size()));
-
-        if (matrix_size * matrix_size != matrix_config.size())
-        {
-            throw std::runtime_error("Custom scalar feedback matrix size must be a perfect square");
-        }
-
-        sfFDN::ScalarFeedbackMatrixOptions scalar_config;
-        scalar_config.matrix_size = matrix_size;
-        scalar_config.custom_matrix = matrix_config;
-        return std::make_unique<sfFDN::ScalarFeedbackMatrix>(scalar_config);
-    }
 };
 
 sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
@@ -247,12 +234,65 @@ FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size, uint32_t block_size, float sam
     config.input_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
     config.output_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
     config.feedback_matrix_config = ScalarFeedbackMatrixOptions{
-        .matrix_size = fdn_size,
-        .type = (fdn_size & (fdn_size - 1U)) == 0U ? ScalarMatrixType::Hadamard : ScalarMatrixType::Householder};
+        .source = GeneratedMatrixOptions{
+            .matrix_size = fdn_size,
+            .generator = (fdn_size & (fdn_size - 1U)) == 0U ? ScalarMatrixType::Hadamard
+                                                            : ScalarMatrixType::Householder}};
     config.attenuation_filter_bank_config = AttenuationFilterBankOptions{
         .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = sample_rate}}};
 
     return config;
+}
+
+namespace
+{
+
+void RandomizeMatrixSeed(ScalarFeedbackMatrixOptions& options, std::mt19937& generator)
+{
+    std::visit(overloaded{[&](GeneratedMatrixOptions& source) { source.rng_seed = generator(); },
+                          [](MatrixData&) {}},
+               options.source);
+}
+
+void RandomizeMatrixSeed(multi_channel_processor_variant_t& options, std::mt19937& generator)
+{
+    std::visit(overloaded{[&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+                          [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
+                          [](ParallelGainsOptions&) {},
+                          [](MultichannelProcessorOptions&) {},
+                          [](AttenuationFilterBankOptions&) {},
+                          [](DelayBankOptions&) {},
+                          [](DelayBankTimeVaryingOptions&) {}},
+               options);
+}
+
+void RandomizeMatrixSeed(feedback_matrix_variant_t& options, std::mt19937& generator)
+{
+    std::visit(overloaded{[&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+                          [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
+                          [&](TimeVaryingFeedbackMatrixOptions& source) { source.rng_seed = generator(); }},
+               options);
+}
+
+} // namespace
+
+void RandomizeMatrixSeeds(FDNConfig& config)
+{
+    std::mt19937 generator(std::random_device{}());
+
+    RandomizeMatrixSeed(config.feedback_matrix_config, generator);
+    for (auto& options : config.input_block_config.multichannel_processors)
+    {
+        RandomizeMatrixSeed(options, generator);
+    }
+    for (auto& options : config.output_block_config.multichannel_processors)
+    {
+        RandomizeMatrixSeed(options, generator);
+    }
+    for (auto& options : config.loop_filter_configs)
+    {
+        RandomizeMatrixSeed(options, generator);
+    }
 }
 
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)

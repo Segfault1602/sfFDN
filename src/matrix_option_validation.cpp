@@ -1,6 +1,7 @@
 #include "processor_option_validation.h"
 
 #include "sffdn/config_diagnostics.h"
+#include "sffdn/matrix_gallery.h"
 #include "sffdn/types.h"
 
 #include <bit>
@@ -125,42 +126,56 @@ namespace sfFDN::detail
 void ValidateOptions(const ScalarFeedbackMatrixOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues)
 {
+    std::visit(overloaded{
+                   [&](const GeneratedMatrixOptions& source) {
+                       ValidateOptions(source, path + "/source/GeneratedMatrixOptions", issues);
+                   },
+                   [&](const MatrixData& source) {
+                       if (source.Order() == 0U)
+                       {
+                           AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/source/MatrixData/order",
+                                    "matrix order must be positive");
+                       }
+                   }},
+               options.source);
+}
+
+void ValidateOptions(const GeneratedMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
+{
     const std::string matrix_size_path = path + "/matrix_size";
     const bool size_valid = options.matrix_size > 0U;
     if (!size_valid)
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, matrix_size_path, "matrix size must be positive");
     }
-    if (options.custom_matrix.has_value())
+
+    const ScalarMatrixType type = GetMatrixType(options.generator);
+    if (!IsSupportedScalarType(type))
     {
-        if (size_valid)
-        {
-            const uint64_t expected_count = static_cast<uint64_t>(options.matrix_size) * options.matrix_size;
-            if (static_cast<uint64_t>(options.custom_matrix->size()) != expected_count)
-            {
-                AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/custom_matrix",
-                         "custom matrix size must equal matrix_size squared");
-            }
-        }
+        AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/generator", "matrix type is unsupported");
         return;
     }
 
-    if (!IsSupportedScalarType(options.type))
-    {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/type", "matrix type is unsupported");
-        return;
-    }
-
-    if (size_valid && !IsValidScalarDimension(options.matrix_size, options.type))
+    if (size_valid && !IsValidScalarDimension(options.matrix_size, type))
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, matrix_size_path,
                  "matrix size is unsupported by the selected matrix type");
     }
 
-    if (options.type == ScalarMatrixType::VariableDiffusion && options.arg.has_value() &&
-        (*options.arg < 0.0F || *options.arg > 1.0F))
+    std::visit(overloaded{[](ScalarMatrixType) {},
+                          [&](const VariableDiffusionOptions& generator) {
+                              ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
+                          }},
+               options.generator);
+}
+
+void ValidateOptions(const VariableDiffusionOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
+{
+    if (options.diffusion < 0.0F || options.diffusion > 1.0F)
     {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/arg", "variable diffusion argument must be in [0, 1]");
+        AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/diffusion", "diffusion must be in [0, 1]");
     }
 }
 
@@ -172,16 +187,22 @@ void ValidateOptions(const CascadedFeedbackMatrixOptions& options, const std::st
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/matrix_size", "matrix size must be positive");
     }
-    const bool type_valid = IsSupportedScalarType(options.type);
+    const ScalarMatrixType type = GetMatrixType(options.generator);
+    const bool type_valid = IsSupportedScalarType(type);
     if (!type_valid)
     {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/type", "matrix type is unsupported");
+        AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/generator", "matrix type is unsupported");
     }
-    else if (size_valid && !IsValidScalarDimension(options.matrix_size, options.type))
+    else if (size_valid && !IsValidScalarDimension(options.matrix_size, type))
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/matrix_size",
                  "matrix size is unsupported by the selected matrix type");
     }
+    std::visit(overloaded{[](ScalarMatrixType) {},
+                          [&](const VariableDiffusionOptions& generator) {
+                              ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
+                          }},
+               options.generator);
 
     if (options.stage_count == std::numeric_limits<uint32_t>::max())
     {

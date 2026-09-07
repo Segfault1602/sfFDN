@@ -983,13 +983,11 @@ sfFDN::FDNConfig MakeShimmerConfig()
         .time_varying_config = {},
     };
 
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = kOrder,
-        .type = sfFDN::ScalarMatrixType::Random,
-        .custom_matrix = std::nullopt,
-        .rng_seed = 4242,
-        .arg = std::nullopt,
-    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                                           .matrix_size = kOrder,
+                                                                           .generator = sfFDN::ScalarMatrixType::Random,
+                                                                           .rng_seed = 4242,
+                                                                       }};
 
     sfFDN::AttenuationFilterBankOptions attenuation;
     for (auto i = 0u; i < kOrder; ++i)

@@ -25,12 +25,10 @@ This section describes the multi-channel processors provided by sfFDN. These are
   coefficients are row-major (`matrix[row * N + column] = A[row, column]`) and apply \f$y = A x\f$; this is the
   same convention as a pyFDN/NumPy `(out, in)` matrix flattened with
   `numpy.asarray(A).ravel(order="C")` and evaluated as `x @ A.T`. The FDN's transposed topology is a signal-flow
-  arrangement, not an instruction to apply \f$A^T\f$. Set a nonzero `rng_seed` to reproduce a generated random
-  gallery matrix; zero retains nondeterministic random generation. `custom_matrix`, when supplied, takes precedence
-  over matrix generation.
+  arrangement, not an instruction to apply \f$A^T\f$. Its source is either a generated recipe or explicit,
+  shape-checked row-major `MatrixData`, which owns its values and exposes `Values()` spans.
 - [Filter Feedback Matrix](@ref sfFDN::FilterFeedbackMatrix): Implementation of a Filter Feedback Matrix based on the design by S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks.” A filter feedback matrix consists of a series of scalar matrix interleaved with banks of delay lines.
-  A nonzero `CascadedFeedbackMatrixOptions::rng_seed` reproduces every generated stage matrix and stage delay
-  distribution; zero retains nondeterministic random generation.
+  `CascadedFeedbackMatrixOptions::rng_seed` controls both the generated matrices and delay lengths.
 - [Attenuation Filter Bank](@ref sfFDN::AttenuationFilterBankOptions): A parallel bank of attenuation filters. These filters are usually designed to target a specific RT60 and their gains are scaled according to the length of the delay lines. See also the [Filtering](filters.md) manual page for the four attenuation filter variants and the associated design helpers.
 
 
@@ -98,6 +96,39 @@ there is no compatibility migration layer.
 JSON readers reject unknown enum strings, malformed array shapes, and ambiguous tagged wrappers. A single-channel,
 multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag. Reads are transactional, so a failed parse does not modify an existing
 options object.
+
+### Matrix source migration and JSON
+
+Scalar feedback matrices now have exactly one `source`: a generated `GeneratedMatrixOptions` recipe or explicit
+`MatrixData`. `MatrixData(order, coefficients)` owns a row-major vector and rejects a coefficient count other than
+`order * order`; `Values()` returns mutable or const spans over that data.
+
+```c++
+// Generated matrix
+ScalarFeedbackMatrixOptions generated{
+    .source = GeneratedMatrixOptions{
+        .matrix_size = order,
+        .generator = ScalarMatrixType::Hadamard,
+        .rng_seed = kDefaultMatrixSeed}};
+
+// Explicit data
+ScalarFeedbackMatrixOptions explicit_matrix{
+    .source = MatrixData{2, {1.f, 0.f, 0.f, 1.f}}};
+
+// Parameterized generation
+ScalarFeedbackMatrixOptions diffusion{
+    .source = GeneratedMatrixOptions{
+        .matrix_size = order,
+        .generator = VariableDiffusionOptions{.diffusion = 0.5f},
+        .rng_seed = 0U}};
+```
+
+Matrix recipes default to `kDefaultMatrixSeed`. Zero is also a deterministic seed, not a request for randomization.
+The same configuration and seed give repeatable results; bit-identical results across platforms are not guaranteed.
+
+Use `RandomizeMatrixSeeds(config)` to assign new random seeds to generated matrices in the feedback, input, output,
+and loop stages. Explicit `MatrixData` and other settings are unchanged. Hadamard and Householder scalar matrices
+are independent of the seed. The delay-length utility's seed policy is unchanged.
 
 `ValidateFDNConfig()` validates every supported multichannel alternative and all populated
 generic-bank channels, in addition to FDN placement dimensions. It checks domains and graph

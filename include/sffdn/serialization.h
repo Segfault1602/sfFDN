@@ -188,22 +188,18 @@ SFFDN_JSON_ENUM(TimeVaryingMatrixMode, {TimeVaryingMatrixMode::Hadamard, "Hadama
 
 #undef SFFDN_JSON_ENUM
 
+void to_json(nlohmann::json& j, const VariableDiffusionOptions& config);
+void from_json(const nlohmann::json& j, VariableDiffusionOptions& config);
+void to_json(nlohmann::json& j, const MatrixGeneratorOptions& config);
+void from_json(const nlohmann::json& j, MatrixGeneratorOptions& config);
+void to_json(nlohmann::json& j, const GeneratedMatrixOptions& config);
+void from_json(const nlohmann::json& j, GeneratedMatrixOptions& config);
+void to_json(nlohmann::json& j, const MatrixData& config);
+void from_json(const nlohmann::json& j, MatrixData& config);
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, sparsity,
-                                                  type, gain_per_samples, rng_seed);
-inline void from_json(const nlohmann::json& j, CascadedFeedbackMatrixOptions& config)
-{
-    json_detail::RequireObject(j, "CascadedFeedbackMatrixOptions");
-    CascadedFeedbackMatrixOptions candidate;
-    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
-    json_detail::ReadField(j, "stage_count", candidate.stage_count);
-    json_detail::ReadField(j, "sparsity", candidate.sparsity);
-    json_detail::ReadField(j, "type", candidate.type);
-    json_detail::ReadField(j, "gain_per_samples", candidate.gain_per_samples);
-    json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
-    config = std::move(candidate);
-}
+void to_json(nlohmann::json& j, const CascadedFeedbackMatrixOptions& config);
+void from_json(const nlohmann::json& j, CascadedFeedbackMatrixOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(ModulationOptions, frequency, amplitude, initial_phase);
 inline void from_json(const nlohmann::json& j, ModulationOptions& config)
 {
