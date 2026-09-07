@@ -1,7 +1,6 @@
 #pragma once
 
 #include "sffdn/config_diagnostics.h"
-#include "sffdn/fdn.h"
 #include "sffdn/types.h"
 
 #include <cstdint>
@@ -13,6 +12,8 @@
 
 namespace sfFDN
 {
+
+class FDN;
 
 /** @brief Configuration for the FDN.
  */
@@ -88,8 +89,5 @@ struct FDNConfig
 [[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig& config);
 
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config);
-
-void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p);
-void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p);
 
 } // namespace sfFDN

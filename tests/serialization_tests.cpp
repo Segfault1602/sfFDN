@@ -13,6 +13,7 @@
 #include "json_helper.h"
 #include "rng.h"
 #include "sffdn/sffdn.h"
+#include <sffdn/serialization.h>
 #include "test_utils.h"
 
 namespace

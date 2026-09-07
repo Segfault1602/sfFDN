@@ -1,6 +1,5 @@
 #include "sffdn/filter.h"
 
-#include "json_helper.h"
 #include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"

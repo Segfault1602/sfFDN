@@ -40,6 +40,10 @@ The [AudioProcessorChain](@ref sfFDN::AudioProcessorChain) class allows you to c
 
 ## Migration and JSON
 
+JSON serialization is opt-in: include `<sffdn/serialization.h>` and link the consuming target to
+`sfFDN::serialization`. Core configuration headers do not include JSON; include `<sffdn/fdn.h>`
+(or `<sffdn/sffdn.h>`) when creating or destroying a configured `FDN`.
+
 The former homogeneous independent-channel option wrappers are removed. Rebuild C++ callers with
 `MultichannelProcessorOptions`; saved configurations must be migrated and are not read automatically. The canonical
 JSON form is:

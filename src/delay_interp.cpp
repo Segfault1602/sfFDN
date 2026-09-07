@@ -2,7 +2,6 @@
 
 #include "sffdn/audio_buffer.h"
 
-#include "json_helper.h"
 #include "processor_option_validation.h"
 
 #include <array>

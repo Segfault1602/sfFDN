@@ -1,5 +1,6 @@
 #include <concepts>
 #include <expected>
+#include <memory>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -7,33 +8,14 @@
 
 #include <sffdn/config_diagnostics.h>
 #include <sffdn/fdn_config.h>
+#include <sffdn/sffdn.h>
+
+#ifdef NLOHMANN_JSON_VERSION_MAJOR
+#error "Core public headers must not include nlohmann/json"
+#endif
 
 static_assert(std::same_as<decltype(sfFDN::ValidateFDNConfig(std::declval<const sfFDN::FDNConfig&>())),
                            std::expected<void, std::vector<sfFDN::ConfigIssue>>>);
 static_assert(std::derived_from<sfFDN::FDNConfigError, std::runtime_error>);
-
-void CheckPublicConfigAPI(const sfFDN::FDNConfig& config)
-{
-    const auto validation = sfFDN::ValidateFDNConfig(config);
-    if (!validation)
-    {
-        for (const auto& issue : validation.error())
-        {
-            const auto code = issue.code;
-            const auto& path = issue.path;
-            const auto& message = issue.message;
-            static_cast<void>(code);
-            static_cast<void>(path);
-            static_cast<void>(message);
-        }
-    }
-
-    try
-    {
-        static_cast<void>(sfFDN::CreateFDNFromConfig(config));
-    }
-    catch (const sfFDN::FDNConfigError& error)
-    {
-        static_cast<void>(error.Issues());
-    }
-}
+static_assert(std::same_as<decltype(sfFDN::CreateFDNFromConfig(std::declval<const sfFDN::FDNConfig&>())),
+                           std::unique_ptr<sfFDN::FDN>>);

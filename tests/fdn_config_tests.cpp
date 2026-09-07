@@ -14,6 +14,7 @@
 
 #include "sffdn/config_diagnostics.h"
 #include "sffdn/sffdn.h"
+#include <sffdn/serialization.h>
 
 namespace
 {

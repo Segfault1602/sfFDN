@@ -1,7 +1,6 @@
 #include "sffdn/fdn.h"
 
 #include "array_math.h"
-#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/delay_utils.h"

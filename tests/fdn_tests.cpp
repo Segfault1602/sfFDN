@@ -14,6 +14,7 @@
 
 #include "filter_coeffs.h"
 #include "sffdn/sffdn.h"
+#include <sffdn/serialization.h>
 
 #include "allocation_counter.h"
 #include "test_utils.h"

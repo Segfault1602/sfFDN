@@ -116,7 +116,8 @@ fdn.SetLoopFilter(std::move(attenuation_filter));
 ```
 
 Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
-The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
+Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON. This opt-in header exposes the
+`nlohmann::json` adapters; link JSON consumers to `sfFDN::serialization`.
 JSON reads are strict and transactional: malformed input leaves a reused destination unchanged. Integer fields accept
 only integer JSON values in the `uint32_t` range, while finite fractional `sample_rate` values are preserved as floats.
 Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag and no sibling fields,
@@ -212,6 +213,10 @@ user-supplied IIR, allpass, and nonlinear chains are not certified stable. JSON 
 validates external numeric data; public C++ option inputs are assumed finite. Callers may log the
 report, but the validator itself does not.
 
+`<sffdn/fdn_config.h>` is sufficient for authoring and validating configurations, but it only
+forward-declares `FDN`. Include `<sffdn/fdn.h>` (or `<sffdn/sffdn.h>`) before creating or
+destroying the `std::unique_ptr<FDN>` returned by `CreateFDNFromConfig()`.
+
 ## Build
 
 The library is built using CMake. **sfFDN** uses [CPM](https://github.com/cpm-cmake/CPM.cmake) to manage dependencies. CMake presets are provided for building with Ninja and LLVM.
@@ -237,12 +242,24 @@ CPMAddPackage(
 target_link_libraries(your_target PRIVATE sfFDN::sfFDN)
 ```
 
+Core consumers include the public headers they use, for example `<sffdn/fdn_config.h>` for
+configuration authoring and `<sffdn/fdn.h>` when they own an `FDN`. They do not receive JSON
+headers or a JSON link dependency. A JSON consumer opts in explicitly:
+
+```cmake
+target_link_libraries(your_json_target PRIVATE sfFDN::serialization)
+```
+
+```c++
+#include <sffdn/serialization.h>
+```
+
 ## Dependencies
 
 - [Eigen](https://eigen.tuxfamily.org/dox/) - Linear algebra library
 - [PFFFT](https://bitbucket.org/jpommier/pffft/) - FFT library for partitioned convolution
 - [KissFFT](https://github.com/mborgerding/kissfft) - FFT library used for FFT size less than what PFFFT supports
-- [nlohmann-json](https://github.com/nlohmann/json) - Used to export/import FDN configurations to JSON files. Can be omitted if you don't need this feature by not building fdn_config.cpp
+- [nlohmann-json](https://github.com/nlohmann/json) - Used by the opt-in `sfFDN::serialization` target to export/import FDN configurations to JSON files.
 - [nanobench](https://github.com/martinus/nanobench) - Microbenchmarking library used for performance testing. Not required if SFFDN_BUILD_TESTS is OFF.
 - [Catch2](https://github.com/catchorg/Catch2) - Unit testing framework used for testing. Not required if SFFDN_BUILD_TESTS is OFF.
 - [libsndfile](http://www.mega-nerd.com/libsndfile/) - Used in unit tests for reading/writing WAV files. Not required if SFFDN_BUILD_TESTS is OFF.

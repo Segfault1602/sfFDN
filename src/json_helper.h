@@ -1,8 +1,6 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
-
-#include <sffdn/types.h>
+#include <sffdn/serialization.h>
 
 namespace sfFDN
 {

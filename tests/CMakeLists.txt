@@ -78,7 +78,8 @@ target_sources(
 )
 target_link_libraries(
     sfFDN.tests
-    PRIVATE sfFDN.sfFDN
+    PRIVATE sfFDN::sfFDN
+            sfFDN::serialization
             Catch2::Catch2WithMain
             SndFile::sndfile
             Eigen3::Eigen
@@ -94,7 +95,11 @@ target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
 add_library(sfFDN.public_config_api OBJECT public_config_api_compile.cpp)
 target_link_libraries(sfFDN.public_config_api PRIVATE sfFDN::sfFDN)
 set_target_properties(sfFDN.public_config_api PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
-add_dependencies(sfFDN.tests sfFDN.public_config_api)
+
+add_executable(sfFDN.public_serialization_api public_serialization_api.cpp)
+target_link_libraries(sfFDN.public_serialization_api PRIVATE sfFDN::serialization)
+
+add_dependencies(sfFDN.tests sfFDN.public_config_api sfFDN.public_serialization_api)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(
@@ -115,6 +120,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(NAME PublicSerializationAPI COMMAND sfFDN.public_serialization_api)
 add_test(
     NAME RealtimeExceptionInventory
     COMMAND

@@ -120,15 +120,6 @@ class SparseFir::SparseFirImpl
         return clone;
     }
 
-    nlohmann::json ToJson() const
-    {
-        nlohmann::json j;
-        j["type"] = "SparseFir";
-        j["coefficients"] = coeffs_;
-        j["indices"] = sparse_index_;
-        return j;
-    }
-
   private:
     std::vector<float> coeffs_;
     Delay delay_line_;

@@ -45,7 +45,6 @@ target_sources(
             filter_design.cpp
             filter_feedback_matrix.cpp
             iirfilterbank.cpp
-            json_helper.cpp
             math_utils.cpp
             matrix_gallery.cpp
             matrix_multiplication.cpp
@@ -96,6 +95,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/schroeder_allpass.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/sffdn.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/time_varying_feedback_matrix.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/types.h
 )
 
 target_include_directories(sfFDN.sfFDN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pffft_SOURCE_DIR})
@@ -109,8 +109,6 @@ target_link_libraries(
             sfFDN::sfFDN_options
 )
 
-target_link_libraries(sfFDN.sfFDN PUBLIC nlohmann_json::nlohmann_json)
-
 target_compile_features(sfFDN.sfFDN PUBLIC cxx_std_23)
 
 sffdn_enable_lto(sfFDN.sfFDN)
@@ -120,7 +118,6 @@ if(SFFDN_ENABLE_PCH)
         sfFDN.sfFDN
         PRIVATE
             <Eigen/Core>
-            <nlohmann/json.hpp>
             <algorithm>
             <array>
             <cassert>
@@ -135,6 +132,32 @@ if(SFFDN_ENABLE_PCH)
             <vector>
     )
 endif()
+
+add_library(sfFDN.serialization)
+add_library(sfFDN::serialization ALIAS sfFDN.serialization)
+sffdn_enable_lto(sfFDN.serialization)
+
+target_sources(
+    sfFDN.serialization
+    PRIVATE fdn_config_json.cpp
+            json_helper.cpp
+    PUBLIC FILE_SET
+           HEADERS
+           BASE_DIRS
+           ${SFFDN_INCLUDE_DIRS}
+           FILES
+           ${SFFDN_INCLUDE_DIRS}/sffdn/serialization.h
+)
+
+target_include_directories(sfFDN.serialization PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+    sfFDN.serialization
+    PUBLIC sfFDN::sfFDN
+           nlohmann_json::nlohmann_json
+    PRIVATE sfFDN::sfFDN_warnings
+            sfFDN::sfFDN_options
+)
 
 if(SFFDN_USE_VDSP)
     target_link_libraries(sfFDN.sfFDN PRIVATE "-framework Accelerate")

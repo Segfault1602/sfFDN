@@ -1,6 +1,5 @@
 #include "sffdn/filter_feedback_matrix.h"
 
-#include "json_helper.h"
 #include "matrix_gallery_internal.h"
 #include "processor_option_validation.h"
 #include "rng.h"
