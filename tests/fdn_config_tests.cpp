@@ -228,6 +228,83 @@ TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
     REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
 }
 
+TEST_CASE("CreateFDNFromConfig selects static matrices and preserves modulated stage gains", "[fdn]")
+{
+    SECTION("unmodulated stage gains become ChannelMatrix boundaries")
+    {
+        const auto config = MakeValidConfig();
+        const auto before = config;
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn->GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn->GetOutputGains()) != nullptr);
+        REQUIRE(config == before);
+    }
+
+    SECTION("a nonempty zero-amplitude modulation vector remains time-varying")
+    {
+        auto config = MakeValidConfig();
+        config.input_block_config.parallel_gains_config.time_varying_config =
+            std::vector<sfFDN::ModulationOptions>(config.fdn_size);
+        config.output_block_config.parallel_gains_config.time_varying_config =
+            std::vector<sfFDN::ModulationOptions>(config.fdn_size);
+        const auto before = config;
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+
+        REQUIRE(dynamic_cast<sfFDN::TimeVaryingParallelGains*>(fdn->GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::TimeVaryingParallelGains*>(fdn->GetOutputGains()) != nullptr);
+        REQUIRE(config == before);
+    }
+
+    SECTION("input and output stages select their implementation independently")
+    {
+        auto input_modulated = MakeValidConfig();
+        input_modulated.input_block_config.parallel_gains_config.time_varying_config =
+            std::vector<sfFDN::ModulationOptions>(input_modulated.fdn_size);
+        auto input_modulated_fdn = sfFDN::CreateFDNFromConfig(input_modulated);
+        REQUIRE(dynamic_cast<sfFDN::TimeVaryingParallelGains*>(input_modulated_fdn->GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(input_modulated_fdn->GetOutputGains()) != nullptr);
+
+        auto output_modulated = MakeValidConfig();
+        output_modulated.output_block_config.parallel_gains_config.time_varying_config =
+            std::vector<sfFDN::ModulationOptions>(output_modulated.fdn_size);
+        auto output_modulated_fdn = sfFDN::CreateFDNFromConfig(output_modulated);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(output_modulated_fdn->GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::TimeVaryingParallelGains*>(output_modulated_fdn->GetOutputGains()) != nullptr);
+    }
+
+    SECTION("static matrix boundaries compose with the surrounding processor chains")
+    {
+        auto config = MakeValidConfig();
+        config.input_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
+        config.input_block_config.multichannel_processors = {
+            sfFDN::ParallelGainsOptions{
+                .mode = sfFDN::ParallelGainsMode::Parallel,
+                .gains = std::vector<float>(config.fdn_size, 1.F),
+                .time_varying_config = {},
+            },
+        };
+        config.output_block_config.multichannel_processors = {
+            sfFDN::ParallelGainsOptions{
+                .mode = sfFDN::ParallelGainsMode::Parallel,
+                .gains = std::vector<float>(config.fdn_size, 1.F),
+                .time_varying_config = {},
+            },
+        };
+        config.output_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
+        config.tone_correction_filters = {sfFDN::FirOptions{.coeffs = {1.F}}};
+        const auto before = config;
+
+        REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+        REQUIRE(dynamic_cast<sfFDN::AudioProcessorChain*>(fdn->GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::AudioProcessorChain*>(fdn->GetOutputGains()) != nullptr);
+        REQUIRE(fdn->GetTCFilter() != nullptr);
+        REQUIRE(std::ranges::any_of(RenderDefaultFDN(*fdn, config), [](float sample) { return sample != 0.F; }));
+        REQUIRE(config == before);
+    }
+}
+
 TEST_CASE("ValidateFDNConfig reports issues at resolvable JSON pointers", "[fdn]")
 {
     auto config = MakeValidConfig();
