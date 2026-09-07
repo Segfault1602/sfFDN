@@ -46,7 +46,7 @@ void FilterBank::Process(const AudioBuffer& input, AudioBuffer& output) noexcept
 
     for (auto i = 0u; i < filters_.size(); ++i)
     {
-        auto input_buf = input.GetChannelBuffer(i);
+        const auto input_buf = input.GetChannelBuffer(i);
         auto output_buf = output.GetChannelBuffer(i);
         filters_[i]->Process(input_buf, output_buf);
     }

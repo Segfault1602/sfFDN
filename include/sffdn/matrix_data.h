@@ -18,6 +18,7 @@ class MatrixData
     MatrixData(MatrixData&& other) noexcept;
     MatrixData& operator=(const MatrixData& other);
     MatrixData& operator=(MatrixData&& other) noexcept;
+    ~MatrixData() = default;
 
     uint32_t Order() const noexcept;
     std::span<float> Values() noexcept;

@@ -61,7 +61,7 @@ enum class ScalarMatrixType : uint8_t
     Allpass = 6,           /**< Allpass matrix. See [2]*/
     NestedAllpass = 7,     /**< Nested Allpass matrix. See [2] */
     VariableDiffusion = 8, /**< Variable diffusion matrix as described in [3] */
-    Count = 9
+    Count = 9,
 };
 
 /** @brief Types of interpolation for fractional delay lengths. */
@@ -118,7 +118,7 @@ enum class ParallelGainsMode : uint8_t
     Merge,
 
     //! Process each input channel separately and output to the same number of channels
-    Parallel
+    Parallel,
 };
 
 /** @brief Construction modes for a TimeVaryingFeedbackMatrix.
@@ -129,7 +129,7 @@ enum class TimeVaryingMatrixMode : uint8_t
 {
     Hadamard = 0,  /**< Uses H^T * blockdiag(R(theta)) * H. Requires a power-of-two matrix_size. */
     RealSchur = 1, /**< Uses V * blockdiag(R(theta)) * V^T. Accepts any even matrix_size. */
-    Count = 2      /**< Number of time-varying matrix modes. */
+    Count = 2,     /**< Number of time-varying matrix modes. */
 };
 
 // STRUCTS
@@ -162,8 +162,10 @@ struct ScalarFeedbackMatrixOptions
 
     uint32_t MatrixSize() const
     {
-        return std::visit(overloaded{[](const GeneratedMatrixOptions& generated) { return generated.matrix_size; },
-                                     [](const MatrixData& matrix) { return matrix.Order(); }},
+        return std::visit(overloaded{
+                              [](const GeneratedMatrixOptions& generated) { return generated.matrix_size; },
+                              [](const MatrixData& matrix) { return matrix.Order(); },
+                          },
                           source);
     }
 
@@ -254,7 +256,8 @@ struct DelayOptions
     uint32_t max_delay{512}; /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                              must be greater than or equal to `delay`. */
     sfFDN::DelayInterpolationType interp_type{
-        sfFDN::DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+        sfFDN::DelayInterpolationType::None,
+    }; /*< Interpolation type for fractional delays. */
     std::optional<sfFDN::ModulationOptions> lfo_config{
         std::nullopt}; /*< Optional LFO configuration for time-varying delay modulation. If provided, the delay will be
                           modulated according to the specified parameters. */
@@ -271,7 +274,8 @@ struct DelayBankOptions
     uint32_t block_size{kDefaultBlockSize}; /*< Block size for processing audio. This is used to determine the size of
                                                internal buffers and can affect performance. */
     DelayInterpolationType interpolation_type{
-        DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+        DelayInterpolationType::None,
+    }; /*< Interpolation type for fractional delays. */
 
     bool operator==(const DelayBankOptions&) const = default;
 };
@@ -284,7 +288,8 @@ struct DelayBankTimeVaryingOptions
     uint32_t max_delay{0};     /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                                     must be greater than or equal to the initial delays. */
     DelayInterpolationType interpolation_type{
-        DelayInterpolationType::None};                  /*< Interpolation type for fractional delays. */
+        DelayInterpolationType::None,
+    };                                                  /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
 
@@ -408,7 +413,11 @@ struct DattorroDelayOptions
      * choice for a modulated insert effect and `DelayInterpolationType::Allpass` the correct one inside a feedback
      * loop; see DattorroDelay for why. */
     DelayOptions delay_config{
-        .delay = 256.f, .max_delay = 512, .interp_type = DelayInterpolationType::Allpass, .lfo_config = std::nullopt};
+        .delay = 256.f,
+        .max_delay = 512,
+        .interp_type = DelayInterpolationType::Allpass,
+        .lfo_config = std::nullopt,
+    };
     float blend{0.7071f};    /*< Gain applied to the input of the delay line. */
     float feedforward{1.f};  /*< Gain applied to the modulated output of the delay line. */
     float feedback{0.7071f}; /*< Gain applied to the fixed output of the delay line before it is fed back into the

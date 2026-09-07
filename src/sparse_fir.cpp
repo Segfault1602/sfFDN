@@ -28,7 +28,7 @@ namespace sfFDN
 class SparseFir::SparseFirImpl
 {
   public:
-    SparseFirImpl(const SparseFirOptions& config)
+    explicit SparseFirImpl(const SparseFirOptions& config)
     {
         SetCoefficients(config);
     }
@@ -76,7 +76,7 @@ class SparseFir::SparseFirImpl
         assert(input.ChannelCount() == 1);
 
         const auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         const size_t buffer_size = delay_line_.GetMaximumDelay() + 1;
         const bool has_tap_headroom = input_span.size() + filter_order_ <= buffer_size;
         if (!has_tap_headroom || !delay_line_.AddNextInputs(input_span))

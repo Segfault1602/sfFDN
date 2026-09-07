@@ -312,7 +312,7 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcep
     else if (type_ == DelayInterpolationType::Lagrange)
     {
         const auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         const size_t required_history = input_span.size() + int_delay_ + kLagrangeOrder;
 
         if (!delayline_.CanAddNextInputs(input_span.size()) || required_history > delayline_.GetMaximumDelay())

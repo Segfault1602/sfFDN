@@ -190,22 +190,22 @@ void FFT::ConvolveAccumulate(const FFTComplexBuffer& dft_a, const FFTComplexBuff
 FFTRealBuffer FFT::AllocateRealBuffer() const
 {
 #pragma clang unsafe_buffer_usage begin
-    auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);
+    const auto mem = std::span<float>(static_cast<float*>(pffft_aligned_malloc(fft_size_ * sizeof(float))), fft_size_);
 #pragma clang unsafe_buffer_usage end
     std::ranges::fill(mem, 0.f);
-    return {mem};
+    return FFTRealBuffer{mem};
 }
 
 FFTComplexBuffer FFT::AllocateComplexBuffer() const
 {
 #pragma clang unsafe_buffer_usage begin
-    auto mem =
+    const auto mem =
         std::span<complex_t>(static_cast<complex_t*>(pffft_aligned_malloc(complex_sample_count_ * sizeof(complex_t))),
                              complex_sample_count_);
 #pragma clang unsafe_buffer_usage end
 
     std::ranges::fill(mem, complex_t{0.f, 0.f});
-    return {mem};
+    return FFTComplexBuffer{mem};
 }
 
 template class FFTBuffer<float>;

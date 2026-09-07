@@ -19,7 +19,7 @@ uint32_t Math::NextPowerOfTwo(uint32_t n)
         return 1;
     }
     --n;
-    for (auto i = 1; i < sizeof(uint32_t) * 8; i <<= 1)
+    for (auto i = 1U; i < sizeof(uint32_t) * 8U; i <<= 1U)
     {
         n |= n >> i;
     }

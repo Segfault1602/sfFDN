@@ -58,7 +58,7 @@ class Fir::FirImpl
         delay_line_[delay_index_] = in;
         delay_line_[delay_index_ + coeffs_.size()] = in;
 
-        auto delay_span = std::span(delay_line_).subspan(delay_index_, coeffs_.size());
+        const auto delay_span = std::span(delay_line_).subspan(delay_index_, coeffs_.size());
 
         const Eigen::Map<const Eigen::VectorXf> coeffs_map(coeffs_.data(), static_cast<Eigen::Index>(coeffs_.size()));
         const Eigen::Map<const Eigen::VectorXf> delay_map(delay_span.data(),
@@ -77,7 +77,7 @@ class Fir::FirImpl
         assert(input.ChannelCount() == 1);
 
         const auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         for (uint32_t n = 0; n < sample_count; ++n)
         {
             output_span[n] = Tick(input_span[n]);

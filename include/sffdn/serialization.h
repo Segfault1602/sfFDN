@@ -114,7 +114,7 @@ std::array<T, N> ReadArray(const nlohmann::json& j)
     {
         throw std::invalid_argument("Expected a JSON array with the required length");
     }
-    std::array<T, N> result;
+    std::array<T, N> result{};
     for (size_t index = 0; index < N; ++index)
     {
         result[index] = ReadValue<T>(j[index]);
@@ -208,7 +208,7 @@ inline void from_json(const nlohmann::json& j, ModulationOptions& config)
     json_detail::ReadField(j, "frequency", candidate.frequency);
     json_detail::ReadField(j, "amplitude", candidate.amplitude);
     json_detail::ReadField(j, "initial_phase", candidate.initial_phase);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(TimeVaryingFeedbackMatrixOptions, matrix_size, mode,
                                                   time_varying_config, rng_seed);
@@ -276,14 +276,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(FilterCoefficients, b0, b1, b2
 inline void from_json(const nlohmann::json& j, FilterCoefficients& config)
 {
     json_detail::RequireObject(j, "FilterCoefficients");
-    FilterCoefficients candidate;
+    FilterCoefficients candidate{};
     json_detail::ReadField(j, "b0", candidate.b0);
     json_detail::ReadField(j, "b1", candidate.b1);
     json_detail::ReadField(j, "b2", candidate.b2);
     json_detail::ReadField(j, "a0", candidate.a0);
     json_detail::ReadField(j, "a1", candidate.a1);
     json_detail::ReadField(j, "a2", candidate.a2);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(AllpassFilterOptions, coeff);
 inline void from_json(const nlohmann::json& j, AllpassFilterOptions& config)
@@ -291,7 +291,7 @@ inline void from_json(const nlohmann::json& j, AllpassFilterOptions& config)
     json_detail::RequireObject(j, "AllpassFilterOptions");
     AllpassFilterOptions candidate;
     json_detail::ReadField(j, "coeff", candidate.coeff);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(SparseFirOptions, coeffs);
 inline void from_json(const nlohmann::json& j, SparseFirOptions& config)
@@ -357,7 +357,7 @@ inline void from_json(const nlohmann::json& j, DattorroDelayOptions& config)
     json_detail::ReadField(j, "blend", candidate.blend);
     json_detail::ReadField(j, "feedforward", candidate.feedforward);
     json_detail::ReadField(j, "feedback", candidate.feedback);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(ControllableFullWaveRectifierOptions, alpha, antialiasing, dc_block,
                                                   sample_rate);
@@ -369,7 +369,7 @@ inline void from_json(const nlohmann::json& j, ControllableFullWaveRectifierOpti
     json_detail::ReadField(j, "antialiasing", candidate.antialiasing);
     json_detail::ReadField(j, "dc_block", candidate.dc_block);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(SignalDependentFractionalDelayOptions, d);
 inline void from_json(const nlohmann::json& j, SignalDependentFractionalDelayOptions& config)
@@ -377,7 +377,7 @@ inline void from_json(const nlohmann::json& j, SignalDependentFractionalDelayOpt
     json_detail::RequireObject(j, "SignalDependentFractionalDelayOptions");
     SignalDependentFractionalDelayOptions candidate;
     json_detail::ReadField(j, "d", candidate.d);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(RingModulatorOptions, frequency, amplitude, initial_phase);
 inline void from_json(const nlohmann::json& j, RingModulatorOptions& config)
@@ -387,7 +387,7 @@ inline void from_json(const nlohmann::json& j, RingModulatorOptions& config)
     json_detail::ReadField(j, "frequency", candidate.frequency);
     json_detail::ReadField(j, "amplitude", candidate.amplitude);
     json_detail::ReadField(j, "initial_phase", candidate.initial_phase);
-    config = std::move(candidate);
+    config = candidate;
 }
 void to_json(nlohmann::json& j, const MultichannelProcessorOptions& config);
 void from_json(const nlohmann::json& j, MultichannelProcessorOptions& config);
@@ -399,7 +399,7 @@ inline void from_json(const nlohmann::json& j, HomogenousFilterOptions& config)
     json_detail::ReadField(j, "t60", candidate.t60);
     json_detail::ReadField(j, "delay", candidate.delay);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(TwoBandFilterOptions, t60s, delay, sample_rate);
 inline void from_json(const nlohmann::json& j, TwoBandFilterOptions& config)
@@ -409,7 +409,7 @@ inline void from_json(const nlohmann::json& j, TwoBandFilterOptions& config)
     candidate.t60s = json_detail::ReadArray<float, 2>(j.at("t60s"));
     json_detail::ReadField(j, "delay", candidate.delay);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);
 inline void from_json(const nlohmann::json& j, ThreeBandFilterOptions& config)
@@ -421,7 +421,7 @@ inline void from_json(const nlohmann::json& j, ThreeBandFilterOptions& config)
     candidate.freqs = json_detail::ReadArray<float, 2>(j.at("freqs"));
     json_detail::ReadField(j, "q", candidate.q);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(TenBandFilterOptions, t60s, delay, sample_rate, shelf_cutoff);
 inline void from_json(const nlohmann::json& j, TenBandFilterOptions& config)
@@ -432,7 +432,7 @@ inline void from_json(const nlohmann::json& j, TenBandFilterOptions& config)
     json_detail::ReadField(j, "delay", candidate.delay);
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
     json_detail::ReadField(j, "shelf_cutoff", candidate.shelf_cutoff);
-    config = std::move(candidate);
+    config = candidate;
 }
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(GraphicEQOptions, gains_db, freqs, sample_rate);
 inline void from_json(const nlohmann::json& j, GraphicEQOptions& config)
@@ -442,7 +442,7 @@ inline void from_json(const nlohmann::json& j, GraphicEQOptions& config)
     candidate.gains_db = json_detail::ReadArray<float, 10>(j.at("gains_db"));
     candidate.freqs = json_detail::ReadArray<float, 10>(j.at("freqs"));
     json_detail::ReadField(j, "sample_rate", candidate.sample_rate);
-    config = std::move(candidate);
+    config = candidate;
 }
 
 void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config);

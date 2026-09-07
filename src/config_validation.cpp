@@ -48,7 +48,8 @@ void ValidateScalarMatrixDimension(const sfFDN::ScalarFeedbackMatrixOptions& opt
                                     "expected " + std::to_string(fdn_size) + ", got " +
                                         std::to_string(source.Order()));
                        }
-                   }},
+                   },
+               },
                options.source);
 }
 
@@ -135,7 +136,8 @@ void ValidateFeedbackMatrix(const sfFDN::feedback_matrix_variant_t& options, con
                                     "expected " + std::to_string(fdn_size) + ", got " +
                                         std::to_string(value.matrix_size));
                        }
-                   }},
+                   },
+               },
                options);
 }
 
@@ -299,7 +301,7 @@ std::string FDNConfigError::BuildMessage(const std::vector<ConfigIssue>& issues)
     std::string message = "Invalid FDNConfig";
     for (const auto& issue : issues)
     {
-        message += "\n";
+        message += '\n';
         message += issue.path;
         message += ": ";
         message += issue.message;

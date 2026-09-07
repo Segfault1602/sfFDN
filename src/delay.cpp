@@ -170,8 +170,8 @@ void Delay::Process(const AudioBuffer input, AudioBuffer& output) noexcept SFFDN
     else
     {
         // We could not add all input samples at once, so just process samples one by one.
-        auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto input_span = input.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         for (auto i = 0u; i < input.SampleCount(); ++i)
         {
             output_span[i] = Tick(input_span[i]);
@@ -269,7 +269,7 @@ void Delay::GetNextReadAndWriteBuffers(std::span<float>& read_buffer, std::span<
     read_buffer = GetNextOutputBuffers(size);
     write_buffer = GetNextInputBuffers(size);
 
-    auto min_size = std::min(read_buffer.size(), write_buffer.size());
+    const auto min_size = std::min(read_buffer.size(), write_buffer.size());
     read_buffer = read_buffer.first(min_size);
     write_buffer = write_buffer.first(min_size);
 }

@@ -53,8 +53,9 @@ std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channe
                    [](const GraphicEQOptions& options) {
                        detail::RequireValidOptions(options);
                        const auto coefficients = DesignGraphicEQ(options);
-                       CascadedBiquadsOptions filter_options{
-                           std::vector<FilterCoefficients>(coefficients.begin(), coefficients.end())};
+                       const CascadedBiquadsOptions filter_options{
+                           std::vector<FilterCoefficients>(coefficients.begin(), coefficients.end()),
+                       };
                        return std::make_unique<CascadedBiquads>(filter_options);
                    },
                    [](const DattorroDelayOptions& options) { return std::make_unique<DattorroDelay>(options); },

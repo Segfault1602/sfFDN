@@ -55,7 +55,8 @@ sfFDN::ScalarFeedbackMatrixOptions EigenToMatrixOptions(const Eigen::MatrixXf& m
         }
     }
     return sfFDN::ScalarFeedbackMatrixOptions{
-        .source = sfFDN::MatrixData{static_cast<uint32_t>(matrix.rows()), std::move(flat_matrix)}};
+        .source = sfFDN::MatrixData{static_cast<uint32_t>(matrix.rows()), std::move(flat_matrix)},
+    };
 }
 
 bool HasStructuredKernel(const sfFDN::MatrixGeneratorOptions& generator)
@@ -75,7 +76,7 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
     Eigen::MatrixXf r0;
     std::mt19937 seed_generator(options.rng_seed);
-    const auto next_seed = [&seed_generator]() { return seed_generator(); };
+    const auto next_seed = [&seed_generator] { return seed_generator(); };
 
     // Each cascade consumes one initial-matrix seed, then one matrix and one shift seed per stage.
     const uint32_t initial_matrix_seed = next_seed();
@@ -86,8 +87,13 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
     if (has_structured_kernel)
     {
         matrix_.emplace_back(ScalarFeedbackMatrixOptions{
-            .source = GeneratedMatrixOptions{
-                .matrix_size = options.matrix_size, .generator = options.generator, .rng_seed = initial_matrix_seed}});
+            .source =
+                GeneratedMatrixOptions{
+                    .matrix_size = options.matrix_size,
+                    .generator = options.generator,
+                    .rng_seed = initial_matrix_seed,
+                },
+        });
     }
     else
     {
@@ -116,7 +122,7 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
         // matrices.push_back(r1);
         std::vector<float> delays_stage;
-        for (auto d : shift_left)
+        for (const auto d : shift_left)
         {
             delays_stage.push_back(std::floor(d));
         }
@@ -129,10 +135,14 @@ FilterFeedbackMatrix::FilterFeedbackMatrix(const CascadedFeedbackMatrixOptions& 
 
         if (has_structured_kernel && options.gain_per_samples == 1.f)
         {
-            matrix_.emplace_back(
-                ScalarFeedbackMatrixOptions{.source = GeneratedMatrixOptions{.matrix_size = options.matrix_size,
-                                                                             .generator = options.generator,
-                                                                             .rng_seed = stage_matrix_seed}});
+            matrix_.emplace_back(ScalarFeedbackMatrixOptions{
+                .source =
+                    GeneratedMatrixOptions{
+                        .matrix_size = options.matrix_size,
+                        .generator = options.generator,
+                        .rng_seed = stage_matrix_seed,
+                    },
+            });
         }
         else
         {

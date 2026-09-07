@@ -140,8 +140,8 @@ void ApplyFixedRotationsBlock(sfFDN::AudioBuffer& buffer, std::span<const uint32
         sfFDN::SinCosUnit(angles[rotation], sine, cosine);
 
         const uint32_t first_channel = rotation_starts[rotation];
-        auto first_channel_data = buffer.GetChannelSpan(first_channel).first(block_size);
-        auto second_channel_data = buffer.GetChannelSpan(first_channel + 1U).first(block_size);
+        const auto first_channel_data = buffer.GetChannelSpan(first_channel).first(block_size);
+        const auto second_channel_data = buffer.GetChannelSpan(first_channel + 1U).first(block_size);
         for (size_t sample = 0; sample < block_size; ++sample)
         {
             const float first = first_channel_data[sample];
@@ -417,8 +417,8 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         const size_t sample_count = output.SampleCount();
         for (size_t rotation = 0; rotation < lfos_.size(); ++rotation)
         {
-            auto first_channel = output.GetChannelSpan(static_cast<uint32_t>(2U * rotation));
-            auto second_channel = output.GetChannelSpan(static_cast<uint32_t>((2U * rotation) + 1U));
+            const auto first_channel = output.GetChannelSpan(static_cast<uint32_t>(2U * rotation));
+            const auto second_channel = output.GetChannelSpan(static_cast<uint32_t>((2U * rotation) + 1U));
             float phase = lfo_phases_[rotation];
             const float phase_increment = lfos_[rotation].GetFrequency();
             const float phase_offset = lfos_[rotation].GetPhaseOffset();
@@ -457,8 +457,8 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         for (size_t rotation = 0; rotation < lfos_.size(); ++rotation)
         {
             const uint32_t first_channel = rotation_starts_[rotation];
-            auto first_channel_data = scratch_buffer.GetChannelSpan(first_channel).first(block_size);
-            auto second_channel_data = scratch_buffer.GetChannelSpan(first_channel + 1U).first(block_size);
+            const auto first_channel_data = scratch_buffer.GetChannelSpan(first_channel).first(block_size);
+            const auto second_channel_data = scratch_buffer.GetChannelSpan(first_channel + 1U).first(block_size);
             float phase = lfo_phases_[rotation];
             const float phase_increment = lfos_[rotation].GetFrequency();
             const float phase_offset = lfos_[rotation].GetPhaseOffset();
@@ -484,7 +484,7 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         {
             if (scalar_signs_[channel] < 0.0F)
             {
-                auto channel_data = scratch_buffer.GetChannelSpan(channel).first(block_size);
+                const auto channel_data = scratch_buffer.GetChannelSpan(channel).first(block_size);
                 for (size_t sample = 0; sample < block_size; ++sample)
                 {
                     channel_data[sample] = -channel_data[sample];
@@ -561,7 +561,7 @@ bool TimeVaryingFeedbackMatrix::GetMatrix(std::span<float> matrix, uint64_t samp
         {
             if (scalar_signs_[channel] < 0.0F)
             {
-                auto channel_data = pong_buffer.GetChannelSpan(channel);
+                const auto channel_data = pong_buffer.GetChannelSpan(channel);
                 for (uint32_t sample = 0; sample < order_; ++sample)
                 {
                     channel_data[sample] = -channel_data[sample];

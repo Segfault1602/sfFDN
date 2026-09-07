@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include "processor_option_validation.h"
 #include "sffdn/sffdn.h"
 
 #include <array>
@@ -7,11 +8,16 @@
 #include <limits>
 #include <optional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace
 {
 constexpr auto kInvalidInterpolation = static_cast<sfFDN::DelayInterpolationType>(255);
+
+template <class Options>
+concept CanRequireValidOptions =
+    requires(Options&& options) { sfFDN::detail::RequireValidOptions(std::forward<Options>(options)); };
 
 sfFDN::ParallelGainsOptions ValidGainsOptions()
 {
@@ -37,6 +43,26 @@ sfFDN::TimeVaryingSchroederAllpassSectionOptions ValidTimeVaryingSchroederOption
     };
 }
 } // namespace
+
+TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents", "[fdn_config]")
+{
+    using Options = sfFDN::DelayBankOptions;
+    static_assert(CanRequireValidOptions<Options&>);
+    static_assert(CanRequireValidOptions<const Options&>);
+    static_assert(!CanRequireValidOptions<Options>);
+    static_assert(!CanRequireValidOptions<const Options>);
+
+    Options options{.delays = {4.F, 8.F}, .block_size = 4U};
+    const auto original = options;
+    REQUIRE(&sfFDN::detail::RequireValidOptions(options) == &options);
+    REQUIRE(&sfFDN::detail::RequireValidOptions(original) == &original);
+    REQUIRE(options == original);
+
+    options.delays[0] = -1.F;
+    const auto invalid = options;
+    REQUIRE_THROWS_AS(sfFDN::detail::RequireValidOptions(options), std::invalid_argument);
+    REQUIRE(options == invalid);
+}
 
 TEST_CASE("Delay options reject nonrepresentable values before construction", "[delay]")
 {

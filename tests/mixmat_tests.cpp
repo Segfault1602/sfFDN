@@ -8,6 +8,7 @@
 #include <numbers>
 #include <ranges>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -147,8 +148,22 @@ TEST_CASE("GenerateMatrix creates an orthogonal VariableDiffusion matrix", "[fee
     RequireFiniteOrthogonal(mat, kMatSize);
 }
 
+TEST_CASE("GetMatrixType identifies both generator alternatives without throwing", "[feedback_matrix]")
+{
+    const sfFDN::MatrixGeneratorOptions scalar = sfFDN::ScalarMatrixType::Householder;
+    const sfFDN::MatrixGeneratorOptions diffusion = sfFDN::VariableDiffusionOptions{.diffusion = 0.5F};
+    static_assert(noexcept(sfFDN::GetMatrixType(scalar)));
+    REQUIRE(sfFDN::GetMatrixType(scalar) == sfFDN::ScalarMatrixType::Householder);
+    REQUIRE(sfFDN::GetMatrixType(diffusion) == sfFDN::ScalarMatrixType::VariableDiffusion);
+}
+
 TEST_CASE("MatrixData owns square coefficients and preserves value semantics", "[feedback_matrix]")
 {
+    static_assert(std::is_copy_constructible_v<sfFDN::MatrixData>);
+    static_assert(std::is_copy_assignable_v<sfFDN::MatrixData>);
+    static_assert(std::is_nothrow_move_constructible_v<sfFDN::MatrixData>);
+    static_assert(std::is_nothrow_move_assignable_v<sfFDN::MatrixData>);
+
     sfFDN::MatrixData empty;
     REQUIRE(empty.Order() == 0U);
     REQUIRE(empty.Values().empty());

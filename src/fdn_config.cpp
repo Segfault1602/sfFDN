@@ -182,13 +182,16 @@ sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
         for (size_t i = 0; i < config.fdn_size; ++i)
         {
             auto& filter_config = updated_config.filter_configs[i];
-            std::visit(sfFDN::overloaded{[&](auto& arg) {
-                           if (arg.delay <= 0.f)
-                           {
-                               arg.delay = config.delay_bank_config.delays[i];
-                           }
-                       }},
-                       filter_config);
+            std::visit(
+                sfFDN::overloaded{
+                    [&](auto& arg) {
+                        if (arg.delay <= 0.f)
+                        {
+                            arg.delay = config.delay_bank_config.delays[i];
+                        }
+                    },
+                },
+                filter_config);
         }
         return updated_config;
     }
@@ -230,16 +233,21 @@ FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size, uint32_t block_size, float sam
     config.sample_rate = sample_rate;
     config.delay_bank_config = {
         .delays = GetDelayLengths(fdn_size, minimum_delay, maximum_delay, DelayLengthType::Random, kDelaySeed),
-        .block_size = block_size};
+        .block_size = block_size,
+    };
     config.input_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
     config.output_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
     config.feedback_matrix_config = ScalarFeedbackMatrixOptions{
-        .source = GeneratedMatrixOptions{
-            .matrix_size = fdn_size,
-            .generator = (fdn_size & (fdn_size - 1U)) == 0U ? ScalarMatrixType::Hadamard
-                                                            : ScalarMatrixType::Householder}};
+        .source =
+            GeneratedMatrixOptions{
+                .matrix_size = fdn_size,
+                .generator =
+                    (fdn_size & (fdn_size - 1U)) == 0U ? ScalarMatrixType::Hadamard : ScalarMatrixType::Householder,
+            },
+    };
     config.attenuation_filter_bank_config = AttenuationFilterBankOptions{
-        .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = sample_rate}}};
+        .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = sample_rate}},
+    };
 
     return config;
 }
@@ -249,28 +257,34 @@ namespace
 
 void RandomizeMatrixSeed(ScalarFeedbackMatrixOptions& options, std::mt19937& generator)
 {
-    std::visit(overloaded{[&](GeneratedMatrixOptions& source) { source.rng_seed = generator(); },
-                          [](MatrixData&) {}},
+    std::visit(overloaded{
+                   [&](GeneratedMatrixOptions& source) { source.rng_seed = generator(); },
+                   [](MatrixData&) {},
+               },
                options.source);
 }
 
 void RandomizeMatrixSeed(multi_channel_processor_variant_t& options, std::mt19937& generator)
 {
-    std::visit(overloaded{[&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
-                          [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
-                          [](ParallelGainsOptions&) {},
-                          [](MultichannelProcessorOptions&) {},
-                          [](AttenuationFilterBankOptions&) {},
-                          [](DelayBankOptions&) {},
-                          [](DelayBankTimeVaryingOptions&) {}},
+    std::visit(overloaded{
+                   [&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+                   [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
+                   [](ParallelGainsOptions&) {},
+                   [](MultichannelProcessorOptions&) {},
+                   [](AttenuationFilterBankOptions&) {},
+                   [](DelayBankOptions&) {},
+                   [](DelayBankTimeVaryingOptions&) {},
+               },
                options);
 }
 
 void RandomizeMatrixSeed(feedback_matrix_variant_t& options, std::mt19937& generator)
 {
-    std::visit(overloaded{[&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
-                          [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
-                          [&](TimeVaryingFeedbackMatrixOptions& source) { source.rng_seed = generator(); }},
+    std::visit(overloaded{
+                   [&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+                   [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
+                   [&](TimeVaryingFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+               },
                options);
 }
 

@@ -148,9 +148,9 @@ Eigen::MatrixXd InteractionMatrix(std::span<const double> gains, double gain_fac
     for (auto i = 0u; i < kNBands; ++i)
     {
         std::array<double, 6> sos = sfFDN::Pareq(gains[i], gains_linear[i], command_frequencies[i], bandwidths[i]);
-        auto sos_span = std::span<double>(sos);
-        auto num = sos_span.first(3);
-        auto den = sos_span.last(3);
+        const auto sos_span = std::span<double>(sos);
+        const auto num = sos_span.first(3);
+        const auto den = sos_span.last(3);
         std::array<double, kNFreqs> filter_response{};
         Freqz<double>(num, den, dig_w_arr, filter_response);
 
@@ -355,18 +355,26 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilte
     low_shelf[1] *= g_mid_linear;
     low_shelf[2] *= g_mid_linear;
 
-    std::array<FilterCoefficients, 2> sos = {{{.b0 = low_shelf[0],
-                                               .b1 = low_shelf[1],
-                                               .b2 = low_shelf[2],
-                                               .a0 = low_shelf[3],
-                                               .a1 = low_shelf[4],
-                                               .a2 = low_shelf[5]},
-                                              {.b0 = high_shelf[0],
-                                               .b1 = high_shelf[1],
-                                               .b2 = high_shelf[2],
-                                               .a0 = high_shelf[3],
-                                               .a1 = high_shelf[4],
-                                               .a2 = high_shelf[5]}}};
+    std::array<FilterCoefficients, 2> sos = {
+        {
+            {
+                .b0 = low_shelf[0],
+                .b1 = low_shelf[1],
+                .b2 = low_shelf[2],
+                .a0 = low_shelf[3],
+                .a1 = low_shelf[4],
+                .a2 = low_shelf[5],
+            },
+            {
+                .b0 = high_shelf[0],
+                .b1 = high_shelf[1],
+                .b2 = high_shelf[2],
+                .a0 = high_shelf[3],
+                .a1 = high_shelf[4],
+                .a2 = high_shelf[5],
+            },
+        },
+    };
     RequireFiniteCoefficients(sos, "DesignThreeBandAbsorption");
     return sos;
 }
@@ -472,29 +480,30 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_fi
 std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter_variant_t& options)
 {
     RequireValidAttenuation(options, false);
-    return std::visit(overloaded{[&](const HomogenousFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     float feedback_gain = Db2Mag(RT602Slope(config.t60, config.sample_rate));
-                                     feedback_gain = std::pow(feedback_gain, config.delay);
-                                     RequireFiniteValue(feedback_gain, "CreateAttenuationFilter");
-                                     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel,
-                                                                                   std::vector<float>{feedback_gain});
-                                 },
-                                 [](const TwoBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto [b, a] = DesignTwoBandAbsorption(config);
-                                     return std::make_unique<sfFDN::OnePoleFilter>(b, a);
-                                 },
-                                 [](const ThreeBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto sos = DesignThreeBandAbsorption(config);
-                                     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                                     filter->SetCoefficients(sos);
-                                     return filter;
-                                 },
-                                 [](const TenBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto sos = DesignTenBandAbsorption(config);
-                                     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                                     filter->SetCoefficients(sos);
-                                     return filter;
-                                 }
+    return std::visit(overloaded{
+                          [&](const HomogenousFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              float feedback_gain = Db2Mag(RT602Slope(config.t60, config.sample_rate));
+                              feedback_gain = std::pow(feedback_gain, config.delay);
+                              RequireFiniteValue(feedback_gain, "CreateAttenuationFilter");
+                              return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel,
+                                                                            std::vector<float>{feedback_gain});
+                          },
+                          [](const TwoBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto [b, a] = DesignTwoBandAbsorption(config);
+                              return std::make_unique<sfFDN::OnePoleFilter>(b, a);
+                          },
+                          [](const ThreeBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto sos = DesignThreeBandAbsorption(config);
+                              auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+                              filter->SetCoefficients(sos);
+                              return filter;
+                          },
+                          [](const TenBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto sos = DesignTenBandAbsorption(config);
+                              auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+                              filter->SetCoefficients(sos);
+                              return filter;
+                          },
 
                       },
                       options);

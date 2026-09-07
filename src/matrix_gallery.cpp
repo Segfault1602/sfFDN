@@ -205,10 +205,12 @@ Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, const MatrixGeneratorO
         return matrix;
     };
 
-    return std::visit(overloaded{[&generate_scalar](ScalarMatrixType type) { return generate_scalar(type, 1.0F); },
-                                 [&generate_scalar](const VariableDiffusionOptions& options) {
-                                     return generate_scalar(ScalarMatrixType::VariableDiffusion, options.diffusion);
-                                 }},
+    return std::visit(overloaded{
+                          [&generate_scalar](ScalarMatrixType type) { return generate_scalar(type, 1.0F); },
+                          [&generate_scalar](const VariableDiffusionOptions& options) {
+                              return generate_scalar(ScalarMatrixType::VariableDiffusion, options.diffusion);
+                          },
+                      },
                       generator);
 }
 
@@ -412,9 +414,12 @@ Eigen::MatrixXf AllpassMatrix(uint32_t mat_size, uint32_t seed)
 
 ScalarMatrixType GetMatrixType(const MatrixGeneratorOptions& generator) noexcept
 {
-    return std::visit(overloaded{[](ScalarMatrixType type) { return type; },
-                                 [](const VariableDiffusionOptions&) { return ScalarMatrixType::VariableDiffusion; }},
-                      generator);
+    const auto* type = std::get_if<ScalarMatrixType>(&generator);
+    if (type != nullptr)
+    {
+        return *type;
+    }
+    return ScalarMatrixType::VariableDiffusion;
 }
 
 std::vector<float> GenerateMatrix(uint32_t mat_size, const MatrixGeneratorOptions& generator, uint32_t seed)

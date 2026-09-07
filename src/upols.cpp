@@ -47,7 +47,7 @@ bool UPOLS::Initialize(uint32_t block_size, std::span<const float> fir)
     {
         const uint32_t filter_block_size = std::min(block_size, filter_size - (i * block_size));
 
-        auto fir_span = fir.subspan(i * block_size, filter_block_size);
+        const auto fir_span = fir.subspan(i * block_size, filter_block_size);
         std::ranges::fill(work_buffer_.Data(), 0.f);
         std::ranges::copy(fir_span, work_buffer_.begin());
 
@@ -90,8 +90,8 @@ void UPOLS::Process(std::span<const float> input, std::span<float> output) noexc
     std::ranges::fill(spectrum_buffer_.Data(), 0.f);
     for (auto i = 0u; i < filters_z_.size(); ++i)
     {
-        auto& filter_z = filters_z_[i];
-        auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
+        const auto& filter_z = filters_z_[i];
+        const auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
 
         fft_.ConvolveAccumulate(input_z, filter_z, spectrum_buffer_);
     }
@@ -143,8 +143,8 @@ void UPOLS::Process(std::span<float> output) noexcept SFFDN_NONBLOCKING
     std::ranges::fill(spectrum_buffer_.Data(), 0.f);
     for (auto i = 0u; i < filters_z_.size(); ++i)
     {
-        auto& filter_z = filters_z_[i];
-        auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
+        const auto& filter_z = filters_z_[i];
+        const auto& input_z = inputs_z_[(inputs_z_index_ + i) % inputs_z_.size()];
 
         fft_.ConvolveAccumulate(input_z, filter_z, spectrum_buffer_);
     }

@@ -60,8 +60,10 @@ class ScopedNoDenormals
 namespace sfFDN
 {
 FDN::FDN(uint32_t order, uint32_t block_size, bool transpose)
-    : delay_bank_({.delays = GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random),
-                   .block_size = block_size})
+    : delay_bank_({
+          .delays = GetDelayLengths(order, block_size + 1, block_size * 10, DelayLengthType::Random),
+          .block_size = block_size,
+      })
     , filter_bank_(nullptr)
     , mixing_matrix_(std::make_unique<ScalarFeedbackMatrix>(
           ScalarFeedbackMatrixOptions{.source = GeneratedMatrixOptions{.matrix_size = order}}))
@@ -147,8 +149,9 @@ void FDN::SetOrder(uint32_t order)
     delay_bank_.SetDelays(std::vector<float>(order, 500.f), block_size_);
     filter_bank_ = nullptr;
 
-    ScalarFeedbackMatrixOptions feedback_config{
-        .source = GeneratedMatrixOptions{.matrix_size = order, .generator = ScalarMatrixType::Random}};
+    const ScalarFeedbackMatrixOptions feedback_config{
+        .source = GeneratedMatrixOptions{.matrix_size = order, .generator = ScalarMatrixType::Random},
+    };
 
     SetFeedbackMatrix(std::make_unique<ScalarFeedbackMatrix>(feedback_config));
     SetInputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Split, std::vector<float>(order, 0.5f)));

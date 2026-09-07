@@ -131,8 +131,8 @@ std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float 
         static std::vector<uint32_t> primes = GeneratePrimes(1024); // More than enough primes for practical use
         assert(primes.size() > delay_count);
 
-        auto dmin = static_cast<double>(min_delay);
-        auto dmax = static_cast<double>(max_delay);
+        const auto dmin = static_cast<double>(min_delay);
+        const auto dmax = static_cast<double>(max_delay);
         for (uint32_t i = 0; i < delay_count; ++i)
         {
             const double dl = dmin * std::pow((dmax / dmin), i / static_cast<double>(delay_count - 1));

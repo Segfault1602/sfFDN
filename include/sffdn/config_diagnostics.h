@@ -13,7 +13,7 @@ enum class ConfigErrorCode : uint8_t
     InvalidValue,
     SizeMismatch,
     UnsupportedValue,
-    CapacityOverflow
+    CapacityOverflow,
 };
 
 struct ConfigIssue

@@ -136,7 +136,8 @@ void ValidateOptions(const ScalarFeedbackMatrixOptions& options, const std::stri
                            AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/source/MatrixData/order",
                                     "matrix order must be positive");
                        }
-                   }},
+                   },
+               },
                options.source);
 }
 
@@ -163,10 +164,12 @@ void ValidateOptions(const GeneratedMatrixOptions& options, const std::string& p
                  "matrix size is unsupported by the selected matrix type");
     }
 
-    std::visit(overloaded{[](ScalarMatrixType) {},
-                          [&](const VariableDiffusionOptions& generator) {
-                              ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
-                          }},
+    std::visit(overloaded{
+                   [](ScalarMatrixType) {},
+                   [&](const VariableDiffusionOptions& generator) {
+                       ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
+                   },
+               },
                options.generator);
 }
 
@@ -198,10 +201,12 @@ void ValidateOptions(const CascadedFeedbackMatrixOptions& options, const std::st
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/matrix_size",
                  "matrix size is unsupported by the selected matrix type");
     }
-    std::visit(overloaded{[](ScalarMatrixType) {},
-                          [&](const VariableDiffusionOptions& generator) {
-                              ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
-                          }},
+    std::visit(overloaded{
+                   [](ScalarMatrixType) {},
+                   [&](const VariableDiffusionOptions& generator) {
+                       ValidateOptions(generator, path + "/generator/VariableDiffusionOptions", issues);
+                   },
+               },
                options.generator);
 
     if (options.stage_count == std::numeric_limits<uint32_t>::max())

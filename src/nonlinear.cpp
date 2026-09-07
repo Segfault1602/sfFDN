@@ -405,7 +405,11 @@ MultichannelProcessorOptions MakeMultichannelControllableFullWaveRectifierOption
     for (auto channel = first_active; channel < channel_count; ++channel)
     {
         options.channels[channel] = ControllableFullWaveRectifierOptions{
-            .alpha = alpha, .antialiasing = true, .dc_block = true, .sample_rate = sample_rate};
+            .alpha = alpha,
+            .antialiasing = true,
+            .dc_block = true,
+            .sample_rate = sample_rate,
+        };
     }
 
     return options;

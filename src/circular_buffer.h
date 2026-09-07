@@ -19,7 +19,7 @@ class CircularBuffer
   public:
     /// @brief Constructs a CircularBuffer with the specified size.
     /// @param size the size of the buffer in samples
-    CircularBuffer(uint32_t size = 32);
+    explicit CircularBuffer(uint32_t size = 32);
 
     /// @brief Advance the write pointer by the specified number of samples.
     /// @param count the number of samples to advance

@@ -157,7 +157,7 @@ void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexce
         for (uint32_t channel = 0; channel < matrix_size; ++channel)
         {
             const auto channel_input = input.GetChannelSpan(channel);
-            auto channel_output = output.GetChannelSpan(channel);
+            const auto channel_output = output.GetChannelSpan(channel);
             std::ranges::copy(channel_input, channel_output.begin());
         }
     }
@@ -168,8 +168,8 @@ void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexce
         {
             for (uint32_t offset = 0; offset < width; ++offset)
             {
-                auto first = output.GetChannelSpan(channel + offset);
-                auto second = output.GetChannelSpan(channel + offset + width);
+                const auto first = output.GetChannelSpan(channel + offset);
+                const auto second = output.GetChannelSpan(channel + offset + width);
                 for (size_t sample = 0; sample < first.size(); ++sample)
                 {
                     const float a = first[sample];
@@ -223,7 +223,7 @@ void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noe
         for (uint32_t channel = 0; channel < matrix_size; ++channel)
         {
             const auto channel_input = input.GetChannelSpan(channel);
-            auto channel_output = output.GetChannelSpan(channel);
+            const auto channel_output = output.GetChannelSpan(channel);
             for (size_t sample = 0; sample < block_size; ++sample)
             {
                 const size_t index = block_start + sample;
@@ -280,7 +280,7 @@ void WalshHadamardTransform(std::span<float> inout)
 void MatrixMultiply_16(std::span<const float, 16> in, std::span<float, 16> out,
                        const std::span<const float, 16 * 16> matrix)
 {
-    auto to_1d = [](int output, int input) constexpr -> size_t { return (output * 16) + input; };
+    const auto to_1d = [](int output, int input) constexpr -> size_t { return (output * 16) + input; };
 
     out[0] = in[0] * matrix[to_1d(0, 0)] + in[1] * matrix[to_1d(0, 1)] + in[2] * matrix[to_1d(0, 2)] +
              in[3] * matrix[to_1d(0, 3)] + in[4] * matrix[to_1d(0, 4)] + in[5] * matrix[to_1d(0, 5)] +
@@ -409,7 +409,7 @@ void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span
         {
             out[(i * row_count) + offset] = 0.0f;
 
-            const uint32_t unroll_size = mat_size & ~7;
+            const uint32_t unroll_size = mat_size & ~7U;
             uint32_t idx = 0;
             for (; idx < unroll_size; idx += 8)
             {

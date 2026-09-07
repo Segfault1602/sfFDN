@@ -62,7 +62,11 @@ const Options& RequireValidOptions(const Options& options)
     {
         throw std::invalid_argument(issues.front().path + ": " + issues.front().message);
     }
-    return options;
+    // The deleted rvalue overload below prevents references to temporaries.
+    return options; // NOLINT(bugprone-return-const-ref-from-parameter)
 }
+
+template <class Options>
+const Options& RequireValidOptions(const Options&& options) = delete;
 
 } // namespace sfFDN::detail

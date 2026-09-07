@@ -166,8 +166,8 @@ void DattorroDelay::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == 1);
     assert(output.ChannelCount() == 1);
 
-    auto in_span = input.GetChannelSpan(0);
-    auto out_span = output.GetChannelSpan(0);
+    const auto in_span = input.GetChannelSpan(0);
+    const auto out_span = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 16;
     const uint32_t size = in_span.size();
@@ -179,8 +179,8 @@ void DattorroDelay::Process(const AudioBuffer& input, AudioBuffer& output) noexc
         std::array<float, kUnrollFactor> mods{};
         lfo_.Generate(mods);
 
-        auto in_batch = in_span.subspan(sample, kUnrollFactor);
-        auto out_batch = out_span.subspan(sample, kUnrollFactor);
+        const auto in_batch = in_span.subspan(sample, kUnrollFactor);
+        const auto out_batch = out_span.subspan(sample, kUnrollFactor);
 
         for (auto i = 0u; i < kUnrollFactor; ++i)
         {
@@ -253,59 +253,71 @@ DattorroDelayOptions MakeDattorroDelayOptions(DattorroEffectType type, float sam
     switch (type)
     {
     case DattorroEffectType::Vibrato:
-        preset = {.blend = 0.f,
-                  .feedforward = 1.f,
-                  .feedback = 0.f,
-                  .delay_ms = 3.f,
-                  .width_ms = 2.f,
-                  .rate_hz = 1.f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = 0.f,
+            .feedforward = 1.f,
+            .feedback = 0.f,
+            .delay_ms = 3.f,
+            .width_ms = 2.f,
+            .rate_hz = 1.f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Flanger:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = kSqrtHalf,
-                  .feedback = kSqrtHalf,
-                  .delay_ms = 1.2f,
-                  .width_ms = 1.f,
-                  .rate_hz = 0.5f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = kSqrtHalf,
+            .feedback = kSqrtHalf,
+            .delay_ms = 1.2f,
+            .width_ms = 1.f,
+            .rate_hz = 0.5f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::WhiteChorus:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = 1.f,
-                  .feedback = kSqrtHalf,
-                  .delay_ms = 10.f,
-                  .width_ms = 5.f,
-                  .rate_hz = 0.15f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = 1.f,
+            .feedback = kSqrtHalf,
+            .delay_ms = 10.f,
+            .width_ms = 5.f,
+            .rate_hz = 0.15f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Doubling:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = kSqrtHalf,
-                  .feedback = 0.f,
-                  .delay_ms = 30.f,
-                  .width_ms = 10.f,
-                  .rate_hz = 0.15f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = kSqrtHalf,
+            .feedback = 0.f,
+            .delay_ms = 30.f,
+            .width_ms = 10.f,
+            .rate_hz = 0.15f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Echo:
-        preset = {.blend = 1.f,
-                  .feedforward = 1.f,
-                  .feedback = 0.7f,
-                  .delay_ms = 100.f,
-                  .width_ms = 0.f,
-                  .rate_hz = 0.f,
-                  .interp_type = DelayInterpolationType::None};
+        preset = {
+            .blend = 1.f,
+            .feedforward = 1.f,
+            .feedback = 0.7f,
+            .delay_ms = 100.f,
+            .width_ms = 0.f,
+            .rate_hz = 0.f,
+            .interp_type = DelayInterpolationType::None,
+        };
         break;
     default:
         assert(false);
-        preset = {.blend = 1.f,
-                  .feedforward = 0.f,
-                  .feedback = 0.f,
-                  .delay_ms = 1.f,
-                  .width_ms = 0.f,
-                  .rate_hz = 0.f,
-                  .interp_type = DelayInterpolationType::None};
+        preset = {
+            .blend = 1.f,
+            .feedforward = 0.f,
+            .feedback = 0.f,
+            .delay_ms = 1.f,
+            .width_ms = 0.f,
+            .rate_hz = 0.f,
+            .interp_type = DelayInterpolationType::None,
+        };
         break;
     }
 

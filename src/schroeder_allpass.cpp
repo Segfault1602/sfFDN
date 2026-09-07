@@ -105,8 +105,8 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
         {
             const uint32_t buf_size = read_buffer.size();
 
-            auto in_subspan = in.subspan(samples_processed, buf_size);
-            auto out_subspan = out.subspan(samples_processed, buf_size);
+            const auto in_subspan = in.subspan(samples_processed, buf_size);
+            const auto out_subspan = out.subspan(samples_processed, buf_size);
 
             ArrayMath::MultiplyAdd(read_buffer, g_, in_subspan, write_buffer);
             ArrayMath::MultiplyAdd(write_buffer, -g_, read_buffer, out_subspan);
@@ -338,7 +338,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
         if (input.Data() == output.Data())
         {
             const auto input_span = input.GetChannelSpan(0);
-            auto output_span = output.GetChannelSpan(0);
+            const auto output_span = output.GetChannelSpan(0);
             for (auto sample = 0u; sample < input_span.size(); ++sample)
             {
                 const float input_sample = input_span[sample];
@@ -422,7 +422,7 @@ void TimeVaryingSchroederAllpassSection::Process(const AudioBuffer& input,
     assert(!allpasses_.empty());
 
     const auto input_span = input.GetChannelSpan(0);
-    auto output_span = output.GetChannelSpan(0);
+    const auto output_span = output.GetChannelSpan(0);
     if (parallel_)
     {
         if (input.Data() == output.Data())

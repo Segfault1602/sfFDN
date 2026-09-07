@@ -71,8 +71,8 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
 
-    auto in = input.GetChannelSpan(0);
-    auto out = output.GetChannelSpan(0);
+    const auto in = input.GetChannelSpan(0);
+    const auto out = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 8;
     const uint32_t size = in.size();
@@ -81,8 +81,8 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     uint32_t sample = 0;
     for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        auto in_span = in.subspan(sample, kUnrollFactor);
-        auto out_span = out.subspan(sample, kUnrollFactor);
+        const auto in_span = in.subspan(sample, kUnrollFactor);
+        const auto out_span = out.subspan(sample, kUnrollFactor);
 
         // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
         std::array<float, kUnrollFactor> batch{};
@@ -142,8 +142,8 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1);
 
-    auto in = input.GetChannelSpan(0);
-    auto out = output.GetChannelSpan(0);
+    const auto in = input.GetChannelSpan(0);
+    const auto out = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 8;
     const uint32_t size = in.size();
@@ -152,8 +152,8 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     uint32_t sample = 0;
     for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        auto in_span = in.subspan(sample, kUnrollFactor);
-        auto out_span = out.subspan(sample, kUnrollFactor);
+        const auto in_span = in.subspan(sample, kUnrollFactor);
+        const auto out_span = out.subspan(sample, kUnrollFactor);
 
         // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
         std::array<float, kUnrollFactor> batch{};

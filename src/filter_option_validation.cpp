@@ -140,8 +140,14 @@ void ValidateOptions(const FilterCoefficients& options, const std::string& path,
     }
 
     constexpr std::array<std::pair<const char*, float FilterCoefficients::*>, 5> kNormalizedMembers = {
-        {{"b0", &FilterCoefficients::b0}, {"b1", &FilterCoefficients::b1}, {"b2", &FilterCoefficients::b2},
-         {"a1", &FilterCoefficients::a1}, {"a2", &FilterCoefficients::a2}}};
+        {
+            {"b0", &FilterCoefficients::b0},
+            {"b1", &FilterCoefficients::b1},
+            {"b2", &FilterCoefficients::b2},
+            {"a1", &FilterCoefficients::a1},
+            {"a2", &FilterCoefficients::a2},
+        },
+    };
     for (const auto& [name, member] : kNormalizedMembers)
     {
         if (!IsFloatRepresentable(static_cast<double>(options.*member) / static_cast<double>(options.a0)))
@@ -152,7 +158,8 @@ void ValidateOptions(const FilterCoefficients& options, const std::string& path,
     }
 }
 
-void ValidateOptions(const AllpassFilterOptions&, const std::string&, std::vector<ConfigIssue>&)
+void ValidateOptions(const AllpassFilterOptions& /*options*/, const std::string& /*path*/,
+                     std::vector<ConfigIssue>& /*issues*/)
 {
     // Coefficients outside the conventional stable range remain available for experimental use.
 }
@@ -271,8 +278,8 @@ void ValidateOptions(const RingModulatorOptions& options, const std::string& pat
 void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, const std::string& path,
                                 std::vector<ConfigIssue>& issues, bool allow_inferred_delay)
 {
-    std::visit(
-        overloaded{[&](const HomogenousFilterOptions& value) {
+    std::visit(overloaded{
+                   [&](const HomogenousFilterOptions& value) {
                        ValidateAttenuation(value, path + "/ProportionalAttenuationConfig", allow_inferred_delay,
                                            issues);
                    },
@@ -284,7 +291,8 @@ void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, con
                    },
                    [&](const TenBandFilterOptions& value) {
                        ValidateAttenuation(value, path + "/TenBandFilterConfig", allow_inferred_delay, issues);
-                   }},
-        options);
+                   },
+               },
+               options);
 }
 } // namespace sfFDN::detail

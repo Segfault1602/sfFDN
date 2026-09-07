@@ -274,7 +274,7 @@ void ValidateOptions(const DattorroDelayOptions& options, const std::string& pat
     {
         ValidateModulation(*delay_options.lfo_config, FieldPath(path, "delay_config/lfo_config"), issues);
     }
-    const double delay = static_cast<double>(delay_options.delay);
+    const auto delay = static_cast<double>(delay_options.delay);
     const double absolute_width = std::abs(static_cast<double>(width));
     const double maximum_tap = delay + absolute_width;
     if (delay - absolute_width < static_cast<double>(DattorroDelay::kMinimumDelay))
