@@ -43,8 +43,7 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilte
 /**
  * @brief Design an attenuation filter according to the method described in [1]
  * @param options Structure containing the filter design parameters
- * @return Coefficients of the designed EQ filter where the first 6 floats are the coefficients (b0, b1, b2, a0, a1,
- * a2) of the first filter, and the next 6 floats are the coefficients of the second filter, and so on.
+ * @return Eleven FilterCoefficients values for the designed filter cascade.
  * @note [1] V. Välimäki, K. Prawda, and S. J. Schlecht, "Two-Stage Attenuation Filter for Artificial Reverberation,"
  * IEEE Signal Processing Letters, vol. 31, pp. 391–395, 2024, doi: 10.1109/LSP.2024.3352510.
  * @note Original MATLAB implementation: https://github.com/KPrawda/Two_stage_filter/blob/main/twoFilters.m
@@ -54,8 +53,7 @@ std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOp
 /**
  * @brief Design an octave EQ filter consisting of a low shelf, high shelf and 8 band-pass peaking filters
  * @param options Structure containing the filter design parameters
- * @return Coefficients of the designed EQ filter where the first 6 floats are the coefficients (b0, b1, b2, a0, a1,
- * a2) of the first filter, and the next 6 floats are the coefficients of the second filter, and so on.
+ * @return Eleven FilterCoefficients values for the designed EQ cascade.
  * @note The implementation is based on the method described in [1] and uses the RBJ cookbook formulas for the
  * low-shelf and high-shelf filters.
  * @note [1] V. Valimaki and J. Liski, "Accurate Cascade Graphic Equalizer," IEEE Signal Process. Lett., vol. 24, no.

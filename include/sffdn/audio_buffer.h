@@ -29,8 +29,8 @@ class AudioBuffer
      * @brief Constructs a multi-channel audio buffer.
      * @param frame_size The number of frames (samples) per channel.
      * @param channels The number of channels.
-     * @param buffer A span representing the interleaved audio data. The span must be large enough to hold `frame_size
-     * * channels` samples.
+     * @param buffer A span representing non-interleaved (planar) audio data. The span must be large enough to hold
+     * `frame_size * channels` samples.
      */
     AudioBuffer(uint32_t frame_size, uint32_t channels, std::span<float> buffer) noexcept SFFDN_NONBLOCKING;
 

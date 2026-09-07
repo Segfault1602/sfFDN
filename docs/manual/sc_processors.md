@@ -26,16 +26,3 @@ The [AudioProcessorChain](@ref sfFDN::AudioProcessorChain) class allows you to c
 `TimeVaryingSchroederAllpass` implements the normalized Type V structure from J. Werner, "Energy-Preserving Time-Varying Schroeder Allpass Filters," DAFx-20. For input `x`, delayed state `w`, instantaneous gain `g`, and `c = sqrt(1 - g*g)`, it computes `y = c*w - g*x` and stores `u = c*x + g*w`. This orthogonal transform preserves `y*y + u*u = x*x + w*w` at every sample.
 
 Here, "time-varying" means gain modulation only: the delay is a fixed integer number of samples. Fractional or modulated delay lengths are outside the energy-preservation guarantee. `ModulationOptions::frequency` is measured in cycles per sample, `amplitude` is the peak gain deviation, and both must be non-zero. The complete range must satisfy `abs(base_gain) + abs(amplitude) < 1`. Use [SchroederAllpass](@ref sfFDN::SchroederAllpass) for a fixed-gain allpass.
-
-## Configuration validation
-
-`ValidateFDNConfig()` applies the same setup-time option checks to every supported
-single-channel variant that it encounters, including generic-bank channels. Finite numeric public
-C++ option values are a caller precondition. Delay modulation requires non-negative frequency,
-signed depth, and an initial phase in `[0, 1]`. Time-varying Schroeder allpass sections
-additionally require positive frequency, nonzero depth, and a strictly stable gain range. These
-checks retain the existing interpolation minima, static Schroeder truncation and zero-delay
-minimum, and Dattorro feedback/headroom rules; they do not establish a general
-physical-stability guarantee. Static Schroeder sections also reject empty delay/gain arrays at
-setup. User-supplied IIR, allpass, and nonlinear chains are validated for their option domains,
-not certified stable.

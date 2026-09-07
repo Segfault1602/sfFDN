@@ -25,8 +25,8 @@ class TimeVaryingFeedbackMatrixTestAccess;
  * - Hadamard mode: \f$A(n) = H^T \mathop{\mathrm{blockdiag}}(R(\theta_k(n))) H\f$.
  * - RealSchur mode: \f$A(n) = V \mathop{\mathrm{blockdiag}}(R(\theta_k(n))) V^T\f$.
  *
- * Each factor is orthogonal, so \f$A(n)\f$ is exactly orthogonal at every sample. This makes a time-varying FDN
- * stable and energy-preserving.
+ * Each factor is orthogonal, so \f$A(n)\f$ is exactly orthogonal at every sample and preserves energy through the
+ * feedback matrix.
  *
  * @par Modulation units and recommended setup
  * `ModulationOptions::amplitude` is normalized, with `|amplitude| <= 1`, following the AES paper's convention.

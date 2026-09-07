@@ -57,14 +57,14 @@ class DelayTimeVarying : public AudioProcessor
     /**
      * @brief Returns the number of input channels this processor expects.
      * @return The number of input channels.
-     * @note This is equal to the number of delay lines in the bank.
+     * @note This is always one.
      */
     uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /**
      * @brief Returns the number of output channels this processor produces.
      * @return The number of output channels.
-     * @note This is equal to the number of delay lines in the bank.
+     * @note This is always one.
      */
     uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 

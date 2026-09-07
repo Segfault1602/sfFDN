@@ -15,7 +15,7 @@
 
 ## Architecture
 The FDN topology implemented in sfFDN is based on the canonical structure found in the literature and is shown here:
-![sfFDN Architecture](sfFDN.svg)
+![sfFDN Architecture](../../sfFDN.svg)
 
 This topology can be separated into seven building blocks: the input gains (green), the delay lines (yellow), the loop filters (red), the feedback matrix (orange), the output gains (blue), the tone correction filter (purple), and the direct gain (gray). At the heart of the library is the *AudioProcessor* interface. In the context of sfFDN, an audio processor is defined as a class that can take \f$N_{in}\f$ channels of audio, apply a transformation (e.g., filtering, delay, mixing matrix), and finally output \f$N_{out}\f$ channels of audio. The `AudioProcessorChain` class can be used to chain multiple audio processors in series and the `FilterBank` class can similarly be used to group multiple single-channel audio processors into a bank of parallel processor.
 
@@ -23,7 +23,7 @@ This topology can be separated into seven building blocks: the input gains (gree
 
 <summary> Input/Output gains </summary>
 
-The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain (\f$b_i\f$, \f$c_i\f$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into \f$N\f$ output channels (input gains) or sum \f$N\f$ input channels into a single output channel (output gains). FIR filters are a commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining an 'FIR' processor with the `ParallelGains` processor. For longer FIR filters, the `PartitionedConvolver` processor can be used to greatly reduce the computational cost of the convolution. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented easily in sfFDN by using the `SparseFIR` class which provides an efficient implementation of sparse FIR filters, especially suited for velvet-noise sequences. The `FilterBank` processor can also be used to create a bank of parallel filters, allowing for each channel to have its own unique FIR or velvet-noise filter.
+The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain (\f$b_i\f$, \f$c_i\f$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into \f$N\f$ output channels (input gains) or sum \f$N\f$ input channels into a single output channel (output gains). FIR filters are commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining a `Fir` processor with `ParallelGains`. For longer FIR filters, `PartitionedConvolver` can reduce convolution cost. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented with `SparseFir`, which efficiently represents sparse FIR filters suited to velvet-noise sequences. `FilterBank` can also create a bank of parallel filters, allowing each channel to have its own FIR or velvet-noise filter.
 
 </details>
 
@@ -31,10 +31,10 @@ The input gains block supports any processor that takes a single channel of audi
 
 <summary> Delay Lines </summary>
 
-For efficiency reasons, sfFDN restrict the main delay lengths to integer values, but fractional and
-time-varying delay lines can easily be integrated by including a `DelayInterp` or `DelayTimeVarying`
-processor inside the loop filter block. The `GetDelayLengths()` function provide a conve-
-nient way to generate delay lengths based on several heuristics:
+Primary delay lengths are in samples and must be at least the FDN's processing block size.
+Use `DelayBankOptions::interpolation_type` or the interpolation argument to `FDN::SetDelays()`
+for fractional lengths. `DelayTimeVarying` processors can add modulated delays inside the loop.
+`GetDelayLengths()` generates delay lengths using several heuristics:
 
 - **Random** Randomly generate delay lengths pulled from a uniform distribution
 - **Gaussian**: Randomly generate delay lengths pulled from a Gaussian distribution.
@@ -70,7 +70,7 @@ topology** (`FDN::SetTranspose`): that setting reorders the FDN signal-flow topo
 apply \f$A^T\f$ to a supplied feedback matrix. Supply an explicitly transposed matrix when
 \f$A^T\f$ is desired.
 
-## Matrix sources, seeds, and migration
+## Matrix sources and seeds
 
 `ScalarFeedbackMatrixOptions::source` is either a generated `GeneratedMatrixOptions` recipe or
 owned, shape-checked `MatrixData`. `MatrixData(order, coefficients)` verifies that its row-major
@@ -100,8 +100,12 @@ sfFDN::ScalarFeedbackMatrixOptions diffusion{
 <details>
 <summary> Loop Filters </summary>
 
-The loop filters block is an optional block that supports any processor that takes \f$N\f$ channels of
-audio as input and outputs \f$N\f$ channels of audio. Most commonly, a bank of \f$N\f$ parallel filters are used to control the decay time of the FDN. The function `CreateAttenuationFilterBank()` can be used to create a bank of filters to control the decay time of the FDN. The type of filter used depends on the length of the `t60s` span parameter. If 1 \f$T_{60}\f$ value is provided, a simple homogenous decay is applied to all delay lines using a simple gain scalar. If 2 \f$T_{60}\f$ values are provided, a one-pole lowwpass filter is designed to achieve the desired decay time at low and high frequencies. If 10 \f$T_{60}\f$ values are provided, a graphic equalizer filter is designed to achieve the desired decay time at 10 octave bands. The `FilterBank` class can also be used to create an arbitrary bank of parallel filters, allowing for each channel to have its own unique filter.
+The optional loop-filter block takes \f$N\f$ channels of audio and outputs \f$N\f$ channels.
+`CreateAttenuationFilterBank()` builds decay-control filters from attenuation options.
+Choose `HomogenousFilterOptions` for frequency-independent decay, or `TwoBandFilterOptions`,
+`ThreeBandFilterOptions`, or `TenBandFilterOptions` for frequency-dependent T60 targets.
+Pass one design with a span of delay lengths, or an `AttenuationFilterBankOptions` value
+containing per-channel designs. `FilterBank` also supports arbitrary parallel single-channel processors.
 
 </details>
 
@@ -114,14 +118,15 @@ Here is an example of how to create a 'classic' FDN of 8 delay lines with a Hada
 constexpr uint32_t kSampleRate = 48000;
 constexpr uint32_t kFDNOrder = 8;
 
-sfFDN::FDN fdn(kFDNOrder);
+constexpr uint32_t kBlockSize = 128;
+sfFDN::FDN fdn(kFDNOrder, kBlockSize);
 
 // Set all input gains to 0.5
-std::vector<float> input_gains(kFDNOrder, 0.5f);
+const std::vector<float> input_gains(kFDNOrder, 0.5f);
 fdn.SetInputGains(input_gains);
 
 // Set all output gains to 0.5
-std::vector<float> output_gains(kFDNOrder, 0.5f);
+const std::vector<float> output_gains(kFDNOrder, 0.5f);
 fdn.SetOutputGains(output_gains);
 
 // Set Hadamard feedback matrix
@@ -133,19 +138,21 @@ auto feedback_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(feedback_ma
 fdn.SetFeedbackMatrix(std::move(feedback_matrix));
 
 // Set random delay lengths
-std::vector<uint32_t> delays = sfFDN::GetDelayLengths(kFDNOrder, 500, 3000, sfFDN::DelayLengthType::Random);
+const std::vector<float> delays =
+    sfFDN::GetDelayLengths(kFDNOrder, 500.f, 3000.f, sfFDN::DelayLengthType::Random);
 fdn.SetDelays(delays);
 
 // Set homogeneous decay of 1 second
-constexpr std::array t60s = {1.0f};
-auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(t60s, delays, kSampleRate);
+const sfFDN::HomogenousFilterOptions attenuation_options{
+    .t60 = 1.f,
+    .delay = 0.f,
+    .sample_rate = static_cast<float>(kSampleRate)};
+auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(attenuation_options, delays);
 fdn.SetLoopFilter(std::move(attenuation_filter));
 
 ```
 
-Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
-`MakeDefaultFDNConfig(uint32_t fdn_size = 8U, uint32_t block_size = kDefaultBlockSize, float sample_rate =
-kDefaultSampleRate)` provides a complete wet configuration for the requested order, block size, and sample rate:
+`MakeDefaultFDNConfig()` provides a complete wet configuration for a requested order, block size, and sample rate:
 
 ```c++
 #include <sffdn/fdn_config.h>
@@ -156,24 +163,18 @@ auto smaller_config = sfFDN::MakeDefaultFDNConfig(4U, 64U);
 auto fdn = sfFDN::CreateFDNFromConfig(config);
 ```
 
-It deterministically selects delays in an approximately 20--50 ms range from a fixed seed, with each delay at
-least one block long; uses normalized input and output gains of `1 / sqrt(N)`; applies one second of homogeneous
-attenuation; and chooses Hadamard feedback for power-of-two orders or Householder feedback otherwise. This is the
-explicit default policy, not an acoustic guarantee. `fdn_size`, `block_size`, and `sample_rate` must be positive;
-numeric inputs must be finite and practically sized. `FDNConfig{}` remains a safely empty, invalid draft for callers
-that build configurations explicitly.
+It selects deterministic delays in an approximately 20--50 ms range, with each delay at least one block long,
+uses normalized input and output gains of `1 / sqrt(N)`, applies one second of homogeneous attenuation, and
+chooses Hadamard feedback for power-of-two orders or Householder feedback otherwise.
+`FDNConfig{}` is an initialized but invalid empty draft. Configuration equality compares stored members exactly.
 
-`InputStageConfig` and `OutputStageConfig` are named configuration values. Their
-`parallel_gains_config` uses `StageGainsOptions{gains, time_varying_config}`: the factory derives Split for the
-input stage and Merge for the output stage. Configuration `==` is exact structural member comparison, not acoustic
-or approximate equality. C++ stage-gain source and stage JSON no longer contain or accept a `mode` field; there is
-no migration layer. Standalone and multichannel `ParallelGainsOptions` retain their `mode`.
+`InputStageConfig` and `OutputStageConfig` use `StageGainsOptions` for their gains. The factory uses Split routing
+for the input stage and Merge routing for the output stage. `ParallelGainsOptions` retains its explicit `mode` for
+standalone and multichannel gain processors.
 
-Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON. This opt-in header exposes the
-`nlohmann::json` adapters; link JSON consumers to `sfFDN::serialization`.
-JSON reads are strict and transactional: malformed input leaves a reused destination unchanged. Integer fields accept
-only integer JSON values in the `uint32_t` range, while finite fractional `sample_rate` values are preserved as floats.
-Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag and no sibling fields.
+Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON and link JSON consumers to
+`sfFDN::serialization`. Reads are transactional: malformed input leaves the destination unchanged.
+Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag.
 
 ```c++
 sfFDN::FDNConfig config{};
@@ -219,21 +220,16 @@ config.output_block_config.parallel_gains_config = output_gains_options;
 auto fdn = sfFDN::CreateFDNFromConfig(config);
 ```
 
-The primary `delay_bank_config` must contain one finite delay per FDN channel. Each delay must be
-at least `config.block_size`, and its `block_size` must be nonzero and at least the FDN block size.
-For attenuation banks in the dedicated attenuation slot or loop-filter block, provide either one
-shared filter configuration or one configuration per FDN channel. A non-positive attenuation
-filter delay in either of those placements is derived from the corresponding primary delay. A
-shared attenuation configuration is replicated and its delay is likewise derived for every
-channel; a positive delay in the shared entry is not retained. Attenuation banks inserted in the
-input or output blocks require exactly one configuration per FDN channel and every filter delay
-must be non-negative; they do not derive delays from the primary loop.
+The primary delay bank contains one delay per FDN channel. Its block size must be nonzero and at least
+`config.block_size`, and each primary delay must also be at least `config.block_size`.
+Changing `config.sample_rate` does not update existing delays, modulation frequencies, or nested filter rates;
+rate-sensitive filter options use their own `sample_rate` fields.
+See [Filtering](filters.md#design-helpers) for attenuation-bank delay inference and placement rules.
 
 ### Validating an FDN configuration
 
-`ValidateFDNConfig()` checks the FDN graph, its dimensions, and every supported processor option
-domain without constructing processors, writing diagnostics, or changing the configuration. It
-reports all independent problems as paths and explanations:
+`ValidateFDNConfig()` checks graph dimensions and processor-option domains without constructing processors
+or modifying the configuration. It reports independent issues as paths and explanations:
 
 ```c++
 const auto result = sfFDN::ValidateFDNConfig(config);
@@ -244,8 +240,7 @@ if (!result) {
 }
 ```
 
-`CreateFDNFromConfig()` performs the same precheck and throws
-`sfFDN::FDNConfigError`, derived from `std::runtime_error`, when it fails:
+`CreateFDNFromConfig()` performs the same validation and throws `sfFDN::FDNConfigError` for reported issues:
 
 ```c++
 try {
@@ -257,13 +252,7 @@ try {
 }
 ```
 
-`ValidateFDNConfig()` replaces the interim `ValidateFDNStructure()` name; this is a
-source-incompatible API rename with no compatibility alias. A successful validation does not run
-filter design or matrix decomposition, guarantee allocation success, or certify acoustic
-stability. In particular, a custom dense matrix need not be orthogonal or contractive, and
-user-supplied IIR, allpass, and nonlinear chains are not certified stable. JSON import still
-validates external numeric data; public C++ option inputs are assumed finite. Callers may log the
-report, but the validator itself does not.
+Successful validation does not guarantee filter-design or matrix-decomposition success, or acoustic stability.
 
 `<sffdn/fdn_config.h>` is sufficient for authoring and validating configurations, but it only
 forward-declares `FDN`. Include `<sffdn/fdn.h>` (or `<sffdn/sffdn.h>`) before creating or

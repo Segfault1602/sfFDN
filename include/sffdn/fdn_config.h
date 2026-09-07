@@ -61,7 +61,7 @@ struct FDNConfig
     //! Internal block size for processing audio. Ideally should match the block size of the system.
     uint32_t block_size{kDefaultBlockSize};
 
-    //! Sample rate for the FDN. This is used to configure time-based components like delays and filters.
+    //! Sample rate associated with this configuration; filter options specify their own rates.
     float sample_rate{static_cast<float>(kDefaultSampleRate)};
 
     //! Delay bank configuration. Its block size must be nonzero and at least this configuration's block size.
@@ -102,8 +102,6 @@ struct FDNConfig
  *
  * This does not perform numerical decomposition or filter design, guarantee allocation success, or certify acoustic
  * stability.
- *
- * @note This replaces the interim ValidateFDNStructure API and is a source-incompatible rename.
  */
 [[nodiscard]] std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig& config);
 

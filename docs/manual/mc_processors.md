@@ -36,70 +36,37 @@ This section describes the multi-channel processors provided by sfFDN. These are
 
 The [AudioProcessorChain](@ref sfFDN::AudioProcessorChain) class allows you to chain multiple multi-channel processors together. This is useful for creating more complex processing chains without having to create a custom processor class. You can add any of the multi-channel processors to the chain, as long as they have the same number of channels, and they will be processed in the order they were added.
 
-## Migration and JSON
+## Configuration
 
-JSON serialization is opt-in: include `<sffdn/serialization.h>` and link the consuming target to
-`sfFDN::serialization`. Core configuration headers do not include JSON; include `<sffdn/fdn.h>`
-(or `<sffdn/sffdn.h>`) when creating or destroying a configured `FDN`.
-
-The former homogeneous independent-channel option wrappers are removed. Rebuild C++ callers with
-`MultichannelProcessorOptions`; saved configurations must be migrated and are not read automatically. The canonical
-JSON form is:
+`MultichannelProcessorOptions` configures a `FilterBank` with one single-channel processor per entry. An entry may
+hold any `single_channel_processor_variant_t`; `std::nullopt` is a pass-through channel.
 
 ```json
 {"MultichannelProcessorOptions":{"channels":[{"FirOptions":{"coeffs":[1.0]}},null]}}
 ```
 
-| Former wrapper field | Generic-bank replacement |
-| --- | --- |
-| Schroeder allpass `sections` | One `SchroederAllpassSectionOptions` per `channels` entry |
-| Time-varying Schroeder allpass `sections` | One `TimeVaryingSchroederAllpassSectionOptions` per `channels` entry |
-| Dattorro `delays` | One `DattorroDelayOptions` per `channels` entry |
-| FIR `coeffs` | One `FirOptions{.coeffs = coefficients}` per coefficient vector |
-| Nonlinear `channels` | The same ordered entries; replace an old bypass with `std::nullopt` |
-
-The old `MakeMultichannel...` builder functions are replaced by `FilterBank(options)`. Useful preset functions,
-including `MakeMultichannelDattorroDelayOptions()` and the nonlinear preset helpers, remain and now return
-`MultichannelProcessorOptions`. An all-null bank is a valid identity bank, and an empty standalone `FilterBank` is
-valid; an FDN placement still requires exactly its positive `fdn_size` channel count.
-
-For example, replace a homogeneous FIR wrapper with a generic bank:
+For example, construct a two-channel FIR bank:
 
 ```cpp
-// Before: MultichannelFirOptions{.coeffs = {{1.f}, {0.5f, 0.5f}}}
 MultichannelProcessorOptions fir_bank{
     .channels = {FirOptions{.coeffs = {1.f}}, FirOptions{.coeffs = {0.5f, 0.5f}}},
 };
 FilterBank processor(fir_bank);
 ```
 
-The same representation handles nonlinear bypass and preset banks without special factories:
+Preset helpers also return `MultichannelProcessorOptions`:
 
 ```cpp
-auto shimmer = MakeMultichannelControllableFullWaveRectifierOptions(1.f, 48000.f, 8, 2);
-// shimmer.channels[0..5] are nullopt and channels 6 and 7 hold rectifier options.
-FilterBank shimmer_processor(shimmer);
-
-auto dattorro = MakeMultichannelDattorroDelayOptions(DattorroEffectType::Vibrato, 48000.f, 8);
-config.loop_filter_configs.emplace_back(dattorro);
+const auto dattorro = MakeMultichannelDattorroDelayOptions(DattorroEffectType::Vibrato, 48000.f, 8);
+FilterBank processor(dattorro);
 ```
 
-Specialized attenuation filters, delay banks, gains, and feedback matrices remain distinct because they have
-cross-channel or delay-dependent behavior that a generic FilterBank does not provide.
+For an FDN placement, the bank contains one entry per FDN channel. `ParallelGainsOptions` retains its explicit
+`ParallelGainsMode`; `StageGainsOptions` configures the gains in FDN input and output stages.
 
-`ParallelGainsOptions` remains the standalone and multichannel gain-processor option type and retains its explicit
-`ParallelGainsMode`. FDN input and output stages instead use named `InputStageConfig` and `OutputStageConfig` values:
-their `StageGainsOptions` contain only `gains` and `time_varying_config`, because the FDN factory derives Split for
-the input stage and Merge for the output stage. Stage-gain C++ source and JSON no longer contain or accept `mode`;
-there is no compatibility migration layer.
+### Matrix sources and seeds
 
-JSON readers reject unknown enum strings, malformed array shapes, and ambiguous tagged wrappers. A single-channel,
-multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag. Reads are transactional, so a failed parse does not modify an existing
-options object.
-
-### Matrix source migration and JSON
-
-Scalar feedback matrices now have exactly one `source`: a generated `GeneratedMatrixOptions` recipe or explicit
+Scalar feedback matrices have one `source`: a generated `GeneratedMatrixOptions` recipe or explicit
 `MatrixData`. `MatrixData(order, coefficients)` owns a row-major vector and rejects a coefficient count other than
 `order * order`; `Values()` returns mutable or const spans over that data.
 
@@ -124,15 +91,6 @@ ScalarFeedbackMatrixOptions diffusion{
 ```
 
 Matrix recipes default to `kDefaultMatrixSeed`. Zero is also a deterministic seed, not a request for randomization.
-The same configuration and seed give repeatable results; bit-identical results across platforms are not guaranteed.
 
 Use `RandomizeMatrixSeeds(config)` to assign new random seeds to generated matrices in the feedback, input, output,
-and loop stages. Explicit `MatrixData` and other settings are unchanged. Hadamard and Householder scalar matrices
-are independent of the seed. The delay-length utility's seed policy is unchanged.
-
-`ValidateFDNConfig()` validates every supported multichannel alternative and all populated
-generic-bank channels, in addition to FDN placement dimensions. It checks domains and graph
-shape without constructing processors. It does not perform numerical matrix decomposition or
-filter design, guarantee allocation success, or certify acoustic stability; custom dense matrices
-need not be orthogonal or contractive. Cascaded stage gains must be real and float-representable;
-negative `gain_per_samples` requires integral generated delay exponents.
+and loop stages. Explicit `MatrixData` is unchanged.

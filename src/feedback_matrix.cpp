@@ -126,7 +126,7 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     }
     else
     {
-        // TODO(Phase 2): use preallocated scratch storage for aliased matrix multiplication.
+        // Aliased multiplication uses Eigen's temporary result storage.
         SFFDN_FEA_UNSAFE({
             SFFDN_RTSAN_SCOPED_DISABLER(rtsan_disabler);
             output_map = input_map * matrix;
