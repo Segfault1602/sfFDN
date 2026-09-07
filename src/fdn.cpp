@@ -510,7 +510,7 @@ void FDN::AccumulateOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING
 {
     const uint32_t sample_count = output.SampleCount();
     const size_t output_sample_count = static_cast<size_t>(sample_count) * output_channel_count_;
-    AudioBuffer wet_output(sample_count, output_channel_count_, wet_output_);
+    const AudioBuffer wet_output(sample_count, output_channel_count_, wet_output_);
     AudioBuffer tone_output(sample_count, output_channel_count_, tone_output_);
     const AudioBuffer* processed_wet = &wet_output;
     if (tc_filter_ != nullptr)

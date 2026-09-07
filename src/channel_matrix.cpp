@@ -53,7 +53,7 @@ void ChannelMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     for (uint32_t output_channel = 0; output_channel < output_channel_count_; ++output_channel)
     {
         const size_t row_offset = static_cast<size_t>(output_channel) * input_channel_count_;
-        auto output_samples = output.GetChannelSpan(output_channel);
+        const auto output_samples = output.GetChannelSpan(output_channel);
         ArrayMath::Scale(input.GetChannelSpan(0), coefficients_[row_offset], output_samples);
         for (uint32_t input_channel = 1; input_channel < input_channel_count_; ++input_channel)
         {

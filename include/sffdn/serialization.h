@@ -276,9 +276,11 @@ inline void from_json(const nlohmann::json& j, StageGainsOptions& config)
 }
 inline void to_json(nlohmann::json& j, const ChannelMatrixOptions& config)
 {
-    j = {{"input_channel_count", config.input_channel_count},
-         {"output_channel_count", config.output_channel_count},
-         {"coefficients", config.coefficients}};
+    j = {
+        {"input_channel_count", config.input_channel_count},
+        {"output_channel_count", config.output_channel_count},
+        {"coefficients", config.coefficients},
+    };
 }
 inline void from_json(const nlohmann::json& j, ChannelMatrixOptions& config)
 {
