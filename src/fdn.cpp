@@ -6,7 +6,6 @@
 #include "sffdn/channel_matrix.h"
 #include "sffdn/delay_utils.h"
 #include "sffdn/feedback_matrix.h"
-#include "sffdn/parallel_gains.h"
 
 #include <algorithm>
 #include <cassert>
@@ -89,11 +88,6 @@ DelayBankOptions MakeDefaultDelayBankOptions(const FDNTopology& topology)
 
 std::unique_ptr<AudioProcessor> MakeDefaultInputRouting(uint32_t input_channel_count, uint32_t order)
 {
-    if (input_channel_count == 1U)
-    {
-        return std::make_unique<ParallelGains>(ParallelGainsMode::Split, std::vector<float>(order, 0.5f));
-    }
-
     return std::make_unique<ChannelMatrix>(ChannelMatrixOptions{
         .input_channel_count = input_channel_count,
         .output_channel_count = order,
@@ -103,11 +97,6 @@ std::unique_ptr<AudioProcessor> MakeDefaultInputRouting(uint32_t input_channel_c
 
 std::unique_ptr<AudioProcessor> MakeDefaultOutputRouting(uint32_t order, uint32_t output_channel_count)
 {
-    if (output_channel_count == 1U)
-    {
-        return std::make_unique<ParallelGains>(ParallelGainsMode::Merge, std::vector<float>(order, 0.5f));
-    }
-
     return std::make_unique<ChannelMatrix>(ChannelMatrixOptions{
         .input_channel_count = order,
         .output_channel_count = output_channel_count,
@@ -230,7 +219,11 @@ bool FDN::SetInputGains(std::span<const float> gains)
         assert(false);
         return false;
     }
-    return SetInputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Split, gains));
+    return SetInputGains(std::make_unique<ChannelMatrix>(ChannelMatrixOptions{
+        .input_channel_count = 1U,
+        .output_channel_count = order_,
+        .coefficients = std::vector<float>(gains.begin(), gains.end()),
+    }));
 }
 
 AudioProcessor* FDN::GetInputGains() const
@@ -259,7 +252,11 @@ bool FDN::SetOutputGains(std::span<const float> gains)
         std::println(std::cerr, "Output gains must have {} elements.", order_);
         return false;
     }
-    return SetOutputGains(std::make_unique<ParallelGains>(ParallelGainsMode::Merge, gains));
+    return SetOutputGains(std::make_unique<ChannelMatrix>(ChannelMatrixOptions{
+        .input_channel_count = order_,
+        .output_channel_count = 1U,
+        .coefficients = std::vector<float>(gains.begin(), gains.end()),
+    }));
 }
 
 AudioProcessor* FDN::GetOutputGains() const

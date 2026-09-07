@@ -120,7 +120,8 @@ class FDN : public AudioProcessor
      * @return false if the gains could not be set
      *
      * Returns false if the size of the span does not match GetOrder().
-     * This is a convenience method that creates a ParallelGains processor in Split mode with the specified gains.
+     * This is a convenience method that creates an N-by-1 ChannelMatrix with the specified gains. It is only valid
+     * for an FDN with one external input channel.
      */
     bool SetInputGains(std::span<const float> gains);
 
@@ -132,7 +133,8 @@ class FDN : public AudioProcessor
      *
      * Returns false if the size of the span does not match GetOrder().
      *
-     * This is a convenience method that creates a ParallelGains processor in Merge mode with the specified gains.
+     * This is a convenience method that creates a 1-by-N ChannelMatrix with the specified gains. It is only valid
+     * for an FDN with one external output channel.
      */
     bool SetOutputGains(std::span<const float> gains);
 

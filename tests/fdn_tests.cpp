@@ -1303,6 +1303,114 @@ TEST_CASE("FDN construction fixes the topology and preserves transpose", "[fdn]"
     REQUIRE(fdn.GetOrder() == 6U);
 }
 
+TEST_CASE("FDN default and span boundary routing use ChannelMatrix", "[fdn]")
+{
+    SECTION("mono defaults preserve the legacy half-gain routing")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 1> external_input = {2.F};
+        std::array<float, 4> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 4U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{1.F, 1.F, 1.F, 1.F});
+
+        std::array<float, 4> internal_input = {2.F, 4.F, 6.F, 8.F};
+        std::array<float, 1> external_output = {99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 4U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output[0] == 10.F);
+    }
+
+    SECTION("MIMO defaults use the same dense half-gain rule")
+    {
+        sfFDN::FDN fdn(sfFDN::FDNTopology{
+            .order = 3U,
+            .block_size = 1U,
+            .input_channel_count = 2U,
+            .output_channel_count = 2U,
+        });
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 2> external_input = {2.F, 4.F};
+        std::array<float, 3> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(1U, 2U, external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 3U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{3.F, 3.F, 3.F});
+
+        std::array<float, 3> internal_input = {2.F, 4.F, 6.F};
+        std::array<float, 2> external_output = {99.F, 99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 3U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(1U, 2U, external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output == std::array{6.F, 6.F});
+    }
+
+    SECTION("span adapters preserve signed nonuniform gain order")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        constexpr std::array kInputGains = {0.5F, -1.F, 2.F, -0.25F};
+        constexpr std::array kOutputGains = {-0.5F, 1.F, 0.25F, 2.F};
+        REQUIRE(fdn.SetInputGains(kInputGains));
+        REQUIRE(fdn.SetOutputGains(kOutputGains));
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetOutputGains()) != nullptr);
+
+        std::array<float, 1> external_input = {4.F};
+        std::array<float, 4> internal_output{};
+        const sfFDN::AudioBuffer external_input_buffer(external_input);
+        sfFDN::AudioBuffer internal_output_buffer(1U, 4U, internal_output);
+        fdn.GetInputGains()->Process(external_input_buffer, internal_output_buffer);
+        REQUIRE(internal_output == std::array{2.F, -4.F, 8.F, -1.F});
+
+        std::array<float, 4> internal_input = {2.F, 4.F, 6.F, 8.F};
+        std::array<float, 1> external_output = {99.F};
+        const sfFDN::AudioBuffer internal_input_buffer(1U, 4U, internal_input);
+        sfFDN::AudioBuffer external_output_buffer(external_output);
+        fdn.GetOutputGains()->Process(internal_input_buffer, external_output_buffer);
+        REQUIRE(external_output[0] == 20.5F);
+    }
+
+    SECTION("order one remains valid")
+    {
+        sfFDN::FDN fdn(1U, 1U);
+        REQUIRE(fdn.SetInputGains(std::array{2.F}));
+        REQUIRE(fdn.SetOutputGains(std::array{-0.5F}));
+
+        std::array<float, 1> input = {3.F};
+        std::array<float, 1> routed{};
+        const sfFDN::AudioBuffer input_buffer(input);
+        sfFDN::AudioBuffer routed_buffer(routed);
+        fdn.GetInputGains()->Process(input_buffer, routed_buffer);
+        REQUIRE(routed[0] == 6.F);
+
+        std::array<float, 1> output{};
+        const sfFDN::AudioBuffer output_input_buffer(routed);
+        sfFDN::AudioBuffer output_buffer(output);
+        fdn.GetOutputGains()->Process(output_input_buffer, output_buffer);
+        REQUIRE(output[0] == -3.F);
+    }
+
+    SECTION("caller-supplied ParallelGains processors remain supported")
+    {
+        sfFDN::FDN fdn(4U, 8U);
+        auto input =
+            std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split, std::array{1.F, 2.F, 3.F, 4.F});
+        auto output =
+            std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge, std::array{4.F, 3.F, 2.F, 1.F});
+        REQUIRE(fdn.SetInputGains(std::move(input)));
+        REQUIRE(fdn.SetOutputGains(std::move(output)));
+        REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(fdn.GetInputGains()) != nullptr);
+        REQUIRE(dynamic_cast<sfFDN::ParallelGains*>(fdn.GetOutputGains()) != nullptr);
+    }
+}
+
 TEST_CASE("FDN move operations preserve active processing state", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
