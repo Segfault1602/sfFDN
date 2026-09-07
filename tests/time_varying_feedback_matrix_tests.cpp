@@ -32,7 +32,7 @@ constexpr std::array kModes = {sfFDN::TimeVaryingMatrixMode::Hadamard, sfFDN::Ti
 constexpr uint32_t kSampleRate = 48000U;
 constexpr uint32_t kBlockSize = 256U;
 constexpr float kSampleEpsilon = std::numeric_limits<float>::epsilon();
-constexpr uint32_t kRealSchurSeed = 0x5EED1234U;
+constexpr uint32_t kRealSchurSeed = sfFDN::kDefaultMatrixSeed;
 constexpr std::array kSamplesInModulationCycle = {0U, 3000U, 6000U, 9000U, 12000U, 15000U, 18000U, 21000U};
 
 const char* ModeName(sfFDN::TimeVaryingMatrixMode mode)
@@ -741,29 +741,46 @@ TEST_CASE("TimeVaryingFeedbackMatrix RealSchur supports all even orders", "[time
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrix RealSchur is deterministic with the default seed", "[time_varying_matrix]")
+TEST_CASE("TimeVaryingFeedbackMatrix RealSchur is deterministic with default and zero seeds", "[time_varying_matrix]")
 {
     for (const uint32_t order : {6U, 8U, 10U, 12U, 16U})
     {
-        const sfFDN::TimeVaryingFeedbackMatrixOptions options = {
+        const sfFDN::TimeVaryingFeedbackMatrixOptions default_options = {
             .matrix_size = order,
             .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
             .time_varying_config = MakeModulationConfig(order, 0.7F),
         };
-        sfFDN::TimeVaryingFeedbackMatrix first(options);
-        sfFDN::TimeVaryingFeedbackMatrix second(options);
+        auto zero_options = default_options;
+        zero_options.rng_seed = 0U;
+        sfFDN::TimeVaryingFeedbackMatrix default_first(default_options);
+        sfFDN::TimeVaryingFeedbackMatrix default_second(default_options);
+        sfFDN::TimeVaryingFeedbackMatrix zero_first(zero_options);
+        sfFDN::TimeVaryingFeedbackMatrix zero_second(zero_options);
+        std::vector<float> default_matrix(order * order);
+        std::vector<float> zero_matrix(order * order);
+        REQUIRE(default_first.GetMatrix(default_matrix));
+        REQUIRE(zero_first.GetMatrix(zero_matrix));
+        REQUIRE(default_matrix != zero_matrix);
         std::vector<float> input(order * kBlockSize);
-        std::vector<float> first_output(input.size(), 0.0F);
-        std::vector<float> second_output(input.size(), 0.0F);
+        std::vector<float> default_first_output(input.size(), 0.0F);
+        std::vector<float> default_second_output(input.size(), 0.0F);
+        std::vector<float> zero_first_output(input.size(), 0.0F);
+        std::vector<float> zero_second_output(input.size(), 0.0F);
         FillRandom(input);
         sfFDN::AudioBuffer input_buffer(kBlockSize, order, input);
-        sfFDN::AudioBuffer first_output_buffer(kBlockSize, order, first_output);
-        sfFDN::AudioBuffer second_output_buffer(kBlockSize, order, second_output);
-        first.Process(input_buffer, first_output_buffer);
-        second.Process(input_buffer, second_output_buffer);
+        sfFDN::AudioBuffer default_first_buffer(kBlockSize, order, default_first_output);
+        sfFDN::AudioBuffer default_second_buffer(kBlockSize, order, default_second_output);
+        sfFDN::AudioBuffer zero_first_buffer(kBlockSize, order, zero_first_output);
+        sfFDN::AudioBuffer zero_second_buffer(kBlockSize, order, zero_second_output);
+        default_first.Process(input_buffer, default_first_buffer);
+        default_second.Process(input_buffer, default_second_buffer);
+        zero_first.Process(input_buffer, zero_first_buffer);
+        zero_second.Process(input_buffer, zero_second_buffer);
 
         INFO("order=" << order);
-        REQUIRE(first_output == second_output);
+        REQUIRE(default_first_output == default_second_output);
+        REQUIRE(zero_first_output == zero_second_output);
+        REQUIRE(default_first_output != zero_first_output);
     }
 }
 

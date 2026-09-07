@@ -1,6 +1,5 @@
 #include "sffdn/filterbank.h"
 
-#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter.h"

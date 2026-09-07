@@ -5,7 +5,6 @@
 #include "sffdn/attributes.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
-#include "sffdn/filterbank.h"
 #include "sffdn/oscillator.h"
 #include "sffdn/types.h"
 
@@ -24,8 +23,8 @@ class DcBlocker;
  * "Shimmer Reverberation with Nonlinear Feedback Delay Networks", Proc. DAFx26, Cambridge, MA, USA, 2026.
  *
  * Each of them is a single-channel processor. Place them in FDNConfig::loop_filter_configs, after the attenuation
- * filters and before the feedback matrix, using the multichannel banks built by the `MakeMultichannel…` factories
- * below. The feedback matrix then distributes the newly generated harmonics across every channel of the network,
+ * filters and before the feedback matrix, using a MultichannelProcessorOptions bank. The feedback matrix then
+ * distributes the newly generated harmonics across every channel of the network,
  * which is what turns a per-channel waveshaper into a reverberation effect.
  *
  * All three are approximately energy preserving, which is what keeps the enclosing network stable, but none of them
@@ -271,14 +270,6 @@ class RingModulator : public AudioProcessor
     SineWave lfo_;
 };
 
-/** @brief Builds a bank of controllable full-wave rectifiers, one per channel.
- * @param options The per-channel configurations. A `std::nullopt` entry leaves its channel unprocessed. The number of
- * channels of the returned processor is `options.channels.size()`.
- * @throws std::invalid_argument if any entry is invalid.
- */
-std::unique_ptr<FilterBank> MakeMultichannelControllableFullWaveRectifier(
-    const MultichannelControllableFullWaveRectifierOptions& options);
-
 /** @brief Returns the options of a bank of controllable full-wave rectifiers covering every channel.
  * @param alpha The distortion amount applied to every active channel.
  * @param sample_rate The sample rate, in Hz.
@@ -288,15 +279,9 @@ std::unique_ptr<FilterBank> MakeMultichannelControllableFullWaveRectifier(
  * of the paper recommends placing the nonlinearity behind the longer delay lines when a more gradually evolving
  * effect is wanted, so the active channels are taken from the end.
  */
-MultichannelControllableFullWaveRectifierOptions MakeMultichannelControllableFullWaveRectifierOptions(
-    float alpha, float sample_rate, uint32_t channel_count, uint32_t active_channel_count = 0);
-
-/** @brief Builds a bank of signal-dependent fractional delays, one per channel.
- * @param options The per-channel configurations. A `std::nullopt` entry leaves its channel unprocessed.
- * @throws std::invalid_argument if any entry is invalid.
- */
-std::unique_ptr<FilterBank> MakeMultichannelSignalDependentFractionalDelay(
-    const MultichannelSignalDependentFractionalDelayOptions& options);
+MultichannelProcessorOptions MakeMultichannelControllableFullWaveRectifierOptions(float alpha, float sample_rate,
+                                                                                  uint32_t channel_count,
+                                                                                  uint32_t active_channel_count = 0);
 
 /** @brief Returns the options of a bank of signal-dependent fractional delays covering every channel.
  * @param d The interpolation weight applied to every active channel.
@@ -304,14 +289,8 @@ std::unique_ptr<FilterBank> MakeMultichannelSignalDependentFractionalDelay(
  * @param active_channel_count The number of channels that carry a filter, counted from the last channel. Zero means
  * every channel.
  */
-MultichannelSignalDependentFractionalDelayOptions MakeMultichannelSignalDependentFractionalDelayOptions(
-    float d, uint32_t channel_count, uint32_t active_channel_count = 0);
-
-/** @brief Builds a bank of ring modulators, one per channel.
- * @param options The per-channel configurations. A `std::nullopt` entry leaves its channel unprocessed.
- * @throws std::invalid_argument if any entry is invalid.
- */
-std::unique_ptr<FilterBank> MakeMultichannelRingModulator(const MultichannelRingModulatorOptions& options);
+MultichannelProcessorOptions MakeMultichannelSignalDependentFractionalDelayOptions(float d, uint32_t channel_count,
+                                                                                   uint32_t active_channel_count = 0);
 
 /** @brief Returns the options of a decorrelated bank of ring modulators.
  * @param frequency The modulation frequency, in cycles per sample.
@@ -324,9 +303,9 @@ std::unique_ptr<FilterBank> MakeMultichannelRingModulator(const MultichannelRing
  * modulator at the same instant. Phase-aligned modulators across every channel produce a much stronger tremolo,
  * because the feedback matrix then sums channels that are all being attenuated together.
  */
-MultichannelRingModulatorOptions MakeMultichannelRingModulatorOptions(float frequency, float amplitude,
-                                                                     uint32_t channel_count,
-                                                                     uint32_t active_channel_count = 0);
+MultichannelProcessorOptions MakeMultichannelRingModulatorOptions(float frequency, float amplitude,
+                                                                  uint32_t channel_count,
+                                                                  uint32_t active_channel_count = 0);
 
 /** @} */
 

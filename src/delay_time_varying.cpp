@@ -3,6 +3,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay_interp.h"
 
+#include "processor_option_validation.h"
+
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -12,12 +14,15 @@ namespace sfFDN
 {
 
 DelayTimeVarying::DelayTimeVarying(const DelayOptions& config)
-    : delay_{config}
+    : delay_{detail::RequireValidOptions(config)}
     , base_delay_{config.delay}
 {
     if (config.lfo_config.has_value())
     {
-        SetMod(config.lfo_config.value());
+        const auto& lfo_config = config.lfo_config.value();
+        lfo_.SetFrequency(lfo_config.frequency);
+        lfo_.SetAmplitude(lfo_config.amplitude);
+        lfo_.SetPhaseOffset(lfo_config.initial_phase);
     }
 }
 
@@ -93,8 +98,8 @@ void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) no
     assert(input.ChannelCount() == 1);
     assert(output.ChannelCount() == 1);
 
-    auto in_span = input.GetChannelSpan(0);
-    auto out_span = output.GetChannelSpan(0);
+    const auto in_span = input.GetChannelSpan(0);
+    const auto out_span = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 16;
     const uint32_t size = in_span.size();
@@ -106,8 +111,8 @@ void DelayTimeVarying::Process(const AudioBuffer& input, AudioBuffer& output) no
         std::array<float, kUnrollFactor> mods{};
         lfo_.Generate(mods);
 
-        auto in_batch = in_span.subspan(sample, kUnrollFactor);
-        auto out_batch = out_span.subspan(sample, kUnrollFactor);
+        const auto in_batch = in_span.subspan(sample, kUnrollFactor);
+        const auto out_batch = out_span.subspan(sample, kUnrollFactor);
 
         for (auto i = 0u; i < kUnrollFactor; ++i)
         {

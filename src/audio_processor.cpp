@@ -2,8 +2,6 @@
 
 #include "sffdn/audio_buffer.h"
 
-#include "json_helper.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

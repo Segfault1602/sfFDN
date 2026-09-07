@@ -3,6 +3,7 @@
 #include "sffdn/time_varying_feedback_matrix.h"
 
 #include "matrix_multiplication.h"
+#include "processor_option_validation.h"
 #include "sffdn/matrix_gallery.h"
 #include "sincos.h"
 #include "time_varying_feedback_matrix_internal.h"
@@ -12,7 +13,6 @@
 #include <Eigen/QR>
 
 #include <algorithm>
-#include <bit>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -30,7 +30,6 @@ constexpr size_t kChunkSize = 128U;
 constexpr float kSchurSubDiagonalTolerance = 32.0F * std::numeric_limits<float>::epsilon();
 // Both norms accumulate O(order) float32 round-off from Eigen's real Schur iteration.
 constexpr float kSchurErrorTolerancePerOrder = 256.0F * std::numeric_limits<float>::epsilon();
-constexpr uint32_t kDefaultRealSchurSeed = 0x5EED1234U;
 
 void ValidateModulationOption(const sfFDN::ModulationOptions& modulation)
 {
@@ -50,30 +49,41 @@ void ValidateModulationOption(const sfFDN::ModulationOptions& modulation)
     }
 }
 
-uint32_t ValidateOptions(const sfFDN::TimeVaryingFeedbackMatrixOptions& options)
+bool IsSupportedMode(sfFDN::TimeVaryingMatrixMode mode)
 {
-    if (options.mode != sfFDN::TimeVaryingMatrixMode::Hadamard &&
-        options.mode != sfFDN::TimeVaryingMatrixMode::RealSchur)
+    return mode == sfFDN::TimeVaryingMatrixMode::Hadamard || mode == sfFDN::TimeVaryingMatrixMode::RealSchur;
+}
+
+uint32_t ValidateStandaloneOptions(const sfFDN::TimeVaryingFeedbackMatrixOptions& options,
+                                   std::span<const float> custom_base_matrix)
+{
+    if (custom_base_matrix.empty() || options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard)
+    {
+        return sfFDN::detail::RequireValidOptions(options).matrix_size;
+    }
+
+    if (!IsSupportedMode(options.mode))
     {
         throw std::invalid_argument("TimeVaryingFeedbackMatrix: unknown matrix mode");
     }
-
     if (options.matrix_size < 2U || (options.matrix_size % 2U) != 0U)
     {
         throw std::invalid_argument("TimeVaryingFeedbackMatrix: matrix_size must be even and at least two");
     }
-
-    if (options.mode == sfFDN::TimeVaryingMatrixMode::Hadamard && !std::has_single_bit(options.matrix_size))
+    const uint64_t element_count = static_cast<uint64_t>(options.matrix_size) * options.matrix_size;
+    if (custom_base_matrix.size() != static_cast<size_t>(element_count))
     {
         throw std::invalid_argument(
-            "TimeVaryingFeedbackMatrix: Hadamard mode requires an even power-of-two matrix_size");
+            "TimeVaryingFeedbackMatrix: custom RealSchur basis must contain matrix_size squared values");
     }
-
     for (const auto& modulation : options.time_varying_config)
     {
         ValidateModulationOption(modulation);
+        if (modulation.frequency < 0.0F)
+        {
+            throw std::invalid_argument("TimeVaryingFeedbackMatrix: LFO frequency must be non-negative");
+        }
     }
-
     return options.matrix_size;
 }
 
@@ -130,8 +140,8 @@ void ApplyFixedRotationsBlock(sfFDN::AudioBuffer& buffer, std::span<const uint32
         sfFDN::SinCosUnit(angles[rotation], sine, cosine);
 
         const uint32_t first_channel = rotation_starts[rotation];
-        auto first_channel_data = buffer.GetChannelSpan(first_channel).first(block_size);
-        auto second_channel_data = buffer.GetChannelSpan(first_channel + 1U).first(block_size);
+        const auto first_channel_data = buffer.GetChannelSpan(first_channel).first(block_size);
+        const auto second_channel_data = buffer.GetChannelSpan(first_channel + 1U).first(block_size);
         for (size_t sample = 0; sample < block_size; ++sample)
         {
             const float first = first_channel_data[sample];
@@ -160,7 +170,7 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
 
 TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMatrixOptions& options,
                                                      std::span<const float> custom_base_matrix)
-    : order_(ValidateOptions(options))
+    : order_(ValidateStandaloneOptions(options, custom_base_matrix))
     , mode_(options.mode)
     , scalar_signs_(order_, 1.0F)
     , scratch_(order_ * kChunkSize)
@@ -181,18 +191,12 @@ TimeVaryingFeedbackMatrix::TimeVaryingFeedbackMatrix(const TimeVaryingFeedbackMa
         {
             // GenerateMatrix is row-major, so Eigen's default column-major Map sees A.T. Preserve this mapping:
             // changing it would alter the deterministic RealSchur DSP output.
-            const uint32_t seed = options.rng_seed == 0U ? kDefaultRealSchurSeed : options.rng_seed;
-            const auto matrix_data = GenerateMatrix(order_, ScalarMatrixType::Random, seed);
+            const auto matrix_data = GenerateMatrix(order_, ScalarMatrixType::Random, options.rng_seed);
             base_matrix = Eigen::Map<const Eigen::MatrixXf>(matrix_data.data(), static_cast<Eigen::Index>(order_),
                                                             static_cast<Eigen::Index>(order_));
         }
         else
         {
-            if (custom_base_matrix.size() != static_cast<size_t>(order_) * order_)
-            {
-                throw std::invalid_argument(
-                    "TimeVaryingFeedbackMatrix: custom RealSchur basis must contain matrix_size squared values");
-            }
             base_matrix = Eigen::Map<const Eigen::MatrixXf>(
                 custom_base_matrix.data(), static_cast<Eigen::Index>(order_), static_cast<Eigen::Index>(order_));
         }
@@ -413,8 +417,8 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         const size_t sample_count = output.SampleCount();
         for (size_t rotation = 0; rotation < lfos_.size(); ++rotation)
         {
-            auto first_channel = output.GetChannelSpan(static_cast<uint32_t>(2U * rotation));
-            auto second_channel = output.GetChannelSpan(static_cast<uint32_t>((2U * rotation) + 1U));
+            const auto first_channel = output.GetChannelSpan(static_cast<uint32_t>(2U * rotation));
+            const auto second_channel = output.GetChannelSpan(static_cast<uint32_t>((2U * rotation) + 1U));
             float phase = lfo_phases_[rotation];
             const float phase_increment = lfos_[rotation].GetFrequency();
             const float phase_offset = lfos_[rotation].GetPhaseOffset();
@@ -453,8 +457,8 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         for (size_t rotation = 0; rotation < lfos_.size(); ++rotation)
         {
             const uint32_t first_channel = rotation_starts_[rotation];
-            auto first_channel_data = scratch_buffer.GetChannelSpan(first_channel).first(block_size);
-            auto second_channel_data = scratch_buffer.GetChannelSpan(first_channel + 1U).first(block_size);
+            const auto first_channel_data = scratch_buffer.GetChannelSpan(first_channel).first(block_size);
+            const auto second_channel_data = scratch_buffer.GetChannelSpan(first_channel + 1U).first(block_size);
             float phase = lfo_phases_[rotation];
             const float phase_increment = lfos_[rotation].GetFrequency();
             const float phase_offset = lfos_[rotation].GetPhaseOffset();
@@ -480,7 +484,7 @@ void TimeVaryingFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& o
         {
             if (scalar_signs_[channel] < 0.0F)
             {
-                auto channel_data = scratch_buffer.GetChannelSpan(channel).first(block_size);
+                const auto channel_data = scratch_buffer.GetChannelSpan(channel).first(block_size);
                 for (size_t sample = 0; sample < block_size; ++sample)
                 {
                     channel_data[sample] = -channel_data[sample];
@@ -557,7 +561,7 @@ bool TimeVaryingFeedbackMatrix::GetMatrix(std::span<float> matrix, uint64_t samp
         {
             if (scalar_signs_[channel] < 0.0F)
             {
-                auto channel_data = pong_buffer.GetChannelSpan(channel);
+                const auto channel_data = pong_buffer.GetChannelSpan(channel);
                 for (uint32_t sample = 0; sample < order_; ++sample)
                 {
                     channel_data[sample] = -channel_data[sample];

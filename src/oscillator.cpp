@@ -1,7 +1,6 @@
 #include "sffdn/oscillator.h"
 
 #include "array_math.h"
-#include "json_helper.h"
 #include "simd.h"
 #include "sine_table.h"
 

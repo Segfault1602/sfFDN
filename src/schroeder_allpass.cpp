@@ -1,6 +1,7 @@
 #include "sffdn/schroeder_allpass.h"
 
 #include "array_math.h"
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -104,8 +105,8 @@ void SchroederAllpass::ProcessBlock(std::span<const float> in, std::span<float> 
         {
             const uint32_t buf_size = read_buffer.size();
 
-            auto in_subspan = in.subspan(samples_processed, buf_size);
-            auto out_subspan = out.subspan(samples_processed, buf_size);
+            const auto in_subspan = in.subspan(samples_processed, buf_size);
+            const auto out_subspan = out.subspan(samples_processed, buf_size);
 
             ArrayMath::MultiplyAdd(read_buffer, g_, in_subspan, write_buffer);
             ArrayMath::MultiplyAdd(write_buffer, -g_, read_buffer, out_subspan);
@@ -233,6 +234,7 @@ void TimeVaryingSchroederAllpass::Clear()
 
 SchroederAllpassSection::SchroederAllpassSection(const SchroederAllpassSectionOptions& config)
 {
+    detail::RequireValidOptions(config);
     allpasses_.reserve(config.delays.size());
     for (size_t i = 0; i < config.delays.size(); ++i)
     {
@@ -336,7 +338,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
         if (input.Data() == output.Data())
         {
             const auto input_span = input.GetChannelSpan(0);
-            auto output_span = output.GetChannelSpan(0);
+            const auto output_span = output.GetChannelSpan(0);
             for (auto sample = 0u; sample < input_span.size(); ++sample)
             {
                 const float input_sample = input_span[sample];
@@ -399,40 +401,14 @@ std::unique_ptr<AudioProcessor> SchroederAllpassSection::Clone() const
     return clone;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelSchroederAllpassSection(
-    const MultichannelSchroederAllpassSectionOptions& options)
-{
-    auto bank = std::make_unique<sfFDN::FilterBank>();
-    for (const auto& section_config : options.sections)
-    {
-        auto schroeder = std::make_unique<sfFDN::SchroederAllpassSection>(section_config);
-        bank->AddFilter(std::move(schroeder));
-    }
-    return bank;
-}
-
 TimeVaryingSchroederAllpassSection::TimeVaryingSchroederAllpassSection(
     const TimeVaryingSchroederAllpassSectionOptions& config)
-    : parallel_(config.parallel)
+    : parallel_(detail::RequireValidOptions(config).parallel)
 {
-    if (config.delays.empty() || config.gains.size() != config.delays.size() ||
-        config.time_varying_config.size() != config.delays.size())
-    {
-        throw std::invalid_argument(
-            "TimeVaryingSchroederAllpassSection: delays, gains, and modulation must have equal non-zero sizes");
-    }
-
     allpasses_.reserve(config.delays.size());
     for (size_t stage = 0; stage < config.delays.size(); ++stage)
     {
-        const float delay = config.delays[stage];
-        if (!std::isfinite(delay) || delay < 1.f || std::trunc(delay) != delay ||
-            delay >= static_cast<float>(std::numeric_limits<uint32_t>::max()))
-        {
-            throw std::invalid_argument("TimeVaryingSchroederAllpassSection: delays must be positive integers");
-        }
-
-        const auto integer_delay = static_cast<uint32_t>(delay);
+        const auto integer_delay = static_cast<uint32_t>(config.delays[stage]);
         allpasses_.emplace_back(integer_delay, config.gains[stage], config.time_varying_config[stage]);
     }
 }
@@ -446,7 +422,7 @@ void TimeVaryingSchroederAllpassSection::Process(const AudioBuffer& input,
     assert(!allpasses_.empty());
 
     const auto input_span = input.GetChannelSpan(0);
-    auto output_span = output.GetChannelSpan(0);
+    const auto output_span = output.GetChannelSpan(0);
     if (parallel_)
     {
         if (input.Data() == output.Data())
@@ -500,17 +476,6 @@ void TimeVaryingSchroederAllpassSection::Clear()
 std::unique_ptr<AudioProcessor> TimeVaryingSchroederAllpassSection::Clone() const
 {
     return std::make_unique<TimeVaryingSchroederAllpassSection>(*this);
-}
-
-std::unique_ptr<FilterBank> MakeMultichannelTimeVaryingSchroederAllpassSection(
-    const MultichannelTimeVaryingSchroederAllpassSectionOptions& options)
-{
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& section_config : options.sections)
-    {
-        bank->AddFilter(std::make_unique<TimeVaryingSchroederAllpassSection>(section_config));
-    }
-    return bank;
 }
 
 // ParallelSchroederAllpassSection::ParallelSchroederAllpassSection(uint32_t channel_count, uint32_t stage_count)

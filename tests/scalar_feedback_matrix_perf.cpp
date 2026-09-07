@@ -47,7 +47,13 @@ void RunScalarFeedbackMatrixBenchmark(const MatrixTypeInfo& matrix_type, uint32_
 
     sfFDN::test::perf::FillNoise(input);
 
-    sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = order, .type = matrix_type.type});
+    sfFDN::ScalarFeedbackMatrix matrix({
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = order,
+                .generator = matrix_type.type,
+            },
+    });
     const sfFDN::AudioBuffer input_buffer(block_size, order, input);
     sfFDN::AudioBuffer output_buffer(block_size, order, output);
     const std::string name =
@@ -116,7 +122,13 @@ TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
             sfFDN::test::perf::SetMinEpochIterations(bench, needs_iteration_floor ? 25'000U : 1U);
             std::vector<float> inout(static_cast<size_t>(order) * kBlockSize);
             sfFDN::test::perf::FillNoise(inout);
-            sfFDN::ScalarFeedbackMatrix matrix({.matrix_size = order, .type = matrix_type.type});
+            sfFDN::ScalarFeedbackMatrix matrix({
+                .source =
+                    sfFDN::GeneratedMatrixOptions{
+                        .matrix_size = order,
+                        .generator = matrix_type.type,
+                    },
+            });
             sfFDN::AudioBuffer buffer(kBlockSize, order, inout);
             sfFDN::test::perf::SetChannelSampleBatch(bench, kBlockSize, order);
 

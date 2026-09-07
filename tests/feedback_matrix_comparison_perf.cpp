@@ -59,7 +59,13 @@ TEST_CASE("FeedbackMatrixComparisonPerf", "[feedback_matrix][.diagnostic]")
     const sfFDN::AudioBuffer input_buffer(kBlockSize, kOrder, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, kOrder, output);
 
-    sfFDN::ScalarFeedbackMatrix hadamard({.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Hadamard});
+    sfFDN::ScalarFeedbackMatrix hadamard({
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kOrder,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            },
+    });
     sfFDN::TimeVaryingFeedbackMatrix time_varying_hadamard({
         .matrix_size = kOrder,
         .mode = sfFDN::TimeVaryingMatrixMode::Hadamard,
@@ -98,8 +104,13 @@ TEST_CASE("FeedbackMatrixFDNComparisonPerf", "[fdn][.diagnostic]")
     constexpr uint32_t kOrder = 16U;
 
     auto static_fdn = CreateFDN(kBlockSize, kOrder);
-    static_fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-        sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = kOrder, .type = sfFDN::ScalarMatrixType::Hadamard}));
+    static_fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kOrder,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            },
+    }));
 
     auto time_varying_fdn = CreateFDN(kBlockSize, kOrder);
     time_varying_fdn->SetFeedbackMatrix(

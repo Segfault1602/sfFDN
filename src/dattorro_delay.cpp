@@ -4,7 +4,8 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/delay_interp.h"
-#include "sffdn/filterbank.h"
+
+#include "processor_option_validation.h"
 
 #include <algorithm>
 #include <array>
@@ -32,7 +33,7 @@ uint32_t RequiredMaximumDelay(float delay, float width)
 
 sfFDN::DattorroDelayOptions SanitizeOptions(const sfFDN::DattorroDelayOptions& options)
 {
-    sfFDN::DattorroDelayOptions sanitized = options;
+    sfFDN::DattorroDelayOptions sanitized = sfFDN::detail::RequireValidOptions(options);
 
     const float width = options.delay_config.lfo_config.has_value() ? options.delay_config.lfo_config->amplitude : 0.f;
     sanitized.delay_config.max_delay =
@@ -165,8 +166,8 @@ void DattorroDelay::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == 1);
     assert(output.ChannelCount() == 1);
 
-    auto in_span = input.GetChannelSpan(0);
-    auto out_span = output.GetChannelSpan(0);
+    const auto in_span = input.GetChannelSpan(0);
+    const auto out_span = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 16;
     const uint32_t size = in_span.size();
@@ -178,8 +179,8 @@ void DattorroDelay::Process(const AudioBuffer& input, AudioBuffer& output) noexc
         std::array<float, kUnrollFactor> mods{};
         lfo_.Generate(mods);
 
-        auto in_batch = in_span.subspan(sample, kUnrollFactor);
-        auto out_batch = out_span.subspan(sample, kUnrollFactor);
+        const auto in_batch = in_span.subspan(sample, kUnrollFactor);
+        const auto out_batch = out_span.subspan(sample, kUnrollFactor);
 
         for (auto i = 0u; i < kUnrollFactor; ++i)
         {
@@ -252,59 +253,71 @@ DattorroDelayOptions MakeDattorroDelayOptions(DattorroEffectType type, float sam
     switch (type)
     {
     case DattorroEffectType::Vibrato:
-        preset = {.blend = 0.f,
-                  .feedforward = 1.f,
-                  .feedback = 0.f,
-                  .delay_ms = 3.f,
-                  .width_ms = 2.f,
-                  .rate_hz = 1.f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = 0.f,
+            .feedforward = 1.f,
+            .feedback = 0.f,
+            .delay_ms = 3.f,
+            .width_ms = 2.f,
+            .rate_hz = 1.f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Flanger:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = kSqrtHalf,
-                  .feedback = kSqrtHalf,
-                  .delay_ms = 1.2f,
-                  .width_ms = 1.f,
-                  .rate_hz = 0.5f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = kSqrtHalf,
+            .feedback = kSqrtHalf,
+            .delay_ms = 1.2f,
+            .width_ms = 1.f,
+            .rate_hz = 0.5f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::WhiteChorus:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = 1.f,
-                  .feedback = kSqrtHalf,
-                  .delay_ms = 10.f,
-                  .width_ms = 5.f,
-                  .rate_hz = 0.15f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = 1.f,
+            .feedback = kSqrtHalf,
+            .delay_ms = 10.f,
+            .width_ms = 5.f,
+            .rate_hz = 0.15f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Doubling:
-        preset = {.blend = kSqrtHalf,
-                  .feedforward = kSqrtHalf,
-                  .feedback = 0.f,
-                  .delay_ms = 30.f,
-                  .width_ms = 10.f,
-                  .rate_hz = 0.15f,
-                  .interp_type = DelayInterpolationType::Linear};
+        preset = {
+            .blend = kSqrtHalf,
+            .feedforward = kSqrtHalf,
+            .feedback = 0.f,
+            .delay_ms = 30.f,
+            .width_ms = 10.f,
+            .rate_hz = 0.15f,
+            .interp_type = DelayInterpolationType::Linear,
+        };
         break;
     case DattorroEffectType::Echo:
-        preset = {.blend = 1.f,
-                  .feedforward = 1.f,
-                  .feedback = 0.7f,
-                  .delay_ms = 100.f,
-                  .width_ms = 0.f,
-                  .rate_hz = 0.f,
-                  .interp_type = DelayInterpolationType::None};
+        preset = {
+            .blend = 1.f,
+            .feedforward = 1.f,
+            .feedback = 0.7f,
+            .delay_ms = 100.f,
+            .width_ms = 0.f,
+            .rate_hz = 0.f,
+            .interp_type = DelayInterpolationType::None,
+        };
         break;
     default:
         assert(false);
-        preset = {.blend = 1.f,
-                  .feedforward = 0.f,
-                  .feedback = 0.f,
-                  .delay_ms = 1.f,
-                  .width_ms = 0.f,
-                  .rate_hz = 0.f,
-                  .interp_type = DelayInterpolationType::None};
+        preset = {
+            .blend = 1.f,
+            .feedforward = 0.f,
+            .feedback = 0.f,
+            .delay_ms = 1.f,
+            .width_ms = 0.f,
+            .rate_hz = 0.f,
+            .interp_type = DelayInterpolationType::None,
+        };
         break;
     }
 
@@ -334,20 +347,10 @@ DattorroDelayOptions MakeDattorroDelayOptions(DattorroEffectType type, float sam
     return options;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelDattorroDelay(const MultichannelDattorroDelayOptions& options)
+MultichannelProcessorOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
+                                                                   uint32_t channel_count)
 {
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& delay_config : options.delays)
-    {
-        bank->AddFilter(std::make_unique<DattorroDelay>(delay_config));
-    }
-    return bank;
-}
-
-MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEffectType type, float sample_rate,
-                                                                     uint32_t channel_count)
-{
-    MultichannelDattorroDelayOptions options;
+    MultichannelProcessorOptions options;
     if (channel_count == 0)
     {
         return options;
@@ -355,7 +358,7 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
 
     const DattorroDelayOptions base = MakeDattorroDelayOptions(type, sample_rate);
 
-    options.delays.reserve(channel_count);
+    options.channels.reserve(channel_count);
     for (auto channel = 0u; channel < channel_count; ++channel)
     {
         DattorroDelayOptions channel_options = base;
@@ -363,9 +366,9 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
         // Spread the channels symmetrically around the nominal preset, so that the average across the bank stays on
         // the values of the paper. A single channel gets a spread of exactly 0 and therefore reproduces
         // MakeDattorroDelayOptions() field for field.
-        const float spread =
-            (channel_count > 1) ? ((static_cast<float>(channel) / static_cast<float>(channel_count - 1)) - 0.5f) * 2.f
-                                : 0.f;
+        const float spread = (channel_count > 1)
+                                 ? ((static_cast<float>(channel) / static_cast<float>(channel_count - 1)) - 0.5f) * 2.f
+                                 : 0.f;
         const float scale = 1.f + (kChannelSpread * spread);
 
         const float delay = std::max(base.delay_config.delay * scale, sfFDN::DattorroDelay::kMinimumDelay);
@@ -378,10 +381,11 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
             // Staggering the initial phase is the primary decorrelator: the channels never reach the extremes of
             // their modulation at the same time.
             const float phase = static_cast<float>(channel) / static_cast<float>(channel_count);
-            const float width = std::clamp(base_lfo.amplitude * scale, 0.f, delay - sfFDN::DattorroDelay::kMinimumDelay);
+            const float width =
+                std::clamp(base_lfo.amplitude * scale, 0.f, delay - sfFDN::DattorroDelay::kMinimumDelay);
 
-            channel_options.delay_config.lfo_config = ModulationOptions{
-                .frequency = base_lfo.frequency * scale, .amplitude = width, .initial_phase = phase};
+            channel_options.delay_config.lfo_config =
+                ModulationOptions{.frequency = base_lfo.frequency * scale, .amplitude = width, .initial_phase = phase};
 
             // Allpass interpolation rather than the linear interpolation of the single-channel presets: a
             // multichannel bank is meant for the feedback loop, where the magnitude droop of linear interpolation
@@ -394,7 +398,7 @@ MultichannelDattorroDelayOptions MakeMultichannelDattorroDelayOptions(DattorroEf
             channel_options.delay_config.max_delay = RequiredMaximumDelay(delay, 0.f);
         }
 
-        options.delays.push_back(channel_options);
+        options.channels.emplace_back(channel_options);
     }
 
     return options;

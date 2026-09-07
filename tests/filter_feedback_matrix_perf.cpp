@@ -73,7 +73,7 @@ sfFDN::CascadedFeedbackMatrixOptions MakeOptions(const Configuration& configurat
         .matrix_size = order,
         .stage_count = stage_count,
         .sparsity = kSparsity,
-        .type = configuration.type,
+        .generator = configuration.type,
         .gain_per_samples = configuration.gain_per_samples,
     };
 }

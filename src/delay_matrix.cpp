@@ -121,27 +121,6 @@ class DelayMatrix::DelayMatrixImpl
         return std::make_unique<DelayMatrixImpl>(*this);
     }
 
-    nlohmann::json ToJson() const
-    {
-        nlohmann::json j;
-        j["type"] = "DelayMatrix";
-        j["order"] = order_;
-        j["delays"] = delay_values_;
-
-        std::vector<float> matrix_data;
-        matrix_data.reserve(order_ * order_);
-        for (auto dest = 0u; dest < order_; ++dest)
-        {
-            for (auto src = 0u; src < order_; ++src)
-            {
-                matrix_data.push_back(matrix_(dest, src));
-            }
-        }
-
-        j["matrix"] = matrix_data;
-        return j;
-    }
-
   private:
     uint32_t order_;
     std::vector<Delay> delay_lines_;

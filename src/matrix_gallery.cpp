@@ -15,7 +15,6 @@
 #include <cstdint>
 #include <iostream>
 #include <numbers>
-#include <optional>
 #include <random>
 #include <span>
 #include <utility>
@@ -58,8 +57,7 @@ Eigen::MatrixXf NestedAllpassMatrixInternal(uint32_t mat_size, uint32_t seed,
                                             std::span<float> output_gains = std::span<float>())
 {
     Eigen::VectorXf g(mat_size);
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size; ++i)
     {
@@ -163,75 +161,63 @@ Eigen::MatrixXf VariableDiffusionMatrix(uint32_t mat_size, float diffusion)
 
 namespace sfFDN
 {
-Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, sfFDN::ScalarMatrixType type, uint32_t seed,
-                                       std::optional<float> arg)
+Eigen::MatrixXf GenerateMatrixInternal(uint32_t mat_size, const MatrixGeneratorOptions& generator, uint32_t seed)
 {
-    Eigen::MatrixXf matrix(mat_size, mat_size);
-    switch (type)
-    {
-    case sfFDN::ScalarMatrixType::Identity:
-    {
-        matrix = Eigen::MatrixXf::Identity(mat_size, mat_size);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Random:
-    {
-        matrix = sfFDN::RandomOrthogonal(mat_size, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Householder:
-    {
-        Eigen::MatrixXf v = Eigen::VectorXf::Ones(mat_size);
-        v.normalize();
-        matrix = sfFDN::HouseholderMatrix(v);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::RandomHouseholder:
-    {
-        matrix = sfFDN::RandomHouseholder(mat_size, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Hadamard:
-    {
-        matrix = sfFDN::HadamardMatrix(mat_size);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Circulant:
-    {
-        matrix = sfFDN::CirculantMatrix(mat_size, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::Allpass:
-    {
-        matrix = sfFDN::AllpassMatrix(mat_size, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::NestedAllpass:
-    {
-        matrix = NestedAllpassMatrixInternal(mat_size, seed);
-        break;
-    }
-    case sfFDN::ScalarMatrixType::VariableDiffusion:
-    {
-        const float diffusion = arg.has_value() ? arg.value() : 1.f;
-        matrix = VariableDiffusionMatrix(mat_size, diffusion);
-        break;
-    }
-    default:
-    {
-        std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << "\n";
-        matrix = Eigen::MatrixXf::Zero(mat_size, mat_size);
-    }
-    }
+    const auto generate_scalar = [mat_size, seed](ScalarMatrixType type, float diffusion) {
+        Eigen::MatrixXf matrix(mat_size, mat_size);
+        switch (type)
+        {
+        case ScalarMatrixType::Identity:
+            matrix = Eigen::MatrixXf::Identity(mat_size, mat_size);
+            break;
+        case ScalarMatrixType::Random:
+            matrix = RandomOrthogonal(mat_size, seed);
+            break;
+        case ScalarMatrixType::Householder:
+        {
+            Eigen::MatrixXf v = Eigen::VectorXf::Ones(mat_size);
+            v.normalize();
+            matrix = HouseholderMatrix(v);
+            break;
+        }
+        case ScalarMatrixType::RandomHouseholder:
+            matrix = RandomHouseholder(mat_size, seed);
+            break;
+        case ScalarMatrixType::Hadamard:
+            matrix = HadamardMatrix(mat_size);
+            break;
+        case ScalarMatrixType::Circulant:
+            matrix = CirculantMatrix(mat_size, seed);
+            break;
+        case ScalarMatrixType::Allpass:
+            matrix = AllpassMatrix(mat_size, seed);
+            break;
+        case ScalarMatrixType::NestedAllpass:
+            matrix = NestedAllpassMatrixInternal(mat_size, seed);
+            break;
+        case ScalarMatrixType::VariableDiffusion:
+            matrix = VariableDiffusionMatrix(mat_size, diffusion);
+            break;
+        default:
+            std::cerr << "Unsupported matrix type: " << static_cast<int>(type) << "\n";
+            matrix = Eigen::MatrixXf::Zero(mat_size, mat_size);
+        }
+        return matrix;
+    };
 
-    return matrix;
+    return std::visit(overloaded{
+                          [&generate_scalar](ScalarMatrixType type) { return generate_scalar(type, 1.0F); },
+                          [&generate_scalar](const VariableDiffusionOptions& options) {
+                              return generate_scalar(ScalarMatrixType::VariableDiffusion, options.diffusion);
+                          },
+                      },
+                      generator);
 }
 
 Eigen::MatrixXf RandN(uint32_t mat_size, uint32_t seed)
 {
     // Generate random matrix from normal distribution (equivalent to randn(n))
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed);
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::MatrixXf random_matrix(mat_size, mat_size);
@@ -278,8 +264,7 @@ Eigen::MatrixXf HouseholderMatrix(Eigen::VectorXf v)
 
 Eigen::MatrixXf RandomHouseholder(uint32_t mat_size, uint32_t seed)
 {
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed);
     std::normal_distribution<float> dist(0.0f, 1.0f);
 
     Eigen::VectorXf v(mat_size);
@@ -322,8 +307,7 @@ Eigen::MatrixXf HadamardMatrix(uint32_t mat_size)
 Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
 {
     std::vector<std::complex<float>> r(mat_size, {0.0f, 0.0f});
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size; ++i)
     {
@@ -357,7 +341,7 @@ Eigen::MatrixXf CirculantMatrix(uint32_t mat_size, uint32_t seed)
         v[i] = r[i].real();
     }
 
-    std::mt19937 dir_gen(seed == 0 ? rd() : seed + 1);
+    std::mt19937 dir_gen(seed + 1);
     const int dir = (dir_gen() % 2 == 0) ? 1 : -1;
     Eigen::MatrixXf matrix(mat_size, mat_size);
     switch (dir)
@@ -407,8 +391,7 @@ Eigen::MatrixXf AllpassMatrix(uint32_t mat_size, uint32_t seed)
     }
 
     Eigen::VectorXf g(mat_size / 2);
-    std::random_device rd;
-    std::mt19937 gen(seed == 0 ? rd() : seed);
+    std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
     for (auto i = 0u; i < mat_size / 2; ++i)
     {
@@ -429,9 +412,19 @@ Eigen::MatrixXf AllpassMatrix(uint32_t mat_size, uint32_t seed)
     return matrix;
 }
 
-std::vector<float> GenerateMatrix(uint32_t mat_size, ScalarMatrixType type, uint32_t seed, std::optional<float> arg)
+ScalarMatrixType GetMatrixType(const MatrixGeneratorOptions& generator) noexcept
 {
-    Eigen::MatrixXf matrix = GenerateMatrixInternal(mat_size, type, seed, arg);
+    const auto* type = std::get_if<ScalarMatrixType>(&generator);
+    if (type != nullptr)
+    {
+        return *type;
+    }
+    return ScalarMatrixType::VariableDiffusion;
+}
+
+std::vector<float> GenerateMatrix(uint32_t mat_size, const MatrixGeneratorOptions& generator, uint32_t seed)
+{
+    Eigen::MatrixXf matrix = GenerateMatrixInternal(mat_size, generator, seed);
 
     // Flatten the public matrix representation in row-major order: flat_matrix[row * mat_size + column].
     std::vector<float> flat_matrix(mat_size * mat_size, 0.0f);

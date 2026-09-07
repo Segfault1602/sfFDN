@@ -5,8 +5,6 @@
 #include "attributes.h"
 #include "audio_buffer.h"
 
-#include <nlohmann/json.hpp>
-
 #include <cstdint>
 #include <memory>
 #include <vector>

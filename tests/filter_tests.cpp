@@ -362,7 +362,7 @@ TEST_CASE("SchroederAllpassSection matches a serial allpass cascade", "[filter]"
     }
 }
 
-TEST_CASE("ParallelSchroederAllpassSection processes independent first-order channels", "[filter]")
+TEST_CASE("FilterBank processes independent first-order Schroeder channels", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -370,16 +370,16 @@ TEST_CASE("ParallelSchroederAllpassSection processes independent first-order cha
     std::array<float, kChannelCount> delays = {2, 3, 4, 5};
     std::array<float, kChannelCount> gains = {-0.9f, -0.8f, -0.7f, -0.6f};
 
-    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    sfFDN::MultichannelProcessorOptions options;
     for (auto i = 0u; i < kChannelCount; i++)
     {
         sfFDN::SchroederAllpassSectionOptions section_options;
         section_options.delays = {delays[i]};
         section_options.gains = {gains[i]};
-        options.sections.push_back(section_options);
+        options.channels.emplace_back(section_options);
     }
 
-    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
+    auto filter = std::make_unique<sfFDN::FilterBank>(options);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)
@@ -421,7 +421,7 @@ TEST_CASE("ParallelSchroederAllpassSection processes independent first-order cha
     }
 }
 
-TEST_CASE("ParallelSchroederAllpassSection processes independent second-order cascades", "[filter]")
+TEST_CASE("FilterBank processes independent Schroeder cascades", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -429,16 +429,16 @@ TEST_CASE("ParallelSchroederAllpassSection processes independent second-order ca
     std::array<float, kChannelCount * 2> delays = {2, 5, 4, 1, 4, 6, 2, 5};
     std::array<float, kChannelCount> gains = {0.9f, 0.8f, 0.7f, 0.6f};
 
-    sfFDN::MultichannelSchroederAllpassSectionOptions options;
+    sfFDN::MultichannelProcessorOptions options;
     for (auto i = 0u; i < kChannelCount; i++)
     {
         sfFDN::SchroederAllpassSectionOptions section_options;
         section_options.delays = {delays[i * 2], delays[i * 2 + 1]};
         section_options.gains = {gains[i], gains[i]};
-        options.sections.push_back(section_options);
+        options.channels.emplace_back(section_options);
     }
 
-    auto filter = sfFDN::MakeMultichannelSchroederAllpassSection(options);
+    auto filter = std::make_unique<sfFDN::FilterBank>(options);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)

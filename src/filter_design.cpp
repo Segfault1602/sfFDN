@@ -1,6 +1,7 @@
 #include "sffdn/filter_design.h"
 
 #include "filter_design_internal.h"
+#include "processor_option_validation.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter.h"
 #include "sffdn/filterbank.h"
@@ -29,6 +30,37 @@
 
 namespace
 {
+void RequireValidAttenuation(const sfFDN::attenuation_filter_variant_t& options, bool allow_inferred_delay)
+{
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateAttenuationOptions(options, "", issues, allow_inferred_delay);
+    if (!issues.empty())
+    {
+        throw std::invalid_argument(issues.front().path + ": " + issues.front().message);
+    }
+}
+
+void RequireFiniteCoefficients(std::span<const sfFDN::FilterCoefficients> coefficients, const char* design_name)
+{
+    for (const auto& coefficient : coefficients)
+    {
+        if (!std::isfinite(coefficient.b0) || !std::isfinite(coefficient.b1) || !std::isfinite(coefficient.b2) ||
+            !std::isfinite(coefficient.a0) || !std::isfinite(coefficient.a1) || !std::isfinite(coefficient.a2) ||
+            coefficient.a0 == 0.f)
+        {
+            throw std::runtime_error(std::string(design_name) + ": coefficient preparation failed");
+        }
+    }
+}
+
+void RequireFiniteValue(float value, const char* design_name)
+{
+    if (!std::isfinite(value))
+    {
+        throw std::runtime_error(std::string(design_name) + ": coefficient preparation failed");
+    }
+}
+
 template <typename T>
 T Db2Mag(T x)
 {
@@ -116,9 +148,9 @@ Eigen::MatrixXd InteractionMatrix(std::span<const double> gains, double gain_fac
     for (auto i = 0u; i < kNBands; ++i)
     {
         std::array<double, 6> sos = sfFDN::Pareq(gains[i], gains_linear[i], command_frequencies[i], bandwidths[i]);
-        auto sos_span = std::span<double>(sos);
-        auto num = sos_span.first(3);
-        auto den = sos_span.last(3);
+        const auto sos_span = std::span<double>(sos);
+        const auto num = sos_span.first(3);
+        const auto den = sos_span.last(3);
         std::array<double, kNFreqs> filter_response{};
         Freqz<double>(num, den, dig_w_arr, filter_response);
 
@@ -295,17 +327,21 @@ namespace sfFDN
 // Presented at the Proc. Audio Eng. Soc. Conv., Paris, France.
 std::pair<float, float> DesignTwoBandAbsorption(const TwoBandFilterOptions& options)
 {
+    detail::RequireValidOptions(options);
     const float h_dc = Db2Mag(options.delay * RT602Slope(options.t60s[0], options.sample_rate));
     const float h_ny = Db2Mag(options.delay * RT602Slope(options.t60s[1], options.sample_rate));
 
     const float r = h_dc / h_ny;
     const float a = (1 - r) / (1 + r);
     const float b = (1 - a) * h_ny;
+    RequireFiniteValue(b, "DesignTwoBandAbsorption");
+    RequireFiniteValue(a, "DesignTwoBandAbsorption");
     return {b, a};
 }
 
 std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilterOptions& options)
 {
+    detail::RequireValidOptions(options);
     const float g_dc_db = options.delay * RT602Slope(options.t60s[0], options.sample_rate);
     const float g_mid_db = options.delay * RT602Slope(options.t60s[1], options.sample_rate);
     const float g_ny_db = options.delay * RT602Slope(options.t60s[2], options.sample_rate);
@@ -319,18 +355,27 @@ std::array<FilterCoefficients, 2> DesignThreeBandAbsorption(const ThreeBandFilte
     low_shelf[1] *= g_mid_linear;
     low_shelf[2] *= g_mid_linear;
 
-    std::array<FilterCoefficients, 2> sos = {{{.b0 = low_shelf[0],
-                                               .b1 = low_shelf[1],
-                                               .b2 = low_shelf[2],
-                                               .a0 = low_shelf[3],
-                                               .a1 = low_shelf[4],
-                                               .a2 = low_shelf[5]},
-                                              {.b0 = high_shelf[0],
-                                               .b1 = high_shelf[1],
-                                               .b2 = high_shelf[2],
-                                               .a0 = high_shelf[3],
-                                               .a1 = high_shelf[4],
-                                               .a2 = high_shelf[5]}}};
+    std::array<FilterCoefficients, 2> sos = {
+        {
+            {
+                .b0 = low_shelf[0],
+                .b1 = low_shelf[1],
+                .b2 = low_shelf[2],
+                .a0 = low_shelf[3],
+                .a1 = low_shelf[4],
+                .a2 = low_shelf[5],
+            },
+            {
+                .b0 = high_shelf[0],
+                .b1 = high_shelf[1],
+                .b2 = high_shelf[2],
+                .a0 = high_shelf[3],
+                .a1 = high_shelf[4],
+                .a2 = high_shelf[5],
+            },
+        },
+    };
+    RequireFiniteCoefficients(sos, "DesignThreeBandAbsorption");
     return sos;
 }
 
@@ -356,6 +401,7 @@ std::vector<double> GetTwoFilter_d(std::span<const double> t60s, double delay, d
 
 std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOptions& options)
 {
+    detail::RequireValidOptions(options);
     // The coefficients are computed in double precision, otherwise there is a significant loss of precision and the
     // filter is not as accurate as it could be.
     std::vector<double> gains(options.t60s.size(), 0.0f);
@@ -388,11 +434,13 @@ std::array<FilterCoefficients, 11> DesignTenBandAbsorption(const TenBandFilterOp
         sos_f[i].a2 = static_cast<float>(sos[6 * i + 5]);
     }
 
+    RequireFiniteCoefficients(sos_f, "DesignTenBandAbsorption");
     return sos_f;
 }
 
 std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& options)
 {
+    detail::RequireValidOptions(options);
     std::vector<double> gains(options.gains_db.begin(), options.gains_db.end());
     std::vector<double> freqs_d(options.freqs.begin(), options.freqs.end());
 
@@ -410,12 +458,14 @@ std::array<FilterCoefficients, 11> DesignGraphicEQ(const GraphicEQOptions& optio
         sos_f[i].a1 = static_cast<float>(sos[6 * i + 4]);
         sos_f[i].a2 = static_cast<float>(sos[6 * i + 5]);
     }
+    RequireFiniteCoefficients(sos_f, "DesignGraphicEQ");
     return sos_f;
 }
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_filter_variant_t& options,
                                                             std::span<const float> delays)
 {
+    RequireValidAttenuation(options, true);
     sfFDN::AttenuationFilterBankOptions fb_options;
     fb_options.filter_configs.resize(delays.size());
     for (size_t i = 0; i < delays.size(); ++i)
@@ -429,28 +479,31 @@ std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_fi
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilter(const attenuation_filter_variant_t& options)
 {
-    return std::visit(overloaded{[&](const HomogenousFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     float feedback_gain = Db2Mag(RT602Slope(config.t60, config.sample_rate));
-                                     feedback_gain = std::pow(feedback_gain, config.delay);
-                                     return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel,
-                                                                                   std::vector<float>{feedback_gain});
-                                 },
-                                 [](const TwoBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto [b, a] = DesignTwoBandAbsorption(config);
-                                     return std::make_unique<sfFDN::OnePoleFilter>(b, a);
-                                 },
-                                 [](const ThreeBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto sos = DesignThreeBandAbsorption(config);
-                                     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                                     filter->SetCoefficients(sos);
-                                     return filter;
-                                 },
-                                 [](const TenBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
-                                     auto sos = DesignTenBandAbsorption(config);
-                                     auto filter = std::make_unique<sfFDN::CascadedBiquads>();
-                                     filter->SetCoefficients(sos);
-                                     return filter;
-                                 }
+    RequireValidAttenuation(options, false);
+    return std::visit(overloaded{
+                          [&](const HomogenousFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              float feedback_gain = Db2Mag(RT602Slope(config.t60, config.sample_rate));
+                              feedback_gain = std::pow(feedback_gain, config.delay);
+                              RequireFiniteValue(feedback_gain, "CreateAttenuationFilter");
+                              return std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel,
+                                                                            std::vector<float>{feedback_gain});
+                          },
+                          [](const TwoBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto [b, a] = DesignTwoBandAbsorption(config);
+                              return std::make_unique<sfFDN::OnePoleFilter>(b, a);
+                          },
+                          [](const ThreeBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto sos = DesignThreeBandAbsorption(config);
+                              auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+                              filter->SetCoefficients(sos);
+                              return filter;
+                          },
+                          [](const TenBandFilterOptions& config) -> std::unique_ptr<AudioProcessor> {
+                              auto sos = DesignTenBandAbsorption(config);
+                              auto filter = std::make_unique<sfFDN::CascadedBiquads>();
+                              filter->SetCoefficients(sos);
+                              return filter;
+                          },
 
                       },
                       options);
@@ -476,6 +529,11 @@ std::unique_ptr<AudioProcessor> MakeCascadedBiquadFilterBank(std::span<const Cas
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const AttenuationFilterBankOptions& options)
 {
+    for (const auto& config : options.filter_configs)
+    {
+        RequireValidAttenuation(config, false);
+    }
+
 #if defined(__APPLE__) && defined(__aarch64__) && defined(SFFDN_USE_VDSP)
     std::vector<FilterCoefficients> one_pole_coefficients;
     one_pole_coefficients.reserve(options.filter_configs.size());

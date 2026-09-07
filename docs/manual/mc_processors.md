@@ -5,20 +5,92 @@ This section describes the multi-channel processors provided by sfFDN. These are
 ## Processors
 
 - [Gains](@ref sfFDN::ParallelGains): A simple processor that applies a gain to each channel independently. Must be used in the [ParallelGainsMode::Parallel](@ref sfFDN::ParallelGainsMode) mode.
-- [Schroeder Allpass](@ref sfFDN::MultichannelSchroederAllpassSectionOptions): A parallel bank of [Schroeder allpass filters](@ref sfFDN::SchroederAllpassSection).
-- [Time-Varying Schroeder Allpass](@ref sfFDN::MultichannelTimeVaryingSchroederAllpassSectionOptions): A parallel bank of energy-preserving [time-varying Schroeder allpass sections](@ref sfFDN::TimeVaryingSchroederAllpassSection). Each stage modulates its gain while retaining a fixed integer delay. Series sections are suitable for lossless FDN feedback paths when every configured gain range remains strictly inside `(-1, 1)`; a parallel section sums its stage outputs and is not generally lossless when it contains more than one stage.
-- [Dattorro Delay Bank](@ref sfFDN::MultichannelDattorroDelayOptions): A parallel bank of [Dattorro delay-line effects](@ref sfFDN::DattorroDelay), one per channel. See [MakeMultichannelDattorroDelayOptions](@ref sfFDN::MakeMultichannelDattorroDelayOptions) for a decorrelated preset, which staggers the modulation of each channel and uses allpass interpolation so that the magnitude response stays flat. Note that only the presets without feedback are safe to place in the feedback path: a modulated [white chorus](@ref sfFDN::DattorroEffectType) or flanger has a peak gain of roughly +15 dB and will make the network diverge. See [MakeMultichannelDattorroDelayOptions](@ref sfFDN::MakeMultichannelDattorroDelayOptions) for the per-preset figures.
+- [Generic processor bank](@ref sfFDN::MultichannelProcessorOptions): A [FilterBank](@ref sfFDN::FilterBank)
+  with one independently constructed single-channel processor per channel. Entries may mix any
+  `single_channel_processor_variant_t` type; `std::nullopt` is a pass-through channel. The bank's channel count is
+  exactly `channels.size()`, and it must equal `FDNConfig::fdn_size` in every FDN placement. For example:
+  `MultichannelProcessorOptions{.channels = {FirOptions{.coeffs = {1.f}}, std::nullopt,
+  SignalDependentFractionalDelayOptions{.d = 0.5f}}}`. Construct the same bank directly with
+  `FilterBank(options)`.
+- [Time-varying Schroeder allpass](@ref sfFDN::TimeVaryingSchroederAllpassSection): add one option per generic-bank
+  channel. Series sections remain suitable for lossless feedback paths while every gain range stays strictly inside
+  `(-1, 1)`; a parallel section with multiple stages is not generally lossless.
+- [Dattorro Delay](@ref sfFDN::DattorroDelay): use
+  [MakeMultichannelDattorroDelayOptions](@ref sfFDN::MakeMultichannelDattorroDelayOptions) for a decorrelated
+  generic bank. It staggers modulation and uses allpass interpolation. Only presets without feedback are safe in an
+  FDN feedback path: a modulated [white chorus](@ref sfFDN::DattorroEffectType) or flanger can peak around +15 dB.
 - [Delay bank](@ref sfFDN::DelayBank): A parallel bank of delay lines. Each delay line can have a different length and can be configured to use interpolation for fractional delay lengths.
 - [Time-varying Delay Bank](@ref sfFDN::DelayBankTimeVarying): A parallel bank of time-varying delay lines. The delay lengths are modulated over time using a sine wave.
 - [Feedback Matrix](@ref sfFDN::ScalarFeedbackMatrix): Simple feedback matrix with scalar coefficients. Public
   coefficients are row-major (`matrix[row * N + column] = A[row, column]`) and apply \f$y = A x\f$; this is the
   same convention as a pyFDN/NumPy `(out, in)` matrix flattened with
   `numpy.asarray(A).ravel(order="C")` and evaluated as `x @ A.T`. The FDN's transposed topology is a signal-flow
-  arrangement, not an instruction to apply \f$A^T\f$.
+  arrangement, not an instruction to apply \f$A^T\f$. Its source is either a generated recipe or explicit,
+  shape-checked row-major `MatrixData`, which owns its values and exposes `Values()` spans.
 - [Filter Feedback Matrix](@ref sfFDN::FilterFeedbackMatrix): Implementation of a Filter Feedback Matrix based on the design by S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks.” A filter feedback matrix consists of a series of scalar matrix interleaved with banks of delay lines.
+  `CascadedFeedbackMatrixOptions::rng_seed` controls both the generated matrices and delay lengths.
 - [Attenuation Filter Bank](@ref sfFDN::AttenuationFilterBankOptions): A parallel bank of attenuation filters. These filters are usually designed to target a specific RT60 and their gains are scaled according to the length of the delay lines. See also the [Filtering](filters.md) manual page for the four attenuation filter variants and the associated design helpers.
 
 
 ## AudioProcessorChain
 
 The [AudioProcessorChain](@ref sfFDN::AudioProcessorChain) class allows you to chain multiple multi-channel processors together. This is useful for creating more complex processing chains without having to create a custom processor class. You can add any of the multi-channel processors to the chain, as long as they have the same number of channels, and they will be processed in the order they were added.
+
+## Configuration
+
+`MultichannelProcessorOptions` configures a `FilterBank` with one single-channel processor per entry. An entry may
+hold any `single_channel_processor_variant_t`; `std::nullopt` is a pass-through channel.
+
+```json
+{"MultichannelProcessorOptions":{"channels":[{"FirOptions":{"coeffs":[1.0]}},null]}}
+```
+
+For example, construct a two-channel FIR bank:
+
+```cpp
+MultichannelProcessorOptions fir_bank{
+    .channels = {FirOptions{.coeffs = {1.f}}, FirOptions{.coeffs = {0.5f, 0.5f}}},
+};
+FilterBank processor(fir_bank);
+```
+
+Preset helpers also return `MultichannelProcessorOptions`:
+
+```cpp
+const auto dattorro = MakeMultichannelDattorroDelayOptions(DattorroEffectType::Vibrato, 48000.f, 8);
+FilterBank processor(dattorro);
+```
+
+For an FDN placement, the bank contains one entry per FDN channel. `ParallelGainsOptions` retains its explicit
+`ParallelGainsMode`; `StageGainsOptions` configures the gains in FDN input and output stages.
+
+### Matrix sources and seeds
+
+Scalar feedback matrices have one `source`: a generated `GeneratedMatrixOptions` recipe or explicit
+`MatrixData`. `MatrixData(order, coefficients)` owns a row-major vector and rejects a coefficient count other than
+`order * order`; `Values()` returns mutable or const spans over that data.
+
+```c++
+// Generated matrix
+ScalarFeedbackMatrixOptions generated{
+    .source = GeneratedMatrixOptions{
+        .matrix_size = order,
+        .generator = ScalarMatrixType::Hadamard,
+        .rng_seed = kDefaultMatrixSeed}};
+
+// Explicit data
+ScalarFeedbackMatrixOptions explicit_matrix{
+    .source = MatrixData{2, {1.f, 0.f, 0.f, 1.f}}};
+
+// Parameterized generation
+ScalarFeedbackMatrixOptions diffusion{
+    .source = GeneratedMatrixOptions{
+        .matrix_size = order,
+        .generator = VariableDiffusionOptions{.diffusion = 0.5f},
+        .rng_seed = 0U}};
+```
+
+Matrix recipes default to `kDefaultMatrixSeed`. Zero is also a deterministic seed, not a request for randomization.
+
+Use `RandomizeMatrixSeeds(config)` to assign new random seeds to generated matrices in the feedback, input, output,
+and loop stages. Explicit `MatrixData` is unchanged.

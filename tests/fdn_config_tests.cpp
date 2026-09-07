@@ -1,0 +1,503 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <limits>
+#include <optional>
+#include <ranges>
+#include <span>
+#include <stdexcept>
+#include <string_view>
+#include <type_traits>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+
+#include "sffdn/config_diagnostics.h"
+#include "sffdn/sffdn.h"
+#include <sffdn/serialization.h>
+
+namespace
+{
+
+sfFDN::FDNConfig MakeValidConfig()
+{
+    constexpr uint32_t kOrder = 4;
+    sfFDN::FDNConfig config{};
+    config.fdn_size = kOrder;
+    config.block_size = 8;
+    config.sample_rate = 48000.F;
+    config.delay_bank_config = {
+        .delays = {8.F, 9.F, 10.F, 11.F},
+        .block_size = config.block_size,
+        .interpolation_type = sfFDN::DelayInterpolationType::None,
+    };
+    config.input_block_config.parallel_gains_config = {
+        .gains = std::vector<float>(kOrder, 1.F),
+        .time_varying_config = {},
+    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kOrder,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            },
+    };
+    config.output_block_config.parallel_gains_config = {
+        .gains = std::vector<float>(kOrder, 1.F),
+        .time_varying_config = {},
+    };
+    return config;
+}
+
+sfFDN::AttenuationFilterBankOptions MakeAttenuationBank(size_t count)
+{
+    sfFDN::AttenuationFilterBankOptions bank;
+    for (size_t index = 0; index < count; ++index)
+    {
+        bank.filter_configs.emplace_back(
+            sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 0.F, .sample_rate = 48000.F});
+    }
+    return bank;
+}
+
+bool HasIssue(const std::vector<sfFDN::ConfigIssue>& issues, sfFDN::ConfigErrorCode code, std::string_view path)
+{
+    return std::ranges::any_of(issues, [&](const auto& issue) { return issue.code == code && issue.path == path; });
+}
+
+std::vector<sfFDN::ConfigIssue> RequireIssues(const std::expected<void, std::vector<sfFDN::ConfigIssue>>& validation)
+{
+    REQUIRE_FALSE(validation.has_value());
+    return validation.error();
+}
+
+template <typename... Types>
+concept AllEqualityComparable = (std::equality_comparable<Types> && ...);
+
+std::vector<float> RenderDefaultFDN(sfFDN::FDN& fdn, const sfFDN::FDNConfig& config)
+{
+    const float longest_delay = *std::ranges::max_element(config.delay_bank_config.delays);
+    const auto sample_count = static_cast<uint32_t>(std::ceil(longest_delay)) + config.block_size * 2U;
+    const auto block_count = (sample_count + config.block_size - 1U) / config.block_size;
+    std::vector<float> input(block_count * config.block_size, 0.F);
+    std::vector<float> output(input.size(), 0.F);
+    input[0] = 1.F;
+
+    for (uint32_t block = 0; block < block_count; ++block)
+    {
+        const auto offset = block * config.block_size;
+        const auto input_buffer =
+            sfFDN::AudioBuffer(config.block_size, 1U, std::span(input).subspan(offset, config.block_size));
+        auto output_buffer =
+            sfFDN::AudioBuffer(config.block_size, 1U, std::span(output).subspan(offset, config.block_size));
+        std::fill_n(output.begin() + offset, config.block_size, 0.F);
+        fdn.Process(input_buffer, output_buffer);
+    }
+
+    return output;
+}
+
+void NormalizeMatrixSeed(sfFDN::ScalarFeedbackMatrixOptions& options)
+{
+    auto* generated = std::get_if<sfFDN::GeneratedMatrixOptions>(&options.source);
+    if (generated != nullptr)
+    {
+        generated->rng_seed = sfFDN::kDefaultMatrixSeed;
+    }
+}
+
+void NormalizeMatrixSeed(sfFDN::CascadedFeedbackMatrixOptions& options)
+{
+    options.rng_seed = sfFDN::kDefaultMatrixSeed;
+}
+
+void NormalizeMatrixSeed(sfFDN::TimeVaryingFeedbackMatrixOptions& options)
+{
+    options.rng_seed = sfFDN::kDefaultMatrixSeed;
+}
+
+void NormalizeMatrixSeeds(sfFDN::FDNConfig& config)
+{
+    const auto normalize = [](auto& options) {
+        using Options = std::remove_cvref_t<decltype(options)>;
+        if constexpr (std::same_as<Options, sfFDN::ScalarFeedbackMatrixOptions> ||
+                      std::same_as<Options, sfFDN::CascadedFeedbackMatrixOptions> ||
+                      std::same_as<Options, sfFDN::TimeVaryingFeedbackMatrixOptions>)
+        {
+            NormalizeMatrixSeed(options);
+        }
+    };
+    std::visit(normalize, config.feedback_matrix_config);
+    for (auto* placement : {&config.input_block_config.multichannel_processors,
+                            &config.output_block_config.multichannel_processors, &config.loop_filter_configs})
+    {
+        for (auto& options : *placement)
+        {
+            std::visit(normalize, options);
+        }
+    }
+}
+
+} // namespace
+
+TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
+{
+    constexpr std::array kMatrixTypes = {
+        sfFDN::ScalarMatrixType::Identity,          sfFDN::ScalarMatrixType::Random,
+        sfFDN::ScalarMatrixType::Householder,       sfFDN::ScalarMatrixType::RandomHouseholder,
+        sfFDN::ScalarMatrixType::Hadamard,          sfFDN::ScalarMatrixType::Circulant,
+        sfFDN::ScalarMatrixType::Allpass,           sfFDN::ScalarMatrixType::NestedAllpass,
+        sfFDN::ScalarMatrixType::VariableDiffusion,
+    };
+
+    for (const auto type : kMatrixTypes)
+    {
+        auto config = MakeValidConfig();
+        config.input_block_config.multichannel_processors.emplace_back(sfFDN::DelayBankOptions{
+            .delays = {1.F, 2.F, 3.F, 4.F},
+            .block_size = 4U,
+            .interpolation_type = sfFDN::DelayInterpolationType::None,
+        });
+        config.attenuation_filter_bank_config = MakeAttenuationBank(1U);
+        config.loop_filter_configs.emplace_back(MakeAttenuationBank(1U));
+        config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::GeneratedMatrixOptions{
+                    .matrix_size = config.fdn_size,
+                    .generator = type == sfFDN::ScalarMatrixType::VariableDiffusion
+                                     ? sfFDN::MatrixGeneratorOptions{sfFDN::VariableDiffusionOptions{.diffusion = 0.5F}}
+                                     : sfFDN::MatrixGeneratorOptions{type},
+                    .rng_seed = 42U,
+                },
+        };
+
+        REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+        REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(config));
+    }
+
+    auto variants = MakeValidConfig();
+    variants.input_block_config.single_channel_processors = {
+        sfFDN::SchroederAllpassSectionOptions{.delays = {2.F}, .gains = {0.25F}},
+        sfFDN::TimeVaryingSchroederAllpassSectionOptions{
+            .delays = {3.F},
+            .gains = {0.25F},
+            .time_varying_config = {{.frequency = 0.01F, .amplitude = 0.1F, .initial_phase = 0.F}},
+        },
+        sfFDN::AllpassFilterOptions{.coeff = 0.25F},
+        sfFDN::CascadedBiquadsOptions{.coeffs = {{1.F, 0.F, 0.F, 1.F, 0.F, 0.F}}},
+        sfFDN::FirOptions{.coeffs = {1.F}},
+        sfFDN::DelayOptions{.delay = 4.F, .max_delay = 8U},
+        sfFDN::GraphicEQOptions{
+            .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+        },
+        sfFDN::DattorroDelayOptions{.delay_config = {.delay = 4.F, .max_delay = 8U}},
+        sfFDN::ControllableFullWaveRectifierOptions{.alpha = 0.5F},
+        sfFDN::SignalDependentFractionalDelayOptions{.d = 0.5F},
+        sfFDN::RingModulatorOptions{.frequency = 0.01F},
+    };
+    variants.input_block_config.multichannel_processors = {
+        sfFDN::ParallelGainsOptions{
+            .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {1.F, 1.F, 1.F, 1.F}, .time_varying_config = {}},
+        sfFDN::MultichannelProcessorOptions{.channels = {std::nullopt, std::nullopt, std::nullopt, std::nullopt}},
+        MakeAttenuationBank(4U),
+        sfFDN::DelayBankOptions{.delays = {1.F, 2.F, 3.F, 4.F}, .block_size = 4U},
+        sfFDN::DelayBankTimeVaryingOptions{.delays = {3.F, 4.F, 5.F, 6.F}, .max_delay = 8U, .time_varying_config = {}},
+        sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U, .stage_count = 1U},
+        sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::MatrixData{
+                    4U,
+                    {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F},
+                }},
+    };
+    REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+
+    variants.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = 4U, .stage_count = 1U};
+    REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+    variants.feedback_matrix_config = sfFDN::TimeVaryingFeedbackMatrixOptions{
+        .matrix_size = 4U,
+        .mode = sfFDN::TimeVaryingMatrixMode::Hadamard,
+        .time_varying_config = {},
+    };
+    REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+}
+
+TEST_CASE("ValidateFDNConfig reports issues at resolvable JSON pointers", "[fdn]")
+{
+    auto config = MakeValidConfig();
+    config.block_size = 0U;
+    config.delay_bank_config.delays[0] = -1.F;
+    config.input_block_config.single_channel_processors.emplace_back(
+        sfFDN::DelayOptions{.delay = 4.F, .max_delay = 3U});
+    config.input_block_config.multichannel_processors.emplace_back(sfFDN::MultichannelProcessorOptions{
+        .channels = {sfFDN::FirOptions{.coeffs = {}}, std::nullopt},
+    });
+    config.attenuation_filter_bank_config = sfFDN::AttenuationFilterBankOptions{
+        .filter_configs = {sfFDN::TwoBandFilterOptions{
+            .t60s = {1.F, 0.5F},
+            .delay = -1.F,
+            .sample_rate = 48000.F,
+        }},
+    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = config.fdn_size,
+                .generator = sfFDN::VariableDiffusionOptions{.diffusion = 2.F},
+            },
+    };
+    config.tone_correction_filters.emplace_back(sfFDN::RingModulatorOptions{.frequency = -1.F});
+
+    const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+    REQUIRE_FALSE(issues.empty());
+    const nlohmann::json serialized = config;
+    for (const auto& issue : issues)
+    {
+        INFO(issue.path);
+        REQUIRE(serialized.contains(nlohmann::json::json_pointer(issue.path)));
+    }
+
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/block_size"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/delay_bank_config/delays/0"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/single_channel_processors/0/DelayOptions/max_delay"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch,
+                     "/input_block_config/multichannel_processors/0/MultichannelProcessorOptions/channels"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/source/GeneratedMatrixOptions/generator/"
+                     "VariableDiffusionOptions/diffusion"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/tone_correction_filters/0/RingModulatorOptions/frequency"));
+}
+
+TEST_CASE("ValidateFDNConfig aggregates independent root issues without dependent noise", "[fdn]")
+{
+    auto config = MakeValidConfig();
+    config.fdn_size = 0U;
+    config.block_size = 0U;
+    config.sample_rate = 0.F;
+
+    const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+    REQUIRE(issues.size() == 3U);
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/fdn_size"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/block_size"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/sample_rate"));
+}
+
+TEST_CASE("ValidateFDNConfig is deterministic and CreateFDNFromConfig reports its issues", "[fdn]")
+{
+    auto config = MakeValidConfig();
+    config.delay_bank_config.delays[0] = -1.F;
+    config.output_block_config.parallel_gains_config.gains.pop_back();
+    const auto original = config;
+
+    const auto first = sfFDN::ValidateFDNConfig(config);
+    const auto second = sfFDN::ValidateFDNConfig(config);
+    const auto issues = RequireIssues(first);
+    REQUIRE(issues == RequireIssues(second));
+    REQUIRE(config == original);
+
+    try
+    {
+        static_cast<void>(sfFDN::CreateFDNFromConfig(config));
+        FAIL("CreateFDNFromConfig must reject structural errors");
+    }
+    catch (const sfFDN::FDNConfigError& error)
+    {
+        REQUIRE(error.Issues() == issues);
+        const std::string_view message(error.what());
+        for (const auto& issue : issues)
+        {
+            REQUIRE(message.find(issue.path) != std::string_view::npos);
+            REQUIRE(message.find(issue.message) != std::string_view::npos);
+        }
+    }
+}
+
+TEST_CASE("ValidateFDNConfig reports size and capacity boundaries before construction", "[fdn]")
+{
+    auto dimensions = MakeValidConfig();
+    dimensions.fdn_size = 3U;
+    dimensions.delay_bank_config.delays.pop_back();
+    dimensions.input_block_config.parallel_gains_config.gains.pop_back();
+    dimensions.output_block_config.parallel_gains_config.gains.pop_back();
+    dimensions.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = 3U,
+                .generator = sfFDN::ScalarMatrixType::Hadamard,
+            },
+    };
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(dimensions)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/feedback_matrix_config/ScalarFeedbackMatrixOptions/source/GeneratedMatrixOptions/matrix_size"));
+
+    auto storage = MakeValidConfig();
+    storage.block_size = 1073741824U;
+    storage.delay_bank_config = {
+        .delays = {1073741824.F, 1073741824.F, 1073741824.F, 1073741824.F},
+        .block_size = storage.block_size,
+    };
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(storage)), sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/fdn_size"));
+
+    auto cascade = MakeValidConfig();
+    cascade.fdn_size = 64U;
+    cascade.delay_bank_config.delays.assign(64U, 8.F);
+    cascade.input_block_config.parallel_gains_config.gains.assign(64U, 1.F);
+    cascade.output_block_config.parallel_gains_config.gains.assign(64U, 1.F);
+    cascade.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
+        .matrix_size = 64U,
+        .stage_count = 6U,
+        .sparsity = 1.F,
+        .generator = sfFDN::ScalarMatrixType::Random,
+    };
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(cascade)), sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/feedback_matrix_config/CascadedFeedbackMatrixInfo/stage_count"));
+    std::get<sfFDN::CascadedFeedbackMatrixOptions>(cascade.feedback_matrix_config).stage_count = 5U;
+    REQUIRE(sfFDN::ValidateFDNConfig(cascade).has_value());
+
+    auto gain = MakeValidConfig();
+    gain.feedback_matrix_config = sfFDN::CascadedFeedbackMatrixOptions{
+        .matrix_size = 4U,
+        .stage_count = 2U,
+        .sparsity = 3.F,
+        .generator = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 100.F,
+    };
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(gain)), sfFDN::ConfigErrorCode::CapacityOverflow,
+                     "/feedback_matrix_config/CascadedFeedbackMatrixInfo/gain_per_samples"));
+    auto& gain_options = std::get<sfFDN::CascadedFeedbackMatrixOptions>(gain.feedback_matrix_config);
+    gain_options.gain_per_samples = -1.F;
+    REQUIRE(sfFDN::ValidateFDNConfig(gain).has_value());
+    gain_options.sparsity = 1.1F;
+    gain_options.gain_per_samples = -0.5F;
+    REQUIRE(HasIssue(RequireIssues(sfFDN::ValidateFDNConfig(gain)), sfFDN::ConfigErrorCode::InvalidValue,
+                     "/feedback_matrix_config/CascadedFeedbackMatrixInfo/gain_per_samples"));
+}
+
+TEST_CASE("FDNConfig compares every configured value structurally", "[fdn]")
+{
+    static_assert(
+        AllEqualityComparable<
+            sfFDN::ScalarFeedbackMatrixOptions, sfFDN::CascadedFeedbackMatrixOptions, sfFDN::ModulationOptions,
+            sfFDN::TimeVaryingFeedbackMatrixOptions, sfFDN::StageGainsOptions, sfFDN::ParallelGainsOptions,
+            sfFDN::DelayOptions, sfFDN::DelayBankOptions, sfFDN::DelayBankTimeVaryingOptions, sfFDN::FilterCoefficients,
+            sfFDN::AllpassFilterOptions, sfFDN::SparseFirOptions, sfFDN::CascadedBiquadsOptions, sfFDN::FirOptions,
+            sfFDN::SchroederAllpassSectionOptions, sfFDN::TimeVaryingSchroederAllpassSectionOptions,
+            sfFDN::DattorroDelayOptions, sfFDN::ControllableFullWaveRectifierOptions,
+            sfFDN::SignalDependentFractionalDelayOptions, sfFDN::RingModulatorOptions, sfFDN::HomogenousFilterOptions,
+            sfFDN::TwoBandFilterOptions, sfFDN::ThreeBandFilterOptions, sfFDN::TenBandFilterOptions,
+            sfFDN::AttenuationFilterBankOptions, sfFDN::GraphicEQOptions, sfFDN::MultichannelProcessorOptions,
+            sfFDN::InputStageConfig, sfFDN::OutputStageConfig, sfFDN::FDNConfig>);
+
+    const auto original = MakeValidConfig();
+    REQUIRE(original == sfFDN::FDNConfig(original));
+
+    auto scalar = original;
+    scalar.direct_gain = 0.25F;
+    REQUIRE(scalar != original);
+
+    auto vector = original;
+    vector.input_block_config.parallel_gains_config.gains[0] = 0.5F;
+    REQUIRE(vector != original);
+
+    auto optional = original;
+    optional.input_block_config.single_channel_processors.emplace_back(
+        sfFDN::DelayOptions{.delay = 4.F, .max_delay = 8U, .lfo_config = std::nullopt});
+    auto engaged = optional;
+    std::get<sfFDN::DelayOptions>(engaged.input_block_config.single_channel_processors.back()).lfo_config =
+        sfFDN::ModulationOptions{};
+    REQUIRE(optional != engaged);
+
+    auto variant = original;
+    variant.feedback_matrix_config =
+        sfFDN::CascadedFeedbackMatrixOptions{.matrix_size = original.fdn_size, .stage_count = 1U};
+    REQUIRE(variant != original);
+
+    auto randomized = original;
+    randomized.feedback_matrix_config = sfFDN::TimeVaryingFeedbackMatrixOptions{
+        .matrix_size = randomized.fdn_size,
+        .mode = sfFDN::TimeVaryingMatrixMode::RealSchur,
+        .time_varying_config = {},
+    };
+    randomized.input_block_config.multichannel_processors = {
+        sfFDN::ScalarFeedbackMatrixOptions{.source =
+                                               sfFDN::GeneratedMatrixOptions{
+                                                   .matrix_size = randomized.fdn_size,
+                                                   .generator = sfFDN::ScalarMatrixType::Random,
+                                               }},
+        sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::MatrixData{
+                    randomized.fdn_size,
+                    {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F},
+                }},
+        sfFDN::CascadedFeedbackMatrixOptions{
+            .matrix_size = randomized.fdn_size,
+            .stage_count = 1U,
+            .generator = sfFDN::ScalarMatrixType::Random,
+        },
+    };
+    const auto before = randomized;
+    sfFDN::RandomizeMatrixSeeds(randomized);
+    const auto& original_data = std::get<sfFDN::MatrixData>(
+        std::get<sfFDN::ScalarFeedbackMatrixOptions>(before.input_block_config.multichannel_processors[1]).source);
+    const auto& randomized_data = std::get<sfFDN::MatrixData>(
+        std::get<sfFDN::ScalarFeedbackMatrixOptions>(randomized.input_block_config.multichannel_processors[1]).source);
+    REQUIRE(randomized_data == original_data);
+    NormalizeMatrixSeeds(randomized);
+    REQUIRE(randomized == before);
+}
+
+TEST_CASE("MakeDefaultFDNConfig creates deterministic usable wet configurations", "[fdn]")
+{
+    struct DefaultCase
+    {
+        uint32_t order;
+        uint32_t block_size;
+        float sample_rate;
+    };
+    constexpr std::array cases = {
+        DefaultCase{3U, 128U, 48000.F},
+        DefaultCase{8U, 1024U, 48000.F},
+    };
+
+    REQUIRE(sfFDN::MakeDefaultFDNConfig() == sfFDN::MakeDefaultFDNConfig(8U, 128U, 48000.F));
+    REQUIRE_THROWS_AS(sfFDN::MakeDefaultFDNConfig(0U), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::MakeDefaultFDNConfig(1U, 0U), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::MakeDefaultFDNConfig(1U, 1U, -1.F), std::invalid_argument);
+
+    for (const auto [order, block_size, sample_rate] : cases)
+    {
+        const auto config = sfFDN::MakeDefaultFDNConfig(order, block_size, sample_rate);
+        REQUIRE(config == sfFDN::MakeDefaultFDNConfig(order, block_size, sample_rate));
+        REQUIRE(config.fdn_size == order);
+        REQUIRE(config.block_size == block_size);
+        REQUIRE(config.sample_rate == sample_rate);
+        REQUIRE(config.delay_bank_config.delays.size() == order);
+        REQUIRE(config.input_block_config.parallel_gains_config.gains ==
+                std::vector<float>(order, 1.F / std::sqrt(static_cast<float>(order))));
+        REQUIRE(config.output_block_config.parallel_gains_config.gains ==
+                config.input_block_config.parallel_gains_config.gains);
+
+        const auto& matrix = std::get<sfFDN::ScalarFeedbackMatrixOptions>(config.feedback_matrix_config);
+        const auto& source = std::get<sfFDN::GeneratedMatrixOptions>(matrix.source);
+        REQUIRE(source.generator == ((order & (order - 1U)) == 0U
+                                         ? sfFDN::MatrixGeneratorOptions{sfFDN::ScalarMatrixType::Hadamard}
+                                         : sfFDN::MatrixGeneratorOptions{sfFDN::ScalarMatrixType::Householder}));
+        REQUIRE(config.attenuation_filter_bank_config.has_value());
+        REQUIRE(config.attenuation_filter_bank_config->filter_configs.size() == 1U);
+
+        auto first = sfFDN::CreateFDNFromConfig(config);
+        auto second = sfFDN::CreateFDNFromConfig(config);
+        const auto first_output = RenderDefaultFDN(*first, config);
+        REQUIRE(first_output == RenderDefaultFDN(*second, config));
+        REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.F; }));
+    }
+}

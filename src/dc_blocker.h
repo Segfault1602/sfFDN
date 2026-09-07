@@ -72,11 +72,13 @@ class DcBlocker
     /** @brief Processes one sample. */
     float Tick(float input) noexcept SFFDN_NONBLOCKING
     {
-        State state{.prev_input = prev_input_,
-                    .prev_output = prev_output_,
-                    .input_power = input_power_,
-                    .output_power = output_power_,
-                    .gain = gain_};
+        State state{
+            .prev_input = prev_input_,
+            .prev_output = prev_output_,
+            .input_power = input_power_,
+            .output_power = output_power_,
+            .gain = gain_,
+        };
         const float output = TickImpl(input, state, envelope_coeff_, gain_coeff_);
         StoreState(state);
         return output;
@@ -86,11 +88,13 @@ class DcBlocker
     void Process(std::span<float> buffer) noexcept SFFDN_NONBLOCKING
     {
         // Keeping the recurrences local avoids member reloads after each buffer store, which may alias this object.
-        State state{.prev_input = prev_input_,
-                    .prev_output = prev_output_,
-                    .input_power = input_power_,
-                    .output_power = output_power_,
-                    .gain = gain_};
+        State state{
+            .prev_input = prev_input_,
+            .prev_output = prev_output_,
+            .input_power = input_power_,
+            .output_power = output_power_,
+            .gain = gain_,
+        };
         const float envelope_coeff = envelope_coeff_;
         const float gain_coeff = gain_coeff_;
 

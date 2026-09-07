@@ -1,6 +1,6 @@
 #include "sffdn/parallel_gains.h"
 
-#include "json_helper.h"
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -14,7 +14,7 @@ namespace sfFDN
 {
 
 TimeVaryingParallelGains::TimeVaryingParallelGains(const ParallelGainsOptions& options)
-    : mode_(options.mode)
+    : mode_(detail::RequireValidOptions(options).mode)
 {
     lfos_.reserve(options.gains.size());
     for (uint32_t i = 0; i < options.gains.size(); ++i)

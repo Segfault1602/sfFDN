@@ -55,12 +55,15 @@ target_sources(
             dattorro_delay_tests.cpp
             delay_tests.cpp
             filter_tests.cpp
+            filter_bank_tests.cpp
             mixmat_tests.cpp
             matrix_multiplication_tests.cpp
             nonlinear_tests.cpp
             fdn_tests.cpp
             filter_design_tests.cpp
             fft_tests.cpp
+            fdn_config_tests.cpp
+            processor_option_validation_tests.cpp
             oscillator_tests.cpp
             upols_tests.cpp
             nupols_tests.cpp
@@ -75,7 +78,8 @@ target_sources(
 )
 target_link_libraries(
     sfFDN.tests
-    PRIVATE sfFDN.sfFDN
+    PRIVATE sfFDN::sfFDN
+            sfFDN::serialization
             Catch2::Catch2WithMain
             SndFile::sndfile
             Eigen3::Eigen
@@ -87,6 +91,15 @@ set(SFFDN_INTERNAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 target_include_directories(sfFDN.tests PRIVATE ${SFFDN_INTERNAL_INCLUDE_DIRS})
 target_compile_features(sfFDN.tests PRIVATE cxx_std_23)
+
+add_library(sfFDN.public_config_api OBJECT public_config_api_compile.cpp)
+target_link_libraries(sfFDN.public_config_api PRIVATE sfFDN::sfFDN)
+set_target_properties(sfFDN.public_config_api PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+
+add_executable(sfFDN.public_serialization_api public_serialization_api.cpp)
+target_link_libraries(sfFDN.public_serialization_api PRIVATE sfFDN::serialization)
+
+add_dependencies(sfFDN.tests sfFDN.public_config_api sfFDN.public_serialization_api)
 
 if(SFFDN_ENABLE_PCH)
     target_precompile_headers(
@@ -107,6 +120,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(sfFDN.tests WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(NAME PublicSerializationAPI COMMAND sfFDN.public_serialization_api)
 add_test(
     NAME RealtimeExceptionInventory
     COMMAND

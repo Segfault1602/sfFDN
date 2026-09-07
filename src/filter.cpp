@@ -1,5 +1,6 @@
 #include "sffdn/filter.h"
 
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 #include "sffdn/filter_design.h"
@@ -70,8 +71,8 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1); // OnePoleFilter only supports single channel input/output
 
-    auto in = input.GetChannelSpan(0);
-    auto out = output.GetChannelSpan(0);
+    const auto in = input.GetChannelSpan(0);
+    const auto out = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 8;
     const uint32_t size = in.size();
@@ -80,8 +81,8 @@ void OnePoleFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     uint32_t sample = 0;
     for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        auto in_span = in.subspan(sample, kUnrollFactor);
-        auto out_span = out.subspan(sample, kUnrollFactor);
+        const auto in_span = in.subspan(sample, kUnrollFactor);
+        const auto out_span = out.subspan(sample, kUnrollFactor);
 
         // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
         std::array<float, kUnrollFactor> batch{};
@@ -122,7 +123,7 @@ std::unique_ptr<AudioProcessor> OnePoleFilter::Clone() const
 }
 
 AllpassFilter::AllpassFilter(const AllpassFilterOptions& config)
-    : coeff_(config.coeff)
+    : coeff_(detail::RequireValidOptions(config).coeff)
     , last_in_(0.0f)
     , last_out_(0.0f)
 {
@@ -141,8 +142,8 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.ChannelCount() == 1);
 
-    auto in = input.GetChannelSpan(0);
-    auto out = output.GetChannelSpan(0);
+    const auto in = input.GetChannelSpan(0);
+    const auto out = output.GetChannelSpan(0);
 
     constexpr uint32_t kUnrollFactor = 8;
     const uint32_t size = in.size();
@@ -151,8 +152,8 @@ void AllpassFilter::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     uint32_t sample = 0;
     for (; sample < unroll_size; sample += kUnrollFactor)
     {
-        auto in_span = in.subspan(sample, kUnrollFactor);
-        auto out_span = out.subspan(sample, kUnrollFactor);
+        const auto in_span = in.subspan(sample, kUnrollFactor);
+        const auto out_span = out.subspan(sample, kUnrollFactor);
 
         // Filtering in a stack array seems to be faster than in-place filtering in the output channel directly
         std::array<float, kUnrollFactor> batch{};

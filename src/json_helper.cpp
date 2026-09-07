@@ -7,83 +7,168 @@
 #include <stdexcept>
 #include <vector>
 
-namespace
-{
-/** @brief Serializes a vector of optional per-channel options, using null for a bypassed channel. */
-template <typename T>
-nlohmann::json OptionalChannelsToJson(const std::vector<std::optional<T>>& channels)
-{
-    nlohmann::json array = nlohmann::json::array();
-    for (const auto& channel : channels)
-    {
-        if (channel.has_value())
-        {
-            array.push_back(channel.value());
-        }
-        else
-        {
-            array.push_back(nullptr);
-        }
-    }
-    return array;
-}
-
-/** @brief Deserializes a vector of optional per-channel options. A null entry means the channel is bypassed. */
-template <typename T>
-std::vector<std::optional<T>> OptionalChannelsFromJson(const nlohmann::json& j)
-{
-    if (!j.is_array())
-    {
-        throw std::invalid_argument("Per-channel processor options must be an array");
-    }
-
-    std::vector<std::optional<T>> channels;
-    channels.reserve(j.size());
-    for (const auto& entry : j)
-    {
-        if (entry.is_null())
-        {
-            channels.emplace_back(std::nullopt);
-        }
-        else
-        {
-            channels.emplace_back(entry.get<T>());
-        }
-    }
-    return channels;
-}
-} // namespace
-
 namespace sfFDN
 {
+namespace
+{
+const nlohmann::json& TaggedValue(const nlohmann::json& j, std::initializer_list<const char*> tags)
+{
+    if (!j.is_object() || j.size() != 1)
+    {
+        throw std::invalid_argument("Processor config must contain exactly one processor type");
+    }
+
+    const auto entry = j.begin();
+    for (const char* tag : tags)
+    {
+        if (entry.key() == tag)
+        {
+            return entry.value();
+        }
+    }
+    throw std::invalid_argument("Unknown processor config type");
+}
+
+} // namespace
+
+void to_json(nlohmann::json& j, const VariableDiffusionOptions& config)
+{
+    j = {{"diffusion", config.diffusion}};
+}
+
+void from_json(const nlohmann::json& j, VariableDiffusionOptions& config)
+{
+    if (!j.is_object() || j.size() != 1 || !j.contains("diffusion"))
+    {
+        throw std::invalid_argument("VariableDiffusionOptions must contain exactly diffusion");
+    }
+    VariableDiffusionOptions candidate;
+    json_detail::ReadField(j, "diffusion", candidate.diffusion);
+    config = candidate;
+}
+
+void to_json(nlohmann::json& j, const MatrixGeneratorOptions& config)
+{
+    std::visit(overloaded{
+                   [&j](ScalarMatrixType type) { j = type; },
+                   [&j](const VariableDiffusionOptions& options) { j = {{"VariableDiffusionOptions", options}}; },
+               },
+               config);
+}
+
+void from_json(const nlohmann::json& j, MatrixGeneratorOptions& config)
+{
+    MatrixGeneratorOptions candidate;
+    if (j.is_string())
+    {
+        candidate = j.get<ScalarMatrixType>();
+    }
+    else
+    {
+        const auto& options = TaggedValue(j, {"VariableDiffusionOptions"});
+        candidate = options.get<VariableDiffusionOptions>();
+    }
+    config = candidate;
+}
+
+void to_json(nlohmann::json& j, const GeneratedMatrixOptions& config)
+{
+    j = {{"matrix_size", config.matrix_size}, {"generator", config.generator}, {"rng_seed", config.rng_seed}};
+}
+
+void from_json(const nlohmann::json& j, GeneratedMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 3 || !j.contains("matrix_size") || !j.contains("generator") ||
+        !j.contains("rng_seed"))
+    {
+        throw std::invalid_argument("GeneratedMatrixOptions must contain exactly matrix_size, generator and rng_seed");
+    }
+    GeneratedMatrixOptions candidate;
+    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
+    candidate.generator = j.at("generator").get<MatrixGeneratorOptions>();
+    json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
+    config = candidate;
+}
+
+void to_json(nlohmann::json& j, const MatrixData& config)
+{
+    const auto values = config.Values();
+    j = {{"order", config.Order()}, {"coefficients", std::vector<float>(values.begin(), values.end())}};
+}
+
+void from_json(const nlohmann::json& j, MatrixData& config)
+{
+    if (!j.is_object() || j.size() != 2 || !j.contains("order") || !j.contains("coefficients"))
+    {
+        throw std::invalid_argument("MatrixData must contain exactly order and coefficients");
+    }
+    const auto order = json_detail::ReadUint32(j.at("order"));
+    auto coefficients = json_detail::ReadVector<float>(j.at("coefficients"));
+    MatrixData candidate(order, std::move(coefficients));
+    config = std::move(candidate);
+}
+
 void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config)
 {
-    j["matrix_size"] = config.matrix_size;
-    j["type"] = config.type;
-    if (config.custom_matrix.has_value())
-    {
-        j["custom_matrix"] = config.custom_matrix.value();
-    }
-    j["rng_seed"] = config.rng_seed;
-    if (config.arg.has_value())
-    {
-        j["arg"] = config.arg.value();
-    }
+    nlohmann::json source;
+    std::visit(overloaded{
+                   [&source](const GeneratedMatrixOptions& options) { source = {{"GeneratedMatrixOptions", options}}; },
+                   [&source](const MatrixData& data) { source = {{"MatrixData", data}}; },
+               },
+               config.source);
+    j = {{"source", std::move(source)}};
 }
 
 void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config)
 {
-    config.matrix_size = j.at("matrix_size").get<uint32_t>();
-    config.type = j.at("type").get<ScalarMatrixType>();
-    if (j.contains("custom_matrix") && !j["custom_matrix"].is_null())
+    if (!j.is_object() || j.size() != 1 || !j.contains("source"))
     {
-        config.custom_matrix = j["custom_matrix"].get<std::vector<float>>();
+        throw std::invalid_argument("ScalarFeedbackMatrixOptions must contain exactly source");
     }
-    config.rng_seed = j.at("rng_seed").get<uint32_t>();
-    if (j.contains("arg") && !j["arg"].is_null())
+    const auto& source = TaggedValue(j.at("source"), {"GeneratedMatrixOptions", "MatrixData"});
+
+    ScalarFeedbackMatrixOptions candidate;
+    if (j.at("source").contains("GeneratedMatrixOptions"))
     {
-        config.arg = j["arg"].get<float>();
+        candidate.source = source.get<GeneratedMatrixOptions>();
     }
+    else
+    {
+        candidate.source = source.get<MatrixData>();
+    }
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const CascadedFeedbackMatrixOptions& config)
+{
+    j = {
+        {"matrix_size", config.matrix_size},
+        {"stage_count", config.stage_count},
+        {"sparsity", config.sparsity},
+        {"generator", config.generator},
+        {"gain_per_samples", config.gain_per_samples},
+        {"rng_seed", config.rng_seed},
+    };
+}
+
+void from_json(const nlohmann::json& j, CascadedFeedbackMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 6 || !j.contains("matrix_size") || !j.contains("stage_count") ||
+        !j.contains("sparsity") || !j.contains("generator") || !j.contains("gain_per_samples") ||
+        !j.contains("rng_seed"))
+    {
+        throw std::invalid_argument(
+            "CascadedFeedbackMatrixOptions must contain exactly matrix_size, stage_count, sparsity, generator, "
+            "gain_per_samples and rng_seed");
+    }
+    CascadedFeedbackMatrixOptions candidate;
+    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
+    json_detail::ReadField(j, "stage_count", candidate.stage_count);
+    json_detail::ReadField(j, "sparsity", candidate.sparsity);
+    candidate.generator = j.at("generator").get<MatrixGeneratorOptions>();
+    json_detail::ReadField(j, "gain_per_samples", candidate.gain_per_samples);
+    json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
+    config = candidate;
 }
 
 void to_json(nlohmann::json& j, const DelayOptions& config)
@@ -99,17 +184,16 @@ void to_json(nlohmann::json& j, const DelayOptions& config)
 
 void from_json(const nlohmann::json& j, DelayOptions& config)
 {
-    config.delay = j.at("delay").get<float>();
-    config.max_delay = j.at("max_delay").get<uint32_t>();
-    config.interp_type = j.at("interp_type").get<DelayInterpolationType>();
+    json_detail::RequireObject(j, "DelayOptions");
+    DelayOptions candidate;
+    json_detail::ReadField(j, "delay", candidate.delay);
+    json_detail::ReadField(j, "max_delay", candidate.max_delay);
+    json_detail::ReadField(j, "interp_type", candidate.interp_type);
     if (j.contains("lfo_config") && !j["lfo_config"].is_null())
     {
-        config.lfo_config = j["lfo_config"].get<ModulationOptions>();
+        candidate.lfo_config = j["lfo_config"].get<ModulationOptions>();
     }
-    else
-    {
-        config.lfo_config = std::nullopt;
-    }
+    config = candidate;
 }
 
 void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config)
@@ -117,26 +201,28 @@ void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config)
     nlohmann::json filter_configs_json = nlohmann::json::array();
     for (const auto& filter_config : config.filter_configs)
     {
-        filter_configs_json.push_back(std::visit(overloaded{[](const HomogenousFilterOptions& config) {
-                                                                nlohmann::json j;
-                                                                j["ProportionalAttenuationConfig"] = config;
-                                                                return j;
-                                                            },
-                                                            [](const TwoBandFilterOptions& config) {
-                                                                nlohmann::json j;
-                                                                j["TwoBandFilterConfig"] = config;
-                                                                return j;
-                                                            },
-                                                            [](const ThreeBandFilterOptions& config) {
-                                                                nlohmann::json j;
-                                                                j["ThreeBandFilterConfig"] = config;
-                                                                return j;
-                                                            },
-                                                            [](const TenBandFilterOptions& config) {
-                                                                nlohmann::json j;
-                                                                j["TenBandFilterConfig"] = config;
-                                                                return j;
-                                                            }},
+        filter_configs_json.push_back(std::visit(overloaded{
+                                                     [](const HomogenousFilterOptions& config) {
+                                                         nlohmann::json j;
+                                                         j["ProportionalAttenuationConfig"] = config;
+                                                         return j;
+                                                     },
+                                                     [](const TwoBandFilterOptions& config) {
+                                                         nlohmann::json j;
+                                                         j["TwoBandFilterConfig"] = config;
+                                                         return j;
+                                                     },
+                                                     [](const ThreeBandFilterOptions& config) {
+                                                         nlohmann::json j;
+                                                         j["ThreeBandFilterConfig"] = config;
+                                                         return j;
+                                                     },
+                                                     [](const TenBandFilterOptions& config) {
+                                                         nlohmann::json j;
+                                                         j["TenBandFilterConfig"] = config;
+                                                         return j;
+                                                     },
+                                                 },
                                                  filter_config));
     }
     j["AttenuationFilterBankOptions"] = filter_configs_json;
@@ -149,215 +235,179 @@ void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config)
         throw std::invalid_argument("AttenuationFilterBankOptions must be an array.");
     }
 
-    config.filter_configs.clear();
+    AttenuationFilterBankOptions candidate;
     for (const auto& filter_config_json : j)
     {
+        const auto& filter_config = TaggedValue(filter_config_json, {
+                                                                        "ProportionalAttenuationConfig",
+                                                                        "TwoBandFilterConfig",
+                                                                        "ThreeBandFilterConfig",
+                                                                        "TenBandFilterConfig",
+                                                                    });
         if (filter_config_json.contains("ProportionalAttenuationConfig"))
         {
-            config.filter_configs.emplace_back(
-                filter_config_json["ProportionalAttenuationConfig"].get<HomogenousFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<HomogenousFilterOptions>());
         }
         else if (filter_config_json.contains("TwoBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(filter_config_json["TwoBandFilterConfig"].get<TwoBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<TwoBandFilterOptions>());
         }
         else if (filter_config_json.contains("ThreeBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(
-                filter_config_json["ThreeBandFilterConfig"].get<ThreeBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<ThreeBandFilterOptions>());
         }
         else if (filter_config_json.contains("TenBandFilterConfig"))
         {
-            config.filter_configs.emplace_back(filter_config_json["TenBandFilterConfig"].get<TenBandFilterOptions>());
+            candidate.filter_configs.emplace_back(filter_config.get<TenBandFilterOptions>());
         }
         else
         {
             throw std::invalid_argument("Unknown filter config type in AttenuationFilterBankOptions");
         }
     }
-}
-
-void to_json(nlohmann::json& j, const MultichannelControllableFullWaveRectifierOptions& config)
-{
-    j["channels"] = OptionalChannelsToJson(config.channels);
-}
-
-void from_json(const nlohmann::json& j, MultichannelControllableFullWaveRectifierOptions& config)
-{
-    config.channels = OptionalChannelsFromJson<ControllableFullWaveRectifierOptions>(j.at("channels"));
-}
-
-void to_json(nlohmann::json& j, const MultichannelSignalDependentFractionalDelayOptions& config)
-{
-    j["channels"] = OptionalChannelsToJson(config.channels);
-}
-
-void from_json(const nlohmann::json& j, MultichannelSignalDependentFractionalDelayOptions& config)
-{
-    config.channels = OptionalChannelsFromJson<SignalDependentFractionalDelayOptions>(j.at("channels"));
-}
-
-void to_json(nlohmann::json& j, const MultichannelRingModulatorOptions& config)
-{
-    j["channels"] = OptionalChannelsToJson(config.channels);
-}
-
-void from_json(const nlohmann::json& j, MultichannelRingModulatorOptions& config)
-{
-    config.channels = OptionalChannelsFromJson<RingModulatorOptions>(j.at("channels"));
+    config = std::move(candidate);
 }
 
 nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
 {
-    return std::visit(overloaded{[](const CascadedFeedbackMatrixOptions& info) {
-                                     nlohmann::json mat;
-                                     mat["CascadedFeedbackMatrixInfo"] = info;
-                                     return mat;
-                                 },
-                                 [](const ScalarFeedbackMatrixOptions& config) {
-                                     nlohmann::json mat;
-                                     mat["ScalarFeedbackMatrixOptions"] = config;
-                                     return mat;
-                                 },
-                                 [](const TimeVaryingFeedbackMatrixOptions& config) {
-                                     nlohmann::json mat;
-                                     mat["TimeVaryingFeedbackMatrixOptions"] = config;
-                                     return mat;
-                                 }},
+    return std::visit(overloaded{
+                          [](const CascadedFeedbackMatrixOptions& info) {
+                              nlohmann::json mat;
+                              mat["CascadedFeedbackMatrixInfo"] = info;
+                              return mat;
+                          },
+                          [](const ScalarFeedbackMatrixOptions& config) {
+                              nlohmann::json mat;
+                              mat["ScalarFeedbackMatrixOptions"] = config;
+                              return mat;
+                          },
+                          [](const TimeVaryingFeedbackMatrixOptions& config) {
+                              nlohmann::json mat;
+                              mat["TimeVaryingFeedbackMatrixOptions"] = config;
+                              return mat;
+                          },
+                      },
                       matrix_config);
 }
 
 nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config)
 {
-    return std::visit(overloaded{[](const SchroederAllpassSectionOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["SchroederAllpassSectionOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const TimeVaryingSchroederAllpassSectionOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["TimeVaryingSchroederAllpassSectionOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const AllpassFilterOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["AllpassFilterOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const CascadedBiquadsOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["CascadedBiquadsOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const FirOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["FirOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const DelayOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["DelayOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const DattorroDelayOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["DattorroDelayOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const ControllableFullWaveRectifierOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["ControllableFullWaveRectifierOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const SignalDependentFractionalDelayOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["SignalDependentFractionalDelayOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const RingModulatorOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["RingModulatorOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const GraphicEQOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["GraphicEQOptions"] = config;
-                                     return proc;
-                                 }},
+    return std::visit(overloaded{
+                          [](const SchroederAllpassSectionOptions& config) {
+                              nlohmann::json proc;
+                              proc["SchroederAllpassSectionOptions"] = config;
+                              return proc;
+                          },
+                          [](const TimeVaryingSchroederAllpassSectionOptions& config) {
+                              nlohmann::json proc;
+                              proc["TimeVaryingSchroederAllpassSectionOptions"] = config;
+                              return proc;
+                          },
+                          [](const AllpassFilterOptions& config) {
+                              nlohmann::json proc;
+                              proc["AllpassFilterOptions"] = config;
+                              return proc;
+                          },
+                          [](const CascadedBiquadsOptions& config) {
+                              nlohmann::json proc;
+                              proc["CascadedBiquadsOptions"] = config;
+                              return proc;
+                          },
+                          [](const FirOptions& config) {
+                              nlohmann::json proc;
+                              proc["FirOptions"] = config;
+                              return proc;
+                          },
+                          [](const DelayOptions& config) {
+                              nlohmann::json proc;
+                              proc["DelayOptions"] = config;
+                              return proc;
+                          },
+                          [](const DattorroDelayOptions& config) {
+                              nlohmann::json proc;
+                              proc["DattorroDelayOptions"] = config;
+                              return proc;
+                          },
+                          [](const ControllableFullWaveRectifierOptions& config) {
+                              nlohmann::json proc;
+                              proc["ControllableFullWaveRectifierOptions"] = config;
+                              return proc;
+                          },
+                          [](const SignalDependentFractionalDelayOptions& config) {
+                              nlohmann::json proc;
+                              proc["SignalDependentFractionalDelayOptions"] = config;
+                              return proc;
+                          },
+                          [](const RingModulatorOptions& config) {
+                              nlohmann::json proc;
+                              proc["RingModulatorOptions"] = config;
+                              return proc;
+                          },
+                          [](const GraphicEQOptions& config) {
+                              nlohmann::json proc;
+                              proc["GraphicEQOptions"] = config;
+                              return proc;
+                          },
+                      },
                       processor_config);
 }
 
 nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
 {
-    return std::visit(overloaded{[](const ParallelGainsOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["ParallelGainsConfig"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelSchroederAllpassSectionOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelSchroederAllpassSectionOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelTimeVaryingSchroederAllpassSectionOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelTimeVaryingSchroederAllpassSectionOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelDattorroDelayOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelDattorroDelayOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const AttenuationFilterBankOptions& config) {
-                                     nlohmann::json proc = config;
-                                     return proc;
-                                 },
-                                 [](const DelayBankOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["DelayBankOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const DelayBankTimeVaryingOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["DelayBankTimeVaryingOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const CascadedFeedbackMatrixOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["CascadedFeedbackMatrixInfo"] = config;
-                                     return proc;
-                                 },
-                                 [](const ScalarFeedbackMatrixOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["ScalarFeedbackMatrixOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelFirOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelFirOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelControllableFullWaveRectifierOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelControllableFullWaveRectifierOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelSignalDependentFractionalDelayOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelSignalDependentFractionalDelayOptions"] = config;
-                                     return proc;
-                                 },
-                                 [](const MultichannelRingModulatorOptions& config) {
-                                     nlohmann::json proc;
-                                     proc["MultichannelRingModulatorOptions"] = config;
-                                     return proc;
-                                 }},
+    return std::visit(overloaded{
+                          [](const ParallelGainsOptions& config) {
+                              nlohmann::json proc;
+                              proc["ParallelGainsConfig"] = config;
+                              return proc;
+                          },
+                          [](const MultichannelProcessorOptions& config) {
+                              nlohmann::json proc;
+                              proc["MultichannelProcessorOptions"] = config;
+                              return proc;
+                          },
+                          [](const AttenuationFilterBankOptions& config) {
+                              nlohmann::json proc = config;
+                              return proc;
+                          },
+                          [](const DelayBankOptions& config) {
+                              nlohmann::json proc;
+                              proc["DelayBankOptions"] = config;
+                              return proc;
+                          },
+                          [](const DelayBankTimeVaryingOptions& config) {
+                              nlohmann::json proc;
+                              proc["DelayBankTimeVaryingOptions"] = config;
+                              return proc;
+                          },
+                          [](const CascadedFeedbackMatrixOptions& config) {
+                              nlohmann::json proc;
+                              proc["CascadedFeedbackMatrixInfo"] = config;
+                              return proc;
+                          },
+                          [](const ScalarFeedbackMatrixOptions& config) {
+                              nlohmann::json proc;
+                              proc["ScalarFeedbackMatrixOptions"] = config;
+                              return proc;
+                          },
+                      },
                       processor_config);
 }
 
 single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann::json& j)
 {
+    TaggedValue(j, {
+                       "SchroederAllpassSectionOptions",
+                       "TimeVaryingSchroederAllpassSectionOptions",
+                       "AllpassFilterOptions",
+                       "CascadedBiquadsOptions",
+                       "FirOptions",
+                       "DelayOptions",
+                       "GraphicEQOptions",
+                       "DattorroDelayOptions",
+                       "ControllableFullWaveRectifierOptions",
+                       "SignalDependentFractionalDelayOptions",
+                       "RingModulatorOptions",
+                   });
     if (j.contains("SchroederAllpassSectionOptions"))
     {
         return j["SchroederAllpassSectionOptions"].get<SchroederAllpassSectionOptions>();
@@ -413,31 +463,30 @@ single_channel_processor_variant_t SingleChannelProcessorFromJson(const nlohmann
         return j["RingModulatorOptions"].get<RingModulatorOptions>();
     }
 
-    throw std::invalid_argument("Unknown single channel processor config type" + j.dump());
+    throw std::invalid_argument("Unknown single channel processor config type: " + j.dump());
 }
 
 multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::json& j)
 {
+    TaggedValue(j, {
+                       "ParallelGainsConfig",
+                       "MultichannelProcessorOptions",
+                       "AttenuationFilterBankOptions",
+                       "DelayBankOptions",
+                       "DelayBankTimeVaryingOptions",
+                       "CascadedFeedbackMatrixInfo",
+                       "ScalarFeedbackMatrixOptions",
+                   });
+
     if (j.contains("ParallelGainsConfig"))
     {
         auto config = j["ParallelGainsConfig"].get<ParallelGainsOptions>();
         return config;
     }
 
-    if (j.contains("MultichannelSchroederAllpassSectionOptions"))
+    if (j.contains("MultichannelProcessorOptions"))
     {
-        return j["MultichannelSchroederAllpassSectionOptions"].get<MultichannelSchroederAllpassSectionOptions>();
-    }
-
-    if (j.contains("MultichannelTimeVaryingSchroederAllpassSectionOptions"))
-    {
-        return j["MultichannelTimeVaryingSchroederAllpassSectionOptions"]
-            .get<MultichannelTimeVaryingSchroederAllpassSectionOptions>();
-    }
-
-    if (j.contains("MultichannelDattorroDelayOptions"))
-    {
-        return j["MultichannelDattorroDelayOptions"].get<MultichannelDattorroDelayOptions>();
+        return j["MultichannelProcessorOptions"].get<MultichannelProcessorOptions>();
     }
 
     if (j.contains("AttenuationFilterBankOptions"))
@@ -456,33 +505,69 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
         return j["DelayBankTimeVaryingOptions"].get<DelayBankTimeVaryingOptions>();
     }
 
-    if (j.contains("MultichannelFirOptions"))
+    if (j.contains("CascadedFeedbackMatrixInfo"))
     {
-        return j["MultichannelFirOptions"].get<MultichannelFirOptions>();
+        return j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();
     }
 
-    if (j.contains("MultichannelControllableFullWaveRectifierOptions"))
+    if (j.contains("ScalarFeedbackMatrixOptions"))
     {
-        return j["MultichannelControllableFullWaveRectifierOptions"]
-            .get<MultichannelControllableFullWaveRectifierOptions>();
-    }
-
-    if (j.contains("MultichannelSignalDependentFractionalDelayOptions"))
-    {
-        return j["MultichannelSignalDependentFractionalDelayOptions"]
-            .get<MultichannelSignalDependentFractionalDelayOptions>();
-    }
-
-    if (j.contains("MultichannelRingModulatorOptions"))
-    {
-        return j["MultichannelRingModulatorOptions"].get<MultichannelRingModulatorOptions>();
+        return j["ScalarFeedbackMatrixOptions"].get<ScalarFeedbackMatrixOptions>();
     }
 
     throw std::invalid_argument("Unknown multichannel processor config type");
 }
 
+void to_json(nlohmann::json& j, const MultichannelProcessorOptions& config)
+{
+    j = nlohmann::json{{"channels", nlohmann::json::array()}};
+    for (const auto& channel : config.channels)
+    {
+        j["channels"].push_back(channel.has_value() ? ToJson(channel.value()) : nlohmann::json(nullptr));
+    }
+}
+
+void from_json(const nlohmann::json& j, MultichannelProcessorOptions& config)
+{
+    if (!j.is_object() || j.size() != 1 || !j.contains("channels"))
+    {
+        throw std::invalid_argument("Multichannel processor options must contain exactly a channels array");
+    }
+
+    const auto& channels = j.at("channels");
+    if (!channels.is_array())
+    {
+        throw std::invalid_argument("Multichannel processor channels must be an array");
+    }
+
+    MultichannelProcessorOptions candidate;
+    candidate.channels.reserve(channels.size());
+    for (const auto& channel : channels)
+    {
+        if (channel.is_null())
+        {
+            candidate.channels.emplace_back(std::nullopt);
+        }
+        else
+        {
+            if (!channel.is_object())
+            {
+                throw std::invalid_argument("Multichannel processor channel must be an object or null");
+            }
+            if (channel.size() != 1)
+            {
+                throw std::invalid_argument(
+                    "Multichannel processor channel must contain exactly one processor type");
+            }
+            candidate.channels.emplace_back(SingleChannelProcessorFromJson(channel));
+        }
+    }
+    config = std::move(candidate);
+}
+
 feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
 {
+    TaggedValue(j, {"CascadedFeedbackMatrixInfo", "ScalarFeedbackMatrixOptions", "TimeVaryingFeedbackMatrixOptions"});
     if (j.contains("CascadedFeedbackMatrixInfo"))
     {
         auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();

@@ -54,21 +54,21 @@ const float* AudioBuffer::Data() const noexcept SFFDN_NONBLOCKING
 std::span<const float> AudioBuffer::GetChannelSpan(uint32_t channel) const noexcept SFFDN_NONBLOCKING
 {
     assert(channel < channel_count_);
-    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    const auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
     return channel_span;
 }
 
 std::span<float> AudioBuffer::GetChannelSpan(uint32_t channel) noexcept SFFDN_NONBLOCKING
 {
     assert(channel < channel_count_);
-    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    const auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
     return channel_span;
 }
 
 AudioBuffer AudioBuffer::GetChannelBuffer(uint32_t channel) const noexcept SFFDN_NONBLOCKING
 {
     assert(channel < channel_count_);
-    auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
+    const auto channel_span = buffer_.subspan(channel * frame_size_, frame_size_).subspan(offset_, chunk_size_);
     return AudioBuffer(channel_span);
 }
 

@@ -57,7 +57,7 @@ class FFTBuffer
 {
   public:
     FFTBuffer();
-    FFTBuffer(std::span<T> buffer);
+    explicit FFTBuffer(std::span<T> buffer);
     ~FFTBuffer();
 
     std::span<T> Data() noexcept SFFDN_NONBLOCKING;

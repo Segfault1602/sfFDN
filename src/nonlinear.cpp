@@ -3,10 +3,8 @@
 #include "sffdn/nonlinear.h"
 
 #include "dc_blocker.h"
-#include "passthrough.h"
 
 #include "sffdn/audio_buffer.h"
-#include "sffdn/filterbank.h"
 
 #include <algorithm>
 #include <cassert>
@@ -396,62 +394,31 @@ std::unique_ptr<AudioProcessor> RingModulator::Clone() const
     return std::make_unique<RingModulator>(*this);
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelControllableFullWaveRectifier(
-    const MultichannelControllableFullWaveRectifierOptions& options)
+MultichannelProcessorOptions MakeMultichannelControllableFullWaveRectifierOptions(float alpha, float sample_rate,
+                                                                                  uint32_t channel_count,
+                                                                                  uint32_t active_channel_count)
 {
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& channel_options : options.channels)
-    {
-        if (channel_options.has_value())
-        {
-            bank->AddFilter(std::make_unique<ControllableFullWaveRectifier>(channel_options.value()));
-        }
-        else
-        {
-            bank->AddFilter(std::make_unique<PassThrough>());
-        }
-    }
-    return bank;
-}
-
-MultichannelControllableFullWaveRectifierOptions MakeMultichannelControllableFullWaveRectifierOptions(
-    float alpha, float sample_rate, uint32_t channel_count, uint32_t active_channel_count)
-{
-    MultichannelControllableFullWaveRectifierOptions options;
+    MultichannelProcessorOptions options;
     options.channels.resize(channel_count);
 
     const uint32_t first_active = FirstActiveChannel(channel_count, active_channel_count);
     for (auto channel = first_active; channel < channel_count; ++channel)
     {
         options.channels[channel] = ControllableFullWaveRectifierOptions{
-            .alpha = alpha, .antialiasing = true, .dc_block = true, .sample_rate = sample_rate};
+            .alpha = alpha,
+            .antialiasing = true,
+            .dc_block = true,
+            .sample_rate = sample_rate,
+        };
     }
 
     return options;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelSignalDependentFractionalDelay(
-    const MultichannelSignalDependentFractionalDelayOptions& options)
+MultichannelProcessorOptions MakeMultichannelSignalDependentFractionalDelayOptions(float d, uint32_t channel_count,
+                                                                                   uint32_t active_channel_count)
 {
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& channel_options : options.channels)
-    {
-        if (channel_options.has_value())
-        {
-            bank->AddFilter(std::make_unique<SignalDependentFractionalDelay>(channel_options.value()));
-        }
-        else
-        {
-            bank->AddFilter(std::make_unique<PassThrough>());
-        }
-    }
-    return bank;
-}
-
-MultichannelSignalDependentFractionalDelayOptions MakeMultichannelSignalDependentFractionalDelayOptions(
-    float d, uint32_t channel_count, uint32_t active_channel_count)
-{
-    MultichannelSignalDependentFractionalDelayOptions options;
+    MultichannelProcessorOptions options;
     options.channels.resize(channel_count);
 
     const uint32_t first_active = FirstActiveChannel(channel_count, active_channel_count);
@@ -463,28 +430,10 @@ MultichannelSignalDependentFractionalDelayOptions MakeMultichannelSignalDependen
     return options;
 }
 
-std::unique_ptr<FilterBank> MakeMultichannelRingModulator(const MultichannelRingModulatorOptions& options)
+MultichannelProcessorOptions MakeMultichannelRingModulatorOptions(float frequency, float amplitude,
+                                                                  uint32_t channel_count, uint32_t active_channel_count)
 {
-    auto bank = std::make_unique<FilterBank>();
-    for (const auto& channel_options : options.channels)
-    {
-        if (channel_options.has_value())
-        {
-            bank->AddFilter(std::make_unique<RingModulator>(channel_options.value()));
-        }
-        else
-        {
-            bank->AddFilter(std::make_unique<PassThrough>());
-        }
-    }
-    return bank;
-}
-
-MultichannelRingModulatorOptions MakeMultichannelRingModulatorOptions(float frequency, float amplitude,
-                                                                      uint32_t channel_count,
-                                                                      uint32_t active_channel_count)
-{
-    MultichannelRingModulatorOptions options;
+    MultichannelProcessorOptions options;
     options.channels.resize(channel_count);
 
     const uint32_t first_active = FirstActiveChannel(channel_count, active_channel_count);

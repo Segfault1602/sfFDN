@@ -805,7 +805,7 @@ TEST_CASE("DcBlocker passes a signal it cannot attenuate", "[nonlinear]")
 
 // ==================== Multichannel banks ====================
 
-TEST_CASE("Multichannel nonlinearity banks bypass their null channels", "[nonlinear]")
+TEST_CASE("FilterBank bypasses null nonlinearity channels", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     constexpr uint32_t kBlockSize = 64;
@@ -858,31 +858,31 @@ TEST_CASE("Multichannel nonlinearity banks bypass their null channels", "[nonlin
         REQUIRE(options.channels[2].has_value());
         REQUIRE(options.channels[3].has_value());
 
-        auto bank = sfFDN::MakeMultichannelControllableFullWaveRectifier(options);
+        auto bank = std::make_unique<sfFDN::FilterBank>(options);
         check_bypass(*bank);
     }
 
     SECTION("SignalDependentFractionalDelay")
     {
         const auto options = sfFDN::MakeMultichannelSignalDependentFractionalDelayOptions(1.f, kChannels, 2);
-        auto bank = sfFDN::MakeMultichannelSignalDependentFractionalDelay(options);
+        auto bank = std::make_unique<sfFDN::FilterBank>(options);
         check_bypass(*bank);
     }
 
     SECTION("RingModulator")
     {
         const auto options = sfFDN::MakeMultichannelRingModulatorOptions(100.f / kSampleRate, kSqrt2, kChannels, 2);
-        auto bank = sfFDN::MakeMultichannelRingModulator(options);
+        auto bank = std::make_unique<sfFDN::FilterBank>(options);
         check_bypass(*bank);
     }
 }
 
-TEST_CASE("MakeMultichannelSignalDependentFractionalDelay keeps its channels independent", "[nonlinear]")
+TEST_CASE("FilterBank keeps fractional delay channels independent", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     constexpr uint32_t kBlockSize = 32;
 
-    auto bank = sfFDN::MakeMultichannelSignalDependentFractionalDelay(
+    auto bank = std::make_unique<sfFDN::FilterBank>(
         sfFDN::MakeMultichannelSignalDependentFractionalDelayOptions(0.5f, kChannels));
 
     std::vector<float> input(static_cast<size_t>(kChannels) * kBlockSize, 0.f);
@@ -909,7 +909,7 @@ TEST_CASE("MakeMultichannelSignalDependentFractionalDelay keeps its channels ind
     }
 }
 
-TEST_CASE("MultichannelRingModulatorOptions staggers the initial phases", "[nonlinear]")
+TEST_CASE("MultichannelProcessorOptions staggers ring modulator phases", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     const auto options = sfFDN::MakeMultichannelRingModulatorOptions(100.f / kSampleRate, kSqrt2, kChannels);
@@ -918,25 +918,25 @@ TEST_CASE("MultichannelRingModulatorOptions staggers the initial phases", "[nonl
     for (auto channel = 0u; channel < kChannels; ++channel)
     {
         REQUIRE(options.channels[channel].has_value());
-        REQUIRE_THAT(options.channels[channel]->initial_phase,
+        REQUIRE_THAT(std::get<sfFDN::RingModulatorOptions>(options.channels[channel].value()).initial_phase,
                      Catch::Matchers::WithinAbs(static_cast<float>(channel) / static_cast<float>(kChannels), 1e-6f));
     }
 }
 
-TEST_CASE("Multichannel nonlinearity banks reject invalid options", "[nonlinear]")
+TEST_CASE("FilterBank rejects invalid nonlinearity options", "[nonlinear]")
 {
-    sfFDN::MultichannelControllableFullWaveRectifierOptions rectifier_options;
+    sfFDN::MultichannelProcessorOptions rectifier_options;
     rectifier_options.channels.emplace_back(
         sfFDN::ControllableFullWaveRectifierOptions{.alpha = 2.f, .sample_rate = kSampleRate});
-    REQUIRE_THROWS_AS(sfFDN::MakeMultichannelControllableFullWaveRectifier(rectifier_options), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::FilterBank(rectifier_options), std::invalid_argument);
 
-    sfFDN::MultichannelSignalDependentFractionalDelayOptions sdfd_options;
+    sfFDN::MultichannelProcessorOptions sdfd_options;
     sdfd_options.channels.emplace_back(sfFDN::SignalDependentFractionalDelayOptions{.d = -1.f});
-    REQUIRE_THROWS_AS(sfFDN::MakeMultichannelSignalDependentFractionalDelay(sdfd_options), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::FilterBank(sdfd_options), std::invalid_argument);
 
-    sfFDN::MultichannelRingModulatorOptions ring_mod_options;
+    sfFDN::MultichannelProcessorOptions ring_mod_options;
     ring_mod_options.channels.emplace_back(sfFDN::RingModulatorOptions{.frequency = -1.f});
-    REQUIRE_THROWS_AS(sfFDN::MakeMultichannelRingModulator(ring_mod_options), std::invalid_argument);
+    REQUIRE_THROWS_AS(sfFDN::FilterBank(ring_mod_options), std::invalid_argument);
 }
 
 // ==================== In the feedback loop of an FDN ====================
@@ -975,23 +975,19 @@ sfFDN::FDNConfig MakeShimmerConfig()
 
     const float gain = 1.f / static_cast<float>(kOrder);
     config.input_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Split,
         .gains = std::vector<float>(kOrder, gain),
         .time_varying_config = {},
     };
     config.output_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Merge,
         .gains = std::vector<float>(kOrder, gain),
         .time_varying_config = {},
     };
 
-    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
-        .matrix_size = kOrder,
-        .type = sfFDN::ScalarMatrixType::Random,
-        .custom_matrix = std::nullopt,
-        .rng_seed = 4242,
-        .arg = std::nullopt,
-    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                                           .matrix_size = kOrder,
+                                                                           .generator = sfFDN::ScalarMatrixType::Random,
+                                                                           .rng_seed = 4242,
+                                                                       }};
 
     sfFDN::AttenuationFilterBankOptions attenuation;
     for (auto i = 0u; i < kOrder; ++i)

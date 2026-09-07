@@ -1,5 +1,6 @@
 #include "sffdn/filter.h"
 
+#include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
@@ -8,8 +9,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 #ifdef SFFDN_USE_IPP
@@ -18,6 +21,25 @@
 
 namespace sfFDN
 {
+namespace
+{
+void ValidateTapCount(std::span<const float> coeffs)
+{
+    if (coeffs.empty())
+    {
+        throw std::invalid_argument("Fir: at least one FIR coefficient is required");
+    }
+
+    constexpr size_t kMaximumTapCount =
+        std::min(static_cast<size_t>(std::numeric_limits<int>::max()),
+                 static_cast<size_t>(std::numeric_limits<uint32_t>::max() / 2U));
+    if (coeffs.size() > kMaximumTapCount)
+    {
+        throw std::invalid_argument("Fir: tap count exceeds FIR storage or backend indexing capacity");
+    }
+}
+} // namespace
+
 #ifndef SFFDN_USE_IPP
 class Fir::FirImpl
 {
@@ -36,7 +58,7 @@ class Fir::FirImpl
         delay_line_[delay_index_] = in;
         delay_line_[delay_index_ + coeffs_.size()] = in;
 
-        auto delay_span = std::span(delay_line_).subspan(delay_index_, coeffs_.size());
+        const auto delay_span = std::span(delay_line_).subspan(delay_index_, coeffs_.size());
 
         const Eigen::Map<const Eigen::VectorXf> coeffs_map(coeffs_.data(), static_cast<Eigen::Index>(coeffs_.size()));
         const Eigen::Map<const Eigen::VectorXf> delay_map(delay_span.data(),
@@ -55,7 +77,7 @@ class Fir::FirImpl
         assert(input.ChannelCount() == 1);
 
         const auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         for (uint32_t n = 0; n < sample_count; ++n)
         {
             output_span[n] = Tick(input_span[n]);
@@ -263,6 +285,7 @@ Fir& Fir::operator=(Fir&& other) noexcept
 
 void Fir::SetCoefficients(std::span<const float> coeffs)
 {
+    ValidateTapCount(coeffs);
     impl_->SetCoefficients(coeffs);
 }
 
@@ -300,10 +323,7 @@ std::unique_ptr<AudioProcessor> Fir::Clone() const
 
 std::unique_ptr<AudioProcessor> MakeFirFilter(const FirOptions& config, float sparse_threshold)
 {
-    if (config.coeffs.empty())
-    {
-        throw std::invalid_argument("MakeFirFilter: Coefficients cannot be empty");
-    }
+    ValidateTapCount(config.coeffs);
 
     const size_t non_zero_count =
         std::count_if(config.coeffs.begin(), config.coeffs.end(), [](float coeff) { return std::abs(coeff) > 1e-6f; });

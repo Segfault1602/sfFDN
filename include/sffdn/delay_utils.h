@@ -37,7 +37,7 @@ std::vector<float> GetDelayLengths(uint32_t delay_count, float min_delay, float 
  * @param mean_delay_ms the mean delay length in milliseconds
  * @param sigma the standard deviation for the distribution
  * @param sample_rate the sample rate in Hz
- * @return std::vector<uint32_t> a vector containing the generated delay lengths
+ * @return A vector containing the generated delay lengths.
  */
 std::vector<float> GetDelayLengthsFromMean(uint32_t delay_count, float mean_delay_ms, float sigma,
                                            uint32_t sample_rate);

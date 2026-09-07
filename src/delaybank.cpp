@@ -1,8 +1,9 @@
 #include "sffdn/delaybank.h"
 
-#include "json_helper.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
+
+#include "processor_option_validation.h"
 
 #include <cassert>
 #include <cstdint>
@@ -14,17 +15,12 @@
 namespace sfFDN
 {
 DelayBank::DelayBank(const DelayBankOptions& config)
-    : block_size_(config.block_size)
+    : block_size_(detail::RequireValidOptions(config).block_size)
     , interpolation_type_(config.interpolation_type)
 {
-    for (auto delay : config.delays)
+    for (const auto delay : config.delays)
     {
-        uint32_t max_delay = delay + block_size_ * 2;
-        if (max_delay % 64 != 0)
-        {
-            max_delay += 64 - (max_delay % 64);
-        }
-
+        const uint32_t max_delay = delay + block_size_ * 2;
         delays_.emplace_back(DelayOptions{.delay = delay, .max_delay = max_delay, .interp_type = interpolation_type_});
     }
 }

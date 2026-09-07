@@ -2,7 +2,7 @@
 
 #include "sffdn/audio_buffer.h"
 
-#include "json_helper.h"
+#include "processor_option_validation.h"
 
 #include <array>
 #include <algorithm>
@@ -18,6 +18,12 @@ constexpr float kMinimumAllpassDelay = 0.5f;
 
 /// Smallest delay the 3rd order Lagrange structure can represent: the fractional part is kept in [1, 2).
 constexpr float kMinimumLagrangeDelay = 1.0f;
+
+sfFDN::Delay MakeDelayLine(const sfFDN::DelayOptions& config)
+{
+    const auto& validated = sfFDN::detail::RequireValidOptions(config);
+    return {static_cast<uint32_t>(validated.delay), validated.max_delay};
+}
 
 template <size_t N>
 std::array<float, N + 1> GetLagrangeCoefficients(float delay)
@@ -44,7 +50,7 @@ namespace sfFDN
 {
 
 DelayInterp::DelayInterp(const DelayOptions& config)
-    : delayline_(static_cast<uint32_t>(config.delay), config.max_delay)
+    : delayline_(MakeDelayLine(config))
     , delay_(-1.0f) // never a valid delay, so the SetDelay() below always runs
     , int_delay_(0)
     , frac_delay_(0.0f)
@@ -306,7 +312,7 @@ void DelayInterp::Process(const AudioBuffer& input, AudioBuffer& output) noexcep
     else if (type_ == DelayInterpolationType::Lagrange)
     {
         const auto input_span = input.GetChannelSpan(0);
-        auto output_span = output.GetChannelSpan(0);
+        const auto output_span = output.GetChannelSpan(0);
         const size_t required_history = input_span.size() + int_delay_ + kLagrangeOrder;
 
         if (!delayline_.CanAddNextInputs(input_span.size()) || required_history > delayline_.GetMaximumDelay())

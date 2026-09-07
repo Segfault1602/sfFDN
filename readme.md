@@ -9,7 +9,7 @@
 - Single channel and multi-channel IIR filters
 - Graphic Equalizers filter as presented in [^3]
 - Partitioned convolution for FIR filtering
-- Sparse FIR filter
+- Sparse FIR filtering
 - Schroeder all-pass filters
 - Time-varying delay lines
 - Time-varying input and output gains
@@ -24,7 +24,7 @@ This topology can be separated into seven building blocks: the input gains (gree
 
 <summary> Input/Output gains </summary>
 
-The input gains block supports any processor that takes a single channel of audio as input and outputs $N$ channels of audio. Conversely, the output gains block consists of any processor that takes $N$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain ($b_i$, $c_i$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into $N$ output channels (input gains) or sum $N$ input channels into a single output channel (output gains). FIR filters are a commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining an 'FIR' processor with the `ParallelGains` processor. For longer FIR filters, the `PartitionedConvolver` processor can be used to greatly reduce the computational cost of the convolution. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented easily in sfFDN by using the `SparseFIR` class which provides an efficient implementation of sparse FIR filters, especially suited for velvet-noise sequences. The `FilterBank` processor can also be used to create a bank of parallel filters, allowing for each channel to have its own unique FIR or velvet-noise filter.
+The input gains block supports any processor that takes a single channel of audio as input and outputs $N$ channels of audio. Conversely, the output gains block consists of any processor that takes $N$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain ($b_i$, $c_i$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into $N$ output channels (input gains) or sum $N$ input channels into a single output channel (output gains). FIR filters are commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining a `Fir` processor with `ParallelGains`. For longer FIR filters, `PartitionedConvolver` can reduce convolution cost. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented with `SparseFir`, which efficiently represents sparse FIR filters suited to velvet-noise sequences. `FilterBank` can also create a bank of parallel filters, allowing each channel to have its own FIR or velvet-noise filter.
 
 </details>
 
@@ -32,10 +32,10 @@ The input gains block supports any processor that takes a single channel of audi
 
 <summary> Delay Lines </summary>
 
-For efficiency reasons, sfFDN restrict the main delay lengths to integer values, but fractional and
-time-varying delay lines can easily be integrated by including a `DelayInterp` or `DelayTimeVarying`
-processor inside the loop filter block. The `GetDelayLengths()` function provide a conve-
-nient way to generate delay lengths based on several heuristics:
+Primary delay lengths are in samples and must be at least the FDN's processing block size.
+Use `DelayBankOptions::interpolation_type` or the interpolation argument to `FDN::SetDelays()`
+for fractional lengths. `DelayTimeVarying` processors can add modulated delays inside the loop.
+`GetDelayLengths()` generates delay lengths using several heuristics:
 
 - **Random** Randomly generate delay lengths pulled from a uniform distribution
 - **Gaussian**: Randomly generate delay lengths pulled from a Gaussian distribution.
@@ -52,7 +52,7 @@ deviation.
 <details>
 <summary> Feedback Matrix </summary>
 
-The feedback matrix supports any processor that takes N channels of audio as input and outputs $N$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. Arbitrary matrix can also be constructed by providing the matrix coefficient directly. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7]. The matrix multiplications are performed using [Eigen](https://libeigen.gitlab.io) for fast performance.
+The feedback matrix supports any processor that takes N channels of audio as input and outputs $N$ channels of audio. Common feedback matrices implemented in sfFDN by the ScalarFeedbackMatrix class include the Hadamard, Householder, random orthogonal, circulant, the allpass and nested allpass feedback matrix from (Schlecht, 2021)[^6], as well as the identity matrix. A scalar matrix is either a generated recipe or explicit `MatrixData`; the latter owns its coefficients. The FilterFeedbackMatrix class is also provided and implements the filter feedback matrix structure proposed by Schlecht and Habets (2020)[^7].
 
 </details>
 
@@ -66,16 +66,42 @@ pyFDN/NumPy matrix `A` with shape `(out, in)`, use its C-order flattening:
 coefficients = numpy.asarray(A).ravel(order="C")
 ```
 
-pyFDN evaluates the same mapping as `x @ A.T`. This is unrelated to sfFDN's **transposed FDN
-topology** (`FDN::SetTranspose`): that setting reorders the FDN signal-flow topology; it does not
-apply $A^T$ to a supplied feedback matrix. Supply an explicitly transposed matrix when $A^T$ is
-desired.
+## Matrix sources and seeds
+
+`ScalarFeedbackMatrixOptions::source` is either a generated `GeneratedMatrixOptions` recipe or
+owned, shape-checked `MatrixData`. `MatrixData(order, coefficients)` verifies that its row-major
+coefficient vector has exactly `order * order` values; use its `Values()` spans to inspect or edit
+those owned values.
+
+```c++
+// Generated recipe
+sfFDN::ScalarFeedbackMatrixOptions generated{
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = kFDNOrder,
+        .generator = sfFDN::ScalarMatrixType::Hadamard,
+        .rng_seed = sfFDN::kDefaultMatrixSeed}};
+
+// Explicit row-major data for y = A x
+sfFDN::ScalarFeedbackMatrixOptions explicit_matrix{
+    .source = sfFDN::MatrixData{2, {1.f, 0.f, 0.f, 1.f}}};
+
+// Parameterized Variable Diffusion recipe
+sfFDN::ScalarFeedbackMatrixOptions diffusion{
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = kFDNOrder,
+        .generator = sfFDN::VariableDiffusionOptions{.diffusion = 0.5f},
+        .rng_seed = 0U}};
+```
 
 <details>
 <summary> Loop Filters </summary>
 
-The loop filters block is an optional block that supports any processor that takes $N$ channels of
-audio as input and outputs $N$ channels of audio. Most commonly, a bank of $N$ parallel filters are used to control the decay time of the FDN. The function `CreateAttenuationFilterBank()` can be used to create a bank of filters to control the decay time of the FDN. The type of filter used depends on the length of the `t60s` span parameter. If 1 $T_{60}$ value is provided, a simple homogenous decay is applied to all delay lines using a simple gain scalar. If 2 $T_{60}$ values are provided, a one-pole lowwpass filter is designed to achieve the desired decay time at low and high frequencies. If 10 $T_{60}$ values are provided, a graphic equalizer filter is designed to achieve the desired decay time at 10 octave bands. The `FilterBank` class can also be used to create an arbitrary bank of parallel filters, allowing for each channel to have its own unique filter.
+The optional loop-filter block takes $N$ channels of audio and outputs $N$ channels.
+`CreateAttenuationFilterBank()` builds decay-control filters from attenuation options.
+Choose `HomogenousFilterOptions` for frequency-independent decay, or `TwoBandFilterOptions`,
+`ThreeBandFilterOptions`, or `TenBandFilterOptions` for frequency-dependent T60 targets.
+Pass one design with a span of delay lengths, or an `AttenuationFilterBankOptions` value
+containing per-channel designs. `FilterBank` also supports arbitrary parallel single-channel processors.
 
 </details>
 
@@ -88,39 +114,47 @@ Here is an example of how to create a 'classic' FDN of 8 delay lines with a Hada
 constexpr uint32_t kSampleRate = 48000;
 constexpr uint32_t kFDNOrder = 8;
 
-sfFDN::FDN fdn(kFDNOrder);
+constexpr uint32_t kBlockSize = 128;
+sfFDN::FDN fdn(kFDNOrder, kBlockSize);
 
 // Set all input gains to 0.5
-std::vector<float> input_gains(kFDNOrder, 0.5f);
+const std::vector<float> input_gains(kFDNOrder, 0.5f);
 fdn.SetInputGains(input_gains);
 
 // Set all output gains to 0.5
-std::vector<float> output_gains(kFDNOrder, 0.5f);
+const std::vector<float> output_gains(kFDNOrder, 0.5f);
 fdn.SetOutputGains(output_gains);
 
 // Set Hadamard feedback matrix
 sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options;
-feedback_matrix_options.matrix_size = kFDNOrder;
-feedback_matrix_options.type = sfFDN::ScalarMatrixType::Hadamard;
+feedback_matrix_options.source = sfFDN::GeneratedMatrixOptions{
+    .matrix_size = kFDNOrder,
+    .generator = sfFDN::ScalarMatrixType::Hadamard};
 auto feedback_matrix = std::make_unique<sfFDN::ScalarFeedbackMatrix>(feedback_matrix_options);
 fdn.SetFeedbackMatrix(std::move(feedback_matrix));
 
 // Set random delay lengths
-std::vector<uint32_t> delays = sfFDN::GetDelayLengths(kFDNOrder, 500, 3000, sfFDN::DelayLengthType::Random);
+const std::vector<float> delays =
+    sfFDN::GetDelayLengths(kFDNOrder, 500.f, 3000.f, sfFDN::DelayLengthType::Random);
 fdn.SetDelays(delays);
 
 // Set homogeneous decay of 1 second
-constexpr std::array t60s = {1.0f};
-auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(t60s, delays, kSampleRate);
+const sfFDN::HomogenousFilterOptions attenuation_options{
+    .t60 = 1.f,
+    .delay = 0.f,
+    .sample_rate = static_cast<float>(kSampleRate)};
+auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(attenuation_options, delays);
 fdn.SetLoopFilter(std::move(attenuation_filter));
 
 ```
 
-Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
-The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
+An FDN can also be constructed from a configuration value with `CreateFDNFromConfig()`.
+`MakeDefaultFDNConfig()` provides a complete wet default configuration; explicitly configured input and output use
+the named `InputStageConfig` and `OutputStageConfig` stages. JSON serialization is opt-in: include
+`<sffdn/serialization.h>` and link JSON consumers to `sfFDN::serialization`.
 
 ```c++
-sfFDN::FDNConfig config;
+sfFDN::FDNConfig config{};
 config.fdn_size = 8;
 config.direct_gain = 1.f;
 config.block_size = 128;
@@ -133,14 +167,15 @@ sfFDN::DelayBankOptions delay_bank_options{
 
 config.delay_bank_config = delay_bank_options;
 
-sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
-                                                .gains = std::vector<float>(config.fdn_size, 0.5f)};
+sfFDN::StageGainsOptions input_gains_options{
+    .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.input_block_config.parallel_gains_config = input_gains_options;
 
 sfFDN::ScalarFeedbackMatrixOptions feedback_matrix_options{
-    .matrix_size = config.fdn_size,
-    .type = sfFDN::ScalarMatrixType::Hadamard};
+    .source = sfFDN::GeneratedMatrixOptions{
+        .matrix_size = config.fdn_size,
+        .generator = sfFDN::ScalarMatrixType::Hadamard}};
 
 config.feedback_matrix_config = feedback_matrix_options;
 
@@ -153,8 +188,7 @@ attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_optio
 
 config.attenuation_filter_bank_config = attenuation_filter_bank_options;
 
-sfFDN::ParallelGainsOptions output_gains_options{
-    .mode = sfFDN::ParallelGainsMode::Merge,
+sfFDN::StageGainsOptions output_gains_options{
     .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.output_block_config.parallel_gains_config = output_gains_options;

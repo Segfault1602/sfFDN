@@ -1,13 +1,14 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
-
 #include <array>
 #include <cstdint>
 #include <numbers>
 #include <optional>
+#include <utility>
 #include <variant>
 #include <vector>
+
+#include "sffdn/matrix_data.h"
 
 namespace sfFDN
 {
@@ -27,6 +28,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 constexpr uint32_t kDefaultSampleRate = 48000;
 constexpr uint32_t kDefaultBlockSize = 128;
+inline constexpr uint32_t kDefaultMatrixSeed = 0x5EED1234U;
 
 /** @defgroup AudioProcessorOptions Audio Processors Options
  * @brief Structs for configuring audio processors used in the FDN.
@@ -59,7 +61,7 @@ enum class ScalarMatrixType : uint8_t
     Allpass = 6,           /**< Allpass matrix. See [2]*/
     NestedAllpass = 7,     /**< Nested Allpass matrix. See [2] */
     VariableDiffusion = 8, /**< Variable diffusion matrix as described in [3] */
-    Count = 9
+    Count = 9,
 };
 
 /** @brief Types of interpolation for fractional delay lengths. */
@@ -116,7 +118,7 @@ enum class ParallelGainsMode : uint8_t
     Merge,
 
     //! Process each input channel separately and output to the same number of channels
-    Parallel
+    Parallel,
 };
 
 /** @brief Construction modes for a TimeVaryingFeedbackMatrix.
@@ -127,10 +129,28 @@ enum class TimeVaryingMatrixMode : uint8_t
 {
     Hadamard = 0,  /**< Uses H^T * blockdiag(R(theta)) * H. Requires a power-of-two matrix_size. */
     RealSchur = 1, /**< Uses V * blockdiag(R(theta)) * V^T. Accepts any even matrix_size. */
-    Count = 2      /**< Number of time-varying matrix modes. */
+    Count = 2,     /**< Number of time-varying matrix modes. */
 };
 
 // STRUCTS
+
+struct VariableDiffusionOptions
+{
+    float diffusion{1.f};
+
+    bool operator==(const VariableDiffusionOptions&) const = default;
+};
+
+using MatrixGeneratorOptions = std::variant<ScalarMatrixType, VariableDiffusionOptions>;
+
+struct GeneratedMatrixOptions
+{
+    uint32_t matrix_size{0};
+    MatrixGeneratorOptions generator{ScalarMatrixType::Random};
+    uint32_t rng_seed{kDefaultMatrixSeed};
+
+    bool operator==(const GeneratedMatrixOptions&) const = default;
+};
 
 /** @brief Options for configuring a scalar feedback matrix.
  *
@@ -138,23 +158,18 @@ enum class TimeVaryingMatrixMode : uint8_t
  */
 struct ScalarFeedbackMatrixOptions
 {
-    //! Size of the feedback matrix
-    uint32_t matrix_size{0};
+    std::variant<GeneratedMatrixOptions, MatrixData> source;
 
-    //! Type of the feedback matrix
-    ScalarMatrixType type{ScalarMatrixType::Random};
+    uint32_t MatrixSize() const
+    {
+        return std::visit(overloaded{
+                              [](const GeneratedMatrixOptions& generated) { return generated.matrix_size; },
+                              [](const MatrixData& matrix) { return matrix.Order(); },
+                          },
+                          source);
+    }
 
-    //! Optional custom matrix values in row-major order: custom_matrix[row * matrix_size + column] is
-    //! A[row, column], mapping source/input columns to destination/output rows (y = A*x). The size of the vector
-    //! must be matrix_size*matrix_size. If this is set, `type` is ignored.
-    std::optional<std::vector<float>> custom_matrix{std::nullopt};
-
-    //! Optional. Seed for random number generation when type is Random or RandomHouseholder.
-    uint32_t rng_seed{0};
-
-    //! Optional argument for certain matrix types. For example, for the VariableDiffusion type, this could represent
-    // the diffusion parameter.
-    std::optional<float> arg{std::nullopt};
+    bool operator==(const ScalarFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
@@ -170,9 +185,11 @@ struct CascadedFeedbackMatrixOptions
     uint32_t stage_count{0}; /**< Number of stages */
     float sparsity{1.f};     /**< Sparsity level (>= 1). A value of 1 corresponds to a fully dense matrix, while higher
                                 values correspond to sparser matrices. */
-    ScalarMatrixType type{
-        ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
-    float gain_per_samples{1.f};   /**< Gain per sample. */
+    MatrixGeneratorOptions generator{ScalarMatrixType::Random}; /**< Matrix recipe used for all stages. */
+    float gain_per_samples{1.f};                                /**< Gain per sample. */
+    uint32_t rng_seed{kDefaultMatrixSeed};                      /**< Seed for all stage matrices and delay shifts. */
+
+    bool operator==(const CascadedFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Options for configuring signal modulation. */
@@ -186,6 +203,8 @@ struct ModulationOptions
                               2.2 radians, not 0.7 radians. The JASA paper instead expresses `μ_A` in radians, with
                               `μ_A <= π`. */
     float initial_phase{0.f}; /**< Finite initial phase of the modulation, normalized to [0, 1]. */
+
+    bool operator==(const ModulationOptions&) const = default;
 };
 
 /** @brief Options for configuring a TimeVaryingFeedbackMatrix.
@@ -199,8 +218,10 @@ struct TimeVaryingFeedbackMatrixOptions
     TimeVaryingMatrixMode mode{TimeVaryingMatrixMode::Hadamard}; /**< Construction mode for the orthogonal matrix. */
     std::vector<ModulationOptions>
         time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
-    uint32_t rng_seed{0};    /**< Seed for the RealSchur random orthogonal basis. In RealSchur mode, zero selects a
-                                fixed seed so configurations are reproducible; Hadamard mode ignores it. */
+    uint32_t rng_seed{kDefaultMatrixSeed}; /**< Seed for the RealSchur random orthogonal basis; Hadamard mode ignores
+                                              it. */
+
+    bool operator==(const TimeVaryingFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Options for configuring parallel gain processing. */
@@ -212,6 +233,20 @@ struct ParallelGainsOptions
     std::vector<ModulationOptions>
         time_varying_config; /**< Optional time-varying modulation configuration for each channel. The size of the
                                   vector must match the size of `gains` if provided. */
+
+    bool operator==(const ParallelGainsOptions&) const = default;
+};
+
+/** @brief Gain configuration for an FDN input or output stage.
+ *
+ * Stage placement determines routing. Modulation is empty or has exactly one entry per gain.
+ */
+struct StageGainsOptions
+{
+    std::vector<float> gains;
+    std::vector<ModulationOptions> time_varying_config;
+
+    bool operator==(const StageGainsOptions&) const = default;
 };
 
 /** @brief Options for configuring delays. */
@@ -221,10 +256,13 @@ struct DelayOptions
     uint32_t max_delay{512}; /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                              must be greater than or equal to `delay`. */
     sfFDN::DelayInterpolationType interp_type{
-        sfFDN::DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+        sfFDN::DelayInterpolationType::None,
+    }; /*< Interpolation type for fractional delays. */
     std::optional<sfFDN::ModulationOptions> lfo_config{
         std::nullopt}; /*< Optional LFO configuration for time-varying delay modulation. If provided, the delay will be
                           modulated according to the specified parameters. */
+
+    bool operator==(const DelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a delay bank. */
@@ -236,7 +274,10 @@ struct DelayBankOptions
     uint32_t block_size{kDefaultBlockSize}; /*< Block size for processing audio. This is used to determine the size of
                                                internal buffers and can affect performance. */
     DelayInterpolationType interpolation_type{
-        DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+        DelayInterpolationType::None,
+    }; /*< Interpolation type for fractional delays. */
+
+    bool operator==(const DelayBankOptions&) const = default;
 };
 
 /** @brief Options for configuring a time-varying delay bank. */
@@ -247,9 +288,12 @@ struct DelayBankTimeVaryingOptions
     uint32_t max_delay{0};     /*< Maximum delay in samples. This is used to determine the size of the delay buffer and
                                     must be greater than or equal to the initial delays. */
     DelayInterpolationType interpolation_type{
-        DelayInterpolationType::None};                  /*< Interpolation type for fractional delays. */
+        DelayInterpolationType::None,
+    };                                                  /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
+
+    bool operator==(const DelayBankTimeVaryingOptions&) const = default;
 };
 
 /** @brief Coefficients for a digital IIR filter. */
@@ -278,6 +322,8 @@ struct FilterCoefficients
     {
         return {.b0 = b0 / a0, .b1 = b1 / a0, .b2 = b2 / a0, .a0 = 1.0f, .a1 = a1 / a0, .a2 = a2 / a0};
     }
+
+    bool operator==(const FilterCoefficients&) const = default;
 };
 
 /** @brief Options for configuring an allpass filter. */
@@ -285,29 +331,32 @@ struct AllpassFilterOptions
 {
     /** @brief The coefficient for the allpass filter. */
     float coeff{0.f};
+
+    bool operator==(const AllpassFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a sparse FIR filter. */
 struct SparseFirOptions
 {
     std::vector<std::pair<uint32_t, float>> coeffs; // pair of (index, coefficient)
+
+    bool operator==(const SparseFirOptions&) const = default;
 };
 
 /** @brief Options for configuring cascaded biquad filters. */
 struct CascadedBiquadsOptions
 {
     std::vector<FilterCoefficients> coeffs;
+
+    bool operator==(const CascadedBiquadsOptions&) const = default;
 };
 
 /** @brief Options for configuring a FIR filter. */
 struct FirOptions
 {
     std::vector<float> coeffs{1.f};
-};
 
-struct MultichannelFirOptions
-{
-    std::vector<std::vector<float>> coeffs;
+    bool operator==(const FirOptions&) const = default;
 };
 
 /** @brief Options for configuring a Schroeder allpass section consisting of `N` Schroeder allpass in series or in
@@ -319,13 +368,8 @@ struct SchroederAllpassSectionOptions
                                   the size of `delays`. */
     bool parallel{false}; /*< If true, the allpass filters in the section are connected in parallel. If false, they are
                              connected in series. */
-};
 
-/** @brief Options for configuring a multichannel bank of Schroeder allpass sections. Each section processes one channel
- * of audio. */
-struct MultichannelSchroederAllpassSectionOptions
-{
-    std::vector<SchroederAllpassSectionOptions> sections;
+    bool operator==(const SchroederAllpassSectionOptions&) const = default;
 };
 
 /** @brief Options for configuring an energy-preserving time-varying Schroeder allpass section.
@@ -340,12 +384,8 @@ struct TimeVaryingSchroederAllpassSectionOptions
     std::vector<ModulationOptions>
         time_varying_config; /**< Gain modulation per stage. `amplitude` is the non-zero peak gain deviation. */
     bool parallel{false};    /**< If true, process stages in parallel. Otherwise, process them in series. */
-};
 
-/** @brief Options for configuring a multichannel bank of time-varying Schroeder allpass sections. */
-struct MultichannelTimeVaryingSchroederAllpassSectionOptions
-{
-    std::vector<TimeVaryingSchroederAllpassSectionOptions> sections;
+    bool operator==(const TimeVaryingSchroederAllpassSectionOptions&) const = default;
 };
 
 /** @brief Classic delay-line effects, as described in Table 1 of Jon Dattorro, "Effect Design Part 2: Delay-Line
@@ -373,23 +413,18 @@ struct DattorroDelayOptions
      * choice for a modulated insert effect and `DelayInterpolationType::Allpass` the correct one inside a feedback
      * loop; see DattorroDelay for why. */
     DelayOptions delay_config{
-        .delay = 256.f, .max_delay = 512, .interp_type = DelayInterpolationType::Allpass, .lfo_config = std::nullopt};
+        .delay = 256.f,
+        .max_delay = 512,
+        .interp_type = DelayInterpolationType::Allpass,
+        .lfo_config = std::nullopt,
+    };
     float blend{0.7071f};    /*< Gain applied to the input of the delay line. */
     float feedforward{1.f};  /*< Gain applied to the modulated output of the delay line. */
     float feedback{0.7071f}; /*< Gain applied to the fixed output of the delay line before it is fed back into the
                                 delay line. The feedback is subtracted at the summing junction, so a positive value
                                 recirculates with inverted polarity. Must be in the range (-1, 1) to be stable. */
-};
 
-/** @brief Options for configuring a multichannel bank of Dattorro delay-line effects. Each entry processes one channel
- * of audio.
- *
- * See MakeMultichannelDattorroDelayOptions() for a decorrelated preset, and MakeMultichannelDattorroDelay() to build
- * the processor.
- */
-struct MultichannelDattorroDelayOptions
-{
-    std::vector<DattorroDelayOptions> delays;
+    bool operator==(const DattorroDelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a controllable full-wave rectifier.
@@ -411,13 +446,8 @@ struct ControllableFullWaveRectifierOptions
     /** @brief Sample rate in Hz. Only used to set the time constants of the dc blocker, so it is irrelevant when
      * `dc_block` is false. */
     float sample_rate{static_cast<float>(kDefaultSampleRate)};
-};
 
-/** @brief Options for configuring a multichannel bank of controllable full-wave rectifiers. Each entry processes one
- * channel of audio, and a `std::nullopt` entry leaves its channel unprocessed. */
-struct MultichannelControllableFullWaveRectifierOptions
-{
-    std::vector<std::optional<ControllableFullWaveRectifierOptions>> channels;
+    bool operator==(const ControllableFullWaveRectifierOptions&) const = default;
 };
 
 /** @brief Options for configuring a signal-dependent fractional delay.
@@ -431,13 +461,8 @@ struct SignalDependentFractionalDelayOptions
      * negative one by `1 - d` samples, so zero is a plain one-sample delay and larger values distort the waveform
      * more strongly around its zero crossings. */
     float d{1.f};
-};
 
-/** @brief Options for configuring a multichannel bank of signal-dependent fractional delays. Each entry processes one
- * channel of audio, and a `std::nullopt` entry leaves its channel unprocessed. */
-struct MultichannelSignalDependentFractionalDelayOptions
-{
-    std::vector<std::optional<SignalDependentFractionalDelayOptions>> channels;
+    bool operator==(const SignalDependentFractionalDelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a ring modulator.
@@ -457,13 +482,8 @@ struct RingModulatorOptions
     float amplitude{std::numbers::sqrt2_v<float>};
     /** @brief Initial phase of the modulating sinusoid, normalized to [0, 1]. */
     float initial_phase{0.f};
-};
 
-/** @brief Options for configuring a multichannel bank of ring modulators. Each entry processes one channel of audio,
- * and a `std::nullopt` entry leaves its channel unprocessed. */
-struct MultichannelRingModulatorOptions
-{
-    std::vector<std::optional<RingModulatorOptions>> channels;
+    bool operator==(const RingModulatorOptions&) const = default;
 };
 
 /** @brief Options for configuring a homogenous filter. The homogenous filter has the same attenuation characteristics
@@ -475,6 +495,8 @@ struct HomogenousFilterOptions
                     automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const HomogenousFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a two-band filter. The two-band filter allows for specifying a target t60 at DC and
@@ -490,6 +512,8 @@ struct TwoBandFilterOptions
                     automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const TwoBandFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a three-band filter. The three-band filter is composed of a 2nd order low shelf and a
@@ -505,6 +529,8 @@ struct ThreeBandFilterOptions
                                                      cause instability if placed in a feedback loop. */
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const ThreeBandFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a ten-band filter. The ten-band filter allows control of the T60 over ten bands.
@@ -528,6 +554,8 @@ struct TenBandFilterOptions
 
     //! Cutoff frequency for the shelf filters.
     float shelf_cutoff = 8000.f;
+
+    bool operator==(const TenBandFilterOptions&) const = default;
 };
 
 /** @brief Variant type for holding different attenuation filter options. */
@@ -539,6 +567,8 @@ struct AttenuationFilterBankOptions
 {
     //! Vector of attenuation filter configurations.
     std::vector<attenuation_filter_variant_t> filter_configs;
+
+    bool operator==(const AttenuationFilterBankOptions&) const = default;
 };
 
 /** @brief Options for configuring a graphic equalizer. */
@@ -552,6 +582,8 @@ struct GraphicEQOptions
 
     //! Sample rate in Hz.
     float sample_rate = kDefaultSampleRate;
+
+    bool operator==(const GraphicEQOptions&) const = default;
 };
 
 /** @brief Variant type for holding different feedback matrix options. */
@@ -564,91 +596,24 @@ using single_channel_processor_variant_t =
                  CascadedBiquadsOptions, FirOptions, DelayOptions, GraphicEQOptions, DattorroDelayOptions,
                  ControllableFullWaveRectifierOptions, SignalDependentFractionalDelayOptions, RingModulatorOptions>;
 
+/** @brief Options for a bank of independently processed channels.
+ *
+ * Each entry creates one instance of a type in single_channel_processor_variant_t. A `std::nullopt` entry is a
+ * pass-through channel. The channel count is exactly `channels.size()`; FDNConfig requires it to equal `fdn_size`.
+ */
+struct MultichannelProcessorOptions
+{
+    std::vector<std::optional<single_channel_processor_variant_t>> channels;
+
+    bool operator==(const MultichannelProcessorOptions&) const = default;
+};
+
 /** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
-    std::variant<ParallelGainsOptions, MultichannelSchroederAllpassSectionOptions,
-                 MultichannelTimeVaryingSchroederAllpassSectionOptions, MultichannelDattorroDelayOptions,
-                 AttenuationFilterBankOptions, DelayBankOptions, DelayBankTimeVaryingOptions,
-                 CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, MultichannelFirOptions,
-                 MultichannelControllableFullWaveRectifierOptions, MultichannelSignalDependentFractionalDelayOptions,
-                 MultichannelRingModulatorOptions>;
+    std::variant<ParallelGainsOptions, MultichannelProcessorOptions, AttenuationFilterBankOptions, DelayBankOptions,
+                 DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
 
 /** @}*/
 
-NLOHMANN_JSON_SERIALIZE_ENUM(ScalarMatrixType, {{ScalarMatrixType::Identity, "Identity"},
-                                                {ScalarMatrixType::Random, "Random"},
-                                                {ScalarMatrixType::Householder, "Householder"},
-                                                {ScalarMatrixType::RandomHouseholder, "RandomHouseholder"},
-                                                {ScalarMatrixType::Hadamard, "Hadamard"},
-                                                {ScalarMatrixType::Circulant, "Circulant"},
-                                                {ScalarMatrixType::Allpass, "Allpass"},
-                                                {ScalarMatrixType::NestedAllpass, "NestedAllpass"},
-                                                {ScalarMatrixType::VariableDiffusion, "VariableDiffusion"},
-                                                {ScalarMatrixType::Count, "Count"}});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(DelayInterpolationType, {{DelayInterpolationType::None, "None"},
-                                                      {DelayInterpolationType::Linear, "Linear"},
-                                                      {DelayInterpolationType::Allpass, "Allpass"},
-                                                      {DelayInterpolationType::Lagrange, "Lagrange"}});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(DelayLengthType, {{DelayLengthType::Random, "Random"},
-                                               {DelayLengthType::Gaussian, "Gaussian"},
-                                               {DelayLengthType::Primes, "Primes"},
-                                               {DelayLengthType::Uniform, "Uniform"},
-                                               {DelayLengthType::PrimePower, "PrimePower"},
-                                               {DelayLengthType::SteamAudio, "SteamAudio"}});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(ParallelGainsMode, {{ParallelGainsMode::Split, "Split"},
-                                                 {ParallelGainsMode::Merge, "Merge"},
-                                                 {ParallelGainsMode::Parallel, "Parallel"}});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(TimeVaryingMatrixMode, {{TimeVaryingMatrixMode::Hadamard, "Hadamard"},
-                                                     {TimeVaryingMatrixMode::RealSchur, "RealSchur"},
-                                                     {TimeVaryingMatrixMode::Count, "Count"}});
-
-void to_json(nlohmann::json& j, const ScalarFeedbackMatrixOptions& config);
-void from_json(const nlohmann::json& j, ScalarFeedbackMatrixOptions& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedFeedbackMatrixOptions, matrix_size, stage_count, sparsity, type,
-                                   gain_per_samples);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModulationOptions, frequency, amplitude, initial_phase);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TimeVaryingFeedbackMatrixOptions, matrix_size, mode, time_varying_config, rng_seed);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParallelGainsOptions, mode, gains, time_varying_config);
-void to_json(nlohmann::json& j, const DelayOptions& config);
-void from_json(const nlohmann::json& j, DelayOptions& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankOptions, delays, block_size, interpolation_type);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayBankTimeVaryingOptions, delays, max_delay, interpolation_type,
-                                   time_varying_config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FilterCoefficients, b0, b1, b2, a0, a1, a2);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AllpassFilterOptions, coeff);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SparseFirOptions, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CascadedBiquadsOptions, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FirOptions, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelFirOptions, coeffs);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SchroederAllpassSectionOptions, delays, gains, parallel);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TimeVaryingSchroederAllpassSectionOptions, delays, gains, time_varying_config,
-                                   parallel);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DattorroDelayOptions, delay_config, blend, feedforward, feedback);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelSchroederAllpassSectionOptions, sections);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelTimeVaryingSchroederAllpassSectionOptions, sections);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MultichannelDattorroDelayOptions, delays);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ControllableFullWaveRectifierOptions, alpha, antialiasing, dc_block, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SignalDependentFractionalDelayOptions, d);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RingModulatorOptions, frequency, amplitude, initial_phase);
-// The multichannel banks hold `std::optional` entries, which nlohmann does not serialize on its own. A null entry
-// means the channel is left unprocessed.
-void to_json(nlohmann::json& j, const MultichannelControllableFullWaveRectifierOptions& config);
-void from_json(const nlohmann::json& j, MultichannelControllableFullWaveRectifierOptions& config);
-void to_json(nlohmann::json& j, const MultichannelSignalDependentFractionalDelayOptions& config);
-void from_json(const nlohmann::json& j, MultichannelSignalDependentFractionalDelayOptions& config);
-void to_json(nlohmann::json& j, const MultichannelRingModulatorOptions& config);
-void from_json(const nlohmann::json& j, MultichannelRingModulatorOptions& config);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HomogenousFilterOptions, t60, delay, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBandFilterOptions, t60s, delay, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThreeBandFilterOptions, t60s, delay, freqs, q, sample_rate);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TenBandFilterOptions, t60s, delay, sample_rate, shelf_cutoff);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GraphicEQOptions, gains_db, freqs, sample_rate);
-
-void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config);
-void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config);
 
 } // namespace sfFDN

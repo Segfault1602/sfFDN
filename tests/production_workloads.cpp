@@ -30,7 +30,10 @@ std::unique_ptr<sfFDN::FDN> CreateProductionFDN(
         throw std::runtime_error("Failed to configure production FDN delays");
     }
     if (!fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(
-            sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = order, .type = matrix_type})))
+            sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                   .matrix_size = order,
+                                                   .generator = matrix_type,
+                                               }})))
     {
         throw std::runtime_error("Failed to configure production FDN feedback matrix");
     }

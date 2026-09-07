@@ -4,6 +4,7 @@
 
 #include "audio_processor.h"
 #include "filter.h"
+#include "types.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -20,6 +21,12 @@ class FilterBank : public AudioProcessor
   public:
     /** @brief Constructs an empty filter bank. */
     FilterBank();
+
+    /** @brief Constructs one independent processor per configured channel.
+     *
+     * A null channel is represented by a pass-through processor. Construction occurs outside the real-time path.
+     */
+    explicit FilterBank(const MultichannelProcessorOptions& options);
 
     /** @brief Clears the filter bank. */
     void Clear() override;
