@@ -14,8 +14,20 @@
 #error "Core public headers must not include nlohmann/json"
 #endif
 
+template <typename T>
+concept HasMode = requires(T value) { value.mode; };
+
 static_assert(std::same_as<decltype(sfFDN::ValidateFDNConfig(std::declval<const sfFDN::FDNConfig&>())),
                            std::expected<void, std::vector<sfFDN::ConfigIssue>>>);
 static_assert(std::derived_from<sfFDN::FDNConfigError, std::runtime_error>);
 static_assert(std::same_as<decltype(sfFDN::CreateFDNFromConfig(std::declval<const sfFDN::FDNConfig&>())),
                            std::unique_ptr<sfFDN::FDN>>);
+static_assert(std::same_as<decltype(sfFDN::MakeDefaultFDNConfig()), sfFDN::FDNConfig>);
+static_assert(std::is_aggregate_v<sfFDN::StageGainsOptions>);
+static_assert(std::is_aggregate_v<sfFDN::InputStageConfig>);
+static_assert(std::is_aggregate_v<sfFDN::OutputStageConfig>);
+static_assert(std::is_aggregate_v<sfFDN::FDNConfig>);
+static_assert(std::equality_comparable<sfFDN::InputStageConfig>);
+static_assert(std::equality_comparable<sfFDN::OutputStageConfig>);
+static_assert(std::equality_comparable<sfFDN::FDNConfig>);
+static_assert(!HasMode<sfFDN::StageGainsOptions>);

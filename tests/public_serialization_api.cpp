@@ -11,9 +11,7 @@ int main()
 
     const nlohmann::json serialized = config;
     const auto round_tripped = serialized.get<sfFDN::FDNConfig>();
-    if (round_tripped.fdn_size != config.fdn_size || round_tripped.transposed != config.transposed ||
-        round_tripped.direct_gain != config.direct_gain || round_tripped.block_size != config.block_size ||
-        round_tripped.sample_rate != config.sample_rate)
+    if (round_tripped != config)
     {
         return 1;
     }

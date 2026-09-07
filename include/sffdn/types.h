@@ -154,6 +154,8 @@ struct ScalarFeedbackMatrixOptions
     //! Optional argument for certain matrix types. For example, for the VariableDiffusion type, this could represent
     // the diffusion parameter.
     std::optional<float> arg{std::nullopt};
+
+    bool operator==(const ScalarFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Information structure for constructing a cascaded feedback matrix (also known as a filter feedback matrix).
@@ -173,6 +175,8 @@ struct CascadedFeedbackMatrixOptions
         ScalarMatrixType::Random}; /**< Type of the feedback matrix. The same type is used for all stages. */
     float gain_per_samples{1.f};   /**< Gain per sample. */
     uint32_t rng_seed{0};          /**< Seed for all stage matrices and delay shifts; zero selects fresh randomness. */
+
+    bool operator==(const CascadedFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Options for configuring signal modulation. */
@@ -186,6 +190,8 @@ struct ModulationOptions
                               2.2 radians, not 0.7 radians. The JASA paper instead expresses `μ_A` in radians, with
                               `μ_A <= π`. */
     float initial_phase{0.f}; /**< Finite initial phase of the modulation, normalized to [0, 1]. */
+
+    bool operator==(const ModulationOptions&) const = default;
 };
 
 /** @brief Options for configuring a TimeVaryingFeedbackMatrix.
@@ -201,6 +207,8 @@ struct TimeVaryingFeedbackMatrixOptions
         time_varying_config; /**< One LFO configuration per rotation block, or empty to disable modulation. */
     uint32_t rng_seed{0};    /**< Seed for the RealSchur random orthogonal basis. In RealSchur mode, zero selects a
                                 fixed seed so configurations are reproducible; Hadamard mode ignores it. */
+
+    bool operator==(const TimeVaryingFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Options for configuring parallel gain processing. */
@@ -212,6 +220,20 @@ struct ParallelGainsOptions
     std::vector<ModulationOptions>
         time_varying_config; /**< Optional time-varying modulation configuration for each channel. The size of the
                                   vector must match the size of `gains` if provided. */
+
+    bool operator==(const ParallelGainsOptions&) const = default;
+};
+
+/** @brief Gain configuration for an FDN input or output stage.
+ *
+ * Stage placement determines routing. Modulation is empty or has exactly one entry per gain.
+ */
+struct StageGainsOptions
+{
+    std::vector<float> gains;
+    std::vector<ModulationOptions> time_varying_config;
+
+    bool operator==(const StageGainsOptions&) const = default;
 };
 
 /** @brief Options for configuring delays. */
@@ -225,6 +247,8 @@ struct DelayOptions
     std::optional<sfFDN::ModulationOptions> lfo_config{
         std::nullopt}; /*< Optional LFO configuration for time-varying delay modulation. If provided, the delay will be
                           modulated according to the specified parameters. */
+
+    bool operator==(const DelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a delay bank. */
@@ -237,6 +261,8 @@ struct DelayBankOptions
                                                internal buffers and can affect performance. */
     DelayInterpolationType interpolation_type{
         DelayInterpolationType::None}; /*< Interpolation type for fractional delays. */
+
+    bool operator==(const DelayBankOptions&) const = default;
 };
 
 /** @brief Options for configuring a time-varying delay bank. */
@@ -250,6 +276,8 @@ struct DelayBankTimeVaryingOptions
         DelayInterpolationType::None};                  /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
+
+    bool operator==(const DelayBankTimeVaryingOptions&) const = default;
 };
 
 /** @brief Coefficients for a digital IIR filter. */
@@ -278,6 +306,8 @@ struct FilterCoefficients
     {
         return {.b0 = b0 / a0, .b1 = b1 / a0, .b2 = b2 / a0, .a0 = 1.0f, .a1 = a1 / a0, .a2 = a2 / a0};
     }
+
+    bool operator==(const FilterCoefficients&) const = default;
 };
 
 /** @brief Options for configuring an allpass filter. */
@@ -285,24 +315,32 @@ struct AllpassFilterOptions
 {
     /** @brief The coefficient for the allpass filter. */
     float coeff{0.f};
+
+    bool operator==(const AllpassFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a sparse FIR filter. */
 struct SparseFirOptions
 {
     std::vector<std::pair<uint32_t, float>> coeffs; // pair of (index, coefficient)
+
+    bool operator==(const SparseFirOptions&) const = default;
 };
 
 /** @brief Options for configuring cascaded biquad filters. */
 struct CascadedBiquadsOptions
 {
     std::vector<FilterCoefficients> coeffs;
+
+    bool operator==(const CascadedBiquadsOptions&) const = default;
 };
 
 /** @brief Options for configuring a FIR filter. */
 struct FirOptions
 {
     std::vector<float> coeffs{1.f};
+
+    bool operator==(const FirOptions&) const = default;
 };
 
 /** @brief Options for configuring a Schroeder allpass section consisting of `N` Schroeder allpass in series or in
@@ -314,6 +352,8 @@ struct SchroederAllpassSectionOptions
                                   the size of `delays`. */
     bool parallel{false}; /*< If true, the allpass filters in the section are connected in parallel. If false, they are
                              connected in series. */
+
+    bool operator==(const SchroederAllpassSectionOptions&) const = default;
 };
 
 /** @brief Options for configuring an energy-preserving time-varying Schroeder allpass section.
@@ -328,6 +368,8 @@ struct TimeVaryingSchroederAllpassSectionOptions
     std::vector<ModulationOptions>
         time_varying_config; /**< Gain modulation per stage. `amplitude` is the non-zero peak gain deviation. */
     bool parallel{false};    /**< If true, process stages in parallel. Otherwise, process them in series. */
+
+    bool operator==(const TimeVaryingSchroederAllpassSectionOptions&) const = default;
 };
 
 /** @brief Classic delay-line effects, as described in Table 1 of Jon Dattorro, "Effect Design Part 2: Delay-Line
@@ -361,6 +403,8 @@ struct DattorroDelayOptions
     float feedback{0.7071f}; /*< Gain applied to the fixed output of the delay line before it is fed back into the
                                 delay line. The feedback is subtracted at the summing junction, so a positive value
                                 recirculates with inverted polarity. Must be in the range (-1, 1) to be stable. */
+
+    bool operator==(const DattorroDelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a controllable full-wave rectifier.
@@ -382,6 +426,8 @@ struct ControllableFullWaveRectifierOptions
     /** @brief Sample rate in Hz. Only used to set the time constants of the dc blocker, so it is irrelevant when
      * `dc_block` is false. */
     float sample_rate{static_cast<float>(kDefaultSampleRate)};
+
+    bool operator==(const ControllableFullWaveRectifierOptions&) const = default;
 };
 
 /** @brief Options for configuring a signal-dependent fractional delay.
@@ -395,6 +441,8 @@ struct SignalDependentFractionalDelayOptions
      * negative one by `1 - d` samples, so zero is a plain one-sample delay and larger values distort the waveform
      * more strongly around its zero crossings. */
     float d{1.f};
+
+    bool operator==(const SignalDependentFractionalDelayOptions&) const = default;
 };
 
 /** @brief Options for configuring a ring modulator.
@@ -414,6 +462,8 @@ struct RingModulatorOptions
     float amplitude{std::numbers::sqrt2_v<float>};
     /** @brief Initial phase of the modulating sinusoid, normalized to [0, 1]. */
     float initial_phase{0.f};
+
+    bool operator==(const RingModulatorOptions&) const = default;
 };
 
 /** @brief Options for configuring a homogenous filter. The homogenous filter has the same attenuation characteristics
@@ -425,6 +475,8 @@ struct HomogenousFilterOptions
                     automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const HomogenousFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a two-band filter. The two-band filter allows for specifying a target t60 at DC and
@@ -440,6 +492,8 @@ struct TwoBandFilterOptions
                     automatically when accessed from `CreateFDNFromConfig()`*/
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const TwoBandFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a three-band filter. The three-band filter is composed of a 2nd order low shelf and a
@@ -455,6 +509,8 @@ struct ThreeBandFilterOptions
                                                      cause instability if placed in a feedback loop. */
     float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
                                                based on the specified T60 values. */
+
+    bool operator==(const ThreeBandFilterOptions&) const = default;
 };
 
 /** @brief Options for configuring a ten-band filter. The ten-band filter allows control of the T60 over ten bands.
@@ -478,6 +534,8 @@ struct TenBandFilterOptions
 
     //! Cutoff frequency for the shelf filters.
     float shelf_cutoff = 8000.f;
+
+    bool operator==(const TenBandFilterOptions&) const = default;
 };
 
 /** @brief Variant type for holding different attenuation filter options. */
@@ -489,6 +547,8 @@ struct AttenuationFilterBankOptions
 {
     //! Vector of attenuation filter configurations.
     std::vector<attenuation_filter_variant_t> filter_configs;
+
+    bool operator==(const AttenuationFilterBankOptions&) const = default;
 };
 
 /** @brief Options for configuring a graphic equalizer. */
@@ -502,6 +562,8 @@ struct GraphicEQOptions
 
     //! Sample rate in Hz.
     float sample_rate = kDefaultSampleRate;
+
+    bool operator==(const GraphicEQOptions&) const = default;
 };
 
 /** @brief Variant type for holding different feedback matrix options. */
@@ -522,6 +584,8 @@ using single_channel_processor_variant_t =
 struct MultichannelProcessorOptions
 {
     std::vector<std::optional<single_channel_processor_variant_t>> channels;
+
+    bool operator==(const MultichannelProcessorOptions&) const = default;
 };
 
 /** @brief Variant type for holding different multi-channel processor options. */

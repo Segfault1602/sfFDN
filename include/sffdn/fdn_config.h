@@ -15,6 +15,36 @@ namespace sfFDN
 
 class FDN;
 
+/** @brief Configuration for FDN input-stage processing. */
+struct InputStageConfig
+{
+    //! Single-channel processors applied before the signal is split into FDN channels.
+    std::vector<single_channel_processor_variant_t> single_channel_processors;
+
+    //! Stage gains. Routing is determined by this stage's placement.
+    StageGainsOptions parallel_gains_config;
+
+    //! Multi-channel processors applied after the stage gains.
+    std::vector<multi_channel_processor_variant_t> multichannel_processors;
+
+    bool operator==(const InputStageConfig&) const = default;
+};
+
+/** @brief Configuration for FDN output-stage processing. */
+struct OutputStageConfig
+{
+    //! Multi-channel processors applied before the FDN channels are mixed down.
+    std::vector<multi_channel_processor_variant_t> multichannel_processors;
+
+    //! Stage gains. Routing is determined by this stage's placement.
+    StageGainsOptions parallel_gains_config;
+
+    //! Single-channel processors applied after the FDN channels are mixed down.
+    std::vector<single_channel_processor_variant_t> single_channel_processors;
+
+    bool operator==(const OutputStageConfig&) const = default;
+};
+
 /** @brief Configuration for the FDN.
  */
 struct FDNConfig
@@ -37,19 +67,8 @@ struct FDNConfig
     //! Delay bank configuration. Its block size must be nonzero and at least this configuration's block size.
     DelayBankOptions delay_bank_config;
 
-    //! Input gain Block
-    struct
-    {
-        //! A vector of single-channel processors to apply to the input signal before it gets split into multiple
-        //! channels.
-        std::vector<single_channel_processor_variant_t> single_channel_processors;
-        //! Configuration for parallel gain processing applied to the input signal. Must always be in Split mode.
-        ParallelGainsOptions parallel_gains_config{
-            .mode = ParallelGainsMode::Split, .gains = {}, .time_varying_config = {}};
-        //! A vector of multi-channel processors to apply to the input signal after the parallel gains. A
-        //! MultichannelProcessorOptions bank has exactly fdn_size channels.
-        std::vector<multi_channel_processor_variant_t> multichannel_processors;
-    } input_block_config;
+    //! Input gain block.
+    InputStageConfig input_block_config;
 
     //! Feedback matrix block
     feedback_matrix_variant_t feedback_matrix_config;
@@ -60,23 +79,23 @@ struct FDNConfig
     //! Loop filter block. A MultichannelProcessorOptions bank has exactly fdn_size channels.
     std::vector<multi_channel_processor_variant_t> loop_filter_configs;
 
-    //! Output gain block
-    struct
-    {
-        //! A vector of multi-channel processors to apply to the output signal before it gets mixed down to a single
-        //! channel. A MultichannelProcessorOptions bank has exactly fdn_size channels.
-        std::vector<multi_channel_processor_variant_t> multichannel_processors;
-        //! Configuration for parallel gain processing applied to the output signal. Must always be in Merge mode.
-        ParallelGainsOptions parallel_gains_config{
-            .mode = ParallelGainsMode::Merge, .gains = {}, .time_varying_config = {}};
-        //! A vector of single-channel processors to apply to the output signal after it gets mixed down to a single
-        //! channel.
-        std::vector<single_channel_processor_variant_t> single_channel_processors;
-    } output_block_config;
+    //! Output gain block.
+    OutputStageConfig output_block_config;
 
     //! Tone correction filter block
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
+
+    bool operator==(const FDNConfig&) const = default;
 };
+
+/** @brief Creates a complete deterministic wet FDN network with one-second homogeneous decay.
+ *
+ * Uses a Hadamard feedback matrix for power-of-two sizes and Householder otherwise, with normalized gains.
+ * @throws std::invalid_argument if `fdn_size` (order) or `block_size` is zero, or `sample_rate` is nonpositive.
+ * @pre Inputs are finite and use practical FDN sizes.
+ */
+[[nodiscard]] FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size = 8U, uint32_t block_size = kDefaultBlockSize,
+                                             float sample_rate = static_cast<float>(kDefaultSampleRate));
 
 /** @brief Validates the FDN graph, its dimensions, and every supported processor option domain without constructing
  * processors.

@@ -236,6 +236,22 @@ inline void from_json(const nlohmann::json& j, ParallelGainsOptions& config)
     candidate.time_varying_config = json_detail::ReadVector<ModulationOptions>(j.at("time_varying_config"));
     config = std::move(candidate);
 }
+inline void to_json(nlohmann::json& j, const StageGainsOptions& config)
+{
+    j = {{"gains", config.gains}, {"time_varying_config", config.time_varying_config}};
+}
+inline void from_json(const nlohmann::json& j, StageGainsOptions& config)
+{
+    json_detail::RequireObject(j, "StageGainsOptions");
+    if (j.size() != 2 || !j.contains("gains") || !j.contains("time_varying_config"))
+    {
+        throw std::invalid_argument("StageGainsOptions must contain exactly gains and time_varying_config");
+    }
+    StageGainsOptions candidate;
+    candidate.gains = json_detail::ReadVector<float>(j.at("gains"));
+    candidate.time_varying_config = json_detail::ReadVector<ModulationOptions>(j.at("time_varying_config"));
+    config = std::move(candidate);
+}
 void to_json(nlohmann::json& j, const DelayOptions& config);
 void from_json(const nlohmann::json& j, DelayOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(DelayBankOptions, delays, block_size, interpolation_type);
@@ -436,6 +452,10 @@ inline void from_json(const nlohmann::json& j, GraphicEQOptions& config)
 void to_json(nlohmann::json& j, const AttenuationFilterBankOptions& config);
 void from_json(const nlohmann::json& j, AttenuationFilterBankOptions& config);
 
+void to_json(nlohmann::json& j, const InputStageConfig& p);
+void from_json(const nlohmann::json& j, InputStageConfig& p);
+void to_json(nlohmann::json& j, const OutputStageConfig& p);
+void from_json(const nlohmann::json& j, OutputStageConfig& p);
 void to_json(nlohmann::json& j, const sfFDN::FDNConfig& p);
 void from_json(const nlohmann::json& j, sfFDN::FDNConfig& p);
 

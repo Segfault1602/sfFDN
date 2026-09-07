@@ -89,6 +89,12 @@ config.loop_filter_configs.emplace_back(dattorro);
 Specialized attenuation filters, delay banks, gains, and feedback matrices remain distinct because they have
 cross-channel or delay-dependent behavior that a generic FilterBank does not provide.
 
+`ParallelGainsOptions` remains the standalone and multichannel gain-processor option type and retains its explicit
+`ParallelGainsMode`. FDN input and output stages instead use named `InputStageConfig` and `OutputStageConfig` values:
+their `StageGainsOptions` contain only `gains` and `time_varying_config`, because the FDN factory derives Split for
+the input stage and Merge for the output stage. Stage-gain C++ source and JSON no longer contain or accept `mode`;
+there is no compatibility migration layer.
+
 JSON readers reject unknown enum strings, malformed array shapes, and ambiguous tagged wrappers. A single-channel,
 multichannel, feedback-matrix, or attenuation-filter wrapper contains exactly one supported type tag. Reads are transactional, so a failed parse does not modify an existing
 options object.

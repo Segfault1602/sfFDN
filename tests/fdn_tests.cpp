@@ -135,7 +135,6 @@ sfFDN::FDNConfig MakeFactoryConfig(bool transposed = false)
         .interpolation_type = sfFDN::DelayInterpolationType::None,
     };
     config.input_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Split,
         .gains = std::vector<float>(kOrder, 1.F),
         .time_varying_config = {},
     };
@@ -144,7 +143,6 @@ sfFDN::FDNConfig MakeFactoryConfig(bool transposed = false)
         .type = sfFDN::ScalarMatrixType::Hadamard,
     };
     config.output_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Merge,
         .gains = std::vector<float>(kOrder, 1.F),
         .time_varying_config = {},
     };
@@ -421,9 +419,8 @@ TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
 
     config.delay_bank_config = delay_bank_options;
 
-    sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
-                                                    .gains = std::vector<float>(config.fdn_size, 0.5f),
-                                                    .time_varying_config = {}};
+    sfFDN::StageGainsOptions input_gains_options{.gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                 .time_varying_config = {}};
 
     config.input_block_config.parallel_gains_config = input_gains_options;
 
@@ -442,9 +439,8 @@ TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
 
     config.loop_filter_configs.emplace_back(attenuation_filter_bank_options);
 
-    sfFDN::ParallelGainsOptions output_gains_options{.mode = sfFDN::ParallelGainsMode::Merge,
-                                                     .gains = std::vector<float>(config.fdn_size, 0.5f),
-                                                     .time_varying_config = {}};
+    sfFDN::StageGainsOptions output_gains_options{.gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                  .time_varying_config = {}};
 
     config.output_block_config.parallel_gains_config = output_gains_options;
 
@@ -490,8 +486,7 @@ TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay netwo
         .block_size = config.block_size,
         .interpolation_type = sfFDN::DelayInterpolationType::None};
 
-    config.input_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Split,
-                                                       .gains = std::vector<float>(config.fdn_size, 0.5f),
+    config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                        .time_varying_config = {}};
 
     config.feedback_matrix_config =
@@ -510,8 +505,7 @@ TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay netwo
     config.loop_filter_configs.emplace_back(
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Vibrato, kSampleRate, kFdnSize));
 
-    config.output_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Merge,
-                                                        .gains = std::vector<float>(config.fdn_size, 0.5f),
+    config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                         .time_varying_config = {}};
 
     auto fdn = sfFDN::CreateFDNFromConfig(config);
@@ -587,7 +581,6 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
             .interpolation_type = sfFDN::DelayInterpolationType::None,
         };
         config.input_block_config.parallel_gains_config = {
-            .mode = sfFDN::ParallelGainsMode::Split,
             .gains = std::vector<float>(kFdnSize, 0.5F),
             .time_varying_config = {},
         };
@@ -596,7 +589,6 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
             .type = sfFDN::ScalarMatrixType::Hadamard,
         };
         config.output_block_config.parallel_gains_config = {
-            .mode = sfFDN::ParallelGainsMode::Merge,
             .gains = std::vector<float>(kFdnSize, 0.5F),
             .time_varying_config = {},
         };
@@ -794,13 +786,11 @@ TEST_CASE("FDN processing is allocation-free for normal, transposed, and configu
     config.block_size = kBlockSize;
     config.sample_rate = 48000.f;
     config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
-    config.input_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Split,
-                                                       .gains = std::vector<float>(config.fdn_size, 0.5f),
+    config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                        .time_varying_config = {}};
     config.feedback_matrix_config =
         sfFDN::ScalarFeedbackMatrixOptions{.matrix_size = config.fdn_size, .type = sfFDN::ScalarMatrixType::Hadamard};
-    config.output_block_config.parallel_gains_config = {.mode = sfFDN::ParallelGainsMode::Merge,
-                                                        .gains = std::vector<float>(config.fdn_size, 0.5f),
+    config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
                                                         .time_varying_config = {}};
     auto configured = sfFDN::CreateFDNFromConfig(config);
 

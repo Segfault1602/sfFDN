@@ -4,6 +4,7 @@
 
 #include "sffdn/delaybank.h"
 #include "sffdn/delaybank_time_varying.h"
+#include "sffdn/delay_utils.h"
 #include "sffdn/feedback_matrix.h"
 #include "sffdn/fdn.h"
 #include "sffdn/filter_design.h"
@@ -12,6 +13,7 @@
 #include "sffdn/parallel_gains.h"
 #include "sffdn/time_varying_feedback_matrix.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -70,10 +72,16 @@ void AddProcessorOrThrow(sfFDN::AudioProcessorChain& chain, std::unique_ptr<sfFD
     }
 }
 
+sfFDN::ParallelGainsOptions MakeStageGainsOptions(const sfFDN::StageGainsOptions& stage_options,
+                                                  sfFDN::ParallelGainsMode mode)
+{
+    return {.mode = mode, .gains = stage_options.gains, .time_varying_config = stage_options.time_varying_config};
+}
+
 std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
 {
-    std::unique_ptr<sfFDN::AudioProcessor> input_gains =
-        MakeParallelGainsFromConfig(config.input_block_config.parallel_gains_config);
+    std::unique_ptr<sfFDN::AudioProcessor> input_gains = MakeParallelGainsFromConfig(
+        MakeStageGainsOptions(config.input_block_config.parallel_gains_config, sfFDN::ParallelGainsMode::Split));
 
     if (config.input_block_config.single_channel_processors.empty() &&
         config.input_block_config.multichannel_processors.empty())
@@ -101,8 +109,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
 
 std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::FDNConfig& config)
 {
-    std::unique_ptr<sfFDN::AudioProcessor> output_gains =
-        MakeParallelGainsFromConfig(config.output_block_config.parallel_gains_config);
+    std::unique_ptr<sfFDN::AudioProcessor> output_gains = MakeParallelGainsFromConfig(
+        MakeStageGainsOptions(config.output_block_config.parallel_gains_config, sfFDN::ParallelGainsMode::Merge));
 
     if (config.output_block_config.single_channel_processors.empty() &&
         config.output_block_config.multichannel_processors.empty())
@@ -205,6 +213,48 @@ sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
 
 namespace sfFDN
 {
+FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size, uint32_t block_size, float sample_rate)
+{
+    if (fdn_size == 0)
+    {
+        throw std::invalid_argument("FDN size must be greater than zero");
+    }
+    if (block_size == 0)
+    {
+        throw std::invalid_argument("block size must be greater than zero");
+    }
+    if (sample_rate <= 0.f)
+    {
+        throw std::invalid_argument("sample rate must be positive");
+    }
+
+    constexpr float kMinimumDelaySeconds = 0.020f;
+    constexpr float kMaximumDelaySeconds = 0.050f;
+    constexpr uint32_t kDelaySeed = 0x5F4E3D2CU;
+    const float minimum_delay = std::max(static_cast<float>(block_size), std::ceil(sample_rate * kMinimumDelaySeconds));
+    const float maximum_delay = std::max(minimum_delay + 1.f, std::ceil(sample_rate * kMaximumDelaySeconds));
+    const float normalized_gain = 1.f / std::sqrt(static_cast<float>(fdn_size));
+
+    FDNConfig config;
+    config.fdn_size = fdn_size;
+    config.transposed = false;
+    config.direct_gain = 0.f;
+    config.block_size = block_size;
+    config.sample_rate = sample_rate;
+    config.delay_bank_config = {
+        .delays = GetDelayLengths(fdn_size, minimum_delay, maximum_delay, DelayLengthType::Random, kDelaySeed),
+        .block_size = block_size};
+    config.input_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
+    config.output_block_config.parallel_gains_config.gains.assign(fdn_size, normalized_gain);
+    config.feedback_matrix_config = ScalarFeedbackMatrixOptions{
+        .matrix_size = fdn_size,
+        .type = (fdn_size & (fdn_size - 1U)) == 0U ? ScalarMatrixType::Hadamard : ScalarMatrixType::Householder};
+    config.attenuation_filter_bank_config = AttenuationFilterBankOptions{
+        .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = sample_rate}}};
+
+    return config;
+}
+
 std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
 {
     auto validation = ValidateFDNConfig(config);

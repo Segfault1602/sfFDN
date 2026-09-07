@@ -116,12 +116,36 @@ fdn.SetLoopFilter(std::move(attenuation_filter));
 ```
 
 Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
+`MakeDefaultFDNConfig(uint32_t fdn_size = 8U, uint32_t block_size = kDefaultBlockSize, float sample_rate =
+kDefaultSampleRate)` provides a complete wet configuration for the requested order, block size, and sample rate:
+
+```c++
+#include <sffdn/fdn_config.h>
+#include <sffdn/fdn.h> // Completes FDN for the returned std::unique_ptr.
+
+auto config = sfFDN::MakeDefaultFDNConfig();
+auto smaller_config = sfFDN::MakeDefaultFDNConfig(4U, 64U);
+auto fdn = sfFDN::CreateFDNFromConfig(config);
+```
+
+It deterministically selects delays in an approximately 20--50 ms range from a fixed seed, with each delay at
+least one block long; uses normalized input and output gains of `1 / sqrt(N)`; applies one second of homogeneous
+attenuation; and chooses Hadamard feedback for power-of-two orders or Householder feedback otherwise. This is the
+explicit default policy, not an acoustic guarantee. `fdn_size`, `block_size`, and `sample_rate` must be positive;
+numeric inputs must be finite and practically sized. `FDNConfig{}` remains a safely empty, invalid draft for callers
+that build configurations explicitly.
+
+`InputStageConfig` and `OutputStageConfig` are named configuration values. Their
+`parallel_gains_config` uses `StageGainsOptions{gains, time_varying_config}`: the factory derives Split for the
+input stage and Merge for the output stage. Configuration `==` is exact structural member comparison, not acoustic
+or approximate equality. C++ stage-gain source and stage JSON no longer contain or accept a `mode` field; there is
+no migration layer. Standalone and multichannel `ParallelGainsOptions` retain their `mode`.
+
 Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON. This opt-in header exposes the
 `nlohmann::json` adapters; link JSON consumers to `sfFDN::serialization`.
 JSON reads are strict and transactional: malformed input leaves a reused destination unchanged. Integer fields accept
 only integer JSON values in the `uint32_t` range, while finite fractional `sample_rate` values are preserved as floats.
-Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag and no sibling fields,
-including `metadata`.
+Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag and no sibling fields.
 
 ```c++
 sfFDN::FDNConfig config{};
@@ -138,8 +162,8 @@ sfFDN::DelayBankOptions delay_bank_options{
 
 config.delay_bank_config = delay_bank_options;
 
-sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
-                                                .gains = std::vector<float>(config.fdn_size, 0.5f)};
+sfFDN::StageGainsOptions input_gains_options{
+    .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.input_block_config.parallel_gains_config = input_gains_options;
 
@@ -158,8 +182,7 @@ attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_optio
 
 config.attenuation_filter_bank_config = attenuation_filter_bank_options;
 
-sfFDN::ParallelGainsOptions output_gains_options{
-    .mode = sfFDN::ParallelGainsMode::Merge,
+sfFDN::StageGainsOptions output_gains_options{
     .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.output_block_config.parallel_gains_config = output_gains_options;

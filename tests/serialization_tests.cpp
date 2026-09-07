@@ -13,8 +13,8 @@
 #include "json_helper.h"
 #include "rng.h"
 #include "sffdn/sffdn.h"
-#include <sffdn/serialization.h>
 #include "test_utils.h"
+#include <sffdn/serialization.h>
 
 namespace
 {
@@ -46,13 +46,11 @@ sfFDN::FDNConfig MakeTimeVaryingFDNConfig()
         .interpolation_type = sfFDN::DelayInterpolationType::None,
     };
     config.input_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Split,
         .gains = std::vector<float>(config.fdn_size, 0.5F),
         .time_varying_config = {},
     };
     config.feedback_matrix_config = MakeTimeVaryingMatrixOptions(config.fdn_size);
     config.output_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Merge,
         .gains = std::vector<float>(config.fdn_size, 0.5F),
         .time_varying_config = {},
     };
@@ -144,7 +142,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
                                     .blend = 0.7071f,
                                     .feedforward = 1.f,
                                     .feedback = 0.7071f}};
-    config.input_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Split, {0.5f, 0.3f, 0.4f, 0.8f}, {}};
+    config.input_block_config.parallel_gains_config = {.gains = {0.5f, 0.3f, 0.4f, 0.8f}, .time_varying_config = {}};
 
     config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
         .matrix_size = 4,
@@ -162,7 +160,7 @@ TEST_CASE("FDNConfig round-trips all configured processor options", "[serializat
     }
     config.attenuation_filter_bank_config = attenuation_filter_bank_config;
 
-    config.output_block_config.parallel_gains_config = {sfFDN::ParallelGainsMode::Merge, {0.7f, 0.6f, 0.5f, 0.4f}, {}};
+    config.output_block_config.parallel_gains_config = {.gains = {0.7f, 0.6f, 0.5f, 0.4f}, .time_varying_config = {}};
 
     sfFDN::MultichannelProcessorOptions dattorro_bank_config;
     dattorro_bank_config.channels.resize(4);
@@ -1384,4 +1382,85 @@ TEST_CASE("JSON readers require exact array and wrapper forms", "[serialization]
     auto ambiguous_attenuation = attenuation;
     ambiguous_attenuation["DelayBankOptions"] = {{"delays", {}}, {"block_size", 1U}, {"interpolation_type", "None"}};
     REQUIRE_THROWS(sfFDN::MultichannelProcessorFromJson(ambiguous_attenuation));
+}
+
+TEST_CASE("Stage gains and named stages use their dedicated JSON contracts", "[serialization]")
+{
+    const sfFDN::StageGainsOptions gains = {
+        .gains = {0.25F, 0.5F},
+        .time_varying_config = {{.frequency = 0.001F, .amplitude = 0.25F, .initial_phase = 0.5F},
+                                {.frequency = 0.002F, .amplitude = -0.25F, .initial_phase = 0.25F}},
+    };
+    const nlohmann::json gains_json = gains;
+    REQUIRE(gains_json.size() == 2U);
+    REQUIRE(gains_json.contains("gains"));
+    REQUIRE(gains_json.contains("time_varying_config"));
+    REQUIRE_FALSE(gains_json.contains("mode"));
+    REQUIRE(gains_json.get<sfFDN::StageGainsOptions>() == gains);
+
+    nlohmann::json reused_gains = {
+        {"mode", "Split"},
+        {"stale", true},
+    };
+    sfFDN::to_json(reused_gains, gains);
+    REQUIRE(reused_gains == gains_json);
+    REQUIRE(reused_gains.get<sfFDN::StageGainsOptions>() == gains);
+
+    auto obsolete_stage_gains = gains_json;
+    obsolete_stage_gains["mode"] = "Split";
+    REQUIRE_THROWS(obsolete_stage_gains.get<sfFDN::StageGainsOptions>());
+
+    const sfFDN::InputStageConfig input = {
+        .single_channel_processors = {sfFDN::AllpassFilterOptions{.coeff = 0.25F}},
+        .parallel_gains_config = gains,
+        .multichannel_processors = {sfFDN::ParallelGainsOptions{
+            .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {1.F, 1.F}, .time_varying_config = {}}},
+    };
+    const sfFDN::OutputStageConfig output = {
+        .multichannel_processors = {sfFDN::ParallelGainsOptions{
+            .mode = sfFDN::ParallelGainsMode::Parallel, .gains = {1.F, 1.F}, .time_varying_config = {}}},
+        .parallel_gains_config = gains,
+        .single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}},
+    };
+    const nlohmann::json input_json = input;
+    const nlohmann::json output_json = output;
+    REQUIRE(input_json.get<sfFDN::InputStageConfig>() == input);
+    REQUIRE(output_json.get<sfFDN::OutputStageConfig>() == output);
+    REQUIRE(input_json["parallel_gains_config"] == gains_json);
+    REQUIRE(output_json["parallel_gains_config"] == gains_json);
+
+    auto malformed_input = input_json;
+    malformed_input["parallel_gains_config"]["time_varying_config"] = nlohmann::json::object();
+    auto retained_input = input;
+    REQUIRE_THROWS(malformed_input.get_to(retained_input));
+    REQUIRE(retained_input == input);
+
+    auto malformed_output = output_json;
+    malformed_output["parallel_gains_config"]["mode"] = "Merge";
+    auto retained_output = output;
+    REQUIRE_THROWS(malformed_output.get_to(retained_output));
+    REQUIRE(retained_output == output);
+
+    const sfFDN::ParallelGainsOptions parallel = {
+        .mode = sfFDN::ParallelGainsMode::Parallel,
+        .gains = {0.25F, 0.5F},
+        .time_varying_config = {},
+    };
+    const nlohmann::json parallel_json = parallel;
+    REQUIRE(parallel_json.size() == 3U);
+    REQUIRE(parallel_json.contains("mode"));
+    REQUIRE(parallel_json.get<sfFDN::ParallelGainsOptions>() == parallel);
+}
+
+TEST_CASE("FDNConfig JSON round-trips and fails transactionally by structural equality", "[serialization]")
+{
+    const auto original = MakeTimeVaryingFDNConfig();
+    const nlohmann::json serialized = original;
+    REQUIRE(serialized.get<sfFDN::FDNConfig>() == original);
+
+    auto malformed = serialized;
+    malformed["output_block_config"]["parallel_gains_config"]["gains"] = nlohmann::json::object();
+    auto retained = original;
+    REQUIRE_THROWS(malformed.get_to(retained));
+    REQUIRE(retained == original);
 }

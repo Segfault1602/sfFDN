@@ -253,16 +253,10 @@ void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_
                options);
 }
 
-void ValidateGains(const sfFDN::ParallelGainsOptions& options, const std::string& path,
-                   sfFDN::ParallelGainsMode expected_mode, uint32_t fdn_size, bool fdn_size_valid, Issues& issues)
+void ValidateGains(const sfFDN::StageGainsOptions& options, const std::string& path, uint32_t fdn_size,
+                   bool fdn_size_valid, Issues& issues)
 {
     sfFDN::detail::ValidateOptions(options, path, issues);
-    if (IsKnownParallelGainsMode(options.mode) && options.mode != expected_mode)
-    {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/mode",
-                 std::string("expected ") + (expected_mode == sfFDN::ParallelGainsMode::Split ? "Split" : "Merge") +
-                     " mode");
-    }
     if (fdn_size_valid && options.gains.size() != fdn_size)
     {
         AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/gains",
@@ -329,9 +323,9 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig&
 
     ValidatePrimaryDelayBank(config.delay_bank_config, config, fdn_size_valid, block_size_valid, issues);
     ValidateGains(config.input_block_config.parallel_gains_config, "/input_block_config/parallel_gains_config",
-                  ParallelGainsMode::Split, config.fdn_size, fdn_size_valid, issues);
+                  config.fdn_size, fdn_size_valid, issues);
     ValidateGains(config.output_block_config.parallel_gains_config, "/output_block_config/parallel_gains_config",
-                  ParallelGainsMode::Merge, config.fdn_size, fdn_size_valid, issues);
+                  config.fdn_size, fdn_size_valid, issues);
     ValidateFeedbackMatrix(config.feedback_matrix_config, "/feedback_matrix_config", config.fdn_size, fdn_size_valid,
                            issues);
 

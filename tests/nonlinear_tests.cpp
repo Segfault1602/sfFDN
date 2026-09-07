@@ -975,12 +975,10 @@ sfFDN::FDNConfig MakeShimmerConfig()
 
     const float gain = 1.f / static_cast<float>(kOrder);
     config.input_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Split,
         .gains = std::vector<float>(kOrder, gain),
         .time_varying_config = {},
     };
     config.output_block_config.parallel_gains_config = {
-        .mode = sfFDN::ParallelGainsMode::Merge,
         .gains = std::vector<float>(kOrder, gain),
         .time_varying_config = {},
     };

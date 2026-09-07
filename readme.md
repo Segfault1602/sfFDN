@@ -117,10 +117,12 @@ fdn.SetLoopFilter(std::move(attenuation_filter));
 ```
 
 Another way to create the same FDN is to use the `CreateFDNFromConfig()` function which takes a configuration struct as input.
-The FDNConfig struct is serializable to JSON format, allowing for easy saving and loading of FDN configurations.
+`MakeDefaultFDNConfig()` provides a complete wet default configuration; explicitly configured input and output use
+the named `InputStageConfig` and `OutputStageConfig` stages. JSON serialization is opt-in: include
+`<sffdn/serialization.h>` and link JSON consumers to `sfFDN::serialization`.
 
 ```c++
-sfFDN::FDNConfig config;
+sfFDN::FDNConfig config{};
 config.fdn_size = 8;
 config.direct_gain = 1.f;
 config.block_size = 128;
@@ -133,8 +135,8 @@ sfFDN::DelayBankOptions delay_bank_options{
 
 config.delay_bank_config = delay_bank_options;
 
-sfFDN::ParallelGainsOptions input_gains_options{.mode = sfFDN::ParallelGainsMode::Split,
-                                                .gains = std::vector<float>(config.fdn_size, 0.5f)};
+sfFDN::StageGainsOptions input_gains_options{
+    .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.input_block_config.parallel_gains_config = input_gains_options;
 
@@ -153,8 +155,7 @@ attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_optio
 
 config.attenuation_filter_bank_config = attenuation_filter_bank_options;
 
-sfFDN::ParallelGainsOptions output_gains_options{
-    .mode = sfFDN::ParallelGainsMode::Merge,
+sfFDN::StageGainsOptions output_gains_options{
     .gains = std::vector<float>(config.fdn_size, 0.5f)};
 
 config.output_block_config.parallel_gains_config = output_gains_options;

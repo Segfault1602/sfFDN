@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,38 @@ bool IsSupportedMode(sfFDN::ParallelGainsMode mode)
     return mode == sfFDN::ParallelGainsMode::Split || mode == sfFDN::ParallelGainsMode::Merge ||
            mode == sfFDN::ParallelGainsMode::Parallel;
 }
+
+void ValidateGainData(std::span<const float> gains, std::span<const sfFDN::ModulationOptions> modulations,
+                      const std::string& path, std::vector<sfFDN::ConfigIssue>& issues)
+{
+    if (!modulations.empty() && modulations.size() != gains.size())
+    {
+        AddIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch, path + "/time_varying_config",
+                 "expected " + std::to_string(gains.size()) + " modulation options, got " +
+                     std::to_string(modulations.size()));
+    }
+
+    for (size_t index = 0; index < modulations.size(); ++index)
+    {
+        const auto& modulation = modulations[index];
+        const std::string modulation_path = IndexPath(path + "/time_varying_config", index);
+        sfFDN::detail::ValidateModulation(modulation, modulation_path, issues);
+
+        if (index >= gains.size())
+        {
+            continue;
+        }
+
+        const double center = gains[index];
+        const double amplitude = std::abs(static_cast<double>(modulation.amplitude));
+        constexpr double kMaximumGain = std::numeric_limits<float>::max();
+        if (center + amplitude > kMaximumGain || center - amplitude < -kMaximumGain)
+        {
+            AddIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, IndexPath(path + "/gains", index),
+                     "center gain plus or minus modulation amplitude exceeds float range");
+        }
+    }
+}
 } // namespace
 
 namespace sfFDN::detail
@@ -39,33 +72,12 @@ void ValidateOptions(const ParallelGainsOptions& options, const std::string& pat
         AddIssue(issues, ConfigErrorCode::UnsupportedValue, path + "/mode", "parallel gains mode is unsupported");
     }
 
-    if (!options.time_varying_config.empty() && options.time_varying_config.size() != options.gains.size())
-    {
-        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/time_varying_config",
-                 "expected " + std::to_string(options.gains.size()) + " modulation options, got " +
-                     std::to_string(options.time_varying_config.size()));
-    }
+    ValidateGainData(options.gains, options.time_varying_config, path, issues);
+}
 
-    for (size_t index = 0; index < options.time_varying_config.size(); ++index)
-    {
-        const auto& modulation = options.time_varying_config[index];
-        const std::string modulation_path = IndexPath(path + "/time_varying_config", index);
-        ValidateModulation(modulation, modulation_path, issues);
-
-        if (index >= options.gains.size())
-        {
-            continue;
-        }
-
-        const double center = options.gains[index];
-        const double amplitude = std::abs(static_cast<double>(modulation.amplitude));
-        constexpr double kMaximumGain = std::numeric_limits<float>::max();
-        if (center + amplitude > kMaximumGain || center - amplitude < -kMaximumGain)
-        {
-            AddIssue(issues, ConfigErrorCode::InvalidValue, IndexPath(path + "/gains", index),
-                     "center gain plus or minus modulation amplitude exceeds float range");
-        }
-    }
+void ValidateOptions(const StageGainsOptions& options, const std::string& path, std::vector<ConfigIssue>& issues)
+{
+    ValidateGainData(options.gains, options.time_varying_config, path, issues);
 }
 
 void ValidateOptions(const SchroederAllpassSectionOptions& options, const std::string& path,
