@@ -172,6 +172,42 @@ chooses Hadamard feedback for power-of-two orders or Householder feedback otherw
 for the input stage and Merge routing for the output stage. `ParallelGainsOptions` retains its explicit `mode` for
 standalone and multichannel gain processors.
 
+### Multi-input, multi-output configurations
+
+`FDNConfig::input_channel_count` (M) and `output_channel_count` (K) declare the external shape of the network and
+both default to `1`. A count other than `1` requires the corresponding stage to carry an explicit
+`boundary_matrix` instead of stage gains:
+
+```c++
+config.input_channel_count = 2;
+config.output_channel_count = 2;
+
+config.input_block_config.parallel_gains_config = {}; // Must be empty when a boundary matrix is set.
+config.input_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+    .input_channel_count = config.input_channel_count,
+    .output_channel_count = config.fdn_size,
+    .coefficients = std::vector<float>(config.input_channel_count * config.fdn_size, 0.5f)};
+
+config.output_block_config.parallel_gains_config = {};
+config.output_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+    .input_channel_count = config.fdn_size,
+    .output_channel_count = config.output_channel_count,
+    .coefficients = std::vector<float>(config.output_channel_count * config.fdn_size, 0.5f)};
+```
+
+The selection is explicit in both directions and never inferred: a boundary matrix present means the matrix is
+used and the stage gains must be empty; a boundary matrix absent means the stage gains are used and the
+corresponding channel count must be `1`.
+
+The direct path follows the same rule. `direct_gain` is a diagonal `gain * I` and therefore requires M to equal K;
+set `direct_matrix` for any other shape. A nonzero `direct_gain` together with a `direct_matrix` is rejected as
+ambiguous.
+
+Two placement restrictions follow from the topology. `single_channel_processors` on the input stage run *before*
+the input matrix and on the output stage run *after* the output matrix, so they require the external side to be
+mono. Tone correction is a per-output-channel filter: with `K > 1` the configured chain is replicated once per
+output channel, each replica holding independent filter state.
+
 Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON and link JSON consumers to
 `sfFDN::serialization`. Reads are transactional: malformed input leaves the destination unchanged.
 Tagged processor, matrix, and attenuation-filter wrappers contain exactly one supported type tag.

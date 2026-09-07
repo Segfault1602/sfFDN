@@ -21,11 +21,15 @@ struct InputStageConfig
     //! Single-channel processors applied before the signal is split into FDN channels.
     std::vector<single_channel_processor_variant_t> single_channel_processors;
 
-    //! Stage gains. Routing is determined by this stage's placement.
+    //! Stage gains. Routing is determined by this stage's placement. Must be empty when `boundary_matrix` is set.
     StageGainsOptions parallel_gains_config;
 
     //! Multi-channel processors applied after the stage gains.
     std::vector<multi_channel_processor_variant_t> multichannel_processors;
+
+    //! Optional input boundary matrix B, mapping `input_channel_count` channels to `fdn_size`. When absent the stage
+    //! gains are used, which requires `input_channel_count` to be 1.
+    std::optional<ChannelMatrixOptions> boundary_matrix;
 
     bool operator==(const InputStageConfig&) const = default;
 };
@@ -36,11 +40,15 @@ struct OutputStageConfig
     //! Multi-channel processors applied before the FDN channels are mixed down.
     std::vector<multi_channel_processor_variant_t> multichannel_processors;
 
-    //! Stage gains. Routing is determined by this stage's placement.
+    //! Stage gains. Routing is determined by this stage's placement. Must be empty when `boundary_matrix` is set.
     StageGainsOptions parallel_gains_config;
 
     //! Single-channel processors applied after the FDN channels are mixed down.
     std::vector<single_channel_processor_variant_t> single_channel_processors;
+
+    //! Optional output boundary matrix C, mapping `fdn_size` channels to `output_channel_count`. When absent the stage
+    //! gains are used, which requires `output_channel_count` to be 1.
+    std::optional<ChannelMatrixOptions> boundary_matrix;
 
     bool operator==(const OutputStageConfig&) const = default;
 };
@@ -49,14 +57,25 @@ struct OutputStageConfig
  */
 struct FDNConfig
 {
-    //! Size of the FDN (number of channels)
+    //! Size of the FDN (number of delay lines, N)
     uint32_t fdn_size{0};
+
+    //! Number of external input channels, M. A value other than 1 requires an input boundary matrix.
+    uint32_t input_channel_count{1};
+
+    //! Number of external output channels, K. A value other than 1 requires an output boundary matrix.
+    uint32_t output_channel_count{1};
 
     //! Whether to use transposed configuration
     bool transposed{false};
 
-    //! Direct path gain
+    //! Direct path gain, applied as a diagonal `direct_gain * I`. Requires M to equal K, and must be zero when
+    //! `direct_matrix` is set.
     float direct_gain{0.f};
+
+    //! Optional direct path matrix D, mapping `input_channel_count` channels to `output_channel_count`. When absent
+    //! the scalar `direct_gain` is used.
+    std::optional<ChannelMatrixOptions> direct_matrix;
 
     //! Internal block size for processing audio. Ideally should match the block size of the system.
     uint32_t block_size{kDefaultBlockSize};
@@ -82,7 +101,8 @@ struct FDNConfig
     //! Output gain block.
     OutputStageConfig output_block_config;
 
-    //! Tone correction filter block
+    //! Tone correction filter block. With more than one output channel the chain is replicated per output channel,
+    //! each replica holding independent filter state.
     std::vector<single_channel_processor_variant_t> tone_correction_filters;
 
     bool operator==(const FDNConfig&) const = default;

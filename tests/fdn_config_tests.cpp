@@ -501,3 +501,283 @@ TEST_CASE("MakeDefaultFDNConfig creates deterministic usable wet configurations"
         REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.F; }));
     }
 }
+
+namespace
+{
+
+sfFDN::FDNConfig MakeMimoConfig(uint32_t input_channels, uint32_t output_channels)
+{
+    auto config = MakeValidConfig();
+    config.input_channel_count = input_channels;
+    config.output_channel_count = output_channels;
+    config.input_block_config.parallel_gains_config = {};
+    config.input_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = input_channels,
+        .output_channel_count = config.fdn_size,
+        .coefficients = std::vector<float>(static_cast<size_t>(input_channels) * config.fdn_size, 0.5F),
+    };
+    config.output_block_config.parallel_gains_config = {};
+    config.output_block_config.boundary_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = config.fdn_size,
+        .output_channel_count = output_channels,
+        .coefficients = std::vector<float>(static_cast<size_t>(output_channels) * config.fdn_size, 0.5F),
+    };
+    return config;
+}
+
+} // namespace
+
+TEST_CASE("ValidateFDNConfig accepts boundary matrices that match the declared channel counts", "[fdn]")
+{
+    const auto config = MakeMimoConfig(2U, 3U);
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    auto with_direct = config;
+    with_direct.direct_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 3U,
+        .coefficients = std::vector<float>(6U, 0.25F),
+    };
+    REQUIRE(sfFDN::ValidateFDNConfig(with_direct).has_value());
+}
+
+TEST_CASE("ValidateFDNConfig rejects ambiguous and mismatched boundary routing", "[fdn]")
+{
+    SECTION("stage gains and a boundary matrix cannot both be set")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.input_block_config.parallel_gains_config.gains = std::vector<float>(config.fdn_size, 0.5F);
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(
+            HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/input_block_config/parallel_gains_config"));
+    }
+
+    SECTION("stage modulation and a boundary matrix cannot both be set")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.output_block_config.parallel_gains_config.time_varying_config = {
+            {.frequency = 0.001F, .amplitude = 0.1F, .initial_phase = 0.F},
+        };
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(
+            HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/output_block_config/parallel_gains_config"));
+    }
+
+    SECTION("a non-unit channel count requires a boundary matrix")
+    {
+        auto config = MakeValidConfig();
+        config.input_channel_count = 2U;
+        config.output_channel_count = 2U;
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch, "/input_block_config/boundary_matrix"));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch, "/output_block_config/boundary_matrix"));
+    }
+
+    SECTION("boundary matrix dimensions must match the declared counts and the FDN size")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.input_block_config.boundary_matrix->input_channel_count = 5U;
+        config.input_block_config.boundary_matrix->coefficients.assign(5U * config.fdn_size, 0.5F);
+        config.output_block_config.boundary_matrix->input_channel_count = 5U;
+        config.output_block_config.boundary_matrix->coefficients.assign(5U * 3U, 0.5F);
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch,
+                         "/input_block_config/boundary_matrix/input_channel_count"));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch,
+                         "/output_block_config/boundary_matrix/input_channel_count"));
+    }
+
+    SECTION("boundary matrix coefficient counts must match its dimensions")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.input_block_config.boundary_matrix->coefficients.pop_back();
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(
+            HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch, "/input_block_config/boundary_matrix/coefficients"));
+    }
+
+    SECTION("channel counts must be greater than zero")
+    {
+        auto config = MakeValidConfig();
+        config.input_channel_count = 0U;
+        config.output_channel_count = 0U;
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/input_channel_count"));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/output_channel_count"));
+    }
+}
+
+TEST_CASE("ValidateFDNConfig constrains the direct path to one representation", "[fdn]")
+{
+    SECTION("a direct matrix and a nonzero scalar gain are ambiguous")
+    {
+        auto config = MakeMimoConfig(2U, 2U);
+        config.direct_gain = 0.5F;
+        config.direct_matrix = sfFDN::ChannelMatrixOptions{
+            .input_channel_count = 2U,
+            .output_channel_count = 2U,
+            .coefficients = std::vector<float>(4U, 0.25F),
+        };
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/direct_gain"));
+    }
+
+    SECTION("a scalar gain cannot bridge differing input and output channel counts")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.direct_gain = 0.5F;
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/direct_gain"));
+    }
+
+    SECTION("a zero scalar gain is accepted when the counts differ")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.direct_gain = 0.F;
+        REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+    }
+
+    SECTION("a direct matrix must map the declared input count to the declared output count")
+    {
+        auto config = MakeMimoConfig(2U, 3U);
+        config.direct_matrix = sfFDN::ChannelMatrixOptions{
+            .input_channel_count = 3U,
+            .output_channel_count = 3U,
+            .coefficients = std::vector<float>(9U, 0.25F),
+        };
+        const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+        REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::SizeMismatch, "/direct_matrix/input_channel_count"));
+    }
+}
+
+TEST_CASE("ValidateFDNConfig rejects stage single-channel processors outside a mono boundary", "[fdn]")
+{
+    auto config = MakeMimoConfig(2U, 3U);
+    config.input_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
+    config.output_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
+    const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+    REQUIRE(
+        HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/input_block_config/single_channel_processors"));
+    REQUIRE(
+        HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/output_block_config/single_channel_processors"));
+}
+
+TEST_CASE("CreateFDNFromConfig builds a MIMO network with the configured routing", "[fdn]")
+{
+    auto config = MakeMimoConfig(2U, 2U);
+    config.block_size = 1U;
+    config.delay_bank_config = {.delays = {1.F, 1.F, 1.F, 1.F}, .block_size = 1U};
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::GeneratedMatrixOptions{.matrix_size = config.fdn_size,
+                                                .generator = sfFDN::ScalarMatrixType::Identity},
+    };
+    // B routes input 0 to delay 0 and input 1 to delay 1; C reads delay 0 into output 0 and delay 1 into output 1.
+    config.input_block_config.boundary_matrix->coefficients = {1.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F};
+    config.output_block_config.boundary_matrix->coefficients = {1.F, 0.F, 0.F, 0.F, 0.F, 2.F, 0.F, 0.F};
+    config.direct_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 2U,
+        .coefficients = {0.5F, 0.25F, -0.5F, -0.25F},
+    };
+
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(fdn->InputChannelCount() == 2U);
+    REQUIRE(fdn->OutputChannelCount() == 2U);
+    REQUIRE(fdn->GetDirectPath() != nullptr);
+
+    std::array<float, 2> input = {2.F, 4.F};
+    std::array<float, 2> silence{};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, 2U, input);
+    const sfFDN::AudioBuffer silence_buffer(1U, 2U, silence);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+
+    // First block is the direct path alone. D is deliberately off-diagonal so a transposed reading of the row-major
+    // coefficients would give [-1, -0.5] instead: D * [2, 4] = [0.5*2 + 0.25*4, -0.5*2 - 0.25*4] = [2, -2].
+    fdn->Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == 2.F);
+    REQUIRE(output[1] == -2.F);
+
+    // Next block returns the unit-delayed wet path: C * [2, 4, 0, 0] = [2, 8].
+    output.fill(0.F);
+    fdn->Process(silence_buffer, output_buffer);
+    REQUIRE(output[0] == 2.F);
+    REQUIRE(output[1] == 8.F);
+}
+
+TEST_CASE("CreateFDNFromConfig replicates tone correction across output channels", "[fdn]")
+{
+    auto config = MakeMimoConfig(1U, 2U);
+    config.input_channel_count = 1U;
+    config.input_block_config.boundary_matrix.reset();
+    config.input_block_config.parallel_gains_config = {
+        .gains = std::vector<float>(config.fdn_size, 1.F),
+        .time_varying_config = {},
+    };
+    config.tone_correction_filters = {sfFDN::FirOptions{.coeffs = {0.5F}}};
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(fdn->GetTCFilter() != nullptr);
+    REQUIRE(fdn->GetTCFilter()->InputChannelCount() == 2U);
+    REQUIRE(fdn->GetTCFilter()->OutputChannelCount() == 2U);
+
+    // A mono output keeps the single-channel processor rather than wrapping it in a bank. FilterBank reports its
+    // filter count as its channel count, so a one-element bank would also report 1 and the type has to be checked.
+    auto mono = MakeValidConfig();
+    mono.tone_correction_filters = {sfFDN::FirOptions{.coeffs = {0.5F}}};
+    auto mono_fdn = sfFDN::CreateFDNFromConfig(mono);
+    REQUIRE(mono_fdn->GetTCFilter()->InputChannelCount() == 1U);
+    REQUIRE(dynamic_cast<sfFDN::FilterBank*>(mono_fdn->GetTCFilter()) == nullptr);
+    REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fdn->GetTCFilter()) != nullptr);
+}
+
+TEST_CASE("CreateFDNFromConfig omits the direct path when the channel counts differ", "[fdn]")
+{
+    auto config = MakeMimoConfig(1U, 2U);
+    config.input_block_config.boundary_matrix.reset();
+    config.input_block_config.parallel_gains_config = {
+        .gains = std::vector<float>(config.fdn_size, 1.F),
+        .time_varying_config = {},
+    };
+    config.block_size = 1U;
+    config.delay_bank_config = {.delays = {1.F, 1.F, 1.F, 1.F}, .block_size = 1U};
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::GeneratedMatrixOptions{.matrix_size = config.fdn_size,
+                                                .generator = sfFDN::ScalarMatrixType::Identity},
+    };
+    config.output_block_config.boundary_matrix->coefficients.assign(2U * config.fdn_size, 0.F);
+    REQUIRE(config.direct_gain == 0.F);
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    // The scalar gain is diagonal and cannot express a 1-to-2 direct path, so the factory installs no direct
+    // processor and the dry contribution is silent. With a zeroed output matrix the whole network is silent.
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(fdn->GetDirectPath() == nullptr);
+
+    std::array<float, 1> input{1.F};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer input_buffer(1U, 1U, input);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+    fdn->Process(input_buffer, output_buffer);
+    REQUIRE(output[0] == 0.F);
+    REQUIRE(output[1] == 0.F);
+}
+
+TEST_CASE("RandomizeMatrixSeeds leaves explicit boundary coefficients unchanged", "[fdn]")
+{
+    auto config = MakeMimoConfig(2U, 3U);
+    config.direct_matrix = sfFDN::ChannelMatrixOptions{
+        .input_channel_count = 2U,
+        .output_channel_count = 3U,
+        .coefficients = std::vector<float>(6U, 0.25F),
+    };
+    const auto before = config;
+    sfFDN::RandomizeMatrixSeeds(config);
+    REQUIRE(config.input_block_config.boundary_matrix == before.input_block_config.boundary_matrix);
+    REQUIRE(config.output_block_config.boundary_matrix == before.output_block_config.boundary_matrix);
+    REQUIRE(config.direct_matrix == before.direct_matrix);
+    REQUIRE(config.input_channel_count == before.input_channel_count);
+    REQUIRE(config.output_channel_count == before.output_channel_count);
+}

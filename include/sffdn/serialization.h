@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -136,6 +137,31 @@ void ReadField(const nlohmann::json& j, const char* name, T& value)
 {
     value = ReadValue<T>(j.at(name));
 }
+
+/** Reads a field that older files may omit, leaving `value` untouched when the key is absent or null. */
+template <typename T>
+void ReadOptionalField(const nlohmann::json& j, const char* name, T& value)
+{
+    const auto field = j.find(name);
+    if (field == j.end() || field->is_null())
+    {
+        return;
+    }
+    value = ReadValue<T>(*field);
+}
+
+/** Reads an optional aggregate, clearing the destination when the key is absent or null. */
+template <typename T>
+void ReadOptionalObject(const nlohmann::json& j, const char* name, std::optional<T>& value)
+{
+    const auto field = j.find(name);
+    if (field == j.end() || field->is_null())
+    {
+        value.reset();
+        return;
+    }
+    value = field->template get<T>();
+}
 } // namespace json_detail
 
 #define SFFDN_JSON_ENUM(TYPE, ...)                                                                                     \
@@ -246,6 +272,27 @@ inline void from_json(const nlohmann::json& j, StageGainsOptions& config)
     StageGainsOptions candidate;
     candidate.gains = json_detail::ReadVector<float>(j.at("gains"));
     candidate.time_varying_config = json_detail::ReadVector<ModulationOptions>(j.at("time_varying_config"));
+    config = std::move(candidate);
+}
+inline void to_json(nlohmann::json& j, const ChannelMatrixOptions& config)
+{
+    j = {{"input_channel_count", config.input_channel_count},
+         {"output_channel_count", config.output_channel_count},
+         {"coefficients", config.coefficients}};
+}
+inline void from_json(const nlohmann::json& j, ChannelMatrixOptions& config)
+{
+    json_detail::RequireObject(j, "ChannelMatrixOptions");
+    if (j.size() != 3 || !j.contains("input_channel_count") || !j.contains("output_channel_count") ||
+        !j.contains("coefficients"))
+    {
+        throw std::invalid_argument(
+            "ChannelMatrixOptions must contain exactly input_channel_count, output_channel_count, and coefficients");
+    }
+    ChannelMatrixOptions candidate;
+    json_detail::ReadField(j, "input_channel_count", candidate.input_channel_count);
+    json_detail::ReadField(j, "output_channel_count", candidate.output_channel_count);
+    candidate.coefficients = json_detail::ReadVector<float>(j.at("coefficients"));
     config = std::move(candidate);
 }
 void to_json(nlohmann::json& j, const DelayOptions& config);

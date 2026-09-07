@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -280,6 +281,59 @@ void ValidateGains(const sfFDN::StageGainsOptions& options, const std::string& p
     }
 }
 
+void ValidateChannelMatrix(const sfFDN::ChannelMatrixOptions& options, const std::string& path, uint32_t expected_input,
+                           bool expected_input_valid, uint32_t expected_output, bool expected_output_valid,
+                           Issues& issues)
+{
+    sfFDN::detail::ValidateOptions(options, path, issues);
+    if (expected_input_valid && options.input_channel_count != expected_input)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/input_channel_count",
+                 "expected " + std::to_string(expected_input) + ", got " + std::to_string(options.input_channel_count));
+    }
+    if (expected_output_valid && options.output_channel_count != expected_output)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/output_channel_count",
+                 "expected " + std::to_string(expected_output) + ", got " +
+                     std::to_string(options.output_channel_count));
+    }
+}
+
+/** Validates one boundary stage: either an explicit matrix or the stage gains, never both. */
+void ValidateBoundaryStage(const std::optional<sfFDN::ChannelMatrixOptions>& matrix,
+                           const sfFDN::StageGainsOptions& gains, const std::string& stage_path,
+                           uint32_t external_count, bool external_count_valid, uint32_t fdn_size, bool fdn_size_valid,
+                           bool is_input, Issues& issues)
+{
+    const std::string matrix_path = stage_path + "/boundary_matrix";
+    const std::string gains_path = stage_path + "/parallel_gains_config";
+
+    if (matrix.has_value())
+    {
+        const uint32_t expected_input = is_input ? external_count : fdn_size;
+        const uint32_t expected_output = is_input ? fdn_size : external_count;
+        const bool expected_input_valid = is_input ? external_count_valid : fdn_size_valid;
+        const bool expected_output_valid = is_input ? fdn_size_valid : external_count_valid;
+        ValidateChannelMatrix(*matrix, matrix_path, expected_input, expected_input_valid, expected_output,
+                              expected_output_valid, issues);
+
+        if (!gains.gains.empty() || !gains.time_varying_config.empty())
+        {
+            AddIssue(issues, ConfigErrorCode::UnsupportedValue, gains_path,
+                     "stage gains must be empty when a boundary matrix is set");
+        }
+        return;
+    }
+
+    if (external_count_valid && external_count != 1U)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, matrix_path,
+                 std::string(is_input ? "an input" : "an output") + " channel count of " +
+                     std::to_string(external_count) + " requires a boundary matrix");
+    }
+    ValidateGains(gains, gains_path, fdn_size, fdn_size_valid, issues);
+}
+
 } // namespace
 
 namespace sfFDN
@@ -314,9 +368,21 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig&
     Issues issues;
     const bool fdn_size_valid = config.fdn_size > 0;
     const bool block_size_valid = config.block_size > 0;
+    const bool input_channels_valid = config.input_channel_count > 0;
+    const bool output_channels_valid = config.output_channel_count > 0;
     if (!fdn_size_valid)
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, "/fdn_size", "FDN size must be greater than zero");
+    }
+    if (!input_channels_valid)
+    {
+        AddIssue(issues, ConfigErrorCode::InvalidValue, "/input_channel_count",
+                 "input channel count must be greater than zero");
+    }
+    if (!output_channels_valid)
+    {
+        AddIssue(issues, ConfigErrorCode::InvalidValue, "/output_channel_count",
+                 "output channel count must be greater than zero");
     }
     if (!block_size_valid)
     {
@@ -338,10 +404,47 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig&
     }
 
     ValidatePrimaryDelayBank(config.delay_bank_config, config, fdn_size_valid, block_size_valid, issues);
-    ValidateGains(config.input_block_config.parallel_gains_config, "/input_block_config/parallel_gains_config",
-                  config.fdn_size, fdn_size_valid, issues);
-    ValidateGains(config.output_block_config.parallel_gains_config, "/output_block_config/parallel_gains_config",
-                  config.fdn_size, fdn_size_valid, issues);
+    ValidateBoundaryStage(config.input_block_config.boundary_matrix, config.input_block_config.parallel_gains_config,
+                          "/input_block_config", config.input_channel_count, input_channels_valid, config.fdn_size,
+                          fdn_size_valid, true, issues);
+    ValidateBoundaryStage(config.output_block_config.boundary_matrix, config.output_block_config.parallel_gains_config,
+                          "/output_block_config", config.output_channel_count, output_channels_valid, config.fdn_size,
+                          fdn_size_valid, false, issues);
+
+    if (config.direct_matrix.has_value())
+    {
+        ValidateChannelMatrix(*config.direct_matrix, "/direct_matrix", config.input_channel_count,
+                              input_channels_valid, config.output_channel_count, output_channels_valid, issues);
+        if (config.direct_gain != 0.f)
+        {
+            AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/direct_gain",
+                     "direct gain must be zero when a direct matrix is set");
+        }
+    }
+    else if (input_channels_valid && output_channels_valid &&
+             config.input_channel_count != config.output_channel_count && config.direct_gain != 0.f)
+    {
+        // The scalar gain is a diagonal path, so it cannot bridge differing input and output channel counts.
+        AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/direct_gain",
+                 "a nonzero scalar direct gain requires matching input and output channel counts; use a direct matrix "
+                 "instead");
+    }
+
+    // Stage single-channel processors sit on the external side of the boundary matrix, so they only make sense when
+    // that side is mono.
+    if (input_channels_valid && config.input_channel_count != 1U &&
+        !config.input_block_config.single_channel_processors.empty())
+    {
+        AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/input_block_config/single_channel_processors",
+                 "input single-channel processors run before the input matrix and require one input channel");
+    }
+    if (output_channels_valid && config.output_channel_count != 1U &&
+        !config.output_block_config.single_channel_processors.empty())
+    {
+        AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/output_block_config/single_channel_processors",
+                 "output single-channel processors run after the output matrix and require one output channel");
+    }
+
     ValidateFeedbackMatrix(config.feedback_matrix_config, "/feedback_matrix_config", config.fdn_size, fdn_size_valid,
                            issues);
 
