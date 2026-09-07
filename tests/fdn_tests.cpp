@@ -248,7 +248,135 @@ std::vector<float> RenderFactoryConfig(const sfFDN::FDNConfig& config)
     return output;
 }
 
+/** Builds the sfFDN counterpart of tests/gen_gold_mimo_fdn.py.
+ *
+ * Every matrix is asymmetric with no zero entries so that transposing B, C, or D, or swapping B with C, changes the
+ * response. pyFDN's (out, in) NumPy matrices in C order map directly onto sfFDN's row-major coefficient arrays.
+ */
+std::unique_ptr<sfFDN::FDN> CreateMimoGoldFDN()
+{
+    constexpr uint32_t kBlockSize = 4;
+    constexpr uint32_t kFDNOrder = 4;
+    constexpr uint32_t kExternalChannels = 2;
+    constexpr float kInvSqrt2 = 0.7071067811865476f;
+    constexpr std::array<float, kFDNOrder> kDelays = {7.f, 11.f, 13.f, 17.f};
+    // Row is the destination, column is the source, matching ChannelMatrixOptions.
+    constexpr std::array<float, kFDNOrder * kExternalChannels> kInputMatrix = {0.60f,  -0.25f, //
+                                                                               -0.40f, 0.55f,  //
+                                                                               0.80f,  0.30f,  //
+                                                                               -0.70f, -0.45f};
+    constexpr std::array<float, kExternalChannels * kFDNOrder> kOutputMatrix = {0.50f, -0.60f, 0.70f,  -0.30f, //
+                                                                                0.20f, 0.35f,  -0.45f, 0.65f};
+    constexpr std::array<float, kExternalChannels * kExternalChannels> kDirectMatrix = {0.50f, 0.10f, //
+                                                                                        -0.20f, 0.25f};
+    constexpr std::array<float, kFDNOrder * kFDNOrder> kMixingMatrix = {kInvSqrt2, 0.f,        0.5f,  0.5f,  //
+                                                                        0.f,       -kInvSqrt2, 0.5f,  -0.5f, //
+                                                                        kInvSqrt2, 0.f,        -0.5f, -0.5f, //
+                                                                        0.f,       -kInvSqrt2, -0.5f, 0.5f};
+    constexpr std::array<sfFDN::FilterCoefficients, kFDNOrder> kLoopFilters = {
+        sfFDN::FilterCoefficients{0.3f, 0.f, 0.f, 1.f, -0.7f, 0.f},
+        sfFDN::FilterCoefficients{0.4f, 0.f, 0.f, 1.f, -0.6f, 0.f},
+        sfFDN::FilterCoefficients{0.5f, 0.f, 0.f, 1.f, -0.5f, 0.f},
+        sfFDN::FilterCoefficients{0.6f, 0.f, 0.f, 1.f, -0.4f, 0.f}};
+
+    auto fdn = std::make_unique<sfFDN::FDN>(sfFDN::FDNTopology{
+        .order = kFDNOrder,
+        .block_size = kBlockSize,
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kExternalChannels,
+    });
+
+    REQUIRE(fdn->SetInputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kFDNOrder,
+        .coefficients = std::vector<float>(kInputMatrix.begin(), kInputMatrix.end()),
+    })));
+    REQUIRE(fdn->SetOutputGains(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kFDNOrder,
+        .output_channel_count = kExternalChannels,
+        .coefficients = std::vector<float>(kOutputMatrix.begin(), kOutputMatrix.end()),
+    })));
+    REQUIRE(fdn->SetDirectPath(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
+        .input_channel_count = kExternalChannels,
+        .output_channel_count = kExternalChannels,
+        .coefficients = std::vector<float>(kDirectMatrix.begin(), kDirectMatrix.end()),
+    })));
+    REQUIRE(fdn->SetDelays(kDelays));
+
+    const sfFDN::ScalarFeedbackMatrixOptions mix_mat_config{
+        .source = sfFDN::MatrixData{kFDNOrder, std::vector<float>(kMixingMatrix.begin(), kMixingMatrix.end())}};
+    REQUIRE(fdn->SetFeedbackMatrix(std::make_unique<sfFDN::ScalarFeedbackMatrix>(mix_mat_config)));
+
+    auto filter_bank = std::make_unique<sfFDN::IIRFilterBank>();
+    filter_bank->SetFilter(kLoopFilters, kFDNOrder);
+    REQUIRE(fdn->SetLoopFilter(std::move(filter_bank)));
+    return fdn;
+}
+
 } // namespace
+
+TEST_CASE("FDN matches the MIMO pyFDN golden reference", "[fdn]")
+{
+    constexpr uint32_t kSampleRate = 48000;
+    constexpr uint32_t kIter = 4096;
+    constexpr uint32_t kChannels = 2;
+    constexpr const char* kExpectedOutputFilename = "./tests/data/fdn_gold_mimo_test.wav";
+
+    auto fdn = CreateMimoGoldFDN();
+    auto clone_fdn = fdn->Clone();
+
+    // Both external inputs are driven, with the impulses offset so that swapping the input channels is also visible.
+    std::vector<float> input(static_cast<size_t>(kIter) * kChannels, 0.f);
+    input[0] = 1.f;
+    input[kIter + 1] = 1.f;
+
+    std::vector<float> output(input.size(), 0.f);
+    auto clone_input = input;
+    auto clone_output = output;
+
+    const sfFDN::AudioBuffer input_buffer(kIter, kChannels, input);
+    sfFDN::AudioBuffer output_buffer(kIter, kChannels, output);
+    fdn->Process(input_buffer, output_buffer);
+
+    const sfFDN::AudioBuffer clone_input_buffer(kIter, kChannels, clone_input);
+    sfFDN::AudioBuffer clone_output_buffer(kIter, kChannels, clone_output);
+    clone_fdn->Process(clone_input_buffer, clone_output_buffer);
+
+    // libsndfile requires a zeroed SF_INFO: in SFM_READ mode a nonzero format field makes sf_open fail.
+    SF_INFO sfinfo{};
+    SNDFILE* expected_output_file = sf_open(kExpectedOutputFilename, SFM_READ, &sfinfo);
+    REQUIRE(expected_output_file != nullptr);
+    REQUIRE(sfinfo.channels == static_cast<int>(kChannels));
+    REQUIRE(sfinfo.samplerate == kSampleRate);
+    REQUIRE(sfinfo.frames == static_cast<sf_count_t>(kIter));
+    REQUIRE((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
+
+    std::vector<float> interleaved_expected(static_cast<size_t>(sfinfo.frames) * kChannels);
+    const sf_count_t read = sf_readf_float(expected_output_file, interleaved_expected.data(), sfinfo.frames);
+    REQUIRE(read == sfinfo.frames);
+    sf_close(expected_output_file);
+
+    float signal_energy = 0.f;
+    float signal_error = 0.f;
+    for (uint32_t channel = 0; channel < kChannels; ++channel)
+    {
+        const auto actual = output_buffer.GetChannelSpan(channel);
+        const auto cloned = clone_output_buffer.GetChannelSpan(channel);
+        for (uint32_t frame = 0; frame < kIter; ++frame)
+        {
+            const float expected = interleaved_expected[(static_cast<size_t>(frame) * kChannels) + channel];
+            REQUIRE_THAT(actual[frame], Catch::Matchers::WithinAbs(expected, 1e-5));
+            signal_energy += expected * expected;
+            signal_error += (actual[frame] - expected) * (actual[frame] - expected);
+            REQUIRE_THAT(cloned[frame], Catch::Matchers::WithinAbs(actual[frame], 1e-7));
+        }
+    }
+    const float snr = 10.f * std::log10(signal_energy / signal_error);
+    INFO("MIMO FDN SNR: " << snr << " dB");
+
+    // The two channels must differ; identical channels would mean the asymmetric matrices were not applied.
+    REQUIRE_FALSE(std::ranges::equal(output_buffer.GetChannelSpan(0), output_buffer.GetChannelSpan(1)));
+}
 
 TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
 {

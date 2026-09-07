@@ -430,21 +430,6 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig&
                  "instead");
     }
 
-    // Stage single-channel processors sit on the external side of the boundary matrix, so they only make sense when
-    // that side is mono.
-    if (input_channels_valid && config.input_channel_count != 1U &&
-        !config.input_block_config.single_channel_processors.empty())
-    {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/input_block_config/single_channel_processors",
-                 "input single-channel processors run before the input matrix and require one input channel");
-    }
-    if (output_channels_valid && config.output_channel_count != 1U &&
-        !config.output_block_config.single_channel_processors.empty())
-    {
-        AddIssue(issues, ConfigErrorCode::UnsupportedValue, "/output_block_config/single_channel_processors",
-                 "output single-channel processors run after the output matrix and require one output channel");
-    }
-
     ValidateFeedbackMatrix(config.feedback_matrix_config, "/feedback_matrix_config", config.fdn_size, fdn_size_valid,
                            issues);
 

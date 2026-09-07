@@ -18,7 +18,8 @@ class FDN;
 /** @brief Configuration for FDN input-stage processing. */
 struct InputStageConfig
 {
-    //! Single-channel processors applied before the signal is split into FDN channels.
+    //! Single-channel processors applied before the signal is split into FDN channels. With more than one input
+    //! channel the ordered chain is replicated per input channel, each replica holding independent state.
     std::vector<single_channel_processor_variant_t> single_channel_processors;
 
     //! Stage gains. Routing is determined by this stage's placement. Must be empty when `boundary_matrix` is set.
@@ -43,7 +44,8 @@ struct OutputStageConfig
     //! Stage gains. Routing is determined by this stage's placement. Must be empty when `boundary_matrix` is set.
     StageGainsOptions parallel_gains_config;
 
-    //! Single-channel processors applied after the FDN channels are mixed down.
+    //! Single-channel processors applied after the FDN channels are mixed down. With more than one output channel the
+    //! ordered chain is replicated per output channel, each replica holding independent state.
     std::vector<single_channel_processor_variant_t> single_channel_processors;
 
     //! Optional output boundary matrix C, mapping `fdn_size` channels to `output_channel_count`. When absent the stage

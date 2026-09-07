@@ -25,6 +25,20 @@ This topology can be separated into seven building blocks: the input gains (gree
 
 The input gains block supports any processor that takes a single channel of audio as input and outputs \f$N\f$ channels of audio. Conversely, the output gains block consists of any processor that takes \f$N\f$ channels of audio as input and outputs a single channel of audio. The simplest and most common implementation of these blocks is a simple gain processor that applies a scalar gain (\f$b_i\f$, \f$c_i\f$) to each channel. This functionality is provided by the `ParallelGains` class which can either split a single input channel into \f$N\f$ output channels (input gains) or sum \f$N\f$ input channels into a single output channel (output gains). FIR filters are commonly added at the input and/or output of the FDN to simulate early reflections and increase echo density. This effect can be achieved by chaining a `Fir` processor with `ParallelGains`. For longer FIR filters, `PartitionedConvolver` can reduce convolution cost. Fagerström et al. (2020)[^4] proposed a novel FDN structure where the input and output gains are replaced by velvet noise filters, resulting in an increase in echo density. This so-called velvet-noise FDN can be implemented with `SparseFir`, which efficiently represents sparse FIR filters suited to velvet-noise sequences. `FilterBank` can also create a bank of parallel filters, allowing each channel to have its own FIR or velvet-noise filter.
 
+More generally, the network takes \f$M\f$ external input channels and produces \f$K\f$ external output channels. The input gains block is then the boundary matrix \f$B\f$ mapping \f$M\f$ to \f$N\f$, and the output gains block is \f$C\f$ mapping \f$N\f$ to \f$K\f$; `ChannelMatrix` implements both. \f$M\f$, \f$N\f$ and \f$K\f$ are fixed for the lifetime of an `FDN` and are supplied at construction through `FDNTopology`:
+
+```c++
+sfFDN::FDN fdn(sfFDN::FDNTopology{
+    .order = 8,
+    .block_size = 128,
+    .input_channel_count = 1,
+    .output_channel_count = 2,
+});
+```
+
+Every processor installed afterwards is validated against those counts, so a setter either installs a compatible processor or leaves the network untouched; there is no way to resize an existing FDN. `FDN::Process` requires an input buffer with exactly \f$M\f$ channels. It requires exactly \f$K\f$ output channels, except that a network with \f$K = 1\f$ also accepts a wider output buffer and duplicates channel zero into the rest. `FDN::Process` accumulates into its output buffer, so callers driving it block by block must zero the destination before every call.
+
+
 </details>
 
 <details>
@@ -203,10 +217,11 @@ The direct path follows the same rule. `direct_gain` is a diagonal `gain * I` an
 set `direct_matrix` for any other shape. A nonzero `direct_gain` together with a `direct_matrix` is rejected as
 ambiguous.
 
-Two placement restrictions follow from the topology. `single_channel_processors` on the input stage run *before*
-the input matrix and on the output stage run *after* the output matrix, so they require the external side to be
-mono. Tone correction is a per-output-channel filter: with `K > 1` the configured chain is replicated once per
-output channel, each replica holding independent filter state.
+Two placement rules follow from the topology. `single_channel_processors` on the input stage run *before* the
+input matrix and on the output stage run *after* the output matrix, so they sit on the external side of the
+boundary. With M or K greater than 1 the whole ordered chain is replicated once per external channel, each replica
+an independent instance with its own filter state. Tone correction follows the same rule on the K output channels.
+
 
 Include `<sffdn/serialization.h>` to serialize `FDNConfig` to JSON and link JSON consumers to
 `sfFDN::serialization`. Reads are transactional: malformed input leaves the destination unchanged.

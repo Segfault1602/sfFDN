@@ -650,16 +650,17 @@ TEST_CASE("ValidateFDNConfig constrains the direct path to one representation", 
     }
 }
 
-TEST_CASE("ValidateFDNConfig rejects stage single-channel processors outside a mono boundary", "[fdn]")
+TEST_CASE("ValidateFDNConfig accepts stage single-channel processors outside a mono boundary", "[fdn]")
 {
+    // These are replicated per external channel rather than rejected, so a MIMO boundary is valid.
     auto config = MakeMimoConfig(2U, 3U);
     config.input_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
     config.output_block_config.single_channel_processors = {sfFDN::FirOptions{.coeffs = {1.F}}};
-    const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
-    REQUIRE(
-        HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/input_block_config/single_channel_processors"));
-    REQUIRE(
-        HasIssue(issues, sfFDN::ConfigErrorCode::UnsupportedValue, "/output_block_config/single_channel_processors"));
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(fdn->InputChannelCount() == 2U);
+    REQUIRE(fdn->OutputChannelCount() == 3U);
 }
 
 TEST_CASE("CreateFDNFromConfig builds a MIMO network with the configured routing", "[fdn]")
@@ -763,6 +764,142 @@ TEST_CASE("CreateFDNFromConfig omits the direct path when the channel counts dif
     fdn->Process(input_buffer, output_buffer);
     REQUIRE(output[0] == 0.F);
     REQUIRE(output[1] == 0.F);
+}
+
+/** Builds a 2-in, 2-out network whose two external channels are routed through disjoint delay lines.
+ *
+ * Input channel c feeds delay line c only, and output channel c reads delay line c only, so anything that appears on
+ * the wrong output channel is cross-talk rather than mixing.
+ */
+sfFDN::FDNConfig MakeSeparatedStereoConfig()
+{
+    auto config = MakeMimoConfig(2U, 2U);
+    config.block_size = 1U;
+    config.delay_bank_config = {.delays = {1.F, 1.F, 1.F, 1.F}, .block_size = 1U};
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source = sfFDN::GeneratedMatrixOptions{.matrix_size = config.fdn_size,
+                                                .generator = sfFDN::ScalarMatrixType::Identity},
+    };
+    config.input_block_config.boundary_matrix->coefficients = {1.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F};
+    config.output_block_config.boundary_matrix->coefficients = {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F};
+    return config;
+}
+
+TEST_CASE("CreateFDNFromConfig gives each replicated stage chain independent state", "[fdn]")
+{
+    auto config = MakeSeparatedStereoConfig();
+    // A one-sample delay carries state across blocks, so a single shared instance would leak channel 0 into channel 1.
+    const std::vector<sfFDN::single_channel_processor_variant_t> chain = {
+        sfFDN::DelayOptions{.delay = 1.F, .max_delay = 4U}};
+
+    uint32_t expected_onset = 0U;
+    SECTION("input stage")
+    {
+        config.input_block_config.single_channel_processors = chain;
+        // The stage delay holds the impulse for one block and the delay line for another.
+        expected_onset = 2U;
+    }
+    SECTION("output stage")
+    {
+        config.output_block_config.single_channel_processors = chain;
+        expected_onset = 2U;
+    }
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    std::array<float, 2> impulse = {1.F, 0.F};
+    std::array<float, 2> silence{};
+    std::array<float, 2> output{};
+    const sfFDN::AudioBuffer impulse_buffer(1U, 2U, impulse);
+    const sfFDN::AudioBuffer silence_buffer(1U, 2U, silence);
+    sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+
+    std::vector<float> right_channel;
+    std::vector<float> left_channel;
+    for (uint32_t block = 0; block < 6U; ++block)
+    {
+        output.fill(0.F);
+        fdn->Process(block == 0 ? impulse_buffer : silence_buffer, output_buffer);
+        left_channel.push_back(output[0]);
+        right_channel.push_back(output[1]);
+    }
+
+    REQUIRE(left_channel[expected_onset - 1U] == 0.F);
+    REQUIRE(left_channel[expected_onset] == 1.F);
+    // Nothing was ever presented to channel 1, so a shared replica or shared delay line would show up here.
+    REQUIRE(std::ranges::all_of(right_channel, [](float sample) { return sample == 0.F; }));
+}
+
+TEST_CASE("CreateFDNFromConfig replicates stage single-channel chains faithfully and in order", "[fdn]")
+{
+    // A ring modulator is time-varying, so it does not commute with a delay: reordering the chain changes the
+    // response. Rendering the same ordered chain through a mono network and through both channels of a stereo network
+    // pins that each replica is faithful and that its order is preserved.
+    const std::vector<sfFDN::single_channel_processor_variant_t> chain = {
+        sfFDN::DelayOptions{.delay = 2.F, .max_delay = 8U},
+        sfFDN::RingModulatorOptions{.frequency = 0.05F, .amplitude = 1.F, .initial_phase = 0.125F},
+    };
+
+    auto stereo = MakeSeparatedStereoConfig();
+
+    // The mono reference uses the same routing as one channel of the stereo network: one delay line, unit gains.
+    auto mono = MakeSeparatedStereoConfig();
+    mono.input_channel_count = 1U;
+    mono.output_channel_count = 1U;
+    mono.input_block_config.boundary_matrix.reset();
+    mono.output_block_config.boundary_matrix.reset();
+    mono.input_block_config.parallel_gains_config = {.gains = {1.F, 0.F, 0.F, 0.F}, .time_varying_config = {}};
+    mono.output_block_config.parallel_gains_config = {.gains = {1.F, 0.F, 0.F, 0.F}, .time_varying_config = {}};
+
+    SECTION("input stage")
+    {
+        stereo.input_block_config.single_channel_processors = chain;
+        mono.input_block_config.single_channel_processors = chain;
+    }
+    SECTION("output stage")
+    {
+        stereo.output_block_config.single_channel_processors = chain;
+        mono.output_block_config.single_channel_processors = chain;
+    }
+    SECTION("tone correction")
+    {
+        stereo.tone_correction_filters = chain;
+        mono.tone_correction_filters = chain;
+    }
+    REQUIRE(sfFDN::ValidateFDNConfig(stereo).has_value());
+    REQUIRE(sfFDN::ValidateFDNConfig(mono).has_value());
+
+    auto stereo_fdn = sfFDN::CreateFDNFromConfig(stereo);
+    auto mono_fdn = sfFDN::CreateFDNFromConfig(mono);
+
+    constexpr uint32_t kBlockCount = 24U;
+    std::vector<float> mono_output;
+    std::vector<float> stereo_left;
+    std::vector<float> stereo_right;
+    for (uint32_t block = 0; block < kBlockCount; ++block)
+    {
+        const float sample = block == 0 ? 1.F : 0.F;
+
+        std::array<float, 1> mono_input{sample};
+        std::array<float, 1> mono_block{};
+        const sfFDN::AudioBuffer mono_input_buffer(1U, 1U, mono_input);
+        sfFDN::AudioBuffer mono_output_buffer(1U, 1U, mono_block);
+        mono_fdn->Process(mono_input_buffer, mono_output_buffer);
+        mono_output.push_back(mono_block[0]);
+
+        // Drive both stereo channels so the second replica is exercised rather than left idle.
+        std::array<float, 2> stereo_input{sample, sample};
+        std::array<float, 2> stereo_block{};
+        const sfFDN::AudioBuffer stereo_input_buffer(1U, 2U, stereo_input);
+        sfFDN::AudioBuffer stereo_output_buffer(1U, 2U, stereo_block);
+        stereo_fdn->Process(stereo_input_buffer, stereo_output_buffer);
+        stereo_left.push_back(stereo_block[0]);
+        stereo_right.push_back(stereo_block[1]);
+    }
+
+    REQUIRE(std::ranges::any_of(mono_output, [](float sample) { return sample != 0.F; }));
+    REQUIRE(stereo_left == mono_output);
+    REQUIRE(stereo_right == mono_output);
 }
 
 TEST_CASE("RandomizeMatrixSeeds leaves explicit boundary coefficients unchanged", "[fdn]")
