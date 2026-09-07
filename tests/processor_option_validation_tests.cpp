@@ -42,6 +42,21 @@ sfFDN::TimeVaryingSchroederAllpassSectionOptions ValidTimeVaryingSchroederOption
         .parallel = false,
     };
 }
+
+template <typename Options>
+void RequireInvalidOptions(const Options& options)
+{
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateOptions(options, "", issues);
+    REQUIRE_FALSE(issues.empty());
+}
+
+void RequireInvalidAttenuationOptions(const sfFDN::attenuation_filter_variant_t& options)
+{
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateAttenuationOptions(options, "", issues, false);
+    REQUIRE_FALSE(issues.empty());
+}
 } // namespace
 
 TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents", "[fdn_config]")
@@ -62,6 +77,43 @@ TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents
     const auto invalid = options;
     REQUIRE_THROWS_AS(sfFDN::detail::RequireValidOptions(options), std::invalid_argument);
     REQUIRE(options == invalid);
+}
+
+TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation domains", "[fdn_config]")
+{
+    RequireInvalidOptions(sfFDN::CascadedBiquadsOptions{
+        .coeffs = {{1.F, 0.F, 0.F, 0.F, 2.F, 0.F}},
+    });
+    RequireInvalidOptions(sfFDN::CascadedBiquadsOptions{
+        .coeffs = {{std::numeric_limits<float>::max(), 0.F, 0.F, std::numeric_limits<float>::min(), 0.F, 0.F}},
+    });
+    RequireInvalidOptions(sfFDN::FirOptions{.coeffs = {}});
+    RequireInvalidOptions(sfFDN::GraphicEQOptions{
+        .freqs = {32.F, 64.F, 125.F, 125.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+    });
+    RequireInvalidOptions(sfFDN::ControllableFullWaveRectifierOptions{.alpha = -0.1F});
+    RequireInvalidOptions(sfFDN::SignalDependentFractionalDelayOptions{.d = 1.1F});
+    RequireInvalidOptions(sfFDN::RingModulatorOptions{.frequency = -1.F});
+    RequireInvalidOptions(sfFDN::VariableDiffusionOptions{.diffusion = 2.F});
+
+    RequireInvalidAttenuationOptions(sfFDN::TwoBandFilterOptions{
+        .t60s = {1.F, 0.5F},
+        .delay = -1.F,
+        .sample_rate = 48000.F,
+    });
+    RequireInvalidAttenuationOptions(sfFDN::ThreeBandFilterOptions{
+        .t60s = {1.F, 1.F, 1.F},
+        .delay = 4.F,
+        .freqs = {8000.F, 800.F},
+        .q = 0.F,
+        .sample_rate = 48000.F,
+    });
+    RequireInvalidAttenuationOptions(sfFDN::TenBandFilterOptions{
+        .t60s = {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F},
+        .delay = 4.F,
+        .sample_rate = 32000.F,
+        .shelf_cutoff = 16000.F,
+    });
 }
 
 TEST_CASE("Delay options reject nonrepresentable values before construction", "[delay]")
