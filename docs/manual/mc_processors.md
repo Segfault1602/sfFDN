@@ -4,6 +4,9 @@ This section describes the multi-channel processors provided by sfFDN. These are
 
 ## Processors
 
+- [Channel matrix](@ref sfFDN::ChannelMatrix): Applies a static dense rectangular matrix between input and output
+  channels. Coefficients are row-major by output row and input column. Processing overwrites the destination, requires
+  disjoint input/output storage, and performs no allocation.
 - [Gains](@ref sfFDN::ParallelGains): A simple processor that applies a gain to each channel independently. Must be used in the [ParallelGainsMode::Parallel](@ref sfFDN::ParallelGainsMode) mode.
 - [Generic processor bank](@ref sfFDN::MultichannelProcessorOptions): A [FilterBank](@ref sfFDN::FilterBank)
   with one independently constructed single-channel processor per channel. Entries may mix any

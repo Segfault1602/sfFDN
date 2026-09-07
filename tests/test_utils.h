@@ -23,4 +23,10 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(uint32_t block_size, uint32_t fdn_order);
 std::vector<float> ReadWavFile(const std::string& filename);
 void WriteWavFile(const std::string& filename, const std::vector<float>& data);
 
+/** Writes interleaved multichannel data. `data.size()` must be a multiple of `channel_count`. */
+void WriteWavFile(const std::string& filename, const std::vector<float>& interleaved_data, uint32_t channel_count);
+
+/** Converts a planar AudioBuffer into an interleaved vector, as expected by the multichannel WriteWavFile. */
+std::vector<float> InterleaveAudioBuffer(const sfFDN::AudioBuffer& buffer);
+
 std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter);

@@ -14,16 +14,45 @@
 namespace sfFDN
 {
 
+/** @brief The immutable shape of an FDN: M external inputs, N delay lines, K external outputs.
+ *
+ * All four counts are fixed for the lifetime of the FDN. Every processor installed afterwards is validated against
+ * them, so a topology cannot change out from under an already-configured network.
+ */
+struct FDNTopology
+{
+    /** The number of delay lines, N. Must be greater than zero. */
+    uint32_t order = 0;
+    /** The size of the audio blocks processed in the main loop. Must be at least 1. */
+    uint32_t block_size = 0;
+    /** The number of external input channels, M. Must be greater than zero. */
+    uint32_t input_channel_count = 1;
+    /** The number of external output channels, K. Must be greater than zero. */
+    uint32_t output_channel_count = 1;
+    /** Whether to use the transposed topology. */
+    bool transposed = false;
+};
+
 /** FDN (Feedback Delay Network) class */
 class FDN : public AudioProcessor
 {
   public:
-    /** @brief Constructs an FDN with a specified order (number of channels).
-     * @param order The number of channels. Must be at least 4.
+    /** @brief Constructs an FDN with the given immutable topology.
+     * @param topology The M/N/K channel counts, block size, and topology arrangement.
+     * @throws std::invalid_argument if any of the channel counts is zero or the block size is smaller than 1.
+     *
+     * `block_size` is used to allocate internal buffers for processing. The order and the external channel counts
+     * cannot be changed afterwards; construct a new FDN instead.
+     */
+    explicit FDN(const FDNTopology& topology);
+
+    /** @brief Constructs a one-input, one-output FDN with a specified order (number of delay lines).
+     * @param order The number of delay lines. Must be greater than zero.
      * @param block_size The size of the audio blocks to be processed in the main loop.
      * @param transpose Whether to use transposed configuration.
      *
-     * `block_size` is used to allocate internal buffers for processing.
+     * Convenience overload equivalent to `FDN(FDNTopology{.order = order, .block_size = block_size, .transposed =
+     * transpose})`.
      */
     FDN(uint32_t order, uint32_t block_size, bool transpose = false);
 
@@ -41,15 +70,8 @@ class FDN : public AudioProcessor
      */
     FDN& operator=(FDN&& other) noexcept;
 
-    /**
-     * @brief Set the number of channels of the FDN
-     * @param order The number of channels. Must be at least 4.
-     * Calling this method will reset the internal components of the FDN to the default state.
-     */
-    void SetOrder(uint32_t order);
-
-    /** @brief Get the FDN's order (number of channels).
-     * @returns The number of channels.
+    /** @brief Get the FDN's order (number of delay lines, N).
+     * @returns The number of delay lines. Fixed at construction.
      */
     uint32_t GetOrder() const;
 
@@ -70,24 +92,24 @@ class FDN : public AudioProcessor
     bool GetTranspose() const;
 
     /**
-     * @brief Set the Input Gains AudioProcessor
+     * @brief Set the input boundary processor B.
      *
-     * @param gains The AudioProcessor to use for input gains. Must have 1 input channel and number of output channels
-     * equal to GetOrder(). The FDN takes ownership of the pointer.
+     * @param gains The processor to use for input routing. Its input channel count must equal InputChannelCount() and
+     * its output channel count must equal GetOrder(). The FDN takes ownership of the pointer.
      * @return true if the gains were set successfully
      * @return false if the gains could not be set
      *
-     * False is returned if the input and output channel counts do not match the requirements.
+     * False is returned if the pointer is null or the channel counts do not match the fixed topology.
      */
     bool SetInputGains(std::unique_ptr<AudioProcessor> gains);
 
-    /** @brief Set the Output Gains AudioProcessor
-     * @param gains The AudioProcessor to use for output gains. Must have number of input channels equal to
-     * GetOrder() and 1 output channel. The FDN takes ownership of the pointer.
+    /** @brief Set the output boundary processor C.
+     * @param gains The processor to use for output routing. Its input channel count must equal GetOrder() and its
+     * output channel count must equal OutputChannelCount(). The FDN takes ownership of the pointer.
      * @return true if the gains were set successfully
      * @return false if the gains could not be set
      *
-     * False is returned if the input and output channel counts do not match the requirements.
+     * False is returned if the pointer is null or the channel counts do not match the fixed topology.
      */
     bool SetOutputGains(std::unique_ptr<AudioProcessor> gains);
 
@@ -124,7 +146,24 @@ class FDN : public AudioProcessor
      */
     AudioProcessor* GetOutputGains() const;
 
-    /** @brief Set the direct gain applied to the input signal when mixed to the output.
+    /** @brief Set a direct-path processor mapping the M input channels to the K output channels.
+     * @param direct The processor to use for the direct (dry) path, or nullptr to remove it. The FDN takes ownership
+     * of the pointer.
+     * @return true if the direct path was set or removed successfully, false if its channel counts do not match
+     * InputChannelCount() and OutputChannelCount().
+     *
+     * Removing the direct processor falls back to the scalar direct gain when M equals K, and to a silent direct path
+     * otherwise.
+     */
+    bool SetDirectPath(std::unique_ptr<AudioProcessor> direct);
+
+    /** @brief Get the direct-path processor, or nullptr when the scalar direct gain is active. */
+    AudioProcessor* GetDirectPath() const;
+
+    /** @brief Set the scalar direct gain, applied as a diagonal `gain * I` direct path.
+     *
+     * Only valid when InputChannelCount() equals OutputChannelCount(); the call is otherwise ignored. Setting a
+     * scalar gain removes any direct-path processor installed with SetDirectPath().
      */
     void SetDirectGain(float gain);
 
@@ -184,8 +223,8 @@ class FDN : public AudioProcessor
      * @param filter The AudioProcessor to use as the tone correction filter. The FDN takes ownership of the pointer.
      * Can be nullptr to disable filtering.
      * @return true if the filter was set successfully
-     * @return false if the filter could not be set. Only happens if filter->InputChannelCount() or
-     * filter->OutputChannelCount() do not equal 1.
+     * @return false if the filter could not be set. Only happens if its input or output channel count does not equal
+     * OutputChannelCount().
      */
     bool SetTCFilter(std::unique_ptr<AudioProcessor> filter);
 
@@ -194,30 +233,21 @@ class FDN : public AudioProcessor
      */
     AudioProcessor* GetTCFilter() const;
 
-    /** @brief Process audio buffers.
-     * @param input The input audio buffer. Must be mono (1 channel).
-     * @param output The output audio buffer. Must be mono (1 channel).
+    /** @brief Process audio buffers and accumulate the result into output.
+     * @param input The input audio buffer. Its channel count must equal InputChannelCount().
+     * @param output The output audio buffer. Its channel count must equal OutputChannelCount(). A mono FDN also
+     * accepts additional output channels and duplicates channel zero for backward compatibility.
      *
      * The input and output buffers must have the same sample count.
      * input.SampleCount() does not have to be equal to block_size but it is recommended for optimal performance.
      */
     void Process(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING override;
 
-    /** @brief Returns the number of input channels this processor expects.
-     * @return 1
-     */
-    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override
-    {
-        return 1;
-    }
+    /** @brief Returns the number of input channels this processor expects. */
+    uint32_t InputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
-    /** @brief Returns the number of output channels this processor produces.
-     * @return 1
-     */
-    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override
-    {
-        return 1;
-    }
+    /** @brief Returns the number of output channels this processor produces. */
+    uint32_t OutputChannelCount() const noexcept SFFDN_NONBLOCKING override;
 
     /** @brief Clears the internal state of the FDN.
      * This function clears the internal state of all delay banks, filter banks, and feedback matrices.
@@ -235,6 +265,8 @@ class FDN : public AudioProcessor
     std::unique_ptr<FDN> CloneFDN() const;
 
   private:
+    void PrepareOutput(const AudioBuffer& input, const AudioBuffer& wet_input) noexcept SFFDN_NONBLOCKING;
+    void AccumulateOutput(AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void TickInternal(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void Tick(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
     void TickTranspose(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
@@ -246,13 +278,19 @@ class FDN : public AudioProcessor
 
     std::unique_ptr<AudioProcessor> input_gains_;
     std::unique_ptr<AudioProcessor> output_gains_;
+    std::unique_ptr<AudioProcessor> direct_path_;
 
     uint32_t order_;
     uint32_t block_size_;
+    uint32_t input_channel_count_;
+    uint32_t output_channel_count_;
     float direct_gain_;
 
     std::vector<float> feedback_;
     std::vector<float> temp_buffer_;
+    std::vector<float> wet_output_;
+    std::vector<float> tone_output_;
+    std::vector<float> direct_output_;
 
     std::unique_ptr<AudioProcessor> tc_filter_;
 

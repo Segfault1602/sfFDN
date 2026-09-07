@@ -17,6 +17,7 @@ void ValidateOptions(const DelayBankTimeVaryingOptions& options, const std::stri
 void ValidateOptions(const DattorroDelayOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
 void ValidateOptions(const ParallelGainsOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
 void ValidateOptions(const StageGainsOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const ChannelMatrixOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
 void ValidateOptions(const SchroederAllpassSectionOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const TimeVaryingSchroederAllpassSectionOptions& options, const std::string& path,

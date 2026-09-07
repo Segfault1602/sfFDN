@@ -52,6 +52,7 @@ target_sources(
             audio_buffer_tests.cpp
             audio_processor_chain_tests.cpp
             array_math_tests.cpp
+            channel_matrix_tests.cpp
             dattorro_delay_tests.cpp
             delay_tests.cpp
             filter_tests.cpp

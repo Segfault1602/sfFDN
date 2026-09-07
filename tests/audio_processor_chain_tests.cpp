@@ -111,7 +111,7 @@ TEST_CASE("AudioProcessorChain manages, processes, and clones processors", "[pro
     }
 }
 
-TEST_CASE("AudioProcessorChain reuses dirty intermediate storage for accumulating processors", "[processor_chain]")
+TEST_CASE("AudioProcessorChain clears intermediate storage for accumulating processors", "[processor_chain]")
 {
     sfFDN::AudioProcessorChain chain(1U);
 
@@ -135,7 +135,7 @@ TEST_CASE("AudioProcessorChain reuses dirty intermediate storage for accumulatin
     sfFDN::AudioBuffer output_buffer(output);
     chain.Process(input_buffer, output_buffer);
 
-    REQUIRE(output[0] == Catch::Approx(62.F));
+    REQUIRE(output[0] == Catch::Approx(60.F));
 }
 
 TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its contents", "[processor_chain]")

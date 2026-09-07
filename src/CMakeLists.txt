@@ -22,6 +22,8 @@ target_sources(
             audio_processor.cpp
             array_math.cpp
             cascaded_filter.cpp
+            channel_matrix.cpp
+            channel_matrix_option_validation.cpp
             circular_buffer.cpp
             dattorro_delay.cpp
             delay.cpp
@@ -73,6 +75,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/attributes.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_buffer.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/audio_processor.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/channel_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/dattorro_delay.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/delay_utils.h

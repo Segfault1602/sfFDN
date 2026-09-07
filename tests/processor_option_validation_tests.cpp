@@ -79,6 +79,25 @@ TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents
     REQUIRE(options == invalid);
 }
 
+TEST_CASE("ChannelMatrixOptions validates dimensions and coefficient count", "[fdn_config]")
+{
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateOptions(
+        sfFDN::ChannelMatrixOptions{.input_channel_count = 2U, .output_channel_count = 3U, .coefficients = {1.F}},
+        "/matrix", issues);
+    REQUIRE(issues.size() == 1U);
+    REQUIRE(issues[0].code == sfFDN::ConfigErrorCode::SizeMismatch);
+    REQUIRE(issues[0].path == "/matrix/coefficients");
+
+    issues.clear();
+    sfFDN::detail::ValidateOptions(
+        sfFDN::ChannelMatrixOptions{.input_channel_count = 0U, .output_channel_count = 0U, .coefficients = {}},
+        "/matrix", issues);
+    REQUIRE(issues.size() == 2U);
+    REQUIRE(issues[0].path == "/matrix/input_channel_count");
+    REQUIRE(issues[1].path == "/matrix/output_channel_count");
+}
+
 TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation domains", "[fdn_config]")
 {
     RequireInvalidOptions(sfFDN::CascadedBiquadsOptions{

@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <random>
+#include <stdexcept>
+#include <string_view>
 #include <vector>
 
 #include <sndfile.h>
@@ -129,6 +131,15 @@ std::vector<float> ReadWavFile(const std::string& filename)
 
 void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 {
+    WriteWavFile(filename, data, 1U);
+}
+
+void WriteWavFile(const std::string& filename, const std::vector<float>& interleaved_data, uint32_t channel_count)
+{
+    if (channel_count == 0 || interleaved_data.size() % channel_count != 0)
+    {
+        throw std::runtime_error("Interleaved data size is not a multiple of the channel count: " + filename);
+    }
 
     constexpr std::string_view kOutputDir = "test_outputs";
     // Create the output directory if it doesn't exist
@@ -136,10 +147,12 @@ void WriteWavFile(const std::string& filename, const std::vector<float>& data)
 
     std::filesystem::path output_path = std::filesystem::path(kOutputDir) / filename;
 
+    const sf_count_t frame_count = static_cast<sf_count_t>(interleaved_data.size() / channel_count);
+
     SF_INFO sfinfo{};
-    sfinfo.frames = data.size();
+    sfinfo.frames = frame_count;
     sfinfo.samplerate = 48000; // Default sample rate
-    sfinfo.channels = 1;       // Mono
+    sfinfo.channels = static_cast<int>(channel_count);
     sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
 
     SNDFILE* file = sf_open(output_path.string().c_str(), SFM_WRITE, &sfinfo);
@@ -148,13 +161,30 @@ void WriteWavFile(const std::string& filename, const std::vector<float>& data)
         throw std::runtime_error("Failed to open WAV file for writing: " + filename);
     }
 
-    sf_count_t written_count = sf_writef_float(file, data.data(), data.size());
-    if (written_count != data.size())
+    sf_count_t written_count = sf_writef_float(file, interleaved_data.data(), frame_count);
+    if (written_count != frame_count)
     {
         throw std::runtime_error("Failed to write all frames to WAV file: " + filename);
     }
 
     sf_close(file);
+}
+
+std::vector<float> InterleaveAudioBuffer(const sfFDN::AudioBuffer& buffer)
+{
+    const uint32_t channel_count = buffer.ChannelCount();
+    const uint32_t sample_count = buffer.SampleCount();
+
+    std::vector<float> interleaved(static_cast<size_t>(sample_count) * channel_count, 0.f);
+    for (uint32_t channel = 0; channel < channel_count; ++channel)
+    {
+        const auto channel_span = buffer.GetChannelSpan(channel);
+        for (uint32_t sample = 0; sample < sample_count; ++sample)
+        {
+            interleaved[(static_cast<size_t>(sample) * channel_count) + channel] = channel_span[sample];
+        }
+    }
+    return interleaved;
 }
 
 std::vector<float> GetImpulseResponse(sfFDN::AudioProcessor* filter)
