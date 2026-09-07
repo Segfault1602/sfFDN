@@ -88,7 +88,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateStageRoutingFromConfig(const sfFDN:
         return MakeParallelGainsFromConfig(MakeStageGainsOptions(stage_options, mode));
     }
 
-    const uint32_t gain_count = static_cast<uint32_t>(stage_options.gains.size());
+    const auto gain_count = static_cast<uint32_t>(stage_options.gains.size());
     if (mode == sfFDN::ParallelGainsMode::Split)
     {
         return std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{

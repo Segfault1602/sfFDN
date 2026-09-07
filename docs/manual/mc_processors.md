@@ -65,7 +65,9 @@ FilterBank processor(dattorro);
 ```
 
 For an FDN placement, the bank contains one entry per FDN channel. `ParallelGainsOptions` retains its explicit
-`ParallelGainsMode`; `StageGainsOptions` configures the gains in FDN input and output stages.
+`ParallelGainsMode` for standalone and multichannel processors. `StageGainsOptions` configures FDN input and output
+stages: an unmodulated gain list is constructed as a rectangular `ChannelMatrix`, while a nonempty modulation vector
+uses `TimeVaryingParallelGains`.
 
 ### Matrix sources and seeds
 
