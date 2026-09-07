@@ -66,11 +66,6 @@ pyFDN/NumPy matrix `A` with shape `(out, in)`, use its C-order flattening:
 coefficients = numpy.asarray(A).ravel(order="C")
 ```
 
-pyFDN evaluates the same mapping as `x @ A.T`. This is unrelated to sfFDN's **transposed FDN
-topology** (`FDN::SetTranspose`): that setting reorders the FDN signal-flow topology; it does not
-apply $A^T$ to a supplied feedback matrix. Supply an explicitly transposed matrix when $A^T$ is
-desired.
-
 ## Matrix sources and seeds
 
 `ScalarFeedbackMatrixOptions::source` is either a generated `GeneratedMatrixOptions` recipe or

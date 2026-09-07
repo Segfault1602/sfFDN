@@ -1009,40 +1009,62 @@ TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout", "[feed
     REQUIRE_FALSE(ffm.GetFirstMatrix(wrong));
 }
 
-TEST_CASE("FilterFeedbackMatrix reproduces seeded random cascades", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix reproduces seeded random-family cascades", "[feedback_matrix]")
 {
+    // Covers both a random-matrix generator (where the seed changes the matrix itself) and a random-recipe
+    // generator (RandomHouseholder, where the seed still drives the cascade even at the uint32_t boundary),
+    // parameterized by generator/seed rather than duplicating the same first/repeated/different pattern per case.
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 16U;
     constexpr uint32_t kBlockCount = 24U;
-    const sfFDN::CascadedFeedbackMatrixOptions options = {
-        .matrix_size = kOrder,
-        .stage_count = 2U,
-        .sparsity = 2.5f,
-        .generator = sfFDN::ScalarMatrixType::Random,
-        .gain_per_samples = 0.98f,
-        .rng_seed = 0x5EED1234U,
+
+    struct Case
+    {
+        sfFDN::ScalarMatrixType generator;
+        float sparsity;
+        float gain_per_samples;
+        uint32_t seed;
+        uint32_t different_seed;
     };
-    sfFDN::FilterFeedbackMatrix first(options);
-    sfFDN::FilterFeedbackMatrix repeated(options);
-    auto different_options = options;
-    different_options.rng_seed += 1U;
-    sfFDN::FilterFeedbackMatrix different(different_options);
 
-    std::vector<float> first_matrix(kOrder * kOrder);
-    std::vector<float> repeated_matrix(kOrder * kOrder);
-    std::vector<float> different_matrix(kOrder * kOrder);
-    REQUIRE(first.GetFirstMatrix(first_matrix));
-    REQUIRE(repeated.GetFirstMatrix(repeated_matrix));
-    REQUIRE(different.GetFirstMatrix(different_matrix));
-    REQUIRE(first_matrix == repeated_matrix);
-    REQUIRE(first_matrix != different_matrix);
+    constexpr std::array<Case, 2> kCases = {{
+        {sfFDN::ScalarMatrixType::Random, 2.5f, 0.98f, 0x5EED1234U, 0x5EED1235U},
+        {sfFDN::ScalarMatrixType::RandomHouseholder, 2.f, 0.99f, std::numeric_limits<uint32_t>::max(), 0U},
+    }};
 
-    const auto first_output = RenderCascade(first, kBlockSize, kBlockCount);
-    const auto repeated_output = RenderCascade(repeated, kBlockSize, kBlockCount);
-    const auto different_output = RenderCascade(different, kBlockSize, kBlockCount);
-    REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
-    RequireNear(repeated_output, first_output);
-    REQUIRE(different_output != first_output);
+    for (const auto& test_case : kCases)
+    {
+        const sfFDN::CascadedFeedbackMatrixOptions options = {
+            .matrix_size = kOrder,
+            .stage_count = 2U,
+            .sparsity = test_case.sparsity,
+            .generator = test_case.generator,
+            .gain_per_samples = test_case.gain_per_samples,
+            .rng_seed = test_case.seed,
+        };
+        sfFDN::FilterFeedbackMatrix first(options);
+        sfFDN::FilterFeedbackMatrix repeated(options);
+        auto different_options = options;
+        different_options.rng_seed = test_case.different_seed;
+        sfFDN::FilterFeedbackMatrix different(different_options);
+
+        std::vector<float> first_matrix(kOrder * kOrder);
+        std::vector<float> repeated_matrix(kOrder * kOrder);
+        std::vector<float> different_matrix(kOrder * kOrder);
+        REQUIRE(first.GetFirstMatrix(first_matrix));
+        REQUIRE(repeated.GetFirstMatrix(repeated_matrix));
+        REQUIRE(different.GetFirstMatrix(different_matrix));
+        REQUIRE(first_matrix == repeated_matrix);
+        REQUIRE(first_matrix != different_matrix);
+
+        const auto first_output = RenderCascade(first, kBlockSize, kBlockCount);
+        const auto repeated_output = RenderCascade(repeated, kBlockSize, kBlockCount);
+        const auto different_output = RenderCascade(different, kBlockSize, kBlockCount);
+        INFO("generator=" << static_cast<int>(test_case.generator) << " seed=" << test_case.seed);
+        REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
+        RequireNear(repeated_output, first_output);
+        REQUIRE(different_output != first_output);
+    }
 }
 
 TEST_CASE("FilterFeedbackMatrix repeats default and zero-seed cascade recipes", "[feedback_matrix]")
@@ -1135,30 +1157,4 @@ TEST_CASE("FilterFeedbackMatrix reproduces seeded structured cascade delays", "[
         RequireNear(repeated_output, first_output);
         REQUIRE(different_output != first_output);
     }
-}
-
-TEST_CASE("FilterFeedbackMatrix reproduces UINT32_MAX cascade seeds", "[feedback_matrix]")
-{
-    constexpr uint32_t kOrder = 4U;
-    const sfFDN::CascadedFeedbackMatrixOptions options = {
-        .matrix_size = kOrder,
-        .stage_count = 2U,
-        .sparsity = 2.f,
-        .generator = sfFDN::ScalarMatrixType::RandomHouseholder,
-        .gain_per_samples = 0.99f,
-        .rng_seed = std::numeric_limits<uint32_t>::max(),
-    };
-    sfFDN::FilterFeedbackMatrix first(options);
-    sfFDN::FilterFeedbackMatrix repeated(options);
-
-    std::vector<float> first_matrix(kOrder * kOrder);
-    std::vector<float> repeated_matrix(kOrder * kOrder);
-    REQUIRE(first.GetFirstMatrix(first_matrix));
-    REQUIRE(repeated.GetFirstMatrix(repeated_matrix));
-    REQUIRE(first_matrix == repeated_matrix);
-
-    const auto first_output = RenderCascade(first, 16U, 24U);
-    const auto repeated_output = RenderCascade(repeated, 16U, 24U);
-    REQUIRE(std::ranges::any_of(first_output, [](float sample) { return sample != 0.f; }));
-    RequireNear(repeated_output, first_output);
 }

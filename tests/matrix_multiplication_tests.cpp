@@ -103,7 +103,7 @@ TEST_CASE("MatrixMultiply_C preserves identity matrices across supported orders"
 
 TEST_CASE("MatrixMultiply_C matches Eigen for multiple orders and row counts", "[matrix_multiplication]")
 {
-    constexpr std::array kNSize = {4, 8, 10, 12, 16, 32};
+    constexpr std::array kNSize = {4, 6, 8, 10, 12, 16, 32};
     constexpr std::array kRowCounts = {1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64};
 
     sfFDN::RNG rng;
@@ -135,48 +135,6 @@ TEST_CASE("MatrixMultiply_C matches Eigen for multiple orders and row counts", "
             {
                 REQUIRE_THAT(expected_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
             }
-        }
-    }
-}
-
-TEST_CASE("MatrixMultiply_C matches Eigen for an order-6 matrix", "[matrix_multiplication]")
-{
-    constexpr uint32_t kMatSize = 6;
-    constexpr uint32_t kRowCount = 4;
-    constexpr uint32_t kInputSize = kMatSize * kRowCount;
-
-    // clang-format off
-    constexpr std::array<float, kInputSize> kInput = {0.4889f,  0.2939f,  -1.0689f, 0.3252f,
-                          -0.1022f, -0.8649f, 1.0347f,  -0.7873f,
-                          -0.8095f, -0.7549f, -0.2414f, -0.0301f,
-                           0.7269f,  0.8884f,  -2.9443f, 1.3703f,
-                           0.3192f,  -0.1649f, -0.3034f, -1.1471f,
-                            1.4384f,  -1.7115f, 0.3129f,  0.6277f};
-
-    constexpr std::array<float, kMatSize * kMatSize> kMatrix = {
-        1.0933f,  1.1093f, -0.8637f, 0.0774f,  -1.2141f, -1.1135f,
-       -0.0068f, 1.5326f,  -0.7697f, 0.3714f, -0.2256f, 1.1174f,
-       -1.0891f, 0.0326f, 0.5525f,  1.1006f,  1.5442f,  0.0859f,
-       -1.4916f, -0.7423f, -1.0616f, 2.3505f, -0.6156f, 0.7481f,
-       -0.1924f, 0.8886f, -0.7648f, -1.4023f, -1.4224f, 0.4882f,
-       -0.1774f, -0.1961f, 1.4193f,  0.2916f, 0.1978f,  1.5877f,
-    };
-    // clang-format on
-
-    std::array<float, kInputSize> output = {0.f};
-
-    sfFDN::MatrixMultiply_C(kInput, output, kMatrix, kMatSize);
-
-    Eigen::Map<const Eigen::Matrix<float, kRowCount, kMatSize>> input_map(kInput.data());
-    Eigen::Map<const Eigen::Matrix<float, kMatSize, kMatSize>> matrix_map(kMatrix.data());
-
-    Eigen::Matrix<float, kRowCount, kMatSize> expected = input_map * matrix_map;
-
-    for (auto i = 0u; i < kRowCount; ++i)
-    {
-        for (auto j = 0u; j < kMatSize; ++j)
-        {
-            REQUIRE_THAT(expected(i, j), Catch::Matchers::WithinAbs(output[i + j * kRowCount], 1e-6f));
         }
     }
 }
