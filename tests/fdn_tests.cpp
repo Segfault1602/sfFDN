@@ -147,6 +147,37 @@ sfFDN::FDNConfig MakeFactoryConfig(bool transposed = false)
     return config;
 }
 
+sfFDN::FDNConfig MakeOneSampleCharacterizationConfig()
+{
+    constexpr uint32_t kOrder = 4;
+    sfFDN::FDNConfig config{};
+    config.fdn_size = kOrder;
+    config.direct_gain = 0.F;
+    config.block_size = 1U;
+    config.sample_rate = 48000.F;
+    config.delay_bank_config = {
+        .delays = {1.F, 1.F, 1.F, 1.F},
+        .block_size = config.block_size,
+        .interpolation_type = sfFDN::DelayInterpolationType::None,
+    };
+    config.input_block_config.parallel_gains_config = {
+        .gains = {1.F, 0.F, 0.F, 0.F},
+        .time_varying_config = {},
+    };
+    config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+        .source =
+            sfFDN::GeneratedMatrixOptions{
+                .matrix_size = kOrder,
+                .generator = sfFDN::ScalarMatrixType::Identity,
+            },
+    };
+    config.output_block_config.parallel_gains_config = {
+        .gains = {1.F, 0.F, 0.F, 0.F},
+        .time_varying_config = {},
+    };
+    return config;
+}
+
 sfFDN::AttenuationFilterBankOptions MakeAttenuationBank(size_t count)
 {
     sfFDN::AttenuationFilterBankOptions bank;
@@ -703,6 +734,45 @@ TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output",
     }
 }
 
+TEST_CASE("FDN output composition depends on the configured output path", "[fdn]")
+{
+    std::array<float, 1> impulse = {1.F};
+    std::array<float, 1> silence = {0.F};
+    const sfFDN::AudioBuffer impulse_buffer(impulse);
+    const sfFDN::AudioBuffer silence_buffer(silence);
+
+    const auto render_second_sample = [&](sfFDN::FDNConfig config) {
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+        std::array<float, 1> first_output{};
+        sfFDN::AudioBuffer first_output_buffer(first_output);
+        fdn->Process(impulse_buffer, first_output_buffer);
+
+        std::array<float, 1> dirty_output = {10.F};
+        sfFDN::AudioBuffer dirty_output_buffer(dirty_output);
+        fdn->Process(silence_buffer, dirty_output_buffer);
+        return dirty_output[0];
+    };
+
+    SECTION("bare merge accumulates wet output into the destination")
+    {
+        REQUIRE(render_second_sample(MakeOneSampleCharacterizationConfig()) == Catch::Approx(11.F));
+    }
+
+    SECTION("post-output processor overwrites the destination")
+    {
+        auto config = MakeOneSampleCharacterizationConfig();
+        config.output_block_config.single_channel_processors.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
+        REQUIRE(render_second_sample(config) == Catch::Approx(2.F));
+    }
+
+    SECTION("tone correction processes pre-existing destination contents")
+    {
+        auto config = MakeOneSampleCharacterizationConfig();
+        config.tone_correction_filters.emplace_back(sfFDN::FirOptions{.coeffs = {2.F}});
+        REQUIRE(render_second_sample(config) == Catch::Approx(22.F));
+    }
+}
+
 TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
@@ -772,10 +842,54 @@ TEST_CASE("FDN SetOrder resets order-dependent components and preserves transpos
     REQUIRE(fdn.GetInputGains()->OutputChannelCount() == 6);
     REQUIRE(fdn.GetOutputGains()->InputChannelCount() == 6);
 
+    auto* const input_gains = fdn.GetInputGains();
+    auto* const output_gains = fdn.GetOutputGains();
+    fdn.SetOrder(6);
+    REQUIRE(fdn.GetInputGains() == input_gains);
+    REQUIRE(fdn.GetOutputGains() == output_gains);
+
     fdn.SetTranspose(false);
     REQUIRE_FALSE(fdn.GetTranspose());
     fdn.SetOrder(3);
     REQUIRE(fdn.GetOrder() == 6);
+}
+
+TEST_CASE("FDN move operations preserve active processing state", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 32;
+    std::array<float, kSampleCount> impulse{};
+    impulse[0] = 1.F;
+    std::array<float, kSampleCount> silence{};
+    const sfFDN::AudioBuffer impulse_buffer(impulse);
+    const sfFDN::AudioBuffer silence_buffer(silence);
+
+    auto reference = CreatePyFDNGoldFDN();
+    auto move_source = CreatePyFDNGoldFDN();
+    auto assignment_source = CreatePyFDNGoldFDN();
+    std::array<float, kSampleCount> warm_output{};
+    sfFDN::AudioBuffer warm_output_buffer(warm_output);
+    reference->Process(impulse_buffer, warm_output_buffer);
+    std::ranges::fill(warm_output, 0.F);
+    move_source->Process(impulse_buffer, warm_output_buffer);
+    std::ranges::fill(warm_output, 0.F);
+    assignment_source->Process(impulse_buffer, warm_output_buffer);
+
+    std::array<float, kSampleCount> reference_output{};
+    sfFDN::AudioBuffer reference_output_buffer(reference_output);
+    reference->Process(silence_buffer, reference_output_buffer);
+
+    sfFDN::FDN move_constructed(std::move(*move_source));
+    std::array<float, kSampleCount> move_output{};
+    sfFDN::AudioBuffer move_output_buffer(move_output);
+    move_constructed.Process(silence_buffer, move_output_buffer);
+    REQUIRE(move_output == reference_output);
+
+    sfFDN::FDN move_assigned(4, 4);
+    move_assigned = std::move(*assignment_source);
+    std::array<float, kSampleCount> assignment_output{};
+    sfFDN::AudioBuffer assignment_output_buffer(assignment_output);
+    move_assigned.Process(silence_buffer, assignment_output_buffer);
+    REQUIRE(assignment_output == reference_output);
 }
 
 TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks", "[fdn]")

@@ -111,6 +111,33 @@ TEST_CASE("AudioProcessorChain manages, processes, and clones processors", "[pro
     }
 }
 
+TEST_CASE("AudioProcessorChain reuses dirty intermediate storage for accumulating processors", "[processor_chain]")
+{
+    sfFDN::AudioProcessorChain chain(1U);
+
+    auto first = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel);
+    first->SetGains(std::array{2.F, 2.F, 2.F, 2.F});
+    auto second = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel);
+    second->SetGains(std::array{3.F, 3.F, 3.F, 3.F});
+    auto merge = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Merge);
+    merge->SetGains(std::array{1.F, 1.F, 1.F, 1.F});
+    auto identity = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Parallel);
+    identity->SetGains(std::array{1.F});
+
+    REQUIRE(chain.AddProcessor(std::move(first)));
+    REQUIRE(chain.AddProcessor(std::move(second)));
+    REQUIRE(chain.AddProcessor(std::move(merge)));
+    REQUIRE(chain.AddProcessor(std::move(identity)));
+
+    std::array<float, 4> input = {1.F, 2.F, 3.F, 4.F};
+    std::array<float, 1> output{};
+    sfFDN::AudioBuffer const input_buffer(1U, 4U, input);
+    sfFDN::AudioBuffer output_buffer(output);
+    chain.Process(input_buffer, output_buffer);
+
+    REQUIRE(output[0] == Catch::Approx(62.F));
+}
+
 TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its contents", "[processor_chain]")
 {
     sfFDN::AudioProcessorChain chain(8);
