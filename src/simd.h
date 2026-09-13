@@ -4,10 +4,6 @@
 
 #include "sffdn/attributes.h"
 
-#include <algorithm>
-#include <array>
-#include <bit>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -32,6 +28,20 @@
 #define SFFDN_HAS_SIMD 1
 #endif
 
+#if !defined(SFFDN_HAS_SIMD) || !defined(__AVX2__)
+#include <array>
+#endif
+
+// std::bit_cast unpacks the index vector for the emulated x86 gathers only.
+#if defined(SFFDN_SIMD_SSE) || (defined(SFFDN_SIMD_AVX) && !defined(__AVX2__))
+#include <bit>
+#endif
+
+#ifndef SFFDN_HAS_SIMD
+#include <algorithm>
+#include <cmath>
+#endif
+
 namespace sfFDN::simd
 {
 
@@ -42,6 +52,10 @@ namespace sfFDN::simd
  * this library are provided. Every operation is branch-free and allocation-free so that callers
  * remain real-time safe.
  */
+// This header is the one place in the project allowed to name architecture intrinsics; everything
+// else goes through the wrappers below. portability-simd-intrinsics is silenced here rather than in
+// .clang-tidy so that it keeps flagging intrinsics that leak into DSP sources.
+// NOLINTBEGIN(portability-simd-intrinsics)
 #ifdef SFFDN_SIMD_NEON
 
 inline constexpr size_t kWidth = 4;
@@ -214,18 +228,14 @@ inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_
     return _mm256_i32gather_ps(values.data(), indices, sizeof(float));
 #else
     const auto lanes = std::bit_cast<std::array<int32_t, kWidth>>(indices);
-    return _mm256_setr_ps(values[static_cast<size_t>(lanes[0])],
-                          values[static_cast<size_t>(lanes[1])],
-                          values[static_cast<size_t>(lanes[2])],
-                          values[static_cast<size_t>(lanes[3])],
-                          values[static_cast<size_t>(lanes[4])],
-                          values[static_cast<size_t>(lanes[5])],
-                          values[static_cast<size_t>(lanes[6])],
-                          values[static_cast<size_t>(lanes[7])]);
+    return _mm256_setr_ps(values[static_cast<size_t>(lanes[0])], values[static_cast<size_t>(lanes[1])],
+                          values[static_cast<size_t>(lanes[2])], values[static_cast<size_t>(lanes[3])],
+                          values[static_cast<size_t>(lanes[4])], values[static_cast<size_t>(lanes[5])],
+                          values[static_cast<size_t>(lanes[6])], values[static_cast<size_t>(lanes[7])]);
 #endif
 }
 
-#elif defined(SFFDN_SIMD_SSE)
+#elifdef SFFDN_SIMD_SSE
 
 inline constexpr size_t kWidth = 4;
 using Vec = __m128;
@@ -313,21 +323,20 @@ inline constexpr size_t kWidth = 4;
 
 struct Vec
 {
-    float v[kWidth];
+    std::array<float, kWidth> v;
 };
 using IntVec = std::array<int32_t, kWidth>;
 
 inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
 {
-    return Vec{{p[0], p[1], p[2], p[3]}};
+    Vec out{};
+    std::copy_n(p, kWidth, out.v.begin());
+    return out;
 }
 
 inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
 {
-    p[0] = v.v[0];
-    p[1] = v.v[1];
-    p[2] = v.v[2];
-    p[3] = v.v[3];
+    std::copy_n(v.v.begin(), kWidth, p);
 }
 
 inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
@@ -357,17 +366,13 @@ inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
 
 inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 {
-    return Vec{{(a.v[0] * b.v[0]) + c.v[0],
-                (a.v[1] * b.v[1]) + c.v[1],
-                (a.v[2] * b.v[2]) + c.v[2],
+    return Vec{{(a.v[0] * b.v[0]) + c.v[0], (a.v[1] * b.v[1]) + c.v[1], (a.v[2] * b.v[2]) + c.v[2],
                 (a.v[3] * b.v[3]) + c.v[3]}};
 }
 
 inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 {
-    return Vec{{c.v[0] - (a.v[0] * b.v[0]),
-                c.v[1] - (a.v[1] * b.v[1]),
-                c.v[2] - (a.v[2] * b.v[2]),
+    return Vec{{c.v[0] - (a.v[0] * b.v[0]), c.v[1] - (a.v[1] * b.v[1]), c.v[2] - (a.v[2] * b.v[2]),
                 c.v[3] - (a.v[3] * b.v[3])}};
 }
 
@@ -384,7 +389,8 @@ inline IntVec ToInt(Vec x) noexcept SFFDN_NONBLOCKING
 
 inline Vec ToFloat(IntVec x) noexcept SFFDN_NONBLOCKING
 {
-    return Vec{{static_cast<float>(x[0]), static_cast<float>(x[1]), static_cast<float>(x[2]), static_cast<float>(x[3])}};
+    return Vec{
+        {static_cast<float>(x[0]), static_cast<float>(x[1]), static_cast<float>(x[2]), static_cast<float>(x[3])}};
 }
 
 inline IntVec Min(IntVec x, int32_t maximum) noexcept SFFDN_NONBLOCKING
@@ -419,11 +425,12 @@ inline AdjacentGather GatherAdjacent(std::span<const float> values, IntVec indic
     const float32x2_t pair3 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(indices, 3))]);
     const float32x4_t low = vcombine_f32(pair0, pair1);
     const float32x4_t high = vcombine_f32(pair2, pair3);
-    return {vuzp1q_f32(low, high), vuzp2q_f32(low, high)};
+    return {.lower = vuzp1q_f32(low, high), .upper = vuzp2q_f32(low, high)};
 #else
-    return {Gather(values, indices), Gather(values.subspan(1), indices)};
+    return {.lower = Gather(values, indices), .upper = Gather(values.subspan(1), indices)};
 #endif
 }
+// NOLINTEND(portability-simd-intrinsics)
 
 /** @brief Rounds @p count up to a whole number of vector lanes. */
 constexpr size_t PadToWidth(size_t count) noexcept

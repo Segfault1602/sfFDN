@@ -7,7 +7,6 @@
 #include <expected>
 #include <memory>
 #include <optional>
-#include <variant>
 #include <vector>
 
 namespace sfFDN

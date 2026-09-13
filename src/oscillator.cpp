@@ -1,6 +1,5 @@
 #include "sffdn/oscillator.h"
 
-#include "array_math.h"
 #include "simd.h"
 #include "sine_table.h"
 
@@ -10,7 +9,6 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
