@@ -42,7 +42,8 @@ void TestDelayBlock(float delay, uint32_t block_size, uint32_t max_delay, sfFDN:
 
     for (uint32_t block = 0; block < kBlockCount; ++block)
     {
-        const std::span<float> input_block(input.data() + (static_cast<size_t>(block) * block_size), block_size);
+        const std::span<float> input_block =
+            std::span(input).subspan(static_cast<size_t>(block) * block_size, block_size);
 
         for (uint32_t i = 0; i < block_size; ++i)
         {
@@ -85,7 +86,8 @@ void TestDelayBlockReadBeforeWrite(float delay, uint32_t block_size, uint32_t ma
 
     for (uint32_t block = 0; block < kBlockCount; ++block)
     {
-        const std::span<const float> input_block(input.data() + (static_cast<size_t>(block) * block_size), block_size);
+        const std::span<const float> input_block =
+            std::span<const float>(input).subspan(static_cast<size_t>(block) * block_size, block_size);
 
         for (uint32_t i = 0; i < block_size; ++i)
         {

@@ -1,15 +1,14 @@
 #include "sffdn/oscillator.h"
 
-#include "array_math.h"
 #include "simd.h"
 #include "sine_table.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #ifdef SFFDN_USE_VDSP
 #include <Accelerate/Accelerate.h>
@@ -19,13 +18,11 @@ namespace
 {
 float Sine(float phase) noexcept SFFDN_NONBLOCKING
 {
-    assert(phase >= 0.f);
-
     phase = phase - std::floor(phase);
 
     const float index = phase * sfFDN::kSineTableSize;
-
-    const auto uindex = static_cast<int32_t>(index);
+    const auto raw_index = static_cast<int32_t>(index);
+    const auto uindex = std::min(raw_index, static_cast<int32_t>(sfFDN::kSineTableSize - 1));
     const auto frac = index - static_cast<float>(uindex);
 
     const float a = sfFDN::kSineTable[uindex];
@@ -39,28 +36,16 @@ namespace sfFDN
 {
 namespace
 {
-#ifdef SFFDN_SIMD_NEON
-/** @brief Four linearly interpolated sine-table lookups. */
-float32x4_t Sine4(float32x4_t phase) noexcept SFFDN_NONBLOCKING
+#ifdef SFFDN_HAS_SIMD
+simd::Vec SineVector(simd::Vec phase) noexcept SFFDN_NONBLOCKING
 {
-    const float32x4_t wrapped = vsubq_f32(phase, vrndmq_f32(phase));
-    const float32x4_t index = vmulq_n_f32(wrapped, static_cast<float>(kSineTableSize));
+    const simd::Vec wrapped = simd::Sub(phase, simd::Floor(phase));
+    const simd::Vec index = simd::Mul(wrapped, simd::Splat(static_cast<float>(kSineTableSize)));
+    const simd::IntVec uindex = simd::Min(simd::ToInt(index), static_cast<int32_t>(kSineTableSize - 1));
+    const simd::Vec frac = simd::Sub(index, simd::ToFloat(uindex));
 
-    const int32x4_t uindex = vcvtq_s32_f32(index);
-    const float32x4_t frac = vsubq_f32(index, vcvtq_f32_s32(uindex));
-
-    const float32x2_t pair0 = vld1_f32(&kSineTable[vgetq_lane_s32(uindex, 0)]);
-    const float32x2_t pair1 = vld1_f32(&kSineTable[vgetq_lane_s32(uindex, 1)]);
-    const float32x2_t pair2 = vld1_f32(&kSineTable[vgetq_lane_s32(uindex, 2)]);
-    const float32x2_t pair3 = vld1_f32(&kSineTable[vgetq_lane_s32(uindex, 3)]);
-
-    // De-interleave the four adjacent table-entry pairs into lower and upper vectors.
-    const float32x4_t low = vcombine_f32(pair0, pair1);
-    const float32x4_t high = vcombine_f32(pair2, pair3);
-    const float32x4_t a = vuzp1q_f32(low, high);
-    const float32x4_t b = vuzp2q_f32(low, high);
-
-    return vfmaq_f32(a, vsubq_f32(b, a), frac);
+    const auto [a, b] = simd::GatherAdjacent(kSineTable, uindex);
+    return simd::MulAdd(simd::Sub(b, a), frac, a);
 }
 #endif
 
@@ -70,25 +55,27 @@ float RunOscillator(size_t count, float phase, float increment, const std::array
 {
     const auto [phase_offset, amplitude, offset] = wave;
 
-    constexpr size_t kGroup = 4;
-    const std::array<float, kGroup> steps = {0.f, increment, 2.f * increment, 3.f * increment};
-    const float group_step = 4.f * increment;
+    constexpr size_t kGroup = simd::kWidth;
 
     size_t i = 0;
-    // Four independent phases break the per-sample phase-add dependency and map directly to NEON lanes.
     for (; i + kGroup <= count; i += kGroup)
     {
-#ifdef SFFDN_SIMD_NEON
-        const float32x4_t phases = vaddq_f32(vld1q_f32(steps.data()), vdupq_n_f32(phase));
-        const float32x4_t sine = Sine4(vaddq_f32(phases, vdupq_n_f32(phase_offset)));
+#ifdef SFFDN_HAS_SIMD
+        std::array<float, kGroup> phases{};
+        for (float& lane_phase : phases)
+        {
+            lane_phase = phase + phase_offset;
+            phase += increment;
+        }
+        const simd::Vec sine = SineVector(simd::Load(phases.data()));
         vector_sink(i, simd::MulAdd(sine, simd::Splat(amplitude), simd::Splat(offset)));
 #else
         for (size_t lane = 0; lane < kGroup; ++lane)
         {
-            scalar_sink(i + lane, (Sine(phase + steps[lane] + phase_offset) * amplitude) + offset);
+            scalar_sink(i + lane, (Sine(phase + phase_offset) * amplitude) + offset);
+            phase += increment;
         }
 #endif
-        phase += group_step;
     }
 
     for (; i < count; ++i)
@@ -177,14 +164,10 @@ void SineWave::Generate(std::span<float> output) noexcept SFFDN_NONBLOCKING
     const float amplitude = amplitude_;
     const float offset = offset_;
 
-    float phase = phase_;
-    for (float& i : output)
-    {
-        i = (Sine(phase + phase_offset) * amplitude) + offset;
-        phase += phase_increment;
-    }
-
-    phase_ = phase;
+    phase_ = RunOscillator(
+        output.size(), phase_, phase_increment, {phase_offset, amplitude, offset},
+        [&](size_t i, simd::Vec values) { simd::Store(simd::LanesAt(output, i), values); },
+        [&](size_t i, float value) { output[i] = value; });
     phase_ -= std::floor(phase_);
 #endif
 }

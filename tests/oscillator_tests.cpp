@@ -86,16 +86,36 @@ TEST_CASE("SineWave applies controls and wraps normalized frequency", "[oscillat
                      (std::sin(kPhaseOffset * 2.f * std::numbers::pi_v<float>) * kAmplitude) + kOffset, 7e-4f));
 }
 
+TEST_CASE("SineWave safely wraps phases that round to the table endpoint", "[oscillator]")
+{
+    constexpr float kPhaseOffset = -0.3f;
+    constexpr float kFrequency = 0.01f;
+    const float initial_phase = std::nextafter(0.3f, 0.f);
+    std::array<float, 9> output{};
+
+    sfFDN::SineWave sine_wave(kFrequency, initial_phase);
+    sine_wave.SetPhaseOffset(kPhaseOffset);
+    sine_wave.Generate(output);
+
+    float phase = initial_phase;
+    for (const float sample : output)
+    {
+        const float expected = std::sin((phase + kPhaseOffset) * 2.f * std::numbers::pi_v<float>);
+        REQUIRE_THAT(sample, Catch::Matchers::WithinAbs(expected, 7e-4f));
+        phase += kFrequency;
+    }
+}
+
 TEST_CASE("SineWave Multiply matches scalar modulation and accumulation", "[oscillator]")
 {
-    constexpr std::array<float, 7> kInput = {1.f, -2.f, 0.5f, -0.25f, 4.f, 3.f, -1.f};
+    constexpr std::array<float, 11> kInput = {1.f, -2.f, 0.5f, -0.25f, 4.f, 3.f, -1.f, 0.75f, -0.5f, 2.f, -3.f};
     constexpr float kFrequency = 0.2f;
     constexpr float kPhase = 0.1f;
     constexpr float kPhaseOffset = 0.3f;
     constexpr float kAmplitude = 0.75f;
     constexpr float kOffset = -0.125f;
     std::array<float, kInput.size()> multiplied{};
-    std::array<float, kInput.size()> accumulated = {2.f, -1.f, 0.5f, 3.f, -2.f, 1.f, 4.f};
+    std::array<float, kInput.size()> accumulated = {2.f, -1.f, 0.5f, 3.f, -2.f, 1.f, 4.f, -0.75f, 1.5f, 0.f, 2.5f};
     const auto original_accumulated = accumulated;
 
     sfFDN::SineWave multiply(kFrequency, kPhase);

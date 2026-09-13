@@ -118,6 +118,14 @@ class Fir::FirImpl
   public:
     FirImpl() = default;
 
+    // The IPP buffers below are raw allocations owned by this object, so copying or moving it would
+    // free them twice. Fir clones through Clone() and holds the impl in a unique_ptr, so neither
+    // operation is needed.
+    FirImpl(const FirImpl&) = delete;
+    FirImpl& operator=(const FirImpl&) = delete;
+    FirImpl(FirImpl&&) = delete;
+    FirImpl& operator=(FirImpl&&) = delete;
+
     ~FirImpl()
     {
         Cleanup();

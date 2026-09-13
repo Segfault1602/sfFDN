@@ -103,6 +103,7 @@ target_link_libraries(sfFDN.public_config_api PRIVATE sfFDN::sfFDN)
 set_target_properties(sfFDN.public_config_api PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
 
 add_executable(sfFDN.public_serialization_api public_serialization_api.cpp)
+sffdn_enable_lto(sfFDN.public_serialization_api)
 target_link_libraries(sfFDN.public_serialization_api PRIVATE sfFDN::serialization)
 
 add_dependencies(sfFDN.tests sfFDN.public_config_api sfFDN.public_serialization_api)
