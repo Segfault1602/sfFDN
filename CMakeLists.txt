@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(SFFDN_BUILD_TESTS "Enable building tests. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF}."
        ${PROJECT_IS_TOP_LEVEL}
 )
-option(SFFDN_USE_SANITIZER "Use AddressSanitizer and UndefinedBehaviorSanitizer" ON)
+option(SFFDN_USE_SANITIZER "Use AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SFFDN_USE_RTSAN "Use Clang RealtimeSanitizer" OFF)
 option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
 option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
@@ -45,10 +45,11 @@ if(SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS AND NOT SFFDN_ENABLE_FUNCTION_EFFECTS)
     )
 endif()
 
-include(./fetch_deps.cmake)
-
 include(cmake/project-warnings.cmake)
 include(cmake/project-options.cmake)
+
+# Fetched after the project options so that the dependencies are built with the same sanitizer settings.
+include(./fetch_deps.cmake)
 
 add_subdirectory(src)
 

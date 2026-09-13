@@ -1,5 +1,6 @@
 if(MSVC)
-    set(SFFDN_WARNINGS_CXX /W3 /permissive-)
+    # C4305 is emitted for intentional floating-point literals in generated/performance data tables.
+    set(SFFDN_WARNINGS_CXX /W3 /permissive- /wd4305)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
     set(SFFDN_WARNINGS_CXX
         -Wall

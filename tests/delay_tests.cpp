@@ -9,6 +9,7 @@
 #include "allocation_counter.h"
 #include "rng.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>

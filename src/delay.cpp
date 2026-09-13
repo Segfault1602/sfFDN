@@ -329,9 +329,9 @@ void Delay::GetNextOutputsAt(std::span<uint32_t> taps, std::span<float> output,
         std::span<float> buffer_1{};
         std::span<float> buffer_2{};
 
-        if (tap_point > in_point_)
+        if (tap_point >= 0 && static_cast<uint32_t>(tap_point) > in_point_)
         {
-            buffer_1 = buffer_span.subspan(tap_point);
+            buffer_1 = buffer_span.subspan(static_cast<size_t>(tap_point));
             buffer_2 = buffer_span.subspan(0, in_point_);
         }
         else
