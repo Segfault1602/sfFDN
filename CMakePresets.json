@@ -155,6 +155,18 @@
             "inherits": "test-base",
             "configurePreset": "llvm-rtsan",
             "configuration": "Release"
+        },
+        {
+            "name": "windows-debug",
+            "inherits": "test-base",
+            "configurePreset": "windows",
+            "configuration": "Debug"
+        },
+        {
+            "name": "windows-release",
+            "inherits": "test-base",
+            "configurePreset": "windows",
+            "configuration": "Release"
         }
     ]
 }

@@ -18,9 +18,20 @@ if(SFFDN_USE_AVX2)
 endif()
 
 if(SFFDN_USE_SANITIZER)
-    message(STATUS "Enabling AddressSanitizer")
-    target_compile_options(sfFDN_options INTERFACE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-    target_link_options(sfFDN_options INTERFACE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+    if(MSVC)
+        message(STATUS "Enabling AddressSanitizer")
+        add_compile_options($<$<CONFIG:Debug>:/fsanitize=address>)
+
+        # ASan is incompatible with incremental linking; setting this avoids a LNK4300 warning per target.
+        add_link_options($<$<CONFIG:Debug>:/INCREMENTAL:NO>)
+    else()
+        message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
+        target_compile_options(
+            sfFDN_options
+            INTERFACE $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+        )
+        target_link_options(sfFDN_options INTERFACE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+    endif()
 endif()
 
 if(SFFDN_USE_RTSAN)

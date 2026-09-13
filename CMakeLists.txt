@@ -45,10 +45,11 @@ if(SFFDN_TREAT_FUNCTION_EFFECTS_AS_ERRORS AND NOT SFFDN_ENABLE_FUNCTION_EFFECTS)
     )
 endif()
 
-include(./fetch_deps.cmake)
-
 include(cmake/project-warnings.cmake)
 include(cmake/project-options.cmake)
+
+# Fetched after the project options so that the dependencies are built with the same sanitizer settings.
+include(./fetch_deps.cmake)
 
 add_subdirectory(src)
 
