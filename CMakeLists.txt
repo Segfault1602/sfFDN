@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(SFFDN_BUILD_TESTS "Enable building tests. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF}."
        ${PROJECT_IS_TOP_LEVEL}
 )
-option(SFFDN_USE_SANITIZER "Use AddressSanitizer and UndefinedBehaviorSanitizer" ON)
+option(SFFDN_USE_SANITIZER "Use AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SFFDN_USE_RTSAN "Use Clang RealtimeSanitizer" OFF)
 option(SFFDN_ENABLE_HARDENING "Enable hardening" OFF)
 option(SFFDN_ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" OFF)
