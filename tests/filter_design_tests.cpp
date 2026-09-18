@@ -1,6 +1,7 @@
 #include <array>
 #include <cmath>
 #include <complex>
+#include <limits>
 #include <ranges>
 #include <span>
 #include <stdexcept>
@@ -603,6 +604,15 @@ TEST_CASE("FilterDesigner designs normalized RBJ filters", "[filter_design]")
     REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::PeakingOptions{.q = 0.F}), std::invalid_argument);
     REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::LowShelfOptions{.frequency = 0.F}), std::invalid_argument);
     REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::HighShelfOptions{.frequency = 24000.F}), std::invalid_argument);
+}
+
+TEST_CASE("FilterDesigner rejects non-finite RBJ coefficients", "[filter_design]")
+{
+    const sfFDN::FilterDesigner designer(48000.F);
+    constexpr float kGain = std::numeric_limits<float>::max();
+    REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::LowShelfOptions{.gain_db = kGain}), std::runtime_error);
+    REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::HighShelfOptions{.gain_db = kGain}), std::runtime_error);
+    REQUIRE_THROWS_AS(designer.DesignFilter(sfFDN::PeakingOptions{.gain_db = kGain}), std::runtime_error);
 }
 
 TEST_CASE("CreateAttenuationFilter retains designed coefficients after designer destruction", "[filter_design]")

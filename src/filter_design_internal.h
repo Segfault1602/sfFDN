@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sffdn/types.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -15,14 +17,11 @@ namespace sfFDN
 template <typename T>
 std::array<T, 4> LowShelf(T wc, T sr, T gain_low, T gain_high);
 
-template <typename T>
-std::array<T, 6> LowShelfRBJ(T wc, T db_gain, T Q);
+FilterCoefficients LowShelfRBJ(double wc, double db_gain, double Q);
 
-template <typename T>
-std::array<T, 6> HighShelfRBJ(T wc, T db_gain, T Q);
+FilterCoefficients HighShelfRBJ(double wc, double db_gain, double Q);
 
-template <typename T>
-std::array<T, 6> PeakingRBJ(T wc, T db_gain, T Q);
+FilterCoefficients PeakingRBJ(double wc, double db_gain, double Q);
 
 template <typename T>
 std::array<T, 6> Pareq(T g, T gb, T w0, T b);
@@ -50,56 +49,68 @@ std::array<T, 4> sfFDN::LowShelf(T wc, T sr, T gain_low, T gain_high)
     return sos;
 }
 
-template <typename T>
-std::array<T, 6> sfFDN::LowShelfRBJ(T wc, T db_gain, T Q)
+inline sfFDN::FilterCoefficients sfFDN::LowShelfRBJ(double wc, double db_gain, double Q)
 {
-    const T A = std::pow(10.0, db_gain / 40.0);
-    const T w0 = 2 * std::numbers::pi * wc;
-    const T alpha = std::sin(w0) / (2.0 * Q);
-    const T cos_w0 = std::cos(w0);
-    const T TwoSqrtA = (2 * std::sqrt(A) * alpha);
+    const double A = std::pow(10.0, db_gain / 40.0);
+    const double w0 = 2 * std::numbers::pi * wc;
+    const double alpha = std::sin(w0) / (2.0 * Q);
+    const double cos_w0 = std::cos(w0);
+    const double TwoSqrtA = (2 * std::sqrt(A) * alpha);
 
-    const T b0 = A * ((A + 1) - (A - 1) * cos_w0 + TwoSqrtA);
-    const T b1 = 2 * A * ((A - 1) - (A + 1) * cos_w0);
-    const T b2 = A * ((A + 1) - (A - 1) * cos_w0 - TwoSqrtA);
+    const double b0 = A * ((A + 1) - (A - 1) * cos_w0 + TwoSqrtA);
+    const double b1 = 2 * A * ((A - 1) - (A + 1) * cos_w0);
+    const double b2 = A * ((A + 1) - (A - 1) * cos_w0 - TwoSqrtA);
 
-    const T a0 = (A + 1) + ((A - 1) * cos_w0) + TwoSqrtA;
-    const T a1 = -2 * ((A - 1) + (A + 1) * cos_w0);
-    const T a2 = (A + 1) + ((A - 1) * cos_w0) - TwoSqrtA;
+    const double a0 = (A + 1) + ((A - 1) * cos_w0) + TwoSqrtA;
+    const double a1 = -2 * ((A - 1) + (A + 1) * cos_w0);
+    const double a2 = (A + 1) + ((A - 1) * cos_w0) - TwoSqrtA;
 
-    return {b0 / a0, b1 / a0, b2 / a0, 1.0, a1 / a0, a2 / a0};
+    return {.b0 = static_cast<float>(b0 / a0),
+            .b1 = static_cast<float>(b1 / a0),
+            .b2 = static_cast<float>(b2 / a0),
+            .a0 = 1.f,
+            .a1 = static_cast<float>(a1 / a0),
+            .a2 = static_cast<float>(a2 / a0)};
 }
 
-template <typename T>
-std::array<T, 6> sfFDN::HighShelfRBJ(T wc, T db_gain, T Q)
+inline sfFDN::FilterCoefficients sfFDN::HighShelfRBJ(double wc, double db_gain, double Q)
 {
-    const T A = std::pow(10.0, db_gain / 40.0);
-    const T w0 = 2 * std::numbers::pi * wc;
-    const T alpha = std::sin(w0) / (2.0 * Q);
-    const T cos_w0 = std::cos(w0);
-    const T TwoSqrtA = (2 * std::sqrt(A) * alpha);
+    const double A = std::pow(10.0, db_gain / 40.0);
+    const double w0 = 2 * std::numbers::pi * wc;
+    const double alpha = std::sin(w0) / (2.0 * Q);
+    const double cos_w0 = std::cos(w0);
+    const double TwoSqrtA = (2 * std::sqrt(A) * alpha);
 
-    const T b0 = A * ((A + 1) + (A - 1) * cos_w0 + TwoSqrtA);
-    const T b1 = -2 * A * ((A - 1) + (A + 1) * cos_w0);
-    const T b2 = A * ((A + 1) + (A - 1) * cos_w0 - TwoSqrtA);
+    const double b0 = A * ((A + 1) + (A - 1) * cos_w0 + TwoSqrtA);
+    const double b1 = -2 * A * ((A - 1) + (A + 1) * cos_w0);
+    const double b2 = A * ((A + 1) + (A - 1) * cos_w0 - TwoSqrtA);
 
-    const T a0 = (A + 1) - ((A - 1) * cos_w0) + TwoSqrtA;
-    const T a1 = 2 * ((A - 1) - (A + 1) * cos_w0);
-    const T a2 = (A + 1) - ((A - 1) * cos_w0) - TwoSqrtA;
+    const double a0 = (A + 1) - ((A - 1) * cos_w0) + TwoSqrtA;
+    const double a1 = 2 * ((A - 1) - (A + 1) * cos_w0);
+    const double a2 = (A + 1) - ((A - 1) * cos_w0) - TwoSqrtA;
 
-    return {b0 / a0, b1 / a0, b2 / a0, 1.0, a1 / a0, a2 / a0};
+    return {.b0 = static_cast<float>(b0 / a0),
+            .b1 = static_cast<float>(b1 / a0),
+            .b2 = static_cast<float>(b2 / a0),
+            .a0 = 1.f,
+            .a1 = static_cast<float>(a1 / a0),
+            .a2 = static_cast<float>(a2 / a0)};
 }
 
-template <typename T>
-std::array<T, 6> sfFDN::PeakingRBJ(T wc, T db_gain, T Q)
+inline sfFDN::FilterCoefficients sfFDN::PeakingRBJ(double wc, double db_gain, double Q)
 {
-    const T A = std::pow(T{10}, db_gain / T{40});
-    const T w0 = T{2} * std::numbers::pi_v<T> * wc;
-    const T alpha = std::sin(w0) / (T{2} * Q);
-    const T a0 = T{1} + alpha / A;
-    const T a1 = -T{2} * std::cos(w0);
+    const double A = std::pow(10.0, db_gain / 40.0);
+    const double w0 = 2 * std::numbers::pi * wc;
+    const double alpha = std::sin(w0) / (2.0 * Q);
+    const double a0 = 1.0 + alpha / A;
+    const double a1 = -2.0 * std::cos(w0);
 
-    return {(T{1} + alpha * A) / a0, a1 / a0, (T{1} - alpha * A) / a0, T{1}, a1 / a0, (T{1} - alpha / A) / a0};
+    return {.b0 = static_cast<float>((1.0 + alpha * A) / a0),
+            .b1 = static_cast<float>(a1 / a0),
+            .b2 = static_cast<float>((1.0 - alpha * A) / a0),
+            .a0 = 1.f,
+            .a1 = static_cast<float>(a1 / a0),
+            .a2 = static_cast<float>((1.0 - alpha / A) / a0)};
 }
 
 template <typename T>

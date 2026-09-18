@@ -74,20 +74,6 @@ void RequireValidRBJParameters(float frequency, float q, float sample_rate)
     }
 }
 
-sfFDN::FilterCoefficients MakeRBJCoefficients(const std::array<float, 6>& coefficients)
-{
-    const sfFDN::FilterCoefficients result{
-        .b0 = coefficients[0],
-        .b1 = coefficients[1],
-        .b2 = coefficients[2],
-        .a0 = coefficients[3],
-        .a1 = coefficients[4],
-        .a2 = coefficients[5],
-    };
-    RequireFiniteCoefficients(std::span(&result, 1), "FilterDesigner::DesignFilter");
-    return result;
-}
-
 template <typename T>
 T Db2Mag(T x)
 {
@@ -411,35 +397,18 @@ std::array<FilterCoefficients, 2> FilterDesigner::DesignFilter(const ThreeBandFi
     const float g_mid_db = options.delay * RT602Slope(options.t60s[1], sample_rate_);
     const float g_ny_db = options.delay * RT602Slope(options.t60s[2], sample_rate_);
 
-    auto low_shelf = sfFDN::LowShelfRBJ(options.freqs[0] / sample_rate_, g_dc_db - g_mid_db, options.q);
-    auto high_shelf = sfFDN::HighShelfRBJ(options.freqs[1] / sample_rate_, g_ny_db - g_mid_db, options.q);
+    auto low_shelf =
+        sfFDN::LowShelfRBJ(static_cast<double>(options.freqs[0]) / sample_rate_, g_dc_db - g_mid_db, options.q);
+    const auto high_shelf =
+        sfFDN::HighShelfRBJ(static_cast<double>(options.freqs[1]) / sample_rate_, g_ny_db - g_mid_db, options.q);
 
     const float g_mid_linear = Db2Mag(g_mid_db);
     // Apply mid gain to b coefficients of the low shelf filter
-    low_shelf[0] *= g_mid_linear;
-    low_shelf[1] *= g_mid_linear;
-    low_shelf[2] *= g_mid_linear;
+    low_shelf.b0 *= g_mid_linear;
+    low_shelf.b1 *= g_mid_linear;
+    low_shelf.b2 *= g_mid_linear;
 
-    std::array<FilterCoefficients, 2> sos = {
-        {
-            {
-                .b0 = low_shelf[0],
-                .b1 = low_shelf[1],
-                .b2 = low_shelf[2],
-                .a0 = low_shelf[3],
-                .a1 = low_shelf[4],
-                .a2 = low_shelf[5],
-            },
-            {
-                .b0 = high_shelf[0],
-                .b1 = high_shelf[1],
-                .b2 = high_shelf[2],
-                .a0 = high_shelf[3],
-                .a1 = high_shelf[4],
-                .a2 = high_shelf[5],
-            },
-        },
-    };
+    const std::array<FilterCoefficients, 2> sos = {low_shelf, high_shelf};
     RequireFiniteCoefficients(sos, "FilterDesigner::DesignFilter(ThreeBandFilterOptions)");
     return sos;
 }
@@ -530,19 +499,28 @@ std::array<FilterCoefficients, 11> FilterDesigner::DesignFilter(const GraphicEQO
 FilterCoefficients FilterDesigner::DesignFilter(const LowShelfOptions& options) const
 {
     RequireValidRBJParameters(options.frequency, options.q, sample_rate_);
-    return MakeRBJCoefficients(LowShelfRBJ(options.frequency / sample_rate_, options.gain_db, options.q));
+    const auto coefficients =
+        LowShelfRBJ(static_cast<double>(options.frequency) / sample_rate_, options.gain_db, options.q);
+    RequireFiniteCoefficients(std::span(&coefficients, 1), "FilterDesigner::DesignFilter");
+    return coefficients;
 }
 
 FilterCoefficients FilterDesigner::DesignFilter(const HighShelfOptions& options) const
 {
     RequireValidRBJParameters(options.frequency, options.q, sample_rate_);
-    return MakeRBJCoefficients(HighShelfRBJ(options.frequency / sample_rate_, options.gain_db, options.q));
+    const auto coefficients =
+        HighShelfRBJ(static_cast<double>(options.frequency) / sample_rate_, options.gain_db, options.q);
+    RequireFiniteCoefficients(std::span(&coefficients, 1), "FilterDesigner::DesignFilter");
+    return coefficients;
 }
 
 FilterCoefficients FilterDesigner::DesignFilter(const PeakingOptions& options) const
 {
     RequireValidRBJParameters(options.frequency, options.q, sample_rate_);
-    return MakeRBJCoefficients(PeakingRBJ(options.frequency / sample_rate_, options.gain_db, options.q));
+    const auto coefficients =
+        PeakingRBJ(static_cast<double>(options.frequency) / sample_rate_, options.gain_db, options.q);
+    RequireFiniteCoefficients(std::span(&coefficients, 1), "FilterDesigner::DesignFilter");
+    return coefficients;
 }
 
 std::unique_ptr<AudioProcessor> CreateAttenuationFilterBank(const attenuation_filter_variant_t& options,
