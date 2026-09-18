@@ -65,12 +65,14 @@ inline sfFDN::FilterCoefficients sfFDN::LowShelfRBJ(double wc, double db_gain, d
     const double a1 = -2 * ((A - 1) + (A + 1) * cos_w0);
     const double a2 = (A + 1) + ((A - 1) * cos_w0) - TwoSqrtA;
 
-    return {.b0 = static_cast<float>(b0 / a0),
-            .b1 = static_cast<float>(b1 / a0),
-            .b2 = static_cast<float>(b2 / a0),
-            .a0 = 1.f,
-            .a1 = static_cast<float>(a1 / a0),
-            .a2 = static_cast<float>(a2 / a0)};
+    return {
+        .b0 = static_cast<float>(b0 / a0),
+        .b1 = static_cast<float>(b1 / a0),
+        .b2 = static_cast<float>(b2 / a0),
+        .a0 = 1.f,
+        .a1 = static_cast<float>(a1 / a0),
+        .a2 = static_cast<float>(a2 / a0),
+    };
 }
 
 inline sfFDN::FilterCoefficients sfFDN::HighShelfRBJ(double wc, double db_gain, double Q)
@@ -89,12 +91,14 @@ inline sfFDN::FilterCoefficients sfFDN::HighShelfRBJ(double wc, double db_gain, 
     const double a1 = 2 * ((A - 1) - (A + 1) * cos_w0);
     const double a2 = (A + 1) - ((A - 1) * cos_w0) - TwoSqrtA;
 
-    return {.b0 = static_cast<float>(b0 / a0),
-            .b1 = static_cast<float>(b1 / a0),
-            .b2 = static_cast<float>(b2 / a0),
-            .a0 = 1.f,
-            .a1 = static_cast<float>(a1 / a0),
-            .a2 = static_cast<float>(a2 / a0)};
+    return {
+        .b0 = static_cast<float>(b0 / a0),
+        .b1 = static_cast<float>(b1 / a0),
+        .b2 = static_cast<float>(b2 / a0),
+        .a0 = 1.f,
+        .a1 = static_cast<float>(a1 / a0),
+        .a2 = static_cast<float>(a2 / a0),
+    };
 }
 
 inline sfFDN::FilterCoefficients sfFDN::PeakingRBJ(double wc, double db_gain, double Q)
@@ -105,12 +109,14 @@ inline sfFDN::FilterCoefficients sfFDN::PeakingRBJ(double wc, double db_gain, do
     const double a0 = 1.0 + alpha / A;
     const double a1 = -2.0 * std::cos(w0);
 
-    return {.b0 = static_cast<float>((1.0 + alpha * A) / a0),
-            .b1 = static_cast<float>(a1 / a0),
-            .b2 = static_cast<float>((1.0 - alpha * A) / a0),
-            .a0 = 1.f,
-            .a1 = static_cast<float>(a1 / a0),
-            .a2 = static_cast<float>((1.0 - alpha / A) / a0)};
+    return {
+        .b0 = static_cast<float>((1.0 + alpha * A) / a0),
+        .b1 = static_cast<float>(a1 / a0),
+        .b2 = static_cast<float>((1.0 - alpha * A) / a0),
+        .a0 = 1.f,
+        .a1 = static_cast<float>(a1 / a0),
+        .a2 = static_cast<float>((1.0 - alpha / A) / a0),
+    };
 }
 
 template <typename T>

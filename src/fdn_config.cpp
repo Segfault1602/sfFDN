@@ -28,7 +28,7 @@ namespace
 {
 struct MultichannelProcessorVisitor
 {
-    const sfFDN::FilterDesigner& designer;
+    sfFDN::FilterDesigner designer;
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsOptions& gains_config) const
     {
