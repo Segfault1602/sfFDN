@@ -15,12 +15,12 @@ namespace sfFDN
 {
 FilterBank::FilterBank() = default;
 
-FilterBank::FilterBank(const MultichannelProcessorOptions& options)
+FilterBank::FilterBank(const MultichannelProcessorOptions& options, const FilterDesigner& designer)
 {
     filters_.reserve(options.channels.size());
     for (const auto& channel : options.channels)
     {
-        filters_.push_back(channel.has_value() ? CreateSingleChannelProcessor(channel.value())
+        filters_.push_back(channel.has_value() ? CreateSingleChannelProcessor(channel.value(), designer)
                                                : std::make_unique<PassThrough>());
     }
 }

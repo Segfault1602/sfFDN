@@ -13,6 +13,8 @@
 
 namespace sfFDN
 {
+class FilterDesigner;
+
 /** @brief Implements a bank of filters.
  * @ingroup AudioProcessors
  */
@@ -25,8 +27,10 @@ class FilterBank : public AudioProcessor
     /** @brief Constructs one independent processor per configured channel.
      *
      * A null channel is represented by a pass-through processor. Construction occurs outside the real-time path.
+     * @param options Per-channel processor configurations.
+     * @param designer Designs any Graphic EQ channel.
      */
-    explicit FilterBank(const MultichannelProcessorOptions& options);
+    FilterBank(const MultichannelProcessorOptions& options, const FilterDesigner& designer);
 
     /** @brief Clears the filter bank. */
     void Clear() override;

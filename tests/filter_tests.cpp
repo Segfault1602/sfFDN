@@ -380,7 +380,8 @@ TEST_CASE("FilterBank processes independent first-order Schroeder channels", "[f
         options.channels.emplace_back(section_options);
     }
 
-    auto filter = std::make_unique<sfFDN::FilterBank>(options);
+    const sfFDN::FilterDesigner designer(sfFDN::kDefaultSampleRate);
+    auto filter = std::make_unique<sfFDN::FilterBank>(options, designer);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)
@@ -439,7 +440,8 @@ TEST_CASE("FilterBank processes independent Schroeder cascades", "[filter]")
         options.channels.emplace_back(section_options);
     }
 
-    auto filter = std::make_unique<sfFDN::FilterBank>(options);
+    const sfFDN::FilterDesigner designer(sfFDN::kDefaultSampleRate);
+    auto filter = std::make_unique<sfFDN::FilterBank>(options, designer);
 
     std::vector<float> input(kChannelCount * kBlockSize, 0.f);
     for (uint32_t i = 0; i < kChannelCount; ++i)

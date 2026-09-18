@@ -51,10 +51,18 @@ void RequireInvalidOptions(const Options& options)
     REQUIRE_FALSE(issues.empty());
 }
 
-void RequireInvalidAttenuationOptions(const sfFDN::attenuation_filter_variant_t& options)
+template <typename Options>
+void RequireInvalidRateAwareOptions(const Options& options, float sample_rate)
 {
     std::vector<sfFDN::ConfigIssue> issues;
-    sfFDN::detail::ValidateAttenuationOptions(options, "", issues, false);
+    sfFDN::detail::ValidateOptions(options, sample_rate, "", issues);
+    REQUIRE_FALSE(issues.empty());
+}
+
+void RequireInvalidAttenuationOptions(const sfFDN::attenuation_filter_variant_t& options, float sample_rate)
+{
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateAttenuationOptions(options, sample_rate, "", issues, false);
     REQUIRE_FALSE(issues.empty());
 }
 } // namespace
@@ -107,32 +115,37 @@ TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation doma
         .coeffs = {{std::numeric_limits<float>::max(), 0.F, 0.F, std::numeric_limits<float>::min(), 0.F, 0.F}},
     });
     RequireInvalidOptions(sfFDN::FirOptions{.coeffs = {}});
-    RequireInvalidOptions(sfFDN::GraphicEQOptions{
-        .freqs = {32.F, 64.F, 125.F, 125.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
-    });
+    RequireInvalidRateAwareOptions(
+        sfFDN::GraphicEQOptions{
+            .freqs = {32.F, 64.F, 125.F, 125.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+        },
+        sfFDN::kDefaultSampleRate);
     RequireInvalidOptions(sfFDN::ControllableFullWaveRectifierOptions{.alpha = -0.1F});
     RequireInvalidOptions(sfFDN::SignalDependentFractionalDelayOptions{.d = 1.1F});
     RequireInvalidOptions(sfFDN::RingModulatorOptions{.frequency = -1.F});
     RequireInvalidOptions(sfFDN::VariableDiffusionOptions{.diffusion = 2.F});
 
-    RequireInvalidAttenuationOptions(sfFDN::TwoBandFilterOptions{
-        .t60s = {1.F, 0.5F},
-        .delay = -1.F,
-        .sample_rate = 48000.F,
-    });
-    RequireInvalidAttenuationOptions(sfFDN::ThreeBandFilterOptions{
-        .t60s = {1.F, 1.F, 1.F},
-        .delay = 4.F,
-        .freqs = {8000.F, 800.F},
-        .q = 0.F,
-        .sample_rate = 48000.F,
-    });
-    RequireInvalidAttenuationOptions(sfFDN::TenBandFilterOptions{
-        .t60s = {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F},
-        .delay = 4.F,
-        .sample_rate = 32000.F,
-        .shelf_cutoff = 16000.F,
-    });
+    RequireInvalidAttenuationOptions(
+        sfFDN::TwoBandFilterOptions{
+            .t60s = {1.F, 0.5F},
+            .delay = -1.F,
+        },
+        48000.F);
+    RequireInvalidAttenuationOptions(
+        sfFDN::ThreeBandFilterOptions{
+            .t60s = {1.F, 1.F, 1.F},
+            .delay = 4.F,
+            .freqs = {8000.F, 800.F},
+            .q = 0.F,
+        },
+        48000.F);
+    RequireInvalidAttenuationOptions(
+        sfFDN::TenBandFilterOptions{
+            .t60s = {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F},
+            .delay = 4.F,
+            .shelf_cutoff = 16000.F,
+        },
+        32000.F);
 }
 
 TEST_CASE("Delay options reject nonrepresentable values before construction", "[delay]")

@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <span>
 #include <string_view>
@@ -86,7 +87,6 @@ sfFDN::FDNConfig MakeEveryOptionConfig()
         sfFDN::GraphicEQOptions{
             .gains_db = {},
             .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
-            .sample_rate = 48000.F,
         },
         sfFDN::DattorroDelayOptions{
             .delay_config = {.delay = 4.F, .max_delay = 8U, .lfo_config = std::nullopt},
@@ -117,19 +117,17 @@ sfFDN::FDNConfig MakeEveryOptionConfig()
         sfFDN::AttenuationFilterBankOptions{
             .filter_configs =
                 {
-                    sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 0.F, .sample_rate = 48000.F},
-                    sfFDN::TwoBandFilterOptions{.t60s = {1.F, 0.5F}, .delay = 4.F, .sample_rate = 48000.F},
+                    sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 0.F},
+                    sfFDN::TwoBandFilterOptions{.t60s = {1.F, 0.5F}, .delay = 4.F},
                     sfFDN::ThreeBandFilterOptions{
                         .t60s = {1.F, 0.75F, 0.5F},
                         .delay = 4.F,
                         .freqs = {800.F, 8000.F},
                         .q = 1.F,
-                        .sample_rate = 48000.F,
                     },
                     sfFDN::TenBandFilterOptions{
                         .t60s = {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F},
                         .delay = 4.F,
-                        .sample_rate = 48000.F,
                         .shelf_cutoff = 8000.F,
                     },
                 },
@@ -255,6 +253,36 @@ void RequireUnchangedAfterFailedRead(const nlohmann::json& malformed, Options op
     REQUIRE(options == before);
 }
 
+void AddNestedFilterSampleRates(nlohmann::json& value)
+{
+    static constexpr std::array<std::string_view, 5> kFilterTypeTags = {
+        "ProportionalAttenuationConfig", "TwoBandFilterConfig", "ThreeBandFilterConfig",
+        "TenBandFilterConfig",           "GraphicEQOptions",
+    };
+
+    if (value.is_object())
+    {
+        for (const auto type : kFilterTypeTags)
+        {
+            if (value.contains(type))
+            {
+                value[type]["sample_rate"] = 96000.F;
+            }
+        }
+        for (auto& item : value.items())
+        {
+            AddNestedFilterSampleRates(item.value());
+        }
+    }
+    else if (value.is_array())
+    {
+        for (auto& child : value)
+        {
+            AddNestedFilterSampleRates(child);
+        }
+    }
+}
+
 } // namespace
 
 TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serialization]")
@@ -291,22 +319,22 @@ TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serial
     }
 }
 
-TEST_CASE("FDNConfig JSON accepts files written before MIMO support", "[serialization]")
+TEST_CASE("FDNConfig JSON defaults omitted boundary routing fields", "[serialization]")
 {
-    const auto legacy_config = MakeRenderableConfig();
-    nlohmann::json legacy = legacy_config;
+    const auto default_routing_config = MakeRenderableConfig();
+    nlohmann::json input_json = default_routing_config;
 
-    // Reproduce the pre-MIMO key set exactly.
-    legacy.erase("input_channel_count");
-    legacy.erase("output_channel_count");
-    legacy.erase("direct_matrix");
-    legacy["input_block_config"].erase("boundary_matrix");
-    legacy["output_block_config"].erase("boundary_matrix");
-    REQUIRE(legacy["input_block_config"].size() == 3);
-    REQUIRE(legacy["output_block_config"].size() == 3);
+    // Omit optional boundary routing fields.
+    input_json.erase("input_channel_count");
+    input_json.erase("output_channel_count");
+    input_json.erase("direct_matrix");
+    input_json["input_block_config"].erase("boundary_matrix");
+    input_json["output_block_config"].erase("boundary_matrix");
+    REQUIRE(input_json["input_block_config"].size() == 3);
+    REQUIRE(input_json["output_block_config"].size() == 3);
 
-    const auto loaded = legacy.get<sfFDN::FDNConfig>();
-    REQUIRE(loaded == legacy_config);
+    const auto loaded = input_json.get<sfFDN::FDNConfig>();
+    REQUIRE(loaded == default_routing_config);
     REQUIRE(loaded.input_channel_count == 1U);
     REQUIRE(loaded.output_channel_count == 1U);
     REQUIRE_FALSE(loaded.direct_matrix.has_value());
@@ -314,11 +342,11 @@ TEST_CASE("FDNConfig JSON accepts files written before MIMO support", "[serializ
     REQUIRE_FALSE(loaded.output_block_config.boundary_matrix.has_value());
 
     // An explicit null is equivalent to an omitted key.
-    nlohmann::json nulled = legacy;
+    nlohmann::json nulled = input_json;
     nulled["direct_matrix"] = nullptr;
     nulled["input_block_config"]["boundary_matrix"] = nullptr;
     nulled["output_block_config"]["boundary_matrix"] = nullptr;
-    REQUIRE(nulled.get<sfFDN::FDNConfig>() == legacy_config);
+    REQUIRE(nulled.get<sfFDN::FDNConfig>() == default_routing_config);
 }
 
 TEST_CASE("FDNConfig JSON round-trip preserves MIMO rendered output", "[serialization]")
@@ -408,6 +436,48 @@ TEST_CASE("Serialization uses canonical JSON contracts", "[serialization]")
                                                   {"output_channel_count", 3U},
                                                   {"coefficients", {1.F, 2.F, 3.F, 4.F, 5.F, 6.F}},
                                               });
+
+    const sfFDN::HomogenousFilterOptions homogeneous{.t60 = 1.5F, .delay = 64.F};
+    REQUIRE(nlohmann::json(homogeneous) == nlohmann::json{{"t60", 1.5F}, {"delay", 64.F}});
+
+    const sfFDN::TwoBandFilterOptions two_band{.t60s = {1.5F, 0.75F}, .delay = 64.F};
+    REQUIRE(nlohmann::json(two_band) == nlohmann::json{{"t60s", {1.5F, 0.75F}}, {"delay", 64.F}});
+
+    const sfFDN::ThreeBandFilterOptions three_band{
+        .t60s = {1.5F, 1.F, 0.75F},
+        .delay = 64.F,
+        .freqs = {500.F, 4000.F},
+        .q = 0.8F,
+    };
+    const nlohmann::json expected_three_band = {
+        {"t60s", {1.5F, 1.F, 0.75F}},
+        {"delay", 64.F},
+        {"freqs", {500.F, 4000.F}},
+        {"q", 0.8F},
+    };
+    REQUIRE(nlohmann::json(three_band) == expected_three_band);
+
+    const sfFDN::TenBandFilterOptions ten_band{
+        .t60s = {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F},
+        .delay = 64.F,
+        .shelf_cutoff = 6000.F,
+    };
+    const nlohmann::json expected_ten_band = {
+        {"t60s", {1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F, 1.F}},
+        {"delay", 64.F},
+        {"shelf_cutoff", 6000.F},
+    };
+    REQUIRE(nlohmann::json(ten_band) == expected_ten_band);
+
+    const sfFDN::GraphicEQOptions graphic_eq{
+        .gains_db = {1.F, 2.F, 3.F, 4.F, 5.F, 6.F, 7.F, 8.F, 9.F, 10.F},
+        .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+    };
+    const nlohmann::json expected_graphic_eq = {
+        {"gains_db", {1.F, 2.F, 3.F, 4.F, 5.F, 6.F, 7.F, 8.F, 9.F, 10.F}},
+        {"freqs", {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F}},
+    };
+    REQUIRE(nlohmann::json(graphic_eq) == expected_graphic_eq);
 
     // An absent boundary matrix emits null rather than being omitted, so the shape does not depend on the value.
     const nlohmann::json mono_stage = sfFDN::InputStageConfig{};

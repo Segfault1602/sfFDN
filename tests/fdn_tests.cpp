@@ -223,8 +223,7 @@ sfFDN::AttenuationFilterBankOptions MakeAttenuationBank(size_t count)
     sfFDN::AttenuationFilterBankOptions bank;
     for (size_t index = 0; index < count; ++index)
     {
-        bank.filter_configs.emplace_back(
-            sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 8.F, .sample_rate = 48000.F});
+        bank.filter_configs.emplace_back(sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 8.F});
     }
     return bank;
 }
@@ -629,8 +628,7 @@ TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
     config.feedback_matrix_config = feedback_matrix_options;
 
     sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
-    sfFDN::HomogenousFilterOptions homogenous_filter_options{
-        .t60 = 1.f, .delay = 0.f, .sample_rate = config.sample_rate};
+    sfFDN::HomogenousFilterOptions homogenous_filter_options{.t60 = 1.f, .delay = 0.f};
 
     // If only 1 filter is found in AttenuationFilterBankOptions, CreateFDNFromConfig() will reuse the same filter for
     // all channels, updating the delay value based on the corresponding delay line length for each channel.
@@ -696,7 +694,7 @@ TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay netwo
 
     sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
     attenuation_filter_bank_options.filter_configs.emplace_back(
-        sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = config.sample_rate});
+        sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f});
     config.loop_filter_configs.emplace_back(attenuation_filter_bank_options);
 
     // A decorrelated vibrato per channel, sitting in the feedback loop after the static delay bank. Vibrato is the
@@ -813,8 +811,7 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
         if (attenuated)
         {
             sfFDN::AttenuationFilterBankOptions attenuation;
-            attenuation.filter_configs.emplace_back(
-                sfFDN::HomogenousFilterOptions{.t60 = 1.5F, .delay = 0.F, .sample_rate = config.sample_rate});
+            attenuation.filter_configs.emplace_back(sfFDN::HomogenousFilterOptions{.t60 = 1.5F, .delay = 0.F});
             config.attenuation_filter_bank_config = attenuation;
         }
         return config;
@@ -1305,7 +1302,7 @@ TEST_CASE("FDN construction fixes the topology and preserves transpose", "[fdn]"
 
 TEST_CASE("FDN default and span boundary routing use ChannelMatrix", "[fdn]")
 {
-    SECTION("mono defaults preserve the legacy half-gain routing")
+    SECTION("mono defaults use half-gain routing")
     {
         sfFDN::FDN fdn(4U, 8U);
         REQUIRE(dynamic_cast<sfFDN::ChannelMatrix*>(fdn.GetInputGains()) != nullptr);

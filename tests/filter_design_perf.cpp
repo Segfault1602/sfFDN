@@ -31,11 +31,11 @@ TEST_CASE("TwoFilter", "[filter_design]")
     sfFDN::TenBandFilterOptions config;
     config.t60s = kT60s;
     config.delay = kDelay;
-    config.sample_rate = kSR;
     config.shelf_cutoff = kShelfCutoff;
+    const sfFDN::FilterDesigner designer(kSR);
 
     bench.run("DesignTenBandAbsorption", [&] {
-        auto coeffs = sfFDN::DesignTenBandAbsorption(config);
+        auto coeffs = designer.DesignFilter(config);
         nanobench::doNotOptimizeAway(coeffs);
     });
 }

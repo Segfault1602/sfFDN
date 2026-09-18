@@ -303,7 +303,7 @@ struct DelayBankTimeVaryingOptions
                                     must be greater than or equal to the initial delays. */
     DelayInterpolationType interpolation_type{
         DelayInterpolationType::None,
-    };                                                  /*< Interpolation type for fractional delays. */
+    }; /*< Interpolation type for fractional delays. */
     std::vector<ModulationOptions> time_varying_config; /*< Time-varying modulation configuration for each channel. The
                                                            size of the vector must match the size of `delays`. */
 
@@ -507,8 +507,6 @@ struct HomogenousFilterOptions
     float t60 = 1.f;  /*< Target T60 value for the filter. */
     float delay{1.f}; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
                     automatically when accessed from `CreateFDNFromConfig()`*/
-    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
-                                               based on the specified T60 values. */
 
     bool operator==(const HomogenousFilterOptions&) const = default;
 };
@@ -524,8 +522,6 @@ struct TwoBandFilterOptions
     std::array<float, 2> t60s{1.f, 0.5f}; /**< Target T60 values for the low and high bands. */
     float delay{0.f}; /*< Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated
                     automatically when accessed from `CreateFDNFromConfig()`*/
-    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
-                                               based on the specified T60 values. */
 
     bool operator==(const TwoBandFilterOptions&) const = default;
 };
@@ -541,8 +537,6 @@ struct ThreeBandFilterOptions
     std::array<float, 2> freqs{800.f, 8000.f};    /*< Frequency values for the low and high shelves. */
     float q = 1.f / std::numbers::sqrt2_v<float>; /*< Q-factor for the shelf filters. Q values higher than 0.707 may
                                                      cause instability if placed in a feedback loop. */
-    float sample_rate = kDefaultSampleRate; /*< Sample rate in Hz. This is used to calculate the filter coefficients
-                                               based on the specified T60 values. */
 
     bool operator==(const ThreeBandFilterOptions&) const = default;
 };
@@ -562,9 +556,6 @@ struct TenBandFilterOptions
     //! Delay in samples for the delay line preceding the filter. If set to <= 0, it will be updated automatically when
     //! accessed from `CreateFDNFromConfig()`
     float delay{0.f};
-
-    //! Sample rate in Hz. This is used to calculate the filter coefficients based on the specified T60 values.
-    float sample_rate = kDefaultSampleRate;
 
     //! Cutoff frequency for the shelf filters.
     float shelf_cutoff = 8000.f;
@@ -593,9 +584,6 @@ struct GraphicEQOptions
 
     //! Frequency values for the ten bands in Hz.
     std::array<float, 10> freqs{};
-
-    //! Sample rate in Hz.
-    float sample_rate = kDefaultSampleRate;
 
     bool operator==(const GraphicEQOptions&) const = default;
 };
@@ -628,6 +616,5 @@ using multi_channel_processor_variant_t =
                  DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
 
 /** @}*/
-
 
 } // namespace sfFDN

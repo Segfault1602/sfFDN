@@ -115,7 +115,8 @@ sfFDN::ScalarFeedbackMatrixOptions diffusion{
 <summary> Loop Filters </summary>
 
 The optional loop-filter block takes \f$N\f$ channels of audio and outputs \f$N\f$ channels.
-`CreateAttenuationFilterBank()` builds decay-control filters from attenuation options.
+`CreateAttenuationFilterBank()` builds decay-control filters from attenuation options and an
+explicit `FilterDesigner`.
 Choose `HomogenousFilterOptions` for frequency-independent decay, or `TwoBandFilterOptions`,
 `ThreeBandFilterOptions`, or `TenBandFilterOptions` for frequency-dependent T60 targets.
 Pass one design with a span of delay lengths, or an `AttenuationFilterBankOptions` value
@@ -159,9 +160,9 @@ fdn.SetDelays(delays);
 // Set homogeneous decay of 1 second
 const sfFDN::HomogenousFilterOptions attenuation_options{
     .t60 = 1.f,
-    .delay = 0.f,
-    .sample_rate = static_cast<float>(kSampleRate)};
-auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(attenuation_options, delays);
+    .delay = 0.f};
+const sfFDN::FilterDesigner designer(static_cast<float>(kSampleRate));
+auto attenuation_filter = sfFDN::CreateAttenuationFilterBank(attenuation_options, delays, designer);
 fdn.SetLoopFilter(std::move(attenuation_filter));
 
 ```
@@ -265,8 +266,7 @@ config.feedback_matrix_config = feedback_matrix_options;
 sfFDN::AttenuationFilterBankOptions attenuation_filter_bank_options;
 sfFDN::HomogenousFilterOptions homogenous_filter_options{
     .t60 = 1.f,
-    .delay = 0.f,
-    .sample_rate = config.sample_rate};
+    .delay = 0.f};
 attenuation_filter_bank_options.filter_configs.push_back(homogenous_filter_options);
 
 config.attenuation_filter_bank_config = attenuation_filter_bank_options;
@@ -281,8 +281,11 @@ auto fdn = sfFDN::CreateFDNFromConfig(config);
 
 The primary delay bank contains one delay per FDN channel. Its block size must be nonzero and at least
 `config.block_size`, and each primary delay must also be at least `config.block_size`.
-Changing `config.sample_rate` does not update existing delays, modulation frequencies, or nested filter rates;
-rate-sensitive filter options use their own `sample_rate` fields.
+Changing `config.sample_rate` does not update existing delays or modulation frequencies. It
+supplies the rate for attenuation and Graphic EQ designs. Nested `sample_rate` fields for those
+filters are ignored if present in JSON, even if they disagree with the root rate. This does not
+override processors that retain their own rate setting, such as the nonlinear rectifier, or
+redesign precomputed filter coefficients.
 See [Filtering](filters.md#design-helpers) for attenuation-bank delay inference and placement rules.
 
 ### Validating an FDN configuration

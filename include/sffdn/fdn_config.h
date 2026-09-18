@@ -81,7 +81,7 @@ struct FDNConfig
     //! Internal block size for processing audio. Ideally should match the block size of the system.
     uint32_t block_size{kDefaultBlockSize};
 
-    //! Sample rate associated with this configuration; filter options specify their own rates.
+    //! Root sample rate supplied to absorption and Graphic EQ designs.
     float sample_rate{static_cast<float>(kDefaultSampleRate)};
 
     //! Delay bank configuration. Its block size must be nonzero and at least this configuration's block size.

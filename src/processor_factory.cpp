@@ -17,60 +17,63 @@
 
 namespace sfFDN
 {
-std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channel_processor_variant_t& config)
+std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channel_processor_variant_t& config,
+                                                             const FilterDesigner& designer)
 {
     return std::visit<std::unique_ptr<AudioProcessor>>(
-        overloaded{[](const SchroederAllpassSectionOptions& options) {
-                       return std::make_unique<SchroederAllpassSection>(options);
-                   },
-                   [](const TimeVaryingSchroederAllpassSectionOptions& options) {
-                       try
-                       {
-                           return std::make_unique<TimeVaryingSchroederAllpassSection>(options);
-                       }
-                       catch (const std::invalid_argument& error)
-                       {
-                           throw std::runtime_error(
-                               std::string("Invalid time-varying Schroeder allpass configuration: ") + error.what());
-                       }
-                   },
-                   [](const AllpassFilterOptions& options) {
-                       detail::RequireValidOptions(options);
-                       return std::make_unique<AllpassFilter>(options);
-                   },
-                   [](const CascadedBiquadsOptions& options) {
-                       detail::RequireValidOptions(options);
-                       return std::make_unique<CascadedBiquads>(options);
-                   },
-                   [](const FirOptions& options) { return MakeFirFilter(options); },
-                   [](const DelayOptions& options) -> std::unique_ptr<AudioProcessor> {
-                       if (options.lfo_config.has_value())
-                       {
-                           return std::make_unique<DelayTimeVarying>(options);
-                       }
-                       return std::make_unique<DelayInterp>(options);
-                   },
-                   [](const GraphicEQOptions& options) {
-                       detail::RequireValidOptions(options);
-                       const auto coefficients = DesignGraphicEQ(options);
-                       const CascadedBiquadsOptions filter_options{
-                           std::vector<FilterCoefficients>(coefficients.begin(), coefficients.end()),
-                       };
-                       return std::make_unique<CascadedBiquads>(filter_options);
-                   },
-                   [](const DattorroDelayOptions& options) { return std::make_unique<DattorroDelay>(options); },
-                   [](const ControllableFullWaveRectifierOptions& options) {
-                       detail::RequireValidOptions(options);
-                       return std::make_unique<ControllableFullWaveRectifier>(options);
-                   },
-                   [](const SignalDependentFractionalDelayOptions& options) {
-                       detail::RequireValidOptions(options);
-                       return std::make_unique<SignalDependentFractionalDelay>(options);
-                   },
-                   [](const RingModulatorOptions& options) {
-                       detail::RequireValidOptions(options);
-                       return std::make_unique<RingModulator>(options);
-                   },},
+        overloaded{
+            [](const SchroederAllpassSectionOptions& options) {
+                return std::make_unique<SchroederAllpassSection>(options);
+            },
+            [](const TimeVaryingSchroederAllpassSectionOptions& options) {
+                try
+                {
+                    return std::make_unique<TimeVaryingSchroederAllpassSection>(options);
+                }
+                catch (const std::invalid_argument& error)
+                {
+                    throw std::runtime_error(std::string("Invalid time-varying Schroeder allpass configuration: ") +
+                                             error.what());
+                }
+            },
+            [](const AllpassFilterOptions& options) {
+                detail::RequireValidOptions(options);
+                return std::make_unique<AllpassFilter>(options);
+            },
+            [](const CascadedBiquadsOptions& options) {
+                detail::RequireValidOptions(options);
+                return std::make_unique<CascadedBiquads>(options);
+            },
+            [](const FirOptions& options) { return MakeFirFilter(options); },
+            [](const DelayOptions& options) -> std::unique_ptr<AudioProcessor> {
+                if (options.lfo_config.has_value())
+                {
+                    return std::make_unique<DelayTimeVarying>(options);
+                }
+                return std::make_unique<DelayInterp>(options);
+            },
+            [&designer](const GraphicEQOptions& options) {
+                detail::RequireValidOptions(options, designer.GetSampleRate());
+                const auto coefficients = designer.DesignFilter(options);
+                const CascadedBiquadsOptions filter_options{
+                    std::vector<FilterCoefficients>(coefficients.begin(), coefficients.end()),
+                };
+                return std::make_unique<CascadedBiquads>(filter_options);
+            },
+            [](const DattorroDelayOptions& options) { return std::make_unique<DattorroDelay>(options); },
+            [](const ControllableFullWaveRectifierOptions& options) {
+                detail::RequireValidOptions(options);
+                return std::make_unique<ControllableFullWaveRectifier>(options);
+            },
+            [](const SignalDependentFractionalDelayOptions& options) {
+                detail::RequireValidOptions(options);
+                return std::make_unique<SignalDependentFractionalDelay>(options);
+            },
+            [](const RingModulatorOptions& options) {
+                detail::RequireValidOptions(options);
+                return std::make_unique<RingModulator>(options);
+            },
+        },
         config);
 }
 } // namespace sfFDN

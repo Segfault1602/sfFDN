@@ -13,9 +13,10 @@ namespace
 {
 constexpr float kSampleRate = 48000.f;
 
-std::unique_ptr<sfFDN::FDN> CreateProductionFDN(
-    uint32_t internal_block_size, std::span<const float> delays, sfFDN::ScalarMatrixType matrix_type,
-    const sfFDN::attenuation_filter_variant_t& attenuation)
+std::unique_ptr<sfFDN::FDN> CreateProductionFDN(uint32_t internal_block_size, std::span<const float> delays,
+                                                sfFDN::ScalarMatrixType matrix_type,
+                                                const sfFDN::attenuation_filter_variant_t& attenuation,
+                                                const sfFDN::FilterDesigner& designer)
 {
     const auto order = static_cast<uint32_t>(delays.size());
     auto fdn = std::make_unique<sfFDN::FDN>(order, internal_block_size, false);
@@ -37,7 +38,7 @@ std::unique_ptr<sfFDN::FDN> CreateProductionFDN(
     {
         throw std::runtime_error("Failed to configure production FDN feedback matrix");
     }
-    if (!fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(attenuation, delays)))
+    if (!fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(attenuation, delays, designer)))
     {
         throw std::runtime_error("Failed to configure production FDN loop filter");
     }
@@ -47,6 +48,7 @@ std::unique_ptr<sfFDN::FDN> CreateProductionFDN(
 
 std::vector<ProductionFDNWorkload> CreateProductionFDNWorkloads()
 {
+    const sfFDN::FilterDesigner designer(kSampleRate);
     constexpr std::array<float, 8> kSandboxDelays = {809.f, 877.f, 937.f, 1049.f,
                                                      1151.f, 1249.f, 1373.f, 1499.f};
     constexpr std::array<float, 4> kOptDelays4 = {1499.f, 1889.f, 2381.f, 2999.f};
@@ -58,14 +60,11 @@ std::vector<ProductionFDNWorkload> CreateProductionFDNWorkloads()
     constexpr uint32_t kDelaySeed = 0x5F4E3D2CU;
     const auto opt_delays16 = sfFDN::GetDelayLengths(16, 512, 3000, sfFDN::DelayLengthType::Uniform, kDelaySeed);
     const auto opt_delays32 = sfFDN::GetDelayLengths(32, 512, 3000, sfFDN::DelayLengthType::Uniform, kDelaySeed);
-    const sfFDN::ThreeBandFilterOptions three_band{
-        .t60s = {1.5f, 1.f, 0.5f}, .delay = 0.f, .sample_rate = kSampleRate};
-    const sfFDN::TwoBandFilterOptions two_band{
-        .t60s = {1.5f, 0.5f}, .delay = 0.f, .sample_rate = kSampleRate};
+    const sfFDN::ThreeBandFilterOptions three_band{.t60s = {1.5f, 1.f, 0.5f}, .delay = 0.f};
+    const sfFDN::TwoBandFilterOptions two_band{.t60s = {1.5f, 0.5f}, .delay = 0.f};
     const sfFDN::TenBandFilterOptions ten_band{
         .t60s = {2.f, 2.f, 1.8f, 1.6f, 1.4f, 1.2f, 1.f, 0.8f, 0.6f, 0.5f},
         .delay = 0.f,
-        .sample_rate = kSampleRate,
         .shelf_cutoff = 8000.f,
     };
 
@@ -74,137 +73,135 @@ std::vector<ProductionFDNWorkload> CreateProductionFDNWorkloads()
         .name = "FdnSandbox N8 callback=1024 internal=64 homogeneous Hadamard",
         .callback_size = 1024,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(
-            64, kSandboxDelays, sfFDN::ScalarMatrixType::Hadamard,
-            sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = kSampleRate}),
+        .fdn = CreateProductionFDN(64, kSandboxDelays, sfFDN::ScalarMatrixType::Hadamard,
+                                   sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f}, designer),
     });
     workloads.push_back({
         .name = "FdnSandbox N8 callback=1024 internal=64 homogeneous Random",
         .callback_size = 1024,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(
-            64, kSandboxDelays, sfFDN::ScalarMatrixType::Random,
-            sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = kSampleRate}),
+        .fdn = CreateProductionFDN(64, kSandboxDelays, sfFDN::ScalarMatrixType::Random,
+                                   sfFDN::HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f}, designer),
     });
     workloads.push_back({
         .name = "fdn_opt N4 block=128 three-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays4, sfFDN::ScalarMatrixType::Hadamard, three_band),
+        .fdn = CreateProductionFDN(128, kOptDelays4, sfFDN::ScalarMatrixType::Hadamard, three_band, designer),
     });
     workloads.push_back({
         .name = "fdn_opt N6 block=128 ten-band Householder",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays6, sfFDN::ScalarMatrixType::Householder, ten_band),
+        .fdn = CreateProductionFDN(128, kOptDelays6, sfFDN::ScalarMatrixType::Householder, ten_band, designer),
     });
     workloads.push_back({
         .name = "fdn_opt N8 block=128 ten-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, ten_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, ten_band, designer),
     });
     workloads.push_back({
         .name = "fdn_opt N8 block=128 ten-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, ten_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, ten_band, designer),
     });
     workloads.push_back({
         .name = "FDN N8 block=128 three-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, three_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N8 block=128 three-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, three_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N8 block=128 two-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, two_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Hadamard, two_band, designer),
     });
     workloads.push_back({
         .name = "FDN N8 block=128 two-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, two_band),
+        .fdn = CreateProductionFDN(128, kOptDelays8, sfFDN::ScalarMatrixType::Random, two_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 ten-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, ten_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, ten_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 ten-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, ten_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, ten_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 three-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, three_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 three-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, three_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 two-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, two_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Hadamard, two_band, designer),
     });
     workloads.push_back({
         .name = "FDN N16 block=128 two-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, two_band),
+        .fdn = CreateProductionFDN(128, opt_delays16, sfFDN::ScalarMatrixType::Random, two_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 ten-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, ten_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, ten_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 ten-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, ten_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, ten_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 three-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, three_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 three-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, three_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, three_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 two-band Hadamard",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, two_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Hadamard, two_band, designer),
     });
     workloads.push_back({
         .name = "FDN N32 block=128 two-band Random",
         .callback_size = 128,
         .sample_rate = kSampleRate,
-        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, two_band),
+        .fdn = CreateProductionFDN(128, opt_delays32, sfFDN::ScalarMatrixType::Random, two_band, designer),
     });
     return workloads;
 }

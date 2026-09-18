@@ -22,6 +22,9 @@ template <typename T>
 std::array<T, 6> HighShelfRBJ(T wc, T db_gain, T Q);
 
 template <typename T>
+std::array<T, 6> PeakingRBJ(T wc, T db_gain, T Q);
+
+template <typename T>
 std::array<T, 6> Pareq(T g, T gb, T w0, T b);
 
 template <typename T>
@@ -85,6 +88,18 @@ std::array<T, 6> sfFDN::HighShelfRBJ(T wc, T db_gain, T Q)
     const T a2 = (A + 1) - ((A - 1) * cos_w0) - TwoSqrtA;
 
     return {b0 / a0, b1 / a0, b2 / a0, 1.0, a1 / a0, a2 / a0};
+}
+
+template <typename T>
+std::array<T, 6> sfFDN::PeakingRBJ(T wc, T db_gain, T Q)
+{
+    const T A = std::pow(T{10}, db_gain / T{40});
+    const T w0 = T{2} * std::numbers::pi_v<T> * wc;
+    const T alpha = std::sin(w0) / (T{2} * Q);
+    const T a0 = T{1} + alpha / A;
+    const T a1 = -T{2} * std::cos(w0);
+
+    return {(T{1} + alpha * A) / a0, a1 / a0, (T{1} - alpha * A) / a0, T{1}, a1 / a0, (T{1} - alpha / A) / a0};
 }
 
 template <typename T>

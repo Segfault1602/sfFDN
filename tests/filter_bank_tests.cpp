@@ -14,10 +14,10 @@
 
 TEST_CASE("FilterBank constructs every single-channel processor option", "[filter]")
 {
+    const sfFDN::FilterDesigner designer(48000.F);
     const sfFDN::GraphicEQOptions graphic_eq{
         .gains_db = {6.F, -3.F, 4.F, -2.F, 1.F, 0.F, -1.F, 2.F, -4.F, 3.F},
         .freqs = {32.F, 64.F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
-        .sample_rate = 48000.F,
     };
     const sfFDN::TimeVaryingSchroederAllpassSectionOptions time_varying_allpass{
         .delays = {3.F},
@@ -48,7 +48,7 @@ TEST_CASE("FilterBank constructs every single-channel processor option", "[filte
             },
     };
 
-    sfFDN::FilterBank bank(options);
+    sfFDN::FilterBank bank(options, designer);
     REQUIRE(bank.InputChannelCount() == options.channels.size());
     REQUIRE(bank.OutputChannelCount() == options.channels.size());
 
@@ -73,7 +73,7 @@ TEST_CASE("FilterBank constructs every single-channel processor option", "[filte
         std::make_unique<sfFDN::DelayTimeVarying>(std::get<sfFDN::DelayOptions>(options.channels[7].value())));
     auto graphic_eq_filter = std::make_unique<sfFDN::CascadedBiquads>();
     graphic_eq_filter->SetCoefficients(
-        sfFDN::DesignGraphicEQ(std::get<sfFDN::GraphicEQOptions>(options.channels[8].value())));
+        designer.DesignFilter(std::get<sfFDN::GraphicEQOptions>(options.channels[8].value())));
     reference->AddFilter(std::move(graphic_eq_filter));
     reference->AddFilter(
         std::make_unique<sfFDN::DattorroDelay>(std::get<sfFDN::DattorroDelayOptions>(options.channels[9].value())));
@@ -104,6 +104,7 @@ TEST_CASE("FilterBank constructs every single-channel processor option", "[filte
 TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place processing", "[filter]")
 {
     constexpr uint32_t kSamples = 8;
+    const sfFDN::FilterDesigner designer(sfFDN::kDefaultSampleRate);
     const sfFDN::MultichannelProcessorOptions options{
         .channels =
             {
@@ -113,8 +114,8 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
                 sfFDN::AllpassFilterOptions{.coeff = 0.25F},
             },
     };
-    sfFDN::FilterBank in_place_bank(options);
-    sfFDN::FilterBank out_of_place_bank(options);
+    sfFDN::FilterBank in_place_bank(options, designer);
+    sfFDN::FilterBank out_of_place_bank(options, designer);
     std::vector<float> samples(4U * kSamples, 0.F);
     samples[0] = 1.F;
     samples[kSamples] = 0.75F;
@@ -133,7 +134,7 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
         REQUIRE_THAT(samples[sample], Catch::Matchers::WithinAbs(out_of_place[sample], 1.e-6F));
     }
 
-    sfFDN::FilterBank partitioned_bank(options);
+    sfFDN::FilterBank partitioned_bank(options, designer);
     std::vector<float> partitioned_output(samples.size(), 0.F);
     sfFDN::AudioBuffer partitioned_buffer(kSamples, 4U, partitioned_output);
     for (uint32_t offset = 0; offset < kSamples; offset += 4U)
@@ -144,7 +145,7 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
     }
     REQUIRE(partitioned_output == out_of_place);
 
-    sfFDN::FilterBank bank(options);
+    sfFDN::FilterBank bank(options, designer);
     std::vector<float> priming_input(4U * kSamples, 0.F);
     priming_input[2U * kSamples] = 1.F;
     std::vector<float> priming_output(priming_input.size(), 0.F);
@@ -165,7 +166,7 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
         REQUIRE_THAT(bank_output[sample], Catch::Matchers::WithinAbs(clone_output[sample], 1.e-6F));
     }
 
-    sfFDN::FilterBank fresh(options);
+    sfFDN::FilterBank fresh(options, designer);
     std::vector<float> fresh_output(input.size(), 0.F);
     sfFDN::AudioBuffer fresh_output_buffer(kSamples, 4U, fresh_output);
     fresh.Process(input_buffer, fresh_output_buffer);
@@ -193,11 +194,12 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
 
 TEST_CASE("FilterBank accepts empty and all-bypass options", "[filter]")
 {
-    sfFDN::FilterBank empty(sfFDN::MultichannelProcessorOptions{});
+    const sfFDN::FilterDesigner designer(sfFDN::kDefaultSampleRate);
+    sfFDN::FilterBank empty(sfFDN::MultichannelProcessorOptions{}, designer);
     REQUIRE(empty.InputChannelCount() == 0U);
 
     const sfFDN::MultichannelProcessorOptions options{.channels = {std::nullopt, std::nullopt}};
-    sfFDN::FilterBank bypasses(options);
+    sfFDN::FilterBank bypasses(options, designer);
     std::array<float, 8> input = {1.F, 2.F, 3.F, 4.F, -1.F, -2.F, -3.F, -4.F};
     std::array<float, 8> output{};
     sfFDN::AudioBuffer input_buffer(4U, 2U, input);

@@ -28,6 +28,8 @@ namespace
 {
 struct MultichannelProcessorVisitor
 {
+    const sfFDN::FilterDesigner& designer;
+
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ParallelGainsOptions& gains_config) const
     {
         return MakeParallelGainsFromConfig(gains_config);
@@ -35,13 +37,13 @@ struct MultichannelProcessorVisitor
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelProcessorOptions& config) const
     {
-        return std::make_unique<sfFDN::FilterBank>(config);
+        return std::make_unique<sfFDN::FilterBank>(config, designer);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(
         const sfFDN::AttenuationFilterBankOptions& attenuation_config) const
     {
-        return sfFDN::CreateAttenuationFilterBank(attenuation_config);
+        return sfFDN::CreateAttenuationFilterBank(attenuation_config, designer);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::DelayBankOptions& delay_bank_config) const
@@ -111,7 +113,8 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateStageRoutingFromConfig(const sfFDN:
 
 /** Builds one single-channel chain, or nullptr when nothing is configured. */
 std::unique_ptr<sfFDN::AudioProcessor> CreateSingleChannelChain(
-    const std::vector<sfFDN::single_channel_processor_variant_t>& configs, uint32_t block_size, const char* context)
+    const std::vector<sfFDN::single_channel_processor_variant_t>& configs, uint32_t block_size,
+    const sfFDN::FilterDesigner& designer, const char* context)
 {
     if (configs.empty())
     {
@@ -119,13 +122,13 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateSingleChannelChain(
     }
     if (configs.size() == 1)
     {
-        return sfFDN::CreateSingleChannelProcessor(configs[0]);
+        return sfFDN::CreateSingleChannelProcessor(configs[0], designer);
     }
 
     auto chain = std::make_unique<sfFDN::AudioProcessorChain>(block_size);
     for (const auto& processor_config : configs)
     {
-        AddProcessorOrThrow(*chain, sfFDN::CreateSingleChannelProcessor(processor_config), context);
+        AddProcessorOrThrow(*chain, sfFDN::CreateSingleChannelProcessor(processor_config, designer), context);
     }
     return chain;
 }
@@ -137,7 +140,7 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateSingleChannelChain(
  */
 void AddSingleChannelStage(sfFDN::AudioProcessorChain& chain,
                            const std::vector<sfFDN::single_channel_processor_variant_t>& configs, uint32_t block_size,
-                           uint32_t channel_count, const char* context)
+                           uint32_t channel_count, const sfFDN::FilterDesigner& designer, const char* context)
 {
     if (configs.empty())
     {
@@ -148,7 +151,7 @@ void AddSingleChannelStage(sfFDN::AudioProcessorChain& chain,
     {
         for (const auto& processor_config : configs)
         {
-            AddProcessorOrThrow(chain, sfFDN::CreateSingleChannelProcessor(processor_config), context);
+            AddProcessorOrThrow(chain, sfFDN::CreateSingleChannelProcessor(processor_config, designer), context);
         }
         return;
     }
@@ -156,12 +159,13 @@ void AddSingleChannelStage(sfFDN::AudioProcessorChain& chain,
     auto bank = std::make_unique<sfFDN::FilterBank>();
     for (uint32_t channel = 0; channel < channel_count; ++channel)
     {
-        bank->AddFilter(CreateSingleChannelChain(configs, block_size, context));
+        bank->AddFilter(CreateSingleChannelChain(configs, block_size, designer, context));
     }
     AddProcessorOrThrow(chain, std::move(bank), context);
 }
 
-std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config)
+std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::FDNConfig& config,
+                                                                  const sfFDN::FilterDesigner& designer)
 {
     std::unique_ptr<sfFDN::AudioProcessor> input_gains =
         config.input_block_config.boundary_matrix.has_value()
@@ -179,19 +183,20 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateInputGainsFromConfig(const sfFDN::F
     auto chain_processor = std::make_unique<sfFDN::AudioProcessorChain>(config.block_size);
 
     AddSingleChannelStage(*chain_processor, config.input_block_config.single_channel_processors, config.block_size,
-                          config.input_channel_count, "input single-channel processor");
+                          config.input_channel_count, designer, "input single-channel processor");
 
     AddProcessorOrThrow(*chain_processor, std::move(input_gains), "input gains");
     for (const auto& processor_config : config.input_block_config.multichannel_processors)
     {
-        auto processor = std::visit(MultichannelProcessorVisitor{}, processor_config);
+        auto processor = std::visit(MultichannelProcessorVisitor{designer}, processor_config);
         AddProcessorOrThrow(*chain_processor, std::move(processor), "input multichannel processor");
     }
 
     return chain_processor;
 }
 
-std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::FDNConfig& config)
+std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::FDNConfig& config,
+                                                                   const sfFDN::FilterDesigner& designer)
 {
     std::unique_ptr<sfFDN::AudioProcessor> output_gains =
         config.output_block_config.boundary_matrix.has_value()
@@ -210,14 +215,14 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateOutputGainsFromConfig(const sfFDN::
 
     for (const auto& processor_config : config.output_block_config.multichannel_processors)
     {
-        AddProcessorOrThrow(*chain_processor, std::visit(MultichannelProcessorVisitor{}, processor_config),
+        AddProcessorOrThrow(*chain_processor, std::visit(MultichannelProcessorVisitor{designer}, processor_config),
                             "output multichannel processor");
     }
 
     AddProcessorOrThrow(*chain_processor, std::move(output_gains), "output gains");
 
     AddSingleChannelStage(*chain_processor, config.output_block_config.single_channel_processors, config.block_size,
-                          config.output_channel_count, "output single-channel processor");
+                          config.output_channel_count, designer, "output single-channel processor");
 
     return chain_processor;
 }
@@ -285,7 +290,8 @@ sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
 
 /** Tone correction is a per-output-channel filter, so a multichannel output gets one independent replica per channel.
  */
-std::unique_ptr<sfFDN::AudioProcessor> CreateToneCorrectionFromConfig(const sfFDN::FDNConfig& config)
+std::unique_ptr<sfFDN::AudioProcessor> CreateToneCorrectionFromConfig(const sfFDN::FDNConfig& config,
+                                                                      const sfFDN::FilterDesigner& designer)
 {
     if (config.tone_correction_filters.empty())
     {
@@ -293,15 +299,15 @@ std::unique_ptr<sfFDN::AudioProcessor> CreateToneCorrectionFromConfig(const sfFD
     }
     if (config.output_channel_count == 1U)
     {
-        return CreateSingleChannelChain(config.tone_correction_filters, config.block_size,
+        return CreateSingleChannelChain(config.tone_correction_filters, config.block_size, designer,
                                         "tone correction filter");
     }
 
     auto bank = std::make_unique<sfFDN::FilterBank>();
     for (uint32_t channel = 0; channel < config.output_channel_count; ++channel)
     {
-        bank->AddFilter(
-            CreateSingleChannelChain(config.tone_correction_filters, config.block_size, "tone correction filter"));
+        bank->AddFilter(CreateSingleChannelChain(config.tone_correction_filters, config.block_size, designer,
+                                                 "tone correction filter"));
     }
     return bank;
 }
@@ -355,7 +361,7 @@ FDNConfig MakeDefaultFDNConfig(uint32_t fdn_size, uint32_t block_size, float sam
             },
     };
     config.attenuation_filter_bank_config = AttenuationFilterBankOptions{
-        .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f, .sample_rate = sample_rate}},
+        .filter_configs = {HomogenousFilterOptions{.t60 = 1.f, .delay = 0.f}},
     };
 
     return config;
@@ -425,6 +431,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     {
         throw FDNConfigError(std::move(validation.error()));
     }
+    const FilterDesigner designer(config.sample_rate);
     auto fdn = std::make_unique<FDN>(FDNTopology{
         .order = config.fdn_size,
         .block_size = config.block_size,
@@ -454,7 +461,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     }
 
     // Input gain Block
-    if (!fdn->SetInputGains(CreateInputGainsFromConfig(config)))
+    if (!fdn->SetInputGains(CreateInputGainsFromConfig(config, designer)))
     {
         throw std::runtime_error("Failed to set FDN input gains");
     }
@@ -476,7 +483,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     if (config.attenuation_filter_bank_config.has_value())
     {
         attenuation_filter_bank =
-            std::visit(MultichannelProcessorVisitor{},
+            std::visit(MultichannelProcessorVisitor{designer},
                        UpdateAttenuationFilterBank(config.attenuation_filter_bank_config.value(), config));
     }
 
@@ -486,7 +493,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
         if (config.loop_filter_configs.size() == 1 && attenuation_filter_bank == nullptr)
         {
             auto updated_config = UpdateAttenuationFilterBank(config.loop_filter_configs[0], config);
-            auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
+            auto processor = std::visit(MultichannelProcessorVisitor{designer}, updated_config);
             if (!fdn->SetLoopFilter(std::move(processor)))
             {
                 throw std::runtime_error("Failed to set FDN loop filter");
@@ -504,7 +511,7 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
             for (const auto& processor_config : config.loop_filter_configs)
             {
                 auto updated_config = UpdateAttenuationFilterBank(processor_config, config);
-                auto processor = std::visit(MultichannelProcessorVisitor{}, updated_config);
+                auto processor = std::visit(MultichannelProcessorVisitor{designer}, updated_config);
                 AddProcessorOrThrow(*loop_filter_chain, std::move(processor), "loop filter");
             }
             if (!fdn->SetLoopFilter(std::move(loop_filter_chain)))
@@ -522,13 +529,13 @@ std::unique_ptr<FDN> CreateFDNFromConfig(const FDNConfig& config)
     }
 
     // TC filters
-    if (!fdn->SetTCFilter(CreateToneCorrectionFromConfig(config)))
+    if (!fdn->SetTCFilter(CreateToneCorrectionFromConfig(config, designer)))
     {
         throw std::runtime_error("Failed to set FDN tone correction filter");
     }
 
     // Output gain block
-    if (!fdn->SetOutputGains(CreateOutputGainsFromConfig(config)))
+    if (!fdn->SetOutputGains(CreateOutputGainsFromConfig(config, designer)))
     {
         throw std::runtime_error("Failed to set FDN output gains");
     }

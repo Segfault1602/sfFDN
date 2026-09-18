@@ -90,7 +90,8 @@ void ValidatePrimaryDelayBank(const sfFDN::DelayBankOptions& options, const sfFD
 }
 
 void ValidateAttenuationFilterBank(const sfFDN::AttenuationFilterBankOptions& options, const std::string& path,
-                                   uint32_t fdn_size, bool fdn_size_valid, bool allow_shared_config, Issues& issues)
+                                   float sample_rate, uint32_t fdn_size, bool fdn_size_valid, bool allow_shared_config,
+                                   Issues& issues)
 {
     const size_t count = options.filter_configs.size();
     const std::string options_path = path + "/AttenuationFilterBankOptions";
@@ -104,8 +105,8 @@ void ValidateAttenuationFilterBank(const sfFDN::AttenuationFilterBankOptions& op
 
     for (size_t index = 0; index < count; ++index)
     {
-        sfFDN::detail::ValidateAttenuationOptions(options.filter_configs[index], IndexPath(options_path, index), issues,
-                                                  allow_shared_config);
+        sfFDN::detail::ValidateAttenuationOptions(options.filter_configs[index], sample_rate,
+                                                  IndexPath(options_path, index), issues, allow_shared_config);
     }
 }
 
@@ -149,7 +150,7 @@ bool IsKnownParallelGainsMode(sfFDN::ParallelGainsMode mode)
 }
 
 void ValidateSingleChannelProcessor(const sfFDN::single_channel_processor_variant_t& options, const std::string& path,
-                                    Issues& issues)
+                                    float sample_rate, Issues& issues)
 {
     std::visit(sfFDN::overloaded{
                    [&](const sfFDN::DelayOptions& value) {
@@ -175,7 +176,7 @@ void ValidateSingleChannelProcessor(const sfFDN::single_channel_processor_varian
                        sfFDN::detail::ValidateOptions(value, path + "/FirOptions", issues);
                    },
                    [&](const sfFDN::GraphicEQOptions& value) {
-                       sfFDN::detail::ValidateOptions(value, path + "/GraphicEQOptions", issues);
+                       sfFDN::detail::ValidateOptions(value, sample_rate, path + "/GraphicEQOptions", issues);
                    },
                    [&](const sfFDN::ControllableFullWaveRectifierOptions& value) {
                        sfFDN::detail::ValidateOptions(value, path + "/ControllableFullWaveRectifierOptions", issues);
@@ -192,7 +193,7 @@ void ValidateSingleChannelProcessor(const sfFDN::single_channel_processor_varian
 
 void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_t& options, const std::string& path,
                                    uint32_t fdn_size, bool fdn_size_valid, bool allow_shared_attenuation,
-                                   Issues& issues)
+                                   float sample_rate, Issues& issues)
 {
     std::visit(sfFDN::overloaded{
                    [&](const sfFDN::ParallelGainsOptions& value) {
@@ -223,13 +224,14 @@ void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_
                            if (value.channels[index].has_value())
                            {
                                ValidateSingleChannelProcessor(*value.channels[index],
-                                                              IndexPath(options_path + "/channels", index), issues);
+                                                              IndexPath(options_path + "/channels", index), sample_rate,
+                                                              issues);
                            }
                        }
                    },
                    [&](const sfFDN::AttenuationFilterBankOptions& value) {
-                       ValidateAttenuationFilterBank(value, path, fdn_size, fdn_size_valid, allow_shared_attenuation,
-                                                     issues);
+                       ValidateAttenuationFilterBank(value, path, sample_rate, fdn_size, fdn_size_valid,
+                                                     allow_shared_attenuation, issues);
                    },
                    [&](const sfFDN::DelayBankOptions& value) {
                        const std::string options_path = path + "/DelayBankOptions";
@@ -436,45 +438,47 @@ std::expected<void, std::vector<ConfigIssue>> ValidateFDNConfig(const FDNConfig&
     for (size_t index = 0; index < config.input_block_config.single_channel_processors.size(); ++index)
     {
         ValidateSingleChannelProcessor(config.input_block_config.single_channel_processors[index],
-                                       IndexPath("/input_block_config/single_channel_processors", index), issues);
+                                       IndexPath("/input_block_config/single_channel_processors", index),
+                                       config.sample_rate, issues);
     }
 
     for (size_t index = 0; index < config.input_block_config.multichannel_processors.size(); ++index)
     {
         ValidateMultichannelProcessor(config.input_block_config.multichannel_processors[index],
                                       IndexPath("/input_block_config/multichannel_processors", index), config.fdn_size,
-                                      fdn_size_valid, false, issues);
+                                      fdn_size_valid, false, config.sample_rate, issues);
     }
 
     for (size_t index = 0; index < config.output_block_config.multichannel_processors.size(); ++index)
     {
         ValidateMultichannelProcessor(config.output_block_config.multichannel_processors[index],
                                       IndexPath("/output_block_config/multichannel_processors", index), config.fdn_size,
-                                      fdn_size_valid, false, issues);
+                                      fdn_size_valid, false, config.sample_rate, issues);
     }
 
     for (size_t index = 0; index < config.output_block_config.single_channel_processors.size(); ++index)
     {
         ValidateSingleChannelProcessor(config.output_block_config.single_channel_processors[index],
-                                       IndexPath("/output_block_config/single_channel_processors", index), issues);
+                                       IndexPath("/output_block_config/single_channel_processors", index),
+                                       config.sample_rate, issues);
     }
 
     if (config.attenuation_filter_bank_config.has_value())
     {
         ValidateAttenuationFilterBank(*config.attenuation_filter_bank_config, "/attenuation_filter_bank_config",
-                                      config.fdn_size, fdn_size_valid, true, issues);
+                                      config.sample_rate, config.fdn_size, fdn_size_valid, true, issues);
     }
 
     for (size_t index = 0; index < config.tone_correction_filters.size(); ++index)
     {
         ValidateSingleChannelProcessor(config.tone_correction_filters[index],
-                                       IndexPath("/tone_correction_filters", index), issues);
+                                       IndexPath("/tone_correction_filters", index), config.sample_rate, issues);
     }
 
     for (size_t index = 0; index < config.loop_filter_configs.size(); ++index)
     {
         ValidateMultichannelProcessor(config.loop_filter_configs[index], IndexPath("/loop_filter_configs", index),
-                                      config.fdn_size, fdn_size_valid, true, issues);
+                                      config.fdn_size, fdn_size_valid, true, config.sample_rate, issues);
     }
 
     if (!issues.empty())

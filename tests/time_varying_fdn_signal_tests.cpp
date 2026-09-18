@@ -139,9 +139,9 @@ std::unique_ptr<sfFDN::FDN> CreateFDN(float modulation_amplitude, bool add_atten
 
     if (add_attenuation)
     {
-        const sfFDN::HomogenousFilterOptions attenuation{
-            .t60 = 1.5F, .delay = 0.0F, .sample_rate = static_cast<float>(kSampleRate)};
-        if (!fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(attenuation, kDelays)))
+        const sfFDN::FilterDesigner designer(static_cast<float>(kSampleRate));
+        const sfFDN::HomogenousFilterOptions attenuation{.t60 = 1.5F, .delay = 0.0F};
+        if (!fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(attenuation, kDelays, designer)))
         {
             throw std::runtime_error("Unable to install FDN attenuation filters");
         }

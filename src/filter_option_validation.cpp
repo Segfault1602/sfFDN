@@ -61,14 +61,6 @@ void ValidateT60s(std::span<const float> t60s, const std::string& path, Issues& 
     }
 }
 
-void ValidateSampleRate(float sample_rate, const std::string& path, Issues& issues)
-{
-    if (sample_rate <= 0.f)
-    {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, path, "sample rate must be positive");
-    }
-}
-
 void ValidateAttenuation(const sfFDN::HomogenousFilterOptions& options, const std::string& path,
                          bool allow_inferred_delay, Issues& issues)
 {
@@ -77,7 +69,6 @@ void ValidateAttenuation(const sfFDN::HomogenousFilterOptions& options, const st
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/t60", "T60 must be positive");
     }
     ValidateDelay(options.delay, path + "/delay", allow_inferred_delay, issues);
-    ValidateSampleRate(options.sample_rate, path + "/sample_rate", issues);
 }
 
 void ValidateAttenuation(const sfFDN::TwoBandFilterOptions& options, const std::string& path,
@@ -85,17 +76,14 @@ void ValidateAttenuation(const sfFDN::TwoBandFilterOptions& options, const std::
 {
     ValidateT60s(options.t60s, path + "/t60s", issues);
     ValidateDelay(options.delay, path + "/delay", allow_inferred_delay, issues);
-    ValidateSampleRate(options.sample_rate, path + "/sample_rate", issues);
 }
 
-void ValidateAttenuation(const sfFDN::ThreeBandFilterOptions& options, const std::string& path,
+void ValidateAttenuation(const sfFDN::ThreeBandFilterOptions& options, float sample_rate, const std::string& path,
                          bool allow_inferred_delay, Issues& issues)
 {
     ValidateT60s(options.t60s, path + "/t60s", issues);
     ValidateDelay(options.delay, path + "/delay", allow_inferred_delay, issues);
-    ValidateSampleRate(options.sample_rate, path + "/sample_rate", issues);
-
-    const float nyquist = options.sample_rate * 0.5f;
+    const float nyquist = sample_rate * 0.5f;
     if (options.freqs[0] <= 0.f || options.freqs[0] >= options.freqs[1] || options.freqs[1] >= nyquist)
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/freqs",
@@ -107,20 +95,17 @@ void ValidateAttenuation(const sfFDN::ThreeBandFilterOptions& options, const std
     }
 }
 
-void ValidateAttenuation(const sfFDN::TenBandFilterOptions& options, const std::string& path,
+void ValidateAttenuation(const sfFDN::TenBandFilterOptions& options, float sample_rate, const std::string& path,
                          bool allow_inferred_delay, Issues& issues)
 {
     ValidateT60s(options.t60s, path + "/t60s", issues);
     ValidateDelay(options.delay, path + "/delay", allow_inferred_delay, issues);
-    ValidateSampleRate(options.sample_rate, path + "/sample_rate", issues);
-
-    if (options.sample_rate <= 32000.f)
+    if (sample_rate <= 32000.f)
     {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/sample_rate",
-                 "sample rate must exceed 32000 Hz for the 16000 Hz band");
+        AddIssue(issues, ConfigErrorCode::InvalidValue, path, "sample rate must exceed 32000 Hz for the 16000 Hz band");
     }
 
-    const float nyquist = options.sample_rate * 0.5f;
+    const float nyquist = sample_rate * 0.5f;
     if (options.shelf_cutoff <= 0.f || options.shelf_cutoff >= nyquist)
     {
         AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/shelf_cutoff",
@@ -197,14 +182,13 @@ void ValidateOptions(const FirOptions& options, const std::string& path, std::ve
     }
 }
 
-void ValidateOptions(const GraphicEQOptions& options, const std::string& path, std::vector<ConfigIssue>& issues)
+void ValidateOptions(const GraphicEQOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
 {
-    ValidateSampleRate(options.sample_rate, path + "/sample_rate", issues);
-    const float nyquist = options.sample_rate * 0.5f;
+    const float nyquist = sample_rate * 0.5f;
     if (8000.f >= nyquist)
     {
-        AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/sample_rate",
-                 "sample rate must place the 8000 Hz shelf below Nyquist");
+        AddIssue(issues, ConfigErrorCode::InvalidValue, path, "sample rate must place the 8000 Hz shelf below Nyquist");
     }
 
     for (size_t index = 0; index < options.freqs.size(); ++index)
@@ -218,26 +202,28 @@ void ValidateOptions(const GraphicEQOptions& options, const std::string& path, s
     }
 }
 
-void ValidateOptions(const HomogenousFilterOptions& options, const std::string& path,
+void ValidateOptions(const HomogenousFilterOptions& options, float /*sample_rate*/, const std::string& path,
                      std::vector<ConfigIssue>& issues)
 {
     ValidateAttenuation(options, path, false, issues);
 }
 
-void ValidateOptions(const TwoBandFilterOptions& options, const std::string& path, std::vector<ConfigIssue>& issues)
-{
-    ValidateAttenuation(options, path, false, issues);
-}
-
-void ValidateOptions(const ThreeBandFilterOptions& options, const std::string& path,
+void ValidateOptions(const TwoBandFilterOptions& options, float /*sample_rate*/, const std::string& path,
                      std::vector<ConfigIssue>& issues)
 {
     ValidateAttenuation(options, path, false, issues);
 }
 
-void ValidateOptions(const TenBandFilterOptions& options, const std::string& path, std::vector<ConfigIssue>& issues)
+void ValidateOptions(const ThreeBandFilterOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
 {
-    ValidateAttenuation(options, path, false, issues);
+    ValidateAttenuation(options, sample_rate, path, false, issues);
+}
+
+void ValidateOptions(const TenBandFilterOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
+{
+    ValidateAttenuation(options, sample_rate, path, false, issues);
 }
 
 void ValidateOptions(const ControllableFullWaveRectifierOptions& options, const std::string& path,
@@ -275,24 +261,24 @@ void ValidateOptions(const RingModulatorOptions& options, const std::string& pat
     }
 }
 
-void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, const std::string& path,
+void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, float sample_rate, const std::string& path,
                                 std::vector<ConfigIssue>& issues, bool allow_inferred_delay)
 {
-    std::visit(overloaded{
-                   [&](const HomogenousFilterOptions& value) {
-                       ValidateAttenuation(value, path + "/ProportionalAttenuationConfig", allow_inferred_delay,
-                                           issues);
-                   },
-                   [&](const TwoBandFilterOptions& value) {
-                       ValidateAttenuation(value, path + "/TwoBandFilterConfig", allow_inferred_delay, issues);
-                   },
-                   [&](const ThreeBandFilterOptions& value) {
-                       ValidateAttenuation(value, path + "/ThreeBandFilterConfig", allow_inferred_delay, issues);
-                   },
-                   [&](const TenBandFilterOptions& value) {
-                       ValidateAttenuation(value, path + "/TenBandFilterConfig", allow_inferred_delay, issues);
-                   },
-               },
-               options);
+    std::visit(
+        overloaded{
+            [&](const HomogenousFilterOptions& value) {
+                ValidateAttenuation(value, path + "/ProportionalAttenuationConfig", allow_inferred_delay, issues);
+            },
+            [&](const TwoBandFilterOptions& value) {
+                ValidateAttenuation(value, path + "/TwoBandFilterConfig", allow_inferred_delay, issues);
+            },
+            [&](const ThreeBandFilterOptions& value) {
+                ValidateAttenuation(value, sample_rate, path + "/ThreeBandFilterConfig", allow_inferred_delay, issues);
+            },
+            [&](const TenBandFilterOptions& value) {
+                ValidateAttenuation(value, sample_rate, path + "/TenBandFilterConfig", allow_inferred_delay, issues);
+            },
+        },
+        options);
 }
 } // namespace sfFDN::detail

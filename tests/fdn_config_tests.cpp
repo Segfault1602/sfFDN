@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
 #include <array>
@@ -60,8 +61,7 @@ sfFDN::AttenuationFilterBankOptions MakeAttenuationBank(size_t count)
     sfFDN::AttenuationFilterBankOptions bank;
     for (size_t index = 0; index < count; ++index)
     {
-        bank.filter_configs.emplace_back(
-            sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 0.F, .sample_rate = 48000.F});
+        bank.filter_configs.emplace_back(sfFDN::HomogenousFilterOptions{.t60 = 1.F, .delay = 0.F});
     }
     return bank;
 }
@@ -319,7 +319,6 @@ TEST_CASE("ValidateFDNConfig reports issues at resolvable JSON pointers", "[fdn]
         .filter_configs = {sfFDN::TwoBandFilterOptions{
             .t60s = {1.F, 0.5F},
             .delay = -1.F,
-            .sample_rate = 48000.F,
         }},
     };
     config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
@@ -994,4 +993,165 @@ TEST_CASE("RandomizeMatrixSeeds leaves explicit boundary coefficients unchanged"
     REQUIRE(config.direct_matrix == before.direct_matrix);
     REQUIRE(config.input_channel_count == before.input_channel_count);
     REQUIRE(config.output_channel_count == before.output_channel_count);
+}
+
+TEST_CASE("ValidateFDNConfig applies the root rate to nested filter constraints", "[fdn]")
+{
+    auto config = MakeValidConfig();
+    config.sample_rate = 12000.F;
+    config.input_block_config.single_channel_processors = {
+        sfFDN::GraphicEQOptions{
+            .gains_db = {},
+            .freqs = {31.25F, 62.5F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+        },
+    };
+    config.attenuation_filter_bank_config = sfFDN::AttenuationFilterBankOptions{
+        .filter_configs = {sfFDN::ThreeBandFilterOptions{
+            .t60s = {1.F, 0.8F, 0.5F},
+            .delay = 100.F,
+            .freqs = {600.F, 6001.F},
+        }},
+    };
+    config.loop_filter_configs = {sfFDN::AttenuationFilterBankOptions{
+        .filter_configs = {sfFDN::TenBandFilterOptions{}},
+    }};
+
+    const auto issues = RequireIssues(sfFDN::ValidateFDNConfig(config));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/input_block_config/single_channel_processors/0/GraphicEQOptions/freqs/8"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/attenuation_filter_bank_config/AttenuationFilterBankOptions/0/ThreeBandFilterConfig/freqs"));
+    REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue,
+                     "/loop_filter_configs/0/AttenuationFilterBankOptions/0/TenBandFilterConfig"));
+}
+
+TEST_CASE("CreateFDNFromConfig propagates root rate through filter graph locations", "[fdn]")
+{
+    const auto make_config = [](float sample_rate) {
+        auto config = MakeMimoConfig(2U, 2U);
+        config.sample_rate = sample_rate;
+        config.block_size = 1U;
+        config.delay_bank_config = {.delays = {1.F, 1.F, 1.F, 1.F}, .block_size = 1U};
+        config.feedback_matrix_config = sfFDN::ScalarFeedbackMatrixOptions{
+            .source =
+                sfFDN::GeneratedMatrixOptions{
+                    .matrix_size = config.fdn_size,
+                    .generator = sfFDN::ScalarMatrixType::Identity,
+                },
+        };
+        const sfFDN::GraphicEQOptions graphic_eq{
+            .gains_db = {-2.F, 1.F, -3.F, 2.F, -1.F, 3.F, -2.F, 1.F, -1.F, 2.F},
+            .freqs = {31.25F, 62.5F, 125.F, 250.F, 500.F, 1000.F, 2000.F, 4000.F, 8000.F, 16000.F},
+        };
+        config.input_block_config.single_channel_processors = {graphic_eq};
+        config.output_block_config.single_channel_processors = {graphic_eq};
+        config.input_block_config.multichannel_processors = {
+            sfFDN::MultichannelProcessorOptions{.channels = {graphic_eq, graphic_eq, std::nullopt, std::nullopt}},
+        };
+        config.output_block_config.multichannel_processors = {
+            sfFDN::MultichannelProcessorOptions{.channels = {graphic_eq, graphic_eq, std::nullopt, std::nullopt}},
+        };
+        config.attenuation_filter_bank_config = sfFDN::AttenuationFilterBankOptions{
+            .filter_configs = {sfFDN::ThreeBandFilterOptions{
+                .t60s = {1.7F, 1.1F, 0.6F},
+                .delay = 1.F,
+                .freqs = {600.F, 6000.F},
+            }},
+        };
+        config.loop_filter_configs = {sfFDN::AttenuationFilterBankOptions{
+            .filter_configs = {sfFDN::TwoBandFilterOptions{.t60s = {1.7F, 0.8F}, .delay = 1.F}},
+        }};
+        const sfFDN::AttenuationFilterBankOptions stage_attenuation{
+            .filter_configs = std::vector<sfFDN::attenuation_filter_variant_t>(
+                config.fdn_size, sfFDN::TwoBandFilterOptions{.t60s = {1.7F, 0.8F}, .delay = 1.F}),
+        };
+        config.input_block_config.multichannel_processors.emplace_back(stage_attenuation);
+        config.output_block_config.multichannel_processors.emplace_back(stage_attenuation);
+        config.tone_correction_filters = {graphic_eq};
+        return config;
+    };
+    const auto materialize_coefficients = [](sfFDN::FDNConfig config) {
+        const sfFDN::FilterDesigner designer(config.sample_rate);
+        const auto graphic_coeffs =
+            designer.DesignFilter(std::get<sfFDN::GraphicEQOptions>(config.tone_correction_filters.front()));
+        const sfFDN::CascadedBiquadsOptions graphic{
+            .coeffs = {graphic_coeffs.begin(), graphic_coeffs.end()},
+        };
+        config.input_block_config.single_channel_processors = {graphic};
+        config.output_block_config.single_channel_processors = {graphic};
+        config.tone_correction_filters = {graphic};
+        const sfFDN::MultichannelProcessorOptions graphic_bank{
+            .channels = {graphic, graphic, std::nullopt, std::nullopt},
+        };
+        const auto make_bank = [&](const sfFDN::CascadedBiquadsOptions& coefficients) {
+            sfFDN::MultichannelProcessorOptions bank;
+            for (uint32_t channel = 0; channel < config.fdn_size; ++channel)
+            {
+                bank.channels.emplace_back(coefficients);
+            }
+            return bank;
+        };
+        const auto& loop_options = std::get<sfFDN::AttenuationFilterBankOptions>(config.loop_filter_configs.front());
+        const auto [b0, a1] =
+            designer.DesignFilter(std::get<sfFDN::TwoBandFilterOptions>(loop_options.filter_configs.front()));
+        const auto two_band = make_bank(sfFDN::CascadedBiquadsOptions{
+            .coeffs = {{.b0 = b0, .b1 = 0.F, .b2 = 0.F, .a0 = 1.F, .a1 = a1, .a2 = 0.F}},
+        });
+        config.input_block_config.multichannel_processors = {graphic_bank, two_band};
+        config.output_block_config.multichannel_processors = {graphic_bank, two_band};
+        config.loop_filter_configs.clear();
+        if (config.attenuation_filter_bank_config.has_value())
+        {
+            const auto primary_coeffs = designer.DesignFilter(
+                std::get<sfFDN::ThreeBandFilterOptions>(config.attenuation_filter_bank_config->filter_configs.front()));
+            config.loop_filter_configs.emplace_back(make_bank(sfFDN::CascadedBiquadsOptions{
+                .coeffs = {primary_coeffs.begin(), primary_coeffs.end()},
+            }));
+            config.attenuation_filter_bank_config.reset();
+        }
+        config.loop_filter_configs.emplace_back(two_band);
+        return config;
+    };
+    const auto render = [](sfFDN::FDN& fdn) {
+        std::array<float, 2> input{};
+        std::array<float, 2> output{};
+        std::vector<float> rendered;
+        for (uint32_t block = 0; block < 32U; ++block)
+        {
+            input = {block == 0U ? 1.F : 0.F, block == 0U ? 1.F : 0.F};
+            output.fill(0.F);
+            const sfFDN::AudioBuffer input_buffer(1U, 2U, input);
+            sfFDN::AudioBuffer output_buffer(1U, 2U, output);
+            fdn.Process(input_buffer, output_buffer);
+            rendered.insert(rendered.end(), output.begin(), output.end());
+        }
+        return rendered;
+    };
+
+    for (const float sample_rate : {44100.F, 48000.F, 96000.F})
+    {
+        for (const bool with_primary : {false, true})
+        {
+            CAPTURE(sample_rate, with_primary);
+            auto config = make_config(sample_rate);
+            if (!with_primary)
+            {
+                config.attenuation_filter_bank_config.reset();
+            }
+            auto actual = sfFDN::CreateFDNFromConfig(config);
+            auto reference = sfFDN::CreateFDNFromConfig(materialize_coefficients(config));
+            REQUIRE(actual->InputChannelCount() == 2U);
+            REQUIRE(actual->OutputChannelCount() == 2U);
+            REQUIRE(actual->GetTCFilter()->InputChannelCount() == 2U);
+            REQUIRE(actual->GetTCFilter()->OutputChannelCount() == 2U);
+
+            const auto actual_output = render(*actual);
+            const auto reference_output = render(*reference);
+            REQUIRE(std::ranges::any_of(reference_output, [](float sample) { return sample != 0.F; }));
+            for (size_t sample = 0; sample < actual_output.size(); ++sample)
+            {
+                REQUIRE_THAT(actual_output[sample], Catch::Matchers::WithinAbs(reference_output[sample], 1e-5F));
+            }
+        }
+    }
 }

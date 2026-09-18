@@ -37,20 +37,23 @@ void ValidateOptions(const AllpassFilterOptions& options, const std::string& pat
 void ValidateOptions(const CascadedBiquadsOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const FirOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
-void ValidateOptions(const GraphicEQOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
-void ValidateOptions(const HomogenousFilterOptions& options, const std::string& path,
+void ValidateOptions(const GraphicEQOptions& options, float sample_rate, const std::string& path,
                      std::vector<ConfigIssue>& issues);
-void ValidateOptions(const TwoBandFilterOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
-void ValidateOptions(const ThreeBandFilterOptions& options, const std::string& path,
+void ValidateOptions(const HomogenousFilterOptions& options, float sample_rate, const std::string& path,
                      std::vector<ConfigIssue>& issues);
-void ValidateOptions(const TenBandFilterOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
+void ValidateOptions(const TwoBandFilterOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const ThreeBandFilterOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const TenBandFilterOptions& options, float sample_rate, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
 void ValidateOptions(const ControllableFullWaveRectifierOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const SignalDependentFractionalDelayOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const RingModulatorOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
-void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, const std::string& path,
+void ValidateAttenuationOptions(const attenuation_filter_variant_t& options, float sample_rate, const std::string& path,
                                 std::vector<ConfigIssue>& issues, bool allow_inferred_delay);
 void ValidateModulation(const ModulationOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
 
@@ -69,5 +72,20 @@ const Options& RequireValidOptions(const Options& options)
 
 template <class Options>
 const Options& RequireValidOptions(const Options&& options) = delete;
+
+template <class Options>
+const Options& RequireValidOptions(const Options& options, float sample_rate)
+{
+    std::vector<ConfigIssue> issues;
+    ValidateOptions(options, sample_rate, "", issues);
+    if (!issues.empty())
+    {
+        throw std::invalid_argument(issues.front().path + ": " + issues.front().message);
+    }
+    return options; // NOLINT(bugprone-return-const-ref-from-parameter)
+}
+
+template <class Options>
+const Options& RequireValidOptions(const Options&& options, float sample_rate) = delete;
 
 } // namespace sfFDN::detail

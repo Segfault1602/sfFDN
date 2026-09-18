@@ -7,7 +7,13 @@ This section documents the attenuation filters used by sfFDN to control decay ti
 - [sfFDN::ThreeBandFilterOptions](@ref sfFDN::ThreeBandFilterOptions)
 - [sfFDN::TenBandFilterOptions](@ref sfFDN::TenBandFilterOptions)
 
-Use [sfFDN::CreateAttenuationFilter](@ref sfFDN::CreateAttenuationFilter) to turn one variant into a concrete single-channel processor, or [sfFDN::CreateAttenuationFilterBank](@ref sfFDN::CreateAttenuationFilterBank) to build a parallel bank of attenuation filters from a bank configuration.
+Use [sfFDN::FilterDesigner](@ref sfFDN::FilterDesigner), initialized with the intended sampling
+rate, to design coefficients or to create attenuation processors. The designer is setup-time state:
+created processors retain their coefficients and do not retain a reference to it.
+
+[sfFDN::CreateAttenuationFilter](@ref sfFDN::CreateAttenuationFilter) turns one variant into a
+concrete single-channel processor, and [sfFDN::CreateAttenuationFilterBank](@ref
+sfFDN::CreateAttenuationFilterBank) builds a parallel bank. Both require the explicit designer.
 
 ## Filter Variants
 
@@ -28,26 +34,27 @@ Key fields:
 - `t60`: Target T60 in seconds.
 - `delay`: Delay in samples used to derive the decay gain. A non-positive value is derived from
   the primary delay bank when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
-- `sample_rate`: Sampling rate used during gain calculation.
 
 ### Two-Band Filter
 
 [sfFDN::TwoBandFilterOptions](@ref sfFDN::TwoBandFilterOptions) configures a two-band attenuation filter with independent decay targets at DC and Nyquist.
 
-The resulting filter is designed by [sfFDN::DesignTwoBandAbsorption](@ref sfFDN::DesignTwoBandAbsorption), which produces a one-pole absorption filter as proposed by Jot and Chaigne in [1]. The design procedure uses the two T60 targets to derive the filter coefficient.
+The resulting filter is designed by `FilterDesigner::DesignFilter`, which produces a one-pole
+absorption filter as proposed by Jot and Chaigne in [1]. The design procedure uses the two T60
+targets to derive the filter coefficient.
 
 Key fields:
 
 - `t60s`: Two target T60 values, for low and high frequencies.
 - `delay`: Delay in samples used by the design equation. A non-positive value is derived from the
   primary delay bank when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
-- `sample_rate`: Sampling rate used during design.
 
 ### Three-Band Filter
 
 [sfFDN::ThreeBandFilterOptions](@ref sfFDN::ThreeBandFilterOptions) adds a middle band to the attenuation design. It uses two shelf frequencies and three T60 targets to shape decay over low, mid, and high frequency ranges. The resulting filter is composed of a 2nd-order low-shelf filter and a 2nd-order high-shelf filter.
 
-The filter is designed by [sfFDN::DesignThreeBandAbsorption](@ref sfFDN::DesignThreeBandAbsorption), which returns a cascade of biquad sections suitable for direct use in the loop filter path.
+The filter is designed by `FilterDesigner::DesignFilter`, which returns a cascade of biquad
+sections suitable for direct use in the loop filter path.
 
 Key fields:
 
@@ -56,33 +63,56 @@ Key fields:
   primary delay bank when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
 - `freqs`: Shelf crossover frequencies that separate the three bands.
 - `q`: Shelf Q factor used in the filter design.
-- `sample_rate`: Sampling rate used during design.
 
 ### Ten-Band Filter
 
 [sfFDN::TenBandFilterOptions](@ref sfFDN::TenBandFilterOptions) provides the most detailed attenuation control in the public API. It targets ten octave-style bands and is implemented as a cascade of second-order biquad sections.
 
-The filter is designed by [sfFDN::DesignTenBandAbsorption](@ref sfFDN::DesignTenBandAbsorption), which follows the two-stage attenuation filter method described in [2].
+The filter is designed by `FilterDesigner::DesignFilter`, which follows the two-stage attenuation
+filter method described in [2].
 
 Key fields:
 
 - `t60s`: Ten target T60 values, one per band.
 - `delay`: Delay in samples used by the design equation. A non-positive value is derived from the
   primary delay bank when the filter is placed in an `FDNConfig` loop or dedicated attenuation slot.
-- `sample_rate`: Sampling rate used during design.
 - `shelf_cutoff`: Shelf crossover used by the design procedure.
 
 ## Design Helpers
 
-To create a single filter from one of the variants, the sfFDN::CreateAttenuationFilter function can be used. In that case, the `delay` field of the option struct must be set to a valid value.
+`FilterDesigner::DesignFilter` has typed overloads for homogeneous (a linear gain), two-band (a
+`std::pair<float, float>`), three-band (two `FilterCoefficients`), ten-band (eleven
+`FilterCoefficients`), and Graphic EQ (eleven `FilterCoefficients`) designs. It also designs RBJ
+low shelves, high shelves, and cookbook peaking EQs from options containing `frequency` in Hz,
+`gain_db` in dB, and positive dimensionless `q`.
+
+`FilterDesigner::T60ToGain(t60_seconds, delay_samples)` returns the linear amplitude gain
+`10^(-3 * delay_samples / (t60_seconds * sample_rate))`. T60 is in seconds and delay is in
+samples; both arguments are explicit.
+
+```c++
+const sfFDN::FilterDesigner designer(48000.0f);
+const auto one_pole = designer.DesignFilter(
+    sfFDN::TwoBandFilterOptions{.t60s = {1.5f, 0.7f}, .delay = 1007.0f});
+const auto peaking = designer.DesignFilter(
+    sfFDN::PeakingOptions{.frequency = 2000.0f, .gain_db = -3.0f, .q = 1.0f});
+const float gain = designer.T60ToGain(1.5f, 1007.0f);
+```
+
+RBJ designs return one `FilterCoefficients` section with `a0 == 1`. Shelf `q` is the quality factor. Frequencies must be strictly between zero and
+Nyquist, and Q must be positive; invalid values are rejected rather than clamped. Changing the
+rate requires another designer and does not reconfigure existing processors.
+
+To create a single filter from one of the variants, construct a designer and call
+`CreateAttenuationFilter`. The `delay` field must be set to a valid value.
 
 ```c++
 sfFDN::TwoBandFilterOptions options;
 options.t60s = { 1.0f, 0.5f };
 options.delay = 1007;
-options.sample_rate = 48000.0f;
 
-auto filter = sfFDN::CreateAttenuationFilter(options);
+const sfFDN::FilterDesigner designer(48000.0f);
+auto filter = sfFDN::CreateAttenuationFilter(options, designer);
 ```
 
 To create a parallel bank of filters, use sfFDN::CreateAttenuationFilterBank.
@@ -93,19 +123,24 @@ sfFDN::AttenuationFilterBankOptions options;
 sfFDN::TwoBandFilterOptions options1;
 options1.t60s = {1.0f, 0.5f};
 options1.delay = 1007;
-options1.sample_rate = 48000.0f;
 options.filter_configs.emplace_back(options1);
 
 sfFDN::TwoBandFilterOptions options2;
 options2.t60s = {1.0f, 0.5f};
 options2.delay = 1433;
-options2.sample_rate = 48000.0f;
 options.filter_configs.emplace_back(options2);
 
-auto filter_bank = sfFDN::CreateAttenuationFilterBank(options);
+const sfFDN::FilterDesigner designer(48000.0f);
+auto filter_bank = sfFDN::CreateAttenuationFilterBank(options, designer);
 ```
 
-A version of this function that accepts a single sfFDN::attenuation_filter_variant_t and a list of delay lengths is also provided for convenience. This can be useful when the same filter design is desired across all delay lines, with the only difference being the delay length used in the design equation.
+A version accepting one `sfFDN::attenuation_filter_variant_t`, a list of delay lengths, and a
+designer is also provided. This is useful when the same filter design is desired across all delay
+lines, with only the delay length differing.
+
+For a `MultichannelProcessorOptions` bank containing `GraphicEQOptions`, use
+`FilterBank(options, designer)`. The empty `FilterBank` constructor remains available for
+manually assembled processor banks.
 
 An FDN loop or dedicated attenuation slot accepts either one shared attenuation configuration or
 one configuration per delay line. For an FDN with more than one channel, a shared entry is expanded
@@ -114,8 +149,11 @@ An exactly sized bank retains positive explicit delays and derives nonpositive d
 corresponding primary delays. For order one, a one-entry bank is already exactly sized.
 
 Input and output multichannel insertion slots require one configuration per channel with
-nonnegative explicit delays; these placements do not infer delays from the primary loop.
-All designs use the sample rate stored in their filter options.
+nonnegative explicit delays; these placements do not infer delays from the primary loop. In an
+`FDNConfig`, the root `FDNConfig::sample_rate` supplies the rate for attenuation and Graphic EQ
+designs. Nested filter `sample_rate` fields are ignored if present in JSON, including when they
+disagree with the root rate. This does not override unrelated processors such as the nonlinear
+rectifier, which retain their own rate setting.
 
 ## References
 

@@ -81,13 +81,13 @@ std::unique_ptr<sfFDN::FDN> MakeFDN(FDNFamily family, uint32_t block_size, uint3
                 .rng_seed = 4242U,
             },
     })));
+    const sfFDN::FilterDesigner designer(static_cast<float>(sfFDN::kDefaultSampleRate));
     REQUIRE(fdn->SetLoopFilter(sfFDN::CreateAttenuationFilterBank(
         sfFDN::TwoBandFilterOptions{
             .t60s = {1.5F, 0.5F},
             .delay = 0.F,
-            .sample_rate = static_cast<float>(sfFDN::kDefaultSampleRate),
         },
-        delays)));
+        delays, designer)));
     return fdn;
 }
 

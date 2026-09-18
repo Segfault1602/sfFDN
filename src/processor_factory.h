@@ -9,5 +9,8 @@
 
 namespace sfFDN
 {
-std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channel_processor_variant_t& config);
+class FilterDesigner;
+
+std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channel_processor_variant_t& config,
+                                                             const FilterDesigner& designer);
 } // namespace sfFDN

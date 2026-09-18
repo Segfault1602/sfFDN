@@ -744,21 +744,23 @@ TEST_CASE("DattorroDelay white chorus preserves a flat magnitude response", "[da
 
 TEST_CASE("FilterBank reports Dattorro channel count", "[dattorro]")
 {
+    const sfFDN::FilterDesigner designer(kSampleRate);
     sfFDN::MultichannelProcessorOptions options;
-    REQUIRE(sfFDN::FilterBank(options).InputChannelCount() == 0);
+    REQUIRE(sfFDN::FilterBank(options, designer).InputChannelCount() == 0);
 
     constexpr uint32_t kChannelCount = 6;
     options =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount);
     REQUIRE(options.channels.size() == kChannelCount);
 
-    auto bank = std::make_unique<sfFDN::FilterBank>(options);
+    auto bank = std::make_unique<sfFDN::FilterBank>(options, designer);
     REQUIRE(bank->InputChannelCount() == kChannelCount);
     REQUIRE(bank->OutputChannelCount() == kChannelCount);
 }
 
 TEST_CASE("FilterBank preserves Dattorro per-channel independence", "[dattorro]")
 {
+    const sfFDN::FilterDesigner designer(kSampleRate);
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 64;
     constexpr uint32_t kBlockCount = 8;
@@ -766,7 +768,7 @@ TEST_CASE("FilterBank preserves Dattorro per-channel independence", "[dattorro]"
     const auto options =
         sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount);
 
-    auto bank = std::make_unique<sfFDN::FilterBank>(options);
+    auto bank = std::make_unique<sfFDN::FilterBank>(options, designer);
 
     // One standalone processor per channel, built from the same config, to compare against.
     std::vector<sfFDN::DattorroDelay> references;
@@ -875,11 +877,13 @@ TEST_CASE("MakeMultichannelDattorroDelayOptions decorrelates channels", "[dattor
 
 TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
 {
+    const sfFDN::FilterDesigner designer(kSampleRate);
     constexpr uint32_t kChannelCount = 8;
     constexpr uint32_t kBlockSize = 64;
 
     auto bank = std::make_unique<sfFDN::FilterBank>(
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount));
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount),
+        designer);
 
     sfFDN::RNG rng;
     std::vector<float> input(static_cast<size_t>(kBlockSize) * kChannelCount, 0.f);
@@ -904,11 +908,13 @@ TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
 
 TEST_CASE("FilterBank preserves Dattorro state when cloned and cleared", "[dattorro]")
 {
+    const sfFDN::FilterDesigner designer(kSampleRate);
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 32;
 
     auto bank = std::make_unique<sfFDN::FilterBank>(
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount));
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount),
+        designer);
 
     sfFDN::RNG rng;
     std::vector<float> input(static_cast<size_t>(kBlockSize) * kChannelCount, 0.f);
@@ -947,7 +953,8 @@ TEST_CASE("FilterBank preserves Dattorro state when cloned and cleared", "[datto
 
     bank->Clear();
     auto fresh = std::make_unique<sfFDN::FilterBank>(
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount));
+        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::Flanger, 48000.f, kChannelCount),
+        designer);
     std::ranges::fill(original_output, 0.f);
     std::ranges::fill(clone_output, 0.f);
     bank->Process(input_buffer, original_buffer);
