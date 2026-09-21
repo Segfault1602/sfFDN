@@ -11,8 +11,10 @@
 #include "sffdn/filter_design.h"
 #include "sffdn/filter_feedback_matrix.h"
 #include "sffdn/filterbank.h"
+#include "sffdn/kronecker_feedback_matrix.h"
 #include "sffdn/parallel_gains.h"
 #include "sffdn/time_varying_feedback_matrix.h"
+#include "sffdn/time_varying_kronecker_feedback_matrix.h"
 
 #include <algorithm>
 #include <cmath>
@@ -62,6 +64,17 @@ struct MultichannelProcessorVisitor
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::ScalarFeedbackMatrixOptions& matrix_config) const
     {
         return std::make_unique<sfFDN::ScalarFeedbackMatrix>(matrix_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::KroneckerFeedbackMatrixOptions& matrix_config) const
+    {
+        return std::make_unique<sfFDN::KroneckerFeedbackMatrix>(matrix_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions& matrix_config) const
+    {
+        return std::make_unique<sfFDN::TimeVaryingKroneckerFeedbackMatrix>(matrix_config);
     }
 };
 
@@ -240,6 +253,16 @@ struct FeedbackMatrixVisitor
         return std::make_unique<sfFDN::TimeVaryingFeedbackMatrix>(matrix_config);
     }
 
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::KroneckerFeedbackMatrixOptions& matrix_config) const
+    {
+        return std::make_unique<sfFDN::KroneckerFeedbackMatrix>(matrix_config);
+    }
+
+    std::unique_ptr<sfFDN::AudioProcessor> operator()(
+        const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions& matrix_config) const
+    {
+        return std::make_unique<sfFDN::TimeVaryingKroneckerFeedbackMatrix>(matrix_config);
+    }
 };
 
 sfFDN::multi_channel_processor_variant_t UpdateAttenuationFilterBank(
@@ -383,6 +406,8 @@ void RandomizeMatrixSeed(multi_channel_processor_variant_t& options, std::mt1993
                    [](AttenuationFilterBankOptions&) {},
                    [](DelayBankOptions&) {},
                    [](DelayBankTimeVaryingOptions&) {},
+                   [](KroneckerFeedbackMatrixOptions&) {},
+                   [](TimeVaryingKroneckerFeedbackMatrixOptions&) {},
                },
                options);
 }
@@ -393,6 +418,8 @@ void RandomizeMatrixSeed(feedback_matrix_variant_t& options, std::mt19937& gener
                    [&](CascadedFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
                    [&](ScalarFeedbackMatrixOptions& source) { RandomizeMatrixSeed(source, generator); },
                    [&](TimeVaryingFeedbackMatrixOptions& source) { source.rng_seed = generator(); },
+                   [](KroneckerFeedbackMatrixOptions&) {},
+                   [](TimeVaryingKroneckerFeedbackMatrixOptions&) {},
                },
                options);
 }

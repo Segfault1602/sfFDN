@@ -286,8 +286,63 @@ nlohmann::json ToJson(const feedback_matrix_variant_t& matrix_config)
                               mat["TimeVaryingFeedbackMatrixOptions"] = config;
                               return mat;
                           },
+                          [](const KroneckerFeedbackMatrixOptions& config) {
+                              nlohmann::json mat;
+                              mat["KroneckerFeedbackMatrixOptions"] = config;
+                              return mat;
+                          },
+                          [](const TimeVaryingKroneckerFeedbackMatrixOptions& config) {
+                              nlohmann::json mat;
+                              mat["TimeVaryingKroneckerFeedbackMatrixOptions"] = config;
+                              return mat;
+                          },
                       },
                       matrix_config);
+}
+
+void to_json(nlohmann::json& j, const KroneckerFeedbackMatrixOptions& config)
+{
+    j = {
+        {"matrix_size", config.matrix_size},
+        {"angles", config.angles},
+        {"kernel_types", config.kernel_types},
+    };
+}
+
+void from_json(const nlohmann::json& j, KroneckerFeedbackMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 3 || !j.contains("matrix_size") || !j.contains("angles") ||
+        !j.contains("kernel_types"))
+    {
+        throw std::invalid_argument("KroneckerFeedbackMatrixOptions must contain exactly matrix_size, angles and "
+                                    "kernel_types");
+    }
+    KroneckerFeedbackMatrixOptions candidate;
+    json_detail::ReadField(j, "matrix_size", candidate.matrix_size);
+    candidate.angles = json_detail::ReadVector<float>(j.at("angles"));
+    candidate.kernel_types = json_detail::ReadVector<KroneckerKernelType>(j.at("kernel_types"));
+    config = std::move(candidate);
+}
+
+void to_json(nlohmann::json& j, const TimeVaryingKroneckerFeedbackMatrixOptions& config)
+{
+    j = {
+        {"matrix", config.matrix},
+        {"time_varying_config", config.time_varying_config},
+    };
+}
+
+void from_json(const nlohmann::json& j, TimeVaryingKroneckerFeedbackMatrixOptions& config)
+{
+    if (!j.is_object() || j.size() != 2 || !j.contains("matrix") || !j.contains("time_varying_config"))
+    {
+        throw std::invalid_argument(
+            "TimeVaryingKroneckerFeedbackMatrixOptions must contain exactly matrix and time_varying_config");
+    }
+    TimeVaryingKroneckerFeedbackMatrixOptions candidate;
+    candidate.matrix = j.at("matrix").get<KroneckerFeedbackMatrixOptions>();
+    candidate.time_varying_config = json_detail::ReadVector<ModulationOptions>(j.at("time_varying_config"));
+    config = std::move(candidate);
 }
 
 nlohmann::json ToJson(const single_channel_processor_variant_t& processor_config)
@@ -389,6 +444,16 @@ nlohmann::json ToJson(const multi_channel_processor_variant_t& processor_config)
                               proc["ScalarFeedbackMatrixOptions"] = config;
                               return proc;
                           },
+                          [](const KroneckerFeedbackMatrixOptions& config) {
+                              nlohmann::json proc;
+                              proc["KroneckerFeedbackMatrixOptions"] = config;
+                              return proc;
+                          },
+                          [](const TimeVaryingKroneckerFeedbackMatrixOptions& config) {
+                              nlohmann::json proc;
+                              proc["TimeVaryingKroneckerFeedbackMatrixOptions"] = config;
+                              return proc;
+                          },
                       },
                       processor_config);
 }
@@ -476,6 +541,8 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
                        "DelayBankTimeVaryingOptions",
                        "CascadedFeedbackMatrixInfo",
                        "ScalarFeedbackMatrixOptions",
+                       "KroneckerFeedbackMatrixOptions",
+                       "TimeVaryingKroneckerFeedbackMatrixOptions",
                    });
 
     if (j.contains("ParallelGainsConfig"))
@@ -513,6 +580,16 @@ multi_channel_processor_variant_t MultichannelProcessorFromJson(const nlohmann::
     if (j.contains("ScalarFeedbackMatrixOptions"))
     {
         return j["ScalarFeedbackMatrixOptions"].get<ScalarFeedbackMatrixOptions>();
+    }
+
+    if (j.contains("KroneckerFeedbackMatrixOptions"))
+    {
+        return j["KroneckerFeedbackMatrixOptions"].get<KroneckerFeedbackMatrixOptions>();
+    }
+
+    if (j.contains("TimeVaryingKroneckerFeedbackMatrixOptions"))
+    {
+        return j["TimeVaryingKroneckerFeedbackMatrixOptions"].get<TimeVaryingKroneckerFeedbackMatrixOptions>();
     }
 
     throw std::invalid_argument("Unknown multichannel processor config type");
@@ -567,7 +644,8 @@ void from_json(const nlohmann::json& j, MultichannelProcessorOptions& config)
 
 feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
 {
-    TaggedValue(j, {"CascadedFeedbackMatrixInfo", "ScalarFeedbackMatrixOptions", "TimeVaryingFeedbackMatrixOptions"});
+    TaggedValue(j, {"CascadedFeedbackMatrixInfo", "ScalarFeedbackMatrixOptions", "TimeVaryingFeedbackMatrixOptions",
+                    "KroneckerFeedbackMatrixOptions", "TimeVaryingKroneckerFeedbackMatrixOptions"});
     if (j.contains("CascadedFeedbackMatrixInfo"))
     {
         auto config = j["CascadedFeedbackMatrixInfo"].get<CascadedFeedbackMatrixOptions>();
@@ -584,6 +662,16 @@ feedback_matrix_variant_t FeedbackMatrixFromJson(const nlohmann::json& j)
     if (j.contains("TimeVaryingFeedbackMatrixOptions"))
     {
         return j["TimeVaryingFeedbackMatrixOptions"].get<TimeVaryingFeedbackMatrixOptions>();
+    }
+
+    if (j.contains("KroneckerFeedbackMatrixOptions"))
+    {
+        return j["KroneckerFeedbackMatrixOptions"].get<KroneckerFeedbackMatrixOptions>();
+    }
+
+    if (j.contains("TimeVaryingKroneckerFeedbackMatrixOptions"))
+    {
+        return j["TimeVaryingKroneckerFeedbackMatrixOptions"].get<TimeVaryingKroneckerFeedbackMatrixOptions>();
     }
 
     throw std::invalid_argument("Unknown feedback matrix config type");

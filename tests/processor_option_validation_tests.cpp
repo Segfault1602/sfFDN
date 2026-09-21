@@ -98,6 +98,24 @@ TEST_CASE("ChannelMatrixOptions validates dimensions and coefficient count", "[f
     REQUIRE(issues[1].path == "/matrix/output_channel_count");
 }
 
+TEST_CASE("Kronecker matrix options report nested cardinality and modulation issues", "[fdn_config]")
+{
+    const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions options{
+        .matrix = {.matrix_size = 8U, .angles = {0.1F}, .kernel_types = {sfFDN::KroneckerKernelType::Rotation}},
+        .time_varying_config = {{.frequency = -0.1F, .amplitude = 1.1F, .initial_phase = 1.1F}},
+    };
+    std::vector<sfFDN::ConfigIssue> issues;
+    sfFDN::detail::ValidateOptions(options, "/dynamic", issues);
+
+    REQUIRE(issues.size() == 6U);
+    REQUIRE(issues[0].path == "/dynamic/matrix/angles");
+    REQUIRE(issues[1].path == "/dynamic/matrix/kernel_types");
+    REQUIRE(issues[2].path == "/dynamic/time_varying_config");
+    REQUIRE(issues[3].path == "/dynamic/time_varying_config/0/frequency");
+    REQUIRE(issues[4].path == "/dynamic/time_varying_config/0/initial_phase");
+    REQUIRE(issues[5].path == "/dynamic/time_varying_config/0/amplitude");
+}
+
 TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation domains", "[fdn_config]")
 {
     RequireInvalidOptions(sfFDN::CascadedBiquadsOptions{

@@ -62,6 +62,8 @@ target_sources(
             delay_tests.cpp
             filter_tests.cpp
             filter_bank_tests.cpp
+            kronecker_feedback_matrix_tests.cpp
+            kronecker_stereo_signal_tests.cpp
             mixmat_tests.cpp
             matrix_multiplication_tests.cpp
             nonlinear_tests.cpp
@@ -77,6 +79,7 @@ target_sources(
             parallel_gains_tests.cpp
             sincos_tests.cpp
             time_varying_feedback_matrix_tests.cpp
+            time_varying_kronecker_feedback_matrix_tests.cpp
             time_varying_fdn_signal_tests.cpp
             time_varying_schroeder_allpass_tests.cpp
             signal_test_utils.cpp
@@ -167,6 +170,8 @@ set(
     time_varying_parallel_gains_perf.cpp
     partitioned_convolver_perf.cpp
     time_varying_feedback_matrix_perf.cpp
+    kronecker_feedback_matrix_perf.cpp
+    time_varying_kronecker_feedback_matrix_perf.cpp
     channel_matrix_perf.cpp
 )
 set(

@@ -22,6 +22,7 @@
 #include "filter_design.h"
 #include "filter_feedback_matrix.h"
 #include "filterbank.h"
+#include "kronecker_feedback_matrix.h"
 #include "matrix_gallery.h"
 #include "nonlinear.h"
 #include "oscillator.h"
@@ -29,3 +30,4 @@
 #include "partitioned_convolver.h"
 #include "schroeder_allpass.h"
 #include "time_varying_feedback_matrix.h"
+#include "time_varying_kronecker_feedback_matrix.h"

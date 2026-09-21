@@ -163,6 +163,24 @@ sfFDN::FDNConfig MakeEveryOptionConfig()
             .source =
                 sfFDN::MatrixData{4U, {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F}},
         },
+        sfFDN::KroneckerFeedbackMatrixOptions{
+            .matrix_size = 4U,
+            .angles = {0.25F, -0.5F},
+            .kernel_types = {sfFDN::KroneckerKernelType::Rotation, sfFDN::KroneckerKernelType::Reflection},
+        },
+        sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions{
+            .matrix =
+                {
+                    .matrix_size = 4U,
+                    .angles = {0.125F, -0.25F},
+                    .kernel_types = {
+                        sfFDN::KroneckerKernelType::Reflection,
+                        sfFDN::KroneckerKernelType::Rotation,
+                    },
+                },
+            .time_varying_config = {{.frequency = 0.001F, .amplitude = 0.25F, .initial_phase = 0.5F},
+                                    {.frequency = 0.002F, .amplitude = -0.5F, .initial_phase = 0.75F}},
+        },
     };
     config.output_block_config.multichannel_processors = {
         sfFDN::ParallelGainsOptions{
@@ -281,8 +299,27 @@ TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serial
         .gain_per_samples = 0.8F,
         .rng_seed = 17U,
     };
+    auto kronecker_feedback = MakeRenderableConfig();
+    kronecker_feedback.feedback_matrix_config = sfFDN::KroneckerFeedbackMatrixOptions{
+        .matrix_size = 4U,
+        .angles = {0.25F, -0.5F},
+        .kernel_types = {sfFDN::KroneckerKernelType::Rotation, sfFDN::KroneckerKernelType::Reflection},
+    };
+    auto time_varying_kronecker_feedback = MakeRenderableConfig();
+    time_varying_kronecker_feedback.feedback_matrix_config = sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions{
+        .matrix =
+            {
+                .matrix_size = 4U,
+                .angles = {0.25F, -0.5F},
+                .kernel_types = {sfFDN::KroneckerKernelType::Rotation, sfFDN::KroneckerKernelType::Reflection},
+            },
+        .time_varying_config = {{.frequency = 0.001F, .amplitude = 0.25F, .initial_phase = 0.5F},
+                                {.frequency = 0.002F, .amplitude = -0.5F, .initial_phase = 0.75F}},
+    };
 
-    for (const auto& original : {populated, absent_optionals, scalar_feedback, cascaded_feedback, MakeMimoConfig()})
+    for (const auto& original :
+         {populated, absent_optionals, scalar_feedback, cascaded_feedback, kronecker_feedback,
+          time_varying_kronecker_feedback, MakeMimoConfig()})
     {
         const nlohmann::json serialized = original;
         const auto round_tripped = serialized.get<sfFDN::FDNConfig>();
@@ -398,6 +435,37 @@ TEST_CASE("Serialization uses canonical JSON contracts", "[serialization]")
     };
     REQUIRE(nlohmann::json(explicit_data) == expected_explicit);
 
+    const sfFDN::KroneckerFeedbackMatrixOptions kronecker = {
+        .matrix_size = 4U,
+        .angles = {0.25F, -0.5F},
+        .kernel_types = {sfFDN::KroneckerKernelType::Rotation, sfFDN::KroneckerKernelType::Reflection},
+    };
+    REQUIRE(nlohmann::json(kronecker) ==
+            nlohmann::json{{"matrix_size", 4U},
+                           {"angles", {0.25F, -0.5F}},
+                           {"kernel_types", {"Rotation", "Reflection"}}});
+
+    const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions time_varying_kronecker = {
+        .matrix = kronecker,
+        .time_varying_config = {{.frequency = 0.001F, .amplitude = 0.25F, .initial_phase = 0.5F},
+                                {.frequency = 0.002F, .amplitude = -0.5F, .initial_phase = 0.75F}},
+    };
+    REQUIRE(nlohmann::json(time_varying_kronecker) ==
+            nlohmann::json{{"matrix", {{"matrix_size", 4U},
+                                       {"angles", {0.25F, -0.5F}},
+                                       {"kernel_types", {"Rotation", "Reflection"}}}},
+                           {"time_varying_config",
+                            {{{"frequency", 0.001F}, {"amplitude", 0.25F}, {"initial_phase", 0.5F}},
+                             {{"frequency", 0.002F}, {"amplitude", -0.5F}, {"initial_phase", 0.75F}}}}});
+
+    auto legacy_kronecker = nlohmann::json(kronecker);
+    legacy_kronecker["time_varying_config"] = nlohmann::json::array();
+    REQUIRE_THROWS(legacy_kronecker.get<sfFDN::KroneckerFeedbackMatrixOptions>());
+
+    auto unknown_kronecker_key = nlohmann::json(kronecker);
+    unknown_kronecker_key["unexpected"] = 1;
+    REQUIRE_THROWS(unknown_kronecker_key.get<sfFDN::KroneckerFeedbackMatrixOptions>());
+
     const sfFDN::ChannelMatrixOptions channel_matrix = {
         .input_channel_count = 2U,
         .output_channel_count = 3U,
@@ -503,6 +571,15 @@ TEST_CASE("JSON reads leave destinations unchanged on failure", "[serialization]
     malformed_matrix[nlohmann::json::json_pointer(
         "/source/GeneratedMatrixOptions/generator/VariableDiffusionOptions/diffusion")] = "late";
     RequireUnchangedAfterFailedRead(malformed_matrix, matrix);
+
+    const sfFDN::KroneckerFeedbackMatrixOptions kronecker{
+        .matrix_size = 4U,
+        .angles = {0.25F, -0.5F},
+        .kernel_types = {sfFDN::KroneckerKernelType::Rotation, sfFDN::KroneckerKernelType::Reflection},
+    };
+    auto malformed_kronecker = nlohmann::json(kronecker);
+    malformed_kronecker["kernel_types"][1] = "Shear";
+    RequireUnchangedAfterFailedRead(malformed_kronecker, kronecker);
 }
 
 TEST_CASE("MultichannelProcessorOptions serialization clears a reused destination", "[serialization]")

@@ -215,6 +215,12 @@ TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
                     4U,
                     {1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F, 0.F, 0.F, 0.F, 0.F, 1.F},
                 }},
+        sfFDN::KroneckerFeedbackMatrixOptions{
+            .matrix_size = 4U, .angles = {}, .kernel_types = {}},
+        sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions{
+            .matrix = {.matrix_size = 4U, .angles = {}, .kernel_types = {}},
+            .time_varying_config = {},
+        },
     };
     REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
 
@@ -226,6 +232,19 @@ TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
         .time_varying_config = {},
     };
     REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+    variants.feedback_matrix_config = sfFDN::KroneckerFeedbackMatrixOptions{
+        .matrix_size = 4U, .angles = {}, .kernel_types = {}};
+    REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+    const auto kronecker_fdn = sfFDN::CreateFDNFromConfig(variants);
+    const auto rendered = RenderDefaultFDN(*kronecker_fdn, variants);
+    REQUIRE(std::ranges::any_of(rendered, [](float sample) { return sample != 0.0F; }));
+
+    variants.feedback_matrix_config = sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions{
+        .matrix = {.matrix_size = 4U, .angles = {}, .kernel_types = {}},
+        .time_varying_config = {},
+    };
+    REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
+    REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(variants));
 }
 
 TEST_CASE("CreateFDNFromConfig selects static matrices and preserves modulated stage gains", "[fdn]")
@@ -463,7 +482,9 @@ TEST_CASE("FDNConfig compares every configured value structurally", "[fdn]")
     static_assert(
         AllEqualityComparable<
             sfFDN::ScalarFeedbackMatrixOptions, sfFDN::CascadedFeedbackMatrixOptions, sfFDN::ModulationOptions,
-            sfFDN::TimeVaryingFeedbackMatrixOptions, sfFDN::StageGainsOptions, sfFDN::ParallelGainsOptions,
+            sfFDN::TimeVaryingFeedbackMatrixOptions, sfFDN::KroneckerFeedbackMatrixOptions,
+            sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions,
+            sfFDN::StageGainsOptions, sfFDN::ParallelGainsOptions,
             sfFDN::DelayOptions, sfFDN::DelayBankOptions, sfFDN::DelayBankTimeVaryingOptions, sfFDN::FilterCoefficients,
             sfFDN::AllpassFilterOptions, sfFDN::SparseFirOptions, sfFDN::CascadedBiquadsOptions, sfFDN::FirOptions,
             sfFDN::SchroederAllpassSectionOptions, sfFDN::TimeVaryingSchroederAllpassSectionOptions,
