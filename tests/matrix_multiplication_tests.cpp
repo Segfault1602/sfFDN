@@ -2,10 +2,11 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
+#include <bit>
 #include <limits>
-#include <span>
 #include <vector>
 
+#include "audio_buffer_alias.h"
 #include "rng.h"
 #include "sffdn/sffdn.h"
 
@@ -212,5 +213,71 @@ TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block samp
     for (auto i = 0u; i < output.size(); ++i)
     {
         REQUIRE_THAT(output[i], Catch::Matchers::WithinAbs(expected[i], 1e-5f));
+    }
+}
+
+TEST_CASE("HadamardMultiplyBlock processes disjoint same-allocation views", "[matrix_multiplication]")
+{
+    constexpr uint32_t kMatrixSize = 4;
+    constexpr uint32_t kStride = 11;
+    constexpr uint32_t kBlockSize = 5;
+    constexpr float kSentinel = -1234.5f;
+
+    std::vector<float> parent(kMatrixSize * kStride, kSentinel);
+    sfFDN::AudioBuffer const parent_buffer(kStride, kMatrixSize, parent);
+    sfFDN::AudioBuffer input = parent_buffer.Offset(1, kBlockSize);
+    sfFDN::AudioBuffer output = parent_buffer.Offset(6, kBlockSize);
+    REQUIRE(input.Data() == output.Data());
+    REQUIRE(sfFDN::ClassifyAudioBufferAlias(input, output) == sfFDN::AudioBufferAlias::Disjoint);
+
+    std::array<std::array<float, kBlockSize>, kMatrixSize> input_samples{};
+    for (uint32_t channel = 0; channel < kMatrixSize; ++channel)
+    {
+        const auto input_span = input.GetChannelSpan(channel);
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            input_samples[channel][sample] = static_cast<float>((10 * channel) + sample + 1);
+            input_span[sample] = input_samples[channel][sample];
+        }
+    }
+    const auto before = parent;
+
+    sfFDN::HadamardMultiplyBlock(input, output);
+
+    constexpr float kNormalization = 0.5f;
+    for (uint32_t output_channel = 0; output_channel < kMatrixSize; ++output_channel)
+    {
+        const auto output_span = output.GetChannelSpan(output_channel);
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            float expected = 0.f;
+            for (uint32_t input_channel = 0; input_channel < kMatrixSize; ++input_channel)
+            {
+                const bool negative = std::popcount(output_channel & input_channel) % 2 != 0;
+                expected += (negative ? -1.f : 1.f) * input_samples[input_channel][sample];
+            }
+            REQUIRE_THAT(output_span[sample], Catch::Matchers::WithinAbs(expected * kNormalization, 1e-6f));
+        }
+    }
+
+    for (uint32_t channel = 0; channel < kMatrixSize; ++channel)
+    {
+        const auto input_span = input.GetChannelSpan(channel);
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            REQUIRE(input_span[sample] == input_samples[channel][sample]);
+        }
+    }
+    for (uint32_t channel = 0; channel < kMatrixSize; ++channel)
+    {
+        for (uint32_t sample = 0; sample < kStride; ++sample)
+        {
+            const bool is_output_sample = sample >= 6 && sample < 6 + kBlockSize;
+            const size_t index = (channel * kStride) + sample;
+            if (!is_output_sample)
+            {
+                REQUIRE(parent[index] == before[index]);
+            }
+        }
     }
 }

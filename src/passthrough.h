@@ -6,6 +6,8 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
 
+#include "audio_buffer_alias.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -31,6 +33,14 @@ class PassThrough : public AudioProcessor
         assert(input.SampleCount() == output.SampleCount());
         assert(input.ChannelCount() == 1);
         assert(output.ChannelCount() == 1);
+
+        const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
+        assert(alias != AudioBufferAlias::Partial);
+        if (alias == AudioBufferAlias::Exact)
+        {
+            // Copying an exact alias is undefined, and no samples need changing.
+            return;
+        }
 
         const auto in_span = input.GetChannelSpan(0);
         const auto out_span = output.GetChannelSpan(0);

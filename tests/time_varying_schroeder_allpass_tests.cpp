@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include "audio_buffer_alias.h"
 #include "sffdn/sffdn.h"
 
 #include "allocation_counter.h"
@@ -279,6 +280,7 @@ TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, cl
                 std::span(partitioned_output).subspan(start, count));
         start += count;
     }
+
     for (uint32_t sample = 0; sample < kSamples; ++sample)
     {
         REQUIRE_THAT(partitioned_output[sample], Catch::Matchers::WithinAbs(whole_output[sample], 1.e-6f));
@@ -356,6 +358,69 @@ TEST_CASE("FilterBank keeps time-varying allpass channels independent without al
         const sfFDNTest::ScopedAllocationCounter counter;
         bank->Process(bank_input_buffer, bank_output_buffer);
         REQUIRE(counter.Count() == 0);
+    }
+}
+
+TEST_CASE("TimeVaryingSchroederAllpassSection matches exact and disjoint strided views", "[time_varying_allpass]")
+{
+    constexpr uint32_t kStride = 24;
+    constexpr uint32_t kBlockSize = 8;
+    constexpr uint32_t kInputOffset = 3;
+    constexpr uint32_t kOutputOffset = 14;
+    constexpr std::array<float, kBlockSize> kFirstBlock = {1.f, -2.f, 3.f, -4.f, 5.f, -6.f, 7.f, -8.f};
+    constexpr std::array<float, kBlockSize> kSecondBlock = {-0.5f, 1.5f, -2.5f, 3.5f, -4.5f, 5.5f, -6.5f, 7.5f};
+
+    sfFDN::TimeVaryingSchroederAllpassSection reference(SectionOptions(true));
+    sfFDN::TimeVaryingSchroederAllpassSection exact_alias_processor(SectionOptions(true));
+    sfFDN::TimeVaryingSchroederAllpassSection disjoint_processor(SectionOptions(true));
+    std::array<float, kBlockSize> reference_output{};
+    std::vector<float> exact_parent(kStride, -100.f);
+    std::vector<float> disjoint_parent(kStride, -200.f);
+    sfFDN::AudioBuffer const exact_parent_buffer(exact_parent);
+    sfFDN::AudioBuffer const disjoint_parent_buffer(disjoint_parent);
+    sfFDN::AudioBuffer exact_input = exact_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer exact_output = exact_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer disjoint_input = disjoint_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer disjoint_output = disjoint_parent_buffer.Offset(kOutputOffset, kBlockSize);
+
+    for (const auto block : {kFirstBlock, kSecondBlock})
+    {
+        auto reference_samples = block;
+        const sfFDN::AudioBuffer reference_input(reference_samples);
+        sfFDN::AudioBuffer reference_buffer(reference_output);
+        reference.Process(reference_input, reference_buffer);
+
+        std::ranges::copy(block, exact_input.GetChannelSpan(0).begin());
+        exact_alias_processor.Process(exact_input, exact_output);
+        std::ranges::copy(block, disjoint_input.GetChannelSpan(0).begin());
+        const auto disjoint_parent_before = disjoint_parent;
+        disjoint_processor.Process(disjoint_input, disjoint_output);
+
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            REQUIRE_THAT(exact_output.GetChannelSpan(0)[sample],
+                         Catch::Matchers::WithinAbs(reference_output[sample], 1e-6f));
+            REQUIRE_THAT(disjoint_output.GetChannelSpan(0)[sample],
+                         Catch::Matchers::WithinAbs(reference_output[sample], 1e-6f));
+        }
+        REQUIRE(sfFDN::ClassifyAudioBufferAlias(disjoint_input, disjoint_output) == sfFDN::AudioBufferAlias::Disjoint);
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            REQUIRE(disjoint_input.GetChannelSpan(0)[sample] == block[sample]);
+        }
+        for (uint32_t sample = 0; sample < kStride; ++sample)
+        {
+            const bool is_output_sample = sample >= kOutputOffset && sample < kOutputOffset + kBlockSize;
+            const bool is_input_sample = sample >= kInputOffset && sample < kInputOffset + kBlockSize;
+            if (!is_output_sample)
+            {
+                REQUIRE(disjoint_parent[sample] == disjoint_parent_before[sample]);
+            }
+            if (!is_output_sample && !is_input_sample)
+            {
+                REQUIRE(disjoint_parent[sample] == -200.f);
+            }
+        }
     }
 }
 

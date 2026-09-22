@@ -1,6 +1,7 @@
 #include "sffdn/schroeder_allpass.h"
 
 #include "array_math.h"
+#include "audio_buffer_alias.h"
 #include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/audio_processor.h"
@@ -335,7 +336,7 @@ void SchroederAllpassSection::Process(const AudioBuffer& input, AudioBuffer& out
 
     if (parallel_)
     {
-        if (input.Data() == output.Data())
+        if (ClassifyAudioBufferAlias(input, output) == AudioBufferAlias::Exact)
         {
             const auto input_span = input.GetChannelSpan(0);
             const auto output_span = output.GetChannelSpan(0);
@@ -425,7 +426,7 @@ void TimeVaryingSchroederAllpassSection::Process(const AudioBuffer& input,
     const auto output_span = output.GetChannelSpan(0);
     if (parallel_)
     {
-        if (input.Data() == output.Data())
+        if (ClassifyAudioBufferAlias(input, output) == AudioBufferAlias::Exact)
         {
             for (uint32_t sample = 0; sample < input_span.size(); ++sample)
             {

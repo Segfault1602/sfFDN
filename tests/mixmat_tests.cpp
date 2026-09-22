@@ -14,8 +14,8 @@
 
 #include "sffdn/audio_buffer.h"
 #include "sffdn/feedback_matrix.h"
-#include "sffdn/matrix_gallery.h"
 #include "sffdn/matrix_data.h"
+#include "sffdn/matrix_gallery.h"
 #include "sffdn/sffdn.h"
 
 #include "allocation_counter.h"
@@ -68,6 +68,71 @@ void RequireNear(std::span<const float> actual, std::span<const float> expected,
     for (const auto [actual_value, expected_value] : std::views::zip(actual, expected))
     {
         REQUIRE_THAT(actual_value, Catch::Matchers::WithinAbs(expected_value, tolerance));
+    }
+}
+
+std::vector<float> DenseTestMatrix(uint32_t order)
+{
+    std::vector<float> matrix(static_cast<size_t>(order) * order);
+    for (uint32_t row = 0; row < order; ++row)
+    {
+        for (uint32_t column = 0; column < order; ++column)
+        {
+            matrix[(row * order) + column] = static_cast<float>((row * order) + column + 1);
+        }
+    }
+    return matrix;
+}
+
+void FillLogicalInput(sfFDN::AudioBuffer& buffer)
+{
+    for (uint32_t channel = 0; channel < buffer.ChannelCount(); ++channel)
+    {
+        const auto channel_data = buffer.GetChannelSpan(channel);
+        for (uint32_t sample = 0; sample < buffer.SampleCount(); ++sample)
+        {
+            channel_data[sample] = static_cast<float>(static_cast<int>((channel * 31U) + (sample * 7U)) - 19) / 16.f;
+        }
+    }
+}
+
+std::vector<float> DenseReference(const std::span<const float> matrix, const sfFDN::AudioBuffer& input)
+{
+    const uint32_t order = input.ChannelCount();
+    const uint32_t block_size = input.SampleCount();
+    std::vector<float> packed_input(static_cast<size_t>(order) * block_size);
+    for (uint32_t channel = 0; channel < order; ++channel)
+    {
+        const auto channel_input = input.GetChannelSpan(channel);
+        std::ranges::copy(channel_input, packed_input.begin() + (static_cast<size_t>(channel) * block_size));
+    }
+    return DenseReference(matrix, order, block_size, packed_input);
+}
+
+void RequireLogicalOutput(const sfFDN::AudioBuffer& output, const std::span<const float> expected)
+{
+    const uint32_t block_size = output.SampleCount();
+    for (uint32_t channel = 0; channel < output.ChannelCount(); ++channel)
+    {
+        const auto channel_output = output.GetChannelSpan(channel);
+        const auto channel_expected = expected.subspan(static_cast<size_t>(channel) * block_size, block_size);
+        RequireNear(channel_output, channel_expected);
+    }
+}
+
+void RequireStrideSentinels(const std::span<const float> storage, uint32_t stride, uint32_t channels,
+                            uint32_t logical_offset, uint32_t logical_size, float sentinel)
+{
+    for (uint32_t channel = 0; channel < channels; ++channel)
+    {
+        const auto channel_storage = storage.subspan(static_cast<size_t>(channel) * stride, stride);
+        for (uint32_t sample = 0; sample < stride; ++sample)
+        {
+            if (sample < logical_offset || sample >= logical_offset + logical_size)
+            {
+                REQUIRE(channel_storage[sample] == sentinel);
+            }
+        }
     }
 }
 
@@ -301,6 +366,214 @@ TEST_CASE("ScalarFeedbackMatrix supports aliased processing", "[feedback_matrix]
     {
         REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected_sample, 1e-5f));
     }
+}
+
+TEST_CASE("ScalarFeedbackMatrix processes zero-offset strided views", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 3;
+    constexpr uint32_t kBlockSize = 5;
+    constexpr uint32_t kInputStride = 8;
+    constexpr uint32_t kOutputStride = 10;
+    constexpr float kSentinel = -9876.5f;
+    const auto matrix_data = DenseTestMatrix(kOrder);
+    sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{kOrder, matrix_data}});
+    std::vector<float> input_storage(kOrder * kInputStride, kSentinel);
+    std::vector<float> output_storage(kOrder * kOutputStride, kSentinel);
+    sfFDN::AudioBuffer input_parent(kInputStride, kOrder, input_storage);
+    sfFDN::AudioBuffer output_parent(kOutputStride, kOrder, output_storage);
+    sfFDN::AudioBuffer input = input_parent.Offset(0, kBlockSize);
+    sfFDN::AudioBuffer output = output_parent.Offset(0, kBlockSize);
+    FillLogicalInput(input);
+    const auto expected = DenseReference(matrix_data, input);
+
+    matrix.Process(input, output);
+
+    RequireLogicalOutput(output, expected);
+    RequireStrideSentinels(input_storage, kInputStride, kOrder, 0, kBlockSize, kSentinel);
+    RequireStrideSentinels(output_storage, kOutputStride, kOrder, 0, kBlockSize, kSentinel);
+
+    const auto output_before_empty_process = output_storage;
+    sfFDN::AudioBuffer empty_input = input_parent.Offset(0, 0);
+    sfFDN::AudioBuffer empty_output = output_parent.Offset(0, 0);
+    matrix.Process(empty_input, empty_output);
+    REQUIRE(output_storage == output_before_empty_process);
+
+    constexpr std::array kOrders = {4U, 16U, 64U};
+    constexpr std::array kBlockSizes = {32U, 128U, 256U, 512U};
+    for (const uint32_t order : kOrders)
+    {
+        const auto sweep_matrix_data = DenseTestMatrix(order);
+        sfFDN::ScalarFeedbackMatrix sweep_matrix({.source = sfFDN::MatrixData{order, sweep_matrix_data}});
+        for (const uint32_t block_size : kBlockSizes)
+        {
+            std::vector<float> sweep_input(static_cast<size_t>(order) * block_size, 0.25f);
+            std::vector<float> sweep_output(sweep_input.size());
+            sfFDN::AudioBuffer sweep_input_buffer(block_size, order, sweep_input);
+            sfFDN::AudioBuffer sweep_output_buffer(block_size, order, sweep_output);
+            sweep_matrix.Process(sweep_input_buffer, sweep_output_buffer);
+
+            size_t allocations = 0;
+            {
+                sfFDNTest::ScopedAllocationCounter allocation_counter;
+                sweep_matrix.Process(sweep_input_buffer, sweep_output_buffer);
+                allocations = allocation_counter.Count();
+            }
+
+            std::vector<float> sweep_aliased_input(static_cast<size_t>(order) * block_size, 0.25f);
+            sfFDN::AudioBuffer sweep_aliased_buffer(block_size, order, sweep_aliased_input);
+            sweep_matrix.Process(sweep_aliased_buffer, sweep_aliased_buffer);
+
+            size_t aliased_allocations = 0;
+            {
+                sfFDNTest::ScopedAllocationCounter allocation_counter;
+                sweep_matrix.Process(sweep_aliased_buffer, sweep_aliased_buffer);
+                aliased_allocations = allocation_counter.Count();
+            }
+            INFO("order=" << order << " block=" << block_size);
+            REQUIRE(allocations == 0);
+            REQUIRE(aliased_allocations == 0);
+        }
+    }
+}
+
+TEST_CASE("ScalarFeedbackMatrix processes nonzero-offset strided views", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 3;
+    constexpr uint32_t kBlockSize = 7;
+    constexpr uint32_t kInputStride = 13;
+    constexpr uint32_t kOutputStride = 15;
+    constexpr uint32_t kInputOffset = 2;
+    constexpr uint32_t kOutputOffset = 4;
+    constexpr float kSentinel = -4321.25f;
+    const auto matrix_data = DenseTestMatrix(kOrder);
+    sfFDN::ScalarFeedbackMatrix matrix(
+        {.source = sfFDN::GeneratedMatrixOptions{.matrix_size = kOrder, .generator = sfFDN::ScalarMatrixType::Random}});
+    REQUIRE(matrix.SetMatrix(matrix_data));
+
+    std::vector<float> input_storage(kOrder * kInputStride, kSentinel);
+    std::vector<float> output_storage(kOrder * kOutputStride, kSentinel);
+    sfFDN::AudioBuffer input_parent(kInputStride, kOrder, input_storage);
+    sfFDN::AudioBuffer output_parent(kOutputStride, kOrder, output_storage);
+    sfFDN::AudioBuffer input = input_parent.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer output = output_parent.Offset(kOutputOffset, kBlockSize);
+    FillLogicalInput(input);
+    const auto expected = DenseReference(matrix_data, input);
+
+    matrix.Process(input, output);
+
+    std::vector<float> returned_matrix(kOrder * kOrder);
+    REQUIRE(matrix.GetMatrix(returned_matrix));
+    REQUIRE(returned_matrix == matrix_data);
+    RequireLogicalOutput(output, expected);
+    RequireStrideSentinels(input_storage, kInputStride, kOrder, kInputOffset, kBlockSize, kSentinel);
+    RequireStrideSentinels(output_storage, kOutputStride, kOrder, kOutputOffset, kBlockSize, kSentinel);
+
+    std::vector<float> packed_input(static_cast<size_t>(kOrder) * kBlockSize);
+    std::vector<float> packed_output(packed_input.size());
+    sfFDN::AudioBuffer packed_input_buffer(kBlockSize, kOrder, packed_input);
+    sfFDN::AudioBuffer packed_output_buffer(kBlockSize, kOrder, packed_output);
+    for (uint32_t channel = 0; channel < kOrder; ++channel)
+    {
+        std::ranges::copy(input.GetChannelSpan(channel), packed_input_buffer.GetChannelSpan(channel).begin());
+    }
+    matrix.Process(packed_input_buffer, packed_output_buffer);
+    RequireLogicalOutput(output, packed_output);
+}
+
+TEST_CASE("ScalarFeedbackMatrix processes disjoint same-allocation views", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 3;
+    constexpr uint32_t kStride = 14;
+    constexpr uint32_t kBlockSize = 4;
+    constexpr uint32_t kInputOffset = 1;
+    constexpr uint32_t kOutputOffset = 8;
+    constexpr float kSentinel = -2468.5f;
+    const auto matrix_data = DenseTestMatrix(kOrder);
+    sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{kOrder, matrix_data}});
+    std::vector<float> storage(kOrder * kStride, kSentinel);
+    sfFDN::AudioBuffer parent(kStride, kOrder, storage);
+    sfFDN::AudioBuffer input = parent.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer output = parent.Offset(kOutputOffset, kBlockSize);
+    FillLogicalInput(input);
+    const auto expected = DenseReference(matrix_data, input);
+
+    matrix.Process(input, output);
+
+    RequireLogicalOutput(output, expected);
+    for (uint32_t channel = 0; channel < kOrder; ++channel)
+    {
+        const auto channel_storage = std::span(storage).subspan(static_cast<size_t>(channel) * kStride, kStride);
+        for (uint32_t sample = 0; sample < kStride; ++sample)
+        {
+            const bool is_input = sample >= kInputOffset && sample < kInputOffset + kBlockSize;
+            const bool is_output = sample >= kOutputOffset && sample < kOutputOffset + kBlockSize;
+            if (!is_input && !is_output)
+            {
+                REQUIRE(channel_storage[sample] == kSentinel);
+            }
+        }
+    }
+}
+
+TEST_CASE("ScalarFeedbackMatrix processes exact strided aliases without allocations", "[feedback_matrix]")
+{
+    constexpr uint32_t kOrder = 3;
+    constexpr uint32_t kBlockSize = 37;
+    constexpr uint32_t kStride = 43;
+    constexpr uint32_t kOffset = 3;
+    constexpr float kSentinel = -1357.75f;
+    const auto matrix_data = DenseTestMatrix(kOrder);
+    sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{kOrder, matrix_data}});
+    std::vector<float> storage(kOrder * kStride, kSentinel);
+    sfFDN::AudioBuffer parent(kStride, kOrder, storage);
+    sfFDN::AudioBuffer buffer = parent.Offset(kOffset, kBlockSize);
+    FillLogicalInput(buffer);
+    const auto expected = DenseReference(matrix_data, buffer);
+
+    size_t allocations = 0;
+    {
+        sfFDNTest::ScopedAllocationCounter allocation_counter;
+        matrix.Process(buffer, buffer);
+        allocations = allocation_counter.Count();
+    }
+
+    REQUIRE(allocations == 0);
+    RequireLogicalOutput(buffer, expected);
+    RequireStrideSentinels(storage, kStride, kOrder, kOffset, kBlockSize, kSentinel);
+
+    constexpr uint32_t kFilterOrder = 4;
+    constexpr uint32_t kFilterBlockSize = 32;
+    const sfFDN::CascadedFeedbackMatrixOptions options = {
+        .matrix_size = kFilterOrder,
+        .stage_count = 2,
+        .sparsity = 2.f,
+        .generator = sfFDN::ScalarMatrixType::Random,
+        .gain_per_samples = 0.99f,
+        .rng_seed = 12345U,
+    };
+    sfFDN::FilterFeedbackMatrix packed_filter(options);
+    sfFDN::FilterFeedbackMatrix strided_filter(options);
+    std::vector<float> packed_storage(kFilterOrder * kFilterBlockSize);
+    sfFDN::AudioBuffer packed_buffer(kFilterBlockSize, kFilterOrder, packed_storage);
+    FillLogicalInput(packed_buffer);
+    constexpr uint32_t kFilterStride = 39;
+    constexpr uint32_t kFilterOffset = 4;
+    std::vector<float> strided_storage(kFilterOrder * kFilterStride, kSentinel);
+    sfFDN::AudioBuffer strided_parent(kFilterStride, kFilterOrder, strided_storage);
+    sfFDN::AudioBuffer strided_buffer = strided_parent.Offset(kFilterOffset, kFilterBlockSize);
+    for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
+    {
+        std::ranges::copy(packed_buffer.GetChannelSpan(channel), strided_buffer.GetChannelSpan(channel).begin());
+    }
+
+    packed_filter.Process(packed_buffer, packed_buffer);
+    strided_filter.Process(strided_buffer, strided_buffer);
+
+    for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
+    {
+        RequireNear(strided_buffer.GetChannelSpan(channel), packed_buffer.GetChannelSpan(channel), 1e-4f);
+    }
+    RequireStrideSentinels(strided_storage, kFilterStride, kFilterOrder, kFilterOffset, kFilterBlockSize, kSentinel);
 }
 
 TEST_CASE("ScalarFeedbackMatrix applies a Householder reflection", "[feedback_matrix]")
@@ -549,10 +822,8 @@ TEST_CASE("ScalarFeedbackMatrix forwards nonzero seeds to generated matrices", "
     constexpr uint32_t kBlockSize = 3U;
     constexpr uint32_t kSeed = 0x1BADB002U;
     constexpr std::array kTypes = {
-        sfFDN::ScalarMatrixType::Random,
-        sfFDN::ScalarMatrixType::RandomHouseholder,
-        sfFDN::ScalarMatrixType::Circulant,
-        sfFDN::ScalarMatrixType::Allpass,
+        sfFDN::ScalarMatrixType::Random,        sfFDN::ScalarMatrixType::RandomHouseholder,
+        sfFDN::ScalarMatrixType::Circulant,     sfFDN::ScalarMatrixType::Allpass,
         sfFDN::ScalarMatrixType::NestedAllpass,
     };
     std::array<float, kOrder * kBlockSize> input = {
@@ -590,8 +861,7 @@ TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processi
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 2U;
-    std::array<float, kOrder * kBlockSize> input = {1.f, -0.5f, 0.25f, -0.75f,
-                                                     0.5f, -1.f, 0.125f, -0.25f};
+    std::array<float, kOrder * kBlockSize> input = {1.f, -0.5f, 0.25f, -0.75f, 0.5f, -1.f, 0.125f, -0.25f};
     const auto default_matrix = sfFDN::GenerateMatrix(kOrder, sfFDN::ScalarMatrixType::VariableDiffusion);
 
     for (const float arg : {0.25f, 0.75f})

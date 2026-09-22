@@ -86,9 +86,12 @@ class ScalarFeedbackMatrix : public AudioProcessor
     std::unique_ptr<AudioProcessor> Clone() const override;
 
   private:
+    static constexpr uint32_t kScratchTileFrames = 16;
+
     uint32_t order_;
     ScalarMatrixType matrix_type_;
     std::vector<float> matrix_data_;
+    std::vector<float> scratch_data_;
 };
 
 } // namespace sfFDN

@@ -71,6 +71,7 @@ target_sources(
             fdn_config_tests.cpp
             processor_option_validation_tests.cpp
             oscillator_tests.cpp
+            pass_through_tests.cpp
             upols_tests.cpp
             nupols_tests.cpp
             serialization_tests.cpp

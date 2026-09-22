@@ -7,6 +7,7 @@
 
 #include <sndfile.h>
 
+#include "audio_buffer_alias.h"
 #include "sffdn/audio_buffer.h"
 #include "sffdn/sffdn.h"
 
@@ -328,10 +329,79 @@ TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move
         in_place.Process(aliased_buffer, aliased_buffer);
         allocations = allocation_counter.Count();
     }
+
     REQUIRE(allocations == 0);
     for (auto sample = 0u; sample < kBlockSize; ++sample)
     {
         REQUIRE_THAT(aliased[sample], Catch::Matchers::WithinAbs(reference_output[sample], 1e-5f));
+    }
+}
+
+TEST_CASE("SchroederAllpassSection matches exact and disjoint strided views", "[filter]")
+{
+    constexpr uint32_t kStride = 24;
+    constexpr uint32_t kBlockSize = 8;
+    constexpr uint32_t kInputOffset = 3;
+    constexpr uint32_t kOutputOffset = 14;
+    constexpr std::array<float, kBlockSize> kFirstBlock = {1.f, -2.f, 3.f, -4.f, 5.f, -6.f, 7.f, -8.f};
+    constexpr std::array<float, kBlockSize> kSecondBlock = {-0.5f, 1.5f, -2.5f, 3.5f, -4.5f, 5.5f, -6.5f, 7.5f};
+    const sfFDN::SchroederAllpassSectionOptions options{
+        .delays = {5, 7, 11},
+        .gains = {0.5f, -0.4f, 0.3f},
+        .parallel = true,
+    };
+
+    sfFDN::SchroederAllpassSection reference(options);
+    sfFDN::SchroederAllpassSection exact_alias_processor(options);
+    sfFDN::SchroederAllpassSection disjoint_processor(options);
+    std::array<float, kBlockSize> reference_output{};
+    std::vector<float> exact_parent(kStride, -100.f);
+    std::vector<float> disjoint_parent(kStride, -200.f);
+    sfFDN::AudioBuffer const exact_parent_buffer(exact_parent);
+    sfFDN::AudioBuffer const disjoint_parent_buffer(disjoint_parent);
+    sfFDN::AudioBuffer exact_input = exact_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer exact_output = exact_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer disjoint_input = disjoint_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer disjoint_output = disjoint_parent_buffer.Offset(kOutputOffset, kBlockSize);
+
+    for (const auto block : {kFirstBlock, kSecondBlock})
+    {
+        auto reference_samples = block;
+        const sfFDN::AudioBuffer reference_input(reference_samples);
+        sfFDN::AudioBuffer reference_buffer(reference_output);
+        reference.Process(reference_input, reference_buffer);
+
+        std::ranges::copy(block, exact_input.GetChannelSpan(0).begin());
+        exact_alias_processor.Process(exact_input, exact_output);
+        std::ranges::copy(block, disjoint_input.GetChannelSpan(0).begin());
+        const auto disjoint_parent_before = disjoint_parent;
+        disjoint_processor.Process(disjoint_input, disjoint_output);
+
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            REQUIRE_THAT(exact_output.GetChannelSpan(0)[sample],
+                         Catch::Matchers::WithinAbs(reference_output[sample], 1e-6f));
+            REQUIRE_THAT(disjoint_output.GetChannelSpan(0)[sample],
+                         Catch::Matchers::WithinAbs(reference_output[sample], 1e-6f));
+        }
+        REQUIRE(sfFDN::ClassifyAudioBufferAlias(disjoint_input, disjoint_output) == sfFDN::AudioBufferAlias::Disjoint);
+        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
+        {
+            REQUIRE(disjoint_input.GetChannelSpan(0)[sample] == block[sample]);
+        }
+        for (uint32_t sample = 0; sample < kStride; ++sample)
+        {
+            const bool is_output_sample = sample >= kOutputOffset && sample < kOutputOffset + kBlockSize;
+            const bool is_input_sample = sample >= kInputOffset && sample < kInputOffset + kBlockSize;
+            if (!is_output_sample)
+            {
+                REQUIRE(disjoint_parent[sample] == disjoint_parent_before[sample]);
+            }
+            if (!is_output_sample && !is_input_sample)
+            {
+                REQUIRE(disjoint_parent[sample] == -200.f);
+            }
+        }
     }
 }
 

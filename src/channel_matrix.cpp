@@ -1,6 +1,7 @@
 #include "sffdn/channel_matrix.h"
 
 #include "array_math.h"
+#include "audio_buffer_alias.h"
 #include "processor_option_validation.h"
 #include "sffdn/audio_buffer.h"
 
@@ -8,21 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
-
-#ifndef NDEBUG
-namespace
-{
-bool Overlaps(std::span<const float> input, std::span<float> output) noexcept
-{
-    const auto input_begin = reinterpret_cast<uintptr_t>(input.data());
-    const auto input_end = input_begin + input.size_bytes();
-    const auto output_begin = reinterpret_cast<uintptr_t>(output.data());
-    const auto output_end = output_begin + output.size_bytes();
-    return input_begin < output_end && output_begin < input_end;
-}
-} // namespace
-#endif
 
 namespace sfFDN
 {
@@ -40,14 +26,7 @@ void ChannelMatrix::Process(const AudioBuffer& input, AudioBuffer& output) noexc
     assert(input.SampleCount() == output.SampleCount());
 
 #ifndef NDEBUG
-    for (uint32_t input_channel = 0; input_channel < input_channel_count_; ++input_channel)
-    {
-        const auto input_samples = input.GetChannelSpan(input_channel);
-        for (uint32_t output_channel = 0; output_channel < output_channel_count_; ++output_channel)
-        {
-            assert(!Overlaps(input_samples, output.GetChannelSpan(output_channel)));
-        }
-    }
+    assert(ClassifyAudioBufferAlias(input, output) == AudioBufferAlias::Disjoint);
 #endif
 
     for (uint32_t output_channel = 0; output_channel < output_channel_count_; ++output_channel)
