@@ -1,11 +1,53 @@
 #include "sffdn/audio_buffer.h"
 
+#include "audio_buffer_alias.h"
+
 #include <cassert>
 #include <cstdint>
+#include <functional>
+#include <iterator>
 #include <span>
 
 namespace sfFDN
 {
+namespace
+{
+AudioBufferAlias ClassifyNonEmptyChannelSpans(const AudioBuffer& first,
+                                              const AudioBuffer& second) noexcept SFFDN_NONBLOCKING
+{
+    const bool exact = first.ChannelCount() == second.ChannelCount() && first.SampleCount() == second.SampleCount() &&
+                       first.GetChannelSpan(0).data() == second.GetChannelSpan(0).data() &&
+                       (first.ChannelCount() == 1 || first.ChannelStride() == second.ChannelStride());
+    if (exact)
+    {
+        return AudioBufferAlias::Exact;
+    }
+
+    uint32_t first_channel = 0;
+    uint32_t second_channel = 0;
+    while (first_channel < first.ChannelCount() && second_channel < second.ChannelCount())
+    {
+        const auto first_span = first.GetChannelSpan(first_channel);
+        const auto second_span = second.GetChannelSpan(second_channel);
+        if (std::less{}(first_span.data(), std::to_address(second_span.end())) &&
+            std::less{}(second_span.data(), std::to_address(first_span.end())))
+        {
+            return AudioBufferAlias::Partial;
+        }
+
+        if (std::less{}(std::to_address(first_span.end()), std::to_address(second_span.end())))
+        {
+            ++first_channel;
+        }
+        else
+        {
+            ++second_channel;
+        }
+    }
+
+    return AudioBufferAlias::Disjoint;
+}
+} // namespace
 
 AudioBuffer::AudioBuffer() noexcept SFFDN_NONBLOCKING : frame_size_(0), channel_count_(0), offset_(0), chunk_size_(0)
 {
@@ -39,6 +81,16 @@ uint32_t AudioBuffer::SampleCount() const noexcept SFFDN_NONBLOCKING
 uint32_t AudioBuffer::ChannelCount() const noexcept SFFDN_NONBLOCKING
 {
     return channel_count_;
+}
+
+uint32_t AudioBuffer::ChannelStride() const noexcept SFFDN_NONBLOCKING
+{
+    return frame_size_;
+}
+
+bool AudioBuffer::IsPacked() const noexcept SFFDN_NONBLOCKING
+{
+    return offset_ == 0 && (channel_count_ <= 1 || ChannelStride() == SampleCount());
 }
 
 float* AudioBuffer::Data() noexcept SFFDN_NONBLOCKING
@@ -79,6 +131,18 @@ AudioBuffer AudioBuffer::Offset(uint32_t offset, uint32_t size) const noexcept S
     offset_buffer.offset_ = offset_ + offset;
     offset_buffer.chunk_size_ = size;
     return offset_buffer;
+}
+
+AudioBufferAlias ClassifyAudioBufferAlias(const AudioBuffer& first,
+                                          const AudioBuffer& second) noexcept SFFDN_NONBLOCKING
+{
+    if (first.SampleCount() == 0 || first.ChannelCount() == 0 || second.SampleCount() == 0 ||
+        second.ChannelCount() == 0)
+    {
+        return AudioBufferAlias::Disjoint;
+    }
+
+    return ClassifyNonEmptyChannelSpans(first, second);
 }
 
 } // namespace sfFDN

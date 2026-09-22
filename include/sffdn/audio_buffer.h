@@ -47,14 +47,27 @@ class AudioBuffer
     uint32_t ChannelCount() const noexcept SFFDN_NONBLOCKING;
 
     /**
-     * @brief Provides direct access to the audio data.
-     * @return A pointer to the audio data.
+     * @brief Returns the number of backing samples between the starts of adjacent channels.
+     * @return The channel stride in samples.
+     */
+    uint32_t ChannelStride() const noexcept SFFDN_NONBLOCKING;
+
+    /**
+     * @brief Reports whether all logical samples form one contiguous range beginning at Data().
+     * @return True for zero-offset empty and mono buffers, and for zero-offset multichannel buffers whose channel
+     * stride equals their sample count.
+     */
+    bool IsPacked() const noexcept SFFDN_NONBLOCKING;
+
+    /**
+     * @brief Provides direct access to the backing planar-storage origin.
+     * @return A pointer to the backing audio data.
      */
     float* Data() noexcept SFFDN_NONBLOCKING;
 
     /**
-     * @brief Provides direct access to the audio data.
-     * @return A pointer to the audio data.
+     * @brief Provides direct access to the backing planar-storage origin.
+     * @return A pointer to the backing audio data.
      */
     const float* Data() const noexcept SFFDN_NONBLOCKING;
 

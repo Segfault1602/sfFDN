@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "audio_buffer_alias.h"
 #include "sffdn/audio_buffer.h"
 
 TEST_CASE("AudioBuffer aliases backing storage through constructors and accessors", "[audio_buffer]")
@@ -9,6 +10,7 @@ TEST_CASE("AudioBuffer aliases backing storage through constructors and accessor
     sfFDN::AudioBuffer const empty;
     REQUIRE(empty.SampleCount() == 0);
     REQUIRE(empty.ChannelCount() == 0);
+    REQUIRE(empty.IsPacked());
 
     std::array<float, 12> storage{};
     for (auto i = 0u; i < storage.size(); ++i)
@@ -19,12 +21,16 @@ TEST_CASE("AudioBuffer aliases backing storage through constructors and accessor
     sfFDN::AudioBuffer mono(storage);
     REQUIRE(mono.SampleCount() == storage.size());
     REQUIRE(mono.ChannelCount() == 1);
+    REQUIRE(mono.ChannelStride() == storage.size());
+    REQUIRE(mono.IsPacked());
     REQUIRE(mono.Data() == storage.data());
     mono.GetChannelSpan(0)[1] = -2.f;
     REQUIRE(storage[1] == -2.f);
 
     sfFDN::AudioBuffer buffer(4, 3, storage);
     const sfFDN::AudioBuffer& const_buffer = buffer;
+    REQUIRE(buffer.ChannelStride() == 4);
+    REQUIRE(buffer.IsPacked());
     REQUIRE(const_buffer.Data() == storage.data());
 
     const auto const_span = const_buffer.GetChannelSpan(1);
@@ -46,6 +52,19 @@ TEST_CASE("AudioBuffer aliases backing storage through constructors and accessor
     const auto const_channel_buffer = const_buffer.GetChannelBuffer(2);
     REQUIRE(const_channel_buffer.Data() == std::span(storage).subspan(8).data());
     REQUIRE(const_channel_buffer.GetChannelSpan(0)[1] == 42.f);
+
+    const auto shortened = buffer.Offset(0, 2);
+    REQUIRE(shortened.ChannelStride() == 4);
+    REQUIRE_FALSE(shortened.IsPacked());
+
+    const auto shortened_mono = mono.Offset(0, 2);
+    REQUIRE(shortened_mono.ChannelStride() == storage.size());
+    REQUIRE(shortened_mono.SampleCount() == 2);
+    REQUIRE(shortened_mono.IsPacked());
+
+    const auto offset_shortened_mono = mono.Offset(1, 2);
+    REQUIRE(offset_shortened_mono.Data() == storage.data());
+    REQUIRE_FALSE(offset_shortened_mono.IsPacked());
 }
 
 TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
@@ -113,4 +132,49 @@ TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
             REQUIRE(channel_span2[j] == static_cast<float>(j) + (2 * kOffset));
         }
     }
+}
+
+TEST_CASE("AudioBuffer alias classifier distinguishes logical relationships", "[audio_buffer]")
+{
+    std::array<float, 48> storage{};
+    std::array<float, 24> separate_storage{};
+    const sfFDN::AudioBuffer parent(8, 3, storage);
+    const sfFDN::AudioBuffer copy = parent;
+    const sfFDN::AudioBuffer independent(8, 3, storage);
+    const sfFDN::AudioBuffer separate(8, 3, separate_storage);
+    const sfFDN::AudioBuffer fewer_channels(8, 2, std::span(storage).first(16));
+    const sfFDN::AudioBuffer separate_fewer_channels(8, 2, separate_storage);
+    const sfFDN::AudioBuffer different_stride = sfFDN::AudioBuffer(16, 3, storage).Offset(0, 8);
+    const sfFDN::AudioBuffer mono_different_stride =
+        sfFDN::AudioBuffer(16, 1, std::span(storage).subspan(8)).Offset(0, 8);
+    const sfFDN::AudioBuffer default_buffer;
+    const sfFDN::AudioBuffer zero_channels(8, 0, storage);
+    const sfFDN::AudioBuffer zero_frame(0, 3, storage);
+
+    const auto require_relationship = [](const sfFDN::AudioBuffer& first, const sfFDN::AudioBuffer& second,
+                                         sfFDN::AudioBufferAlias expected) {
+        REQUIRE(sfFDN::ClassifyAudioBufferAlias(first, second) == expected);
+        REQUIRE(sfFDN::ClassifyAudioBufferAlias(second, first) == expected);
+    };
+
+    require_relationship(parent, copy, sfFDN::AudioBufferAlias::Exact);
+    require_relationship(parent, independent, sfFDN::AudioBufferAlias::Exact);
+    require_relationship(parent, separate, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(parent, fewer_channels, sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent, separate_fewer_channels, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(parent, parent.GetChannelBuffer(1), sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent, different_stride, sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent.GetChannelBuffer(1), mono_different_stride, sfFDN::AudioBufferAlias::Exact);
+    require_relationship(parent.Offset(0, 2), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(parent.Offset(0, 2), parent.Offset(4, 2), sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(parent, parent.Offset(0, 4), sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent.Offset(1, 3), parent.Offset(2, 3), sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent.Offset(1, 6), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent.Offset(0, 2), parent.Offset(0, 3), sfFDN::AudioBufferAlias::Partial);
+
+    require_relationship(default_buffer, parent, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(zero_channels, parent, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(zero_channels, zero_channels, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(zero_frame, parent, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(zero_frame, zero_frame, sfFDN::AudioBufferAlias::Disjoint);
 }
