@@ -29,12 +29,12 @@ endforeach()
 
 set(expected_exception_file "${SFFDN_SOURCE_DIR}/src/feedback_matrix.cpp")
 
-if(NOT fea_waiver_count EQUAL 2)
-    message(FATAL_ERROR "Expected 2 FEA waivers, found ${fea_waiver_count}")
+if(NOT fea_waiver_count EQUAL 1)
+    message(FATAL_ERROR "Expected 1 FEA waiver, found ${fea_waiver_count}")
 endif()
 
-if(NOT rtsan_disabler_count EQUAL 1)
-    message(FATAL_ERROR "Expected 1 RTSan disabler, found ${rtsan_disabler_count}")
+if(NOT rtsan_disabler_count EQUAL 0)
+    message(FATAL_ERROR "Expected 0 RTSan disablers, found ${rtsan_disabler_count}")
 endif()
 
 list(LENGTH exception_files exception_file_count)
@@ -45,4 +45,4 @@ if(NOT exception_file_count EQUAL 1 OR NOT exception_files STREQUAL expected_exc
     )
 endif()
 
-message(STATUS "Realtime exception inventory: 2 FEA waivers, 1 RTSan disabler")
+message(STATUS "Realtime exception inventory: 1 FEA waiver, 0 RTSan disablers")

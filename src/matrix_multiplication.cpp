@@ -1,5 +1,6 @@
 #include "matrix_multiplication.h"
 
+#include "audio_buffer_alias.h"
 #include "sffdn/audio_buffer.h"
 
 #include <algorithm>
@@ -9,9 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
-#ifdef __cpp_lib_mdspan
-#include <mdspan>
-#endif
 
 #include <Eigen/Core>
 
@@ -152,7 +150,9 @@ void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexce
     assert(input.ChannelCount() == output.ChannelCount());
     assert(input.SampleCount() == output.SampleCount());
 
-    if (input.Data() != output.Data())
+    const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
+    assert(alias != AudioBufferAlias::Invalid);
+    if (alias == AudioBufferAlias::Disjoint)
     {
         for (uint32_t channel = 0; channel < matrix_size; ++channel)
         {
