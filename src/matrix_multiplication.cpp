@@ -17,7 +17,12 @@
 namespace
 {
 
-constexpr uint32_t kTileRows = 4;
+// Primary row-tile size: wider tiles amortize the per-row-group pass over every input channel across more output
+// rows, which matters once an order has enough rows to fill it. kTileRowsSmall is the fallback for orders (or
+// order remainders) narrower than kTileRows, so small orders still get a single wide-enough tile instead of
+// falling all the way to single-row tiles, which would re-stream the whole input once per output row.
+constexpr uint32_t kTileRows = 8;
+constexpr uint32_t kTileRowsSmall = 4;
 constexpr uint32_t kTileVecs = 2;
 constexpr size_t kTileFrames = kTileVecs * sfFDN::simd::kWidth;
 
@@ -79,6 +84,10 @@ void DenseRows(const sfFDN::AudioBuffer& input, size_t input_frame, sfFDN::Audio
     {
         DenseTile<kTileRows, Vecs, false>(input, input_frame, output, output_frame, matrix, out_row, {});
     }
+    for (; out_row + kTileRowsSmall <= order; out_row += kTileRowsSmall)
+    {
+        DenseTile<kTileRowsSmall, Vecs, false>(input, input_frame, output, output_frame, matrix, out_row, {});
+    }
     for (; out_row < order; ++out_row)
     {
         DenseTile<1, Vecs, false>(input, input_frame, output, output_frame, matrix, out_row, {});
@@ -96,6 +105,11 @@ void DensePackedRows(const sfFDN::AudioBuffer& input, sfFDN::AudioBuffer& output
     {
         DenseTile<kTileRows, Vecs, true>(input, frame, output, frame, matrix, 0, scratch);
         out_row = kTileRows;
+    }
+    else if (order >= kTileRowsSmall)
+    {
+        DenseTile<kTileRowsSmall, Vecs, true>(input, frame, output, frame, matrix, 0, scratch);
+        out_row = kTileRowsSmall;
     }
     else
     {
