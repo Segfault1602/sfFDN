@@ -15,37 +15,26 @@ namespace
 AudioBufferAlias ClassifyNonEmptyChannelSpans(const AudioBuffer& first,
                                               const AudioBuffer& second) noexcept SFFDN_NONBLOCKING
 {
+    const float* first_begin = first.GetChannelSpan(0).data();
+    const float* second_begin = second.GetChannelSpan(0).data();
     const bool exact = first.ChannelCount() == second.ChannelCount() && first.SampleCount() == second.SampleCount() &&
-                       first.GetChannelSpan(0).data() == second.GetChannelSpan(0).data() &&
+                       first_begin == second_begin &&
                        (first.ChannelCount() == 1 || first.ChannelStride() == second.ChannelStride());
     if (exact)
     {
         return AudioBufferAlias::Exact;
     }
 
-    uint32_t first_channel = 0;
-    uint32_t second_channel = 0;
-    while (first_channel < first.ChannelCount() && second_channel < second.ChannelCount())
+    // Channel spans are equal-length and start at increasing addresses, so each buffer's samples lie within
+    // [first sample of channel 0, end of last channel).
+    const float* first_end = std::to_address(first.GetChannelSpan(first.ChannelCount() - 1).end());
+    const float* second_end = std::to_address(second.GetChannelSpan(second.ChannelCount() - 1).end());
+    if (!std::less{}(first_begin, second_end) || !std::less{}(second_begin, first_end))
     {
-        const auto first_span = first.GetChannelSpan(first_channel);
-        const auto second_span = second.GetChannelSpan(second_channel);
-        if (std::less{}(first_span.data(), std::to_address(second_span.end())) &&
-            std::less{}(second_span.data(), std::to_address(first_span.end())))
-        {
-            return AudioBufferAlias::Partial;
-        }
-
-        if (std::less{}(std::to_address(first_span.end()), std::to_address(second_span.end())))
-        {
-            ++first_channel;
-        }
-        else
-        {
-            ++second_channel;
-        }
+        return AudioBufferAlias::Disjoint;
     }
 
-    return AudioBufferAlias::Disjoint;
+    return AudioBufferAlias::Invalid;
 }
 } // namespace
 

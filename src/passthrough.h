@@ -35,7 +35,7 @@ class PassThrough : public AudioProcessor
         assert(output.ChannelCount() == 1);
 
         const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
-        assert(alias != AudioBufferAlias::Partial);
+        assert(alias != AudioBufferAlias::Invalid);
         if (alias == AudioBufferAlias::Exact)
         {
             // Copying an exact alias is undefined, and no samples need changing.

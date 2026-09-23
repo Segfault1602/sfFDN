@@ -16,7 +16,7 @@ namespace sfFDN
  *
  * Coefficients are row-major with one row per output channel:
  * `coefficients[output_channel * input_channel_count + input_channel]`.
- * Processing overwrites every output sample. Input and output storage must not overlap.
+ * Processing overwrites every output sample. Input and output must occupy non-overlapping memory.
  * @ingroup AudioProcessors
  */
 class ChannelMatrix final : public AudioProcessor

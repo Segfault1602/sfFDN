@@ -480,41 +480,6 @@ TEST_CASE("ScalarFeedbackMatrix processes nonzero-offset strided views", "[feedb
     RequireLogicalOutput(output, packed_output);
 }
 
-TEST_CASE("ScalarFeedbackMatrix processes disjoint same-allocation views", "[feedback_matrix]")
-{
-    constexpr uint32_t kOrder = 3;
-    constexpr uint32_t kStride = 14;
-    constexpr uint32_t kBlockSize = 4;
-    constexpr uint32_t kInputOffset = 1;
-    constexpr uint32_t kOutputOffset = 8;
-    constexpr float kSentinel = -2468.5f;
-    const auto matrix_data = DenseTestMatrix(kOrder);
-    sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{kOrder, matrix_data}});
-    std::vector<float> storage(kOrder * kStride, kSentinel);
-    sfFDN::AudioBuffer parent(kStride, kOrder, storage);
-    sfFDN::AudioBuffer input = parent.Offset(kInputOffset, kBlockSize);
-    sfFDN::AudioBuffer output = parent.Offset(kOutputOffset, kBlockSize);
-    FillLogicalInput(input);
-    const auto expected = DenseReference(matrix_data, input);
-
-    matrix.Process(input, output);
-
-    RequireLogicalOutput(output, expected);
-    for (uint32_t channel = 0; channel < kOrder; ++channel)
-    {
-        const auto channel_storage = std::span(storage).subspan(static_cast<size_t>(channel) * kStride, kStride);
-        for (uint32_t sample = 0; sample < kStride; ++sample)
-        {
-            const bool is_input = sample >= kInputOffset && sample < kInputOffset + kBlockSize;
-            const bool is_output = sample >= kOutputOffset && sample < kOutputOffset + kBlockSize;
-            if (!is_input && !is_output)
-            {
-                REQUIRE(channel_storage[sample] == kSentinel);
-            }
-        }
-    }
-}
-
 TEST_CASE("ScalarFeedbackMatrix processes exact strided aliases without allocations", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 3;

@@ -161,6 +161,9 @@ TEST_CASE("AudioBuffer alias classifier distinguishes logical relationships", "[
     const sfFDN::AudioBuffer default_buffer;
     const sfFDN::AudioBuffer zero_channels(8, 0, storage);
     const sfFDN::AudioBuffer zero_frame(0, 3, storage);
+    const sfFDN::AudioBuffer lower_half(8, 2, std::span(storage).subspan(0, 16));
+    const sfFDN::AudioBuffer touching_lower_half(8, 2, std::span(storage).subspan(16, 16));
+    const sfFDN::AudioBuffer one_sample_into_lower_half(8, 2, std::span(storage).subspan(15, 16));
 
     const auto require_relationship = [](const sfFDN::AudioBuffer& first, const sfFDN::AudioBuffer& second,
                                          sfFDN::AudioBufferAlias expected) {
@@ -171,17 +174,20 @@ TEST_CASE("AudioBuffer alias classifier distinguishes logical relationships", "[
     require_relationship(parent, copy, sfFDN::AudioBufferAlias::Exact);
     require_relationship(parent, independent, sfFDN::AudioBufferAlias::Exact);
     require_relationship(parent, separate, sfFDN::AudioBufferAlias::Disjoint);
-    require_relationship(parent, fewer_channels, sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent, fewer_channels, sfFDN::AudioBufferAlias::Invalid);
     require_relationship(parent, separate_fewer_channels, sfFDN::AudioBufferAlias::Disjoint);
-    require_relationship(parent, parent.GetChannelBuffer(1), sfFDN::AudioBufferAlias::Partial);
-    require_relationship(parent, different_stride, sfFDN::AudioBufferAlias::Partial);
+    require_relationship(parent, parent.GetChannelBuffer(1), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent, different_stride, sfFDN::AudioBufferAlias::Invalid);
     require_relationship(parent.GetChannelBuffer(1), mono_different_stride, sfFDN::AudioBufferAlias::Exact);
-    require_relationship(parent.Offset(0, 2), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Disjoint);
-    require_relationship(parent.Offset(0, 2), parent.Offset(4, 2), sfFDN::AudioBufferAlias::Disjoint);
-    require_relationship(parent, parent.Offset(0, 4), sfFDN::AudioBufferAlias::Partial);
-    require_relationship(parent.Offset(1, 3), parent.Offset(2, 3), sfFDN::AudioBufferAlias::Partial);
-    require_relationship(parent.Offset(1, 6), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Partial);
-    require_relationship(parent.Offset(0, 2), parent.Offset(0, 3), sfFDN::AudioBufferAlias::Partial);
+    // Interleaved windows of one parent share no samples, but their extents overlap, so they are not disjoint.
+    require_relationship(parent.Offset(0, 2), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent.Offset(0, 2), parent.Offset(4, 2), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent, parent.Offset(0, 4), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent.Offset(1, 3), parent.Offset(2, 3), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent.Offset(1, 6), parent.Offset(2, 2), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(parent.Offset(0, 2), parent.Offset(0, 3), sfFDN::AudioBufferAlias::Invalid);
+    require_relationship(lower_half, touching_lower_half, sfFDN::AudioBufferAlias::Disjoint);
+    require_relationship(lower_half, one_sample_into_lower_half, sfFDN::AudioBufferAlias::Invalid);
 
     require_relationship(default_buffer, parent, sfFDN::AudioBufferAlias::Disjoint);
     require_relationship(zero_channels, parent, sfFDN::AudioBufferAlias::Disjoint);

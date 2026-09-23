@@ -125,10 +125,10 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
     //   Logical input maps use samples as rows and channels as columns.
     //   Multiplication by A^T therefore gives y_s = A * x_s for each sample-vector x_s. ✓
     // noalias() avoids an alias-protection result temporary; Eigen may still use internal GEMM scratch storage.
-    // Partial overlap is outside the supported contract: Debug asserts, and Release falls through to the tiled path,
-    // which is defined but numerically unspecified for that case.
+    // Buffers whose extents overlap without being an exact alias are outside the supported contract: Debug asserts,
+    // and Release falls through to the tiled path, which is defined but numerically unspecified for that case.
     const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
-    assert(alias != AudioBufferAlias::Partial);
+    assert(alias != AudioBufferAlias::Invalid);
 
     const float* input_base = input.GetChannelSpan(0).data();
     float* output_base = output.GetChannelSpan(0).data();

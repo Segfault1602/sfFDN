@@ -155,15 +155,19 @@ void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexce
     assert(input.SampleCount() == output.SampleCount());
 
     const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
-    assert(alias != AudioBufferAlias::Partial);
-    if (alias == AudioBufferAlias::Partial)
+    assert(alias != AudioBufferAlias::Invalid);
+    if (alias == AudioBufferAlias::Invalid)
     {
-        // Partial overlap is outside the supported contract: Debug asserts; Release uses a defined but unspecified
-        // copy.
+        // Buffers whose extents overlap without being an exact alias are outside the supported contract: Debug
+        // asserts; Release uses a defined but unspecified copy.
         for (uint32_t channel = 0; channel < matrix_size; ++channel)
         {
             const auto channel_input = input.GetChannelSpan(channel);
             const auto channel_output = output.GetChannelSpan(channel);
+            if (channel_output.data() == channel_input.data())
+            {
+                continue;
+            }
             if (std::less<const float*>{}(channel_output.data(), channel_input.data()))
             {
                 std::ranges::copy(channel_input, channel_output.begin());

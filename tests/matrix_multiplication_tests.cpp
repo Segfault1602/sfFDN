@@ -216,18 +216,21 @@ TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block samp
     }
 }
 
-TEST_CASE("HadamardMultiplyBlock processes disjoint same-allocation views", "[matrix_multiplication]")
+TEST_CASE("HadamardMultiplyBlock processes disjoint strided views", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatrixSize = 4;
     constexpr uint32_t kStride = 11;
     constexpr uint32_t kBlockSize = 5;
+    constexpr uint32_t kInputOffset = 1;
+    constexpr uint32_t kOutputOffset = 6;
     constexpr float kSentinel = -1234.5f;
 
-    std::vector<float> parent(kMatrixSize * kStride, kSentinel);
-    sfFDN::AudioBuffer const parent_buffer(kStride, kMatrixSize, parent);
-    sfFDN::AudioBuffer input = parent_buffer.Offset(1, kBlockSize);
-    sfFDN::AudioBuffer output = parent_buffer.Offset(6, kBlockSize);
-    REQUIRE(input.Data() != output.Data());
+    std::vector<float> input_parent(kMatrixSize * kStride, kSentinel);
+    std::vector<float> output_parent(kMatrixSize * kStride, kSentinel);
+    sfFDN::AudioBuffer const input_parent_buffer(kStride, kMatrixSize, input_parent);
+    sfFDN::AudioBuffer const output_parent_buffer(kStride, kMatrixSize, output_parent);
+    sfFDN::AudioBuffer input = input_parent_buffer.Offset(kInputOffset, kBlockSize);
+    sfFDN::AudioBuffer output = output_parent_buffer.Offset(kOutputOffset, kBlockSize);
     REQUIRE(sfFDN::ClassifyAudioBufferAlias(input, output) == sfFDN::AudioBufferAlias::Disjoint);
 
     std::array<std::array<float, kBlockSize>, kMatrixSize> input_samples{};
@@ -240,7 +243,7 @@ TEST_CASE("HadamardMultiplyBlock processes disjoint same-allocation views", "[ma
             input_span[sample] = input_samples[channel][sample];
         }
     }
-    const auto before = parent;
+    const auto input_before = input_parent;
 
     sfFDN::HadamardMultiplyBlock(input, output);
 
@@ -260,23 +263,15 @@ TEST_CASE("HadamardMultiplyBlock processes disjoint same-allocation views", "[ma
         }
     }
 
-    for (uint32_t channel = 0; channel < kMatrixSize; ++channel)
-    {
-        const auto input_span = input.GetChannelSpan(channel);
-        for (uint32_t sample = 0; sample < kBlockSize; ++sample)
-        {
-            REQUIRE(input_span[sample] == input_samples[channel][sample]);
-        }
-    }
+    REQUIRE(input_parent == input_before);
     for (uint32_t channel = 0; channel < kMatrixSize; ++channel)
     {
         for (uint32_t sample = 0; sample < kStride; ++sample)
         {
-            const bool is_output_sample = sample >= 6 && sample < 6 + kBlockSize;
-            const size_t index = (channel * kStride) + sample;
+            const bool is_output_sample = sample >= kOutputOffset && sample < kOutputOffset + kBlockSize;
             if (!is_output_sample)
             {
-                REQUIRE(parent[index] == before[index]);
+                REQUIRE(output_parent[(channel * kStride) + sample] == kSentinel);
             }
         }
     }

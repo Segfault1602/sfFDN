@@ -9,11 +9,13 @@
 
 namespace sfFDN
 {
+// Two buffers must either occupy non-overlapping memory extents or be the same logical view. The extent of a
+// buffer runs from the first sample of channel 0 to the end of its last channel.
 enum class AudioBufferAlias : uint8_t
 {
     Disjoint,
     Exact,
-    Partial,
+    Invalid,
 };
 
 AudioBufferAlias ClassifyAudioBufferAlias(const AudioBuffer& first,
