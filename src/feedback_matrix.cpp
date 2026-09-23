@@ -23,10 +23,6 @@
 
 // #include <sanitizer/rtsan_interface.h>
 
-#ifdef SFFDN_USE_VDSP
-#include <Accelerate/Accelerate.h>
-#endif
-
 #include <Eigen/Core>
 
 namespace
@@ -123,15 +119,6 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
         return;
     }
 
-// Not using vDSP for now as it seems to be slower than Eigen
-#if 0 // defined(SFFDN_USE_VDSP)
-    const float* A = matrix_data_.data();
-    const float* B = input.Data();
-    float* C = output.Data();
-
-    vDSP_mmul(A, 1, B, 1, C, 1, col, row, col);
-#else
-
     // Intentional Eigen column-major trick:
     //   matrix_data_ stores A in row-major order: flat[r*N+c] = A[r,c].
     //   Eigen maps that buffer column-major, so the Eigen matrix object equals A^T.
@@ -170,7 +157,6 @@ void ScalarFeedbackMatrix::Process(const AudioBuffer& input, AudioBuffer& output
                             matrix_data_.data(), tile_size, col, Eigen::OuterStride<>(kScratchTileFrames),
                             output_stride);
     }
-#endif
 }
 
 uint32_t ScalarFeedbackMatrix::GetSize() const
