@@ -2,6 +2,7 @@
 
 #include "audio_buffer_alias.h"
 #include "sffdn/audio_buffer.h"
+#include "simd.h"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,146 @@
 
 namespace
 {
+
+constexpr uint32_t kTileRows = 4;
+constexpr uint32_t kTileVecs = 2;
+constexpr size_t kTileFrames = kTileVecs * sfFDN::simd::kWidth;
+
+// Orders at or above this pack each input tile into contiguous scratch. Planar channels at a power-of-two stride map
+// to few L1 sets, so rereading a strided tile once per output row group thrashes the cache at large orders.
+constexpr uint32_t kPackOrder = 32;
+
+// Computes output rows [out_row, out_row + Rows) for Vecs * simd::kWidth frames of y_s = A * x_s, keeping the
+// Rows x Vecs accumulator tile in registers while streaming each input channel once. When Pack is set, the input tile
+// is also copied into pack with a per-channel stride of Vecs * simd::kWidth. Every load precedes every store, so the
+// input and output tiles may be the same memory.
+template <uint32_t Rows, uint32_t Vecs, bool Pack>
+void DenseTile(const sfFDN::AudioBuffer& input, size_t input_frame, sfFDN::AudioBuffer& output, size_t output_frame,
+               std::span<const float> matrix, uint32_t out_row, std::span<float> pack) noexcept SFFDN_NONBLOCKING
+{
+    namespace simd = sfFDN::simd;
+    const uint32_t order = input.ChannelCount();
+
+    std::array<std::array<simd::Vec, Vecs>, Rows> acc{};
+
+    for (uint32_t in = 0; in < order; ++in)
+    {
+        const std::span<const float> channel_input = input.GetChannelSpan(in);
+        std::array<simd::Vec, Vecs> x{};
+        for (uint32_t v = 0; v < Vecs; ++v)
+        {
+            x[v] = simd::Load(simd::LanesAt(channel_input, input_frame + (v * simd::kWidth)));
+            if constexpr (Pack)
+            {
+                simd::Store(simd::LanesAt(pack, (((in * Vecs) + v) * simd::kWidth)), x[v]);
+            }
+        }
+        for (uint32_t r = 0; r < Rows; ++r)
+        {
+            const simd::Vec coefficient = simd::Splat(matrix[((out_row + r) * order) + in]);
+            for (uint32_t v = 0; v < Vecs; ++v)
+            {
+                acc[r][v] = simd::MulAdd(coefficient, x[v], acc[r][v]);
+            }
+        }
+    }
+
+    for (uint32_t r = 0; r < Rows; ++r)
+    {
+        const std::span<float> channel_output = output.GetChannelSpan(out_row + r);
+        for (uint32_t v = 0; v < Vecs; ++v)
+        {
+            simd::Store(simd::LanesAt(channel_output, output_frame + (v * simd::kWidth)), acc[r][v]);
+        }
+    }
+}
+
+template <uint32_t Vecs>
+void DenseRows(const sfFDN::AudioBuffer& input, size_t input_frame, sfFDN::AudioBuffer& output, size_t output_frame,
+               std::span<const float> matrix, uint32_t out_row) noexcept SFFDN_NONBLOCKING
+{
+    const uint32_t order = input.ChannelCount();
+    for (; out_row + kTileRows <= order; out_row += kTileRows)
+    {
+        DenseTile<kTileRows, Vecs, false>(input, input_frame, output, output_frame, matrix, out_row, {});
+    }
+    for (; out_row < order; ++out_row)
+    {
+        DenseTile<1, Vecs, false>(input, input_frame, output, output_frame, matrix, out_row, {});
+    }
+}
+
+// The first row group reads the strided input and packs it; later row groups read the contiguous copy.
+template <uint32_t Vecs>
+void DensePackedRows(const sfFDN::AudioBuffer& input, sfFDN::AudioBuffer& output, size_t frame,
+                     std::span<const float> matrix, std::span<float> scratch) noexcept SFFDN_NONBLOCKING
+{
+    const uint32_t order = input.ChannelCount();
+    uint32_t out_row = 0;
+    if (order >= kTileRows)
+    {
+        DenseTile<kTileRows, Vecs, true>(input, frame, output, frame, matrix, 0, scratch);
+        out_row = kTileRows;
+    }
+    else
+    {
+        DenseTile<1, Vecs, true>(input, frame, output, frame, matrix, 0, scratch);
+        out_row = 1;
+    }
+    const sfFDN::AudioBuffer packed(Vecs * sfFDN::simd::kWidth, order, scratch);
+    DenseRows<Vecs>(packed, 0, output, frame, matrix, out_row);
+}
+
+// Kernel body of sfFDN::MultiplyDenseMatrix. When pack is set, input tiles are staged through scratch; this is required
+// when input and output are the same buffer.
+void MultiplyDense(const sfFDN::AudioBuffer& input, sfFDN::AudioBuffer& output, std::span<const float> matrix,
+                   std::span<float> scratch, bool pack) noexcept SFFDN_NONBLOCKING
+{
+    const uint32_t order = input.ChannelCount();
+    const size_t frames = input.SampleCount();
+
+    size_t frame = 0;
+    for (; frame + kTileFrames <= frames; frame += kTileFrames)
+    {
+        if (pack)
+        {
+            DensePackedRows<kTileVecs>(input, output, frame, matrix, scratch);
+        }
+        else
+        {
+            DenseRows<kTileVecs>(input, frame, output, frame, matrix, 0);
+        }
+    }
+    for (; frame + sfFDN::simd::kWidth <= frames; frame += sfFDN::simd::kWidth)
+    {
+        if (pack)
+        {
+            DensePackedRows<1>(input, output, frame, matrix, scratch);
+        }
+        else
+        {
+            DenseRows<1>(input, frame, output, frame, matrix, 0);
+        }
+    }
+    for (; frame < frames; ++frame)
+    {
+        // Gather the frame first so an in-place update never reads an output it has already written.
+        for (uint32_t in = 0; in < order; ++in)
+        {
+            scratch[in] = input.GetChannelSpan(in)[frame];
+        }
+        for (uint32_t out = 0; out < order; ++out)
+        {
+            const std::span<const float> coefficients = matrix.subspan(static_cast<size_t>(out) * order, order);
+            float sum = 0.f;
+            for (uint32_t in = 0; in < order; ++in)
+            {
+                sum += coefficients[in] * scratch[in];
+            }
+            output.GetChannelSpan(out)[frame] = sum;
+        }
+    }
+}
 
 void HadamardMultiply4(std::span<const float> in, std::span<float> out)
 {
@@ -433,6 +574,25 @@ void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span
             }
         }
     }
+}
+
+void MultiplyDenseMatrix(const AudioBuffer& input, AudioBuffer& output, std::span<const float> matrix,
+                         std::span<float> scratch) noexcept SFFDN_NONBLOCKING
+{
+    static_assert(kTileFrames <= kDenseMatrixScratchFrames);
+    assert(input.SampleCount() == output.SampleCount());
+    assert(input.ChannelCount() == output.ChannelCount());
+    const uint32_t order = input.ChannelCount();
+    assert(matrix.size() == static_cast<size_t>(order) * order);
+    assert(scratch.size() >= static_cast<size_t>(order) * kDenseMatrixScratchFrames);
+
+    // Buffers whose extents overlap without being an exact alias are outside the supported contract: Debug asserts,
+    // and Release takes the packed path, which is defined but numerically unspecified for that case.
+    const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
+    assert(alias != AudioBufferAlias::Invalid);
+
+    const bool pack = alias != AudioBufferAlias::Disjoint || order >= kPackOrder;
+    MultiplyDense(input, output, matrix, scratch, pack);
 }
 
 } // namespace sfFDN

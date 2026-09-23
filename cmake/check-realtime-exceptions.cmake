@@ -27,22 +27,16 @@ foreach(source IN LISTS realtime_sources)
     endif()
 endforeach()
 
-set(expected_exception_file "${SFFDN_SOURCE_DIR}/src/feedback_matrix.cpp")
-
-if(NOT fea_waiver_count EQUAL 1)
-    message(FATAL_ERROR "Expected 1 FEA waiver, found ${fea_waiver_count}")
+if(NOT fea_waiver_count EQUAL 0)
+    message(FATAL_ERROR "Expected 0 FEA waivers, found ${fea_waiver_count}")
 endif()
 
 if(NOT rtsan_disabler_count EQUAL 0)
     message(FATAL_ERROR "Expected 0 RTSan disablers, found ${rtsan_disabler_count}")
 endif()
 
-list(LENGTH exception_files exception_file_count)
-if(NOT exception_file_count EQUAL 1 OR NOT exception_files STREQUAL expected_exception_file)
-    message(
-        FATAL_ERROR
-        "Realtime exceptions must remain confined to ${expected_exception_file}; found: ${exception_files}"
-    )
+if(exception_files)
+    message(FATAL_ERROR "Realtime exceptions are not allowed; found: ${exception_files}")
 endif()
 
-message(STATUS "Realtime exception inventory: 1 FEA waiver, 0 RTSan disablers")
+message(STATUS "Realtime exception inventory: 0 FEA waivers, 0 RTSan disablers")

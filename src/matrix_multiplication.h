@@ -18,6 +18,17 @@ void WalshHadamardTransform(std::span<float> inout);
 void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
+/// Scratch samples per channel that MultiplyDenseMatrix requires.
+inline constexpr uint32_t kDenseMatrixScratchFrames = 16;
+
+/// @brief Overwrites output with y_s = A * x_s for every frame s.
+/// @param input order-channel input; may be disjoint from output or exactly alias it
+/// @param output order-channel output with the same sample count as input
+/// @param matrix order x order transformation matrix in row-major output/input order
+/// @param scratch at least order * kDenseMatrixScratchFrames samples
+void MultiplyDenseMatrix(const AudioBuffer& input, AudioBuffer& output, std::span<const float> matrix,
+                         std::span<float> scratch) noexcept SFFDN_NONBLOCKING;
+
 void MatrixMultiply_4(std::span<const float, 4> input, std::span<float, 4> output,
                       std::span<const float, 4 * 4> matrix);
 void MatrixMultiply_8(std::span<const float, 8> input, std::span<float, 8> output,
