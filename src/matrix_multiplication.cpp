@@ -9,11 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <functional>
 #include <span>
-#ifdef __cpp_lib_mdspan
-#include <mdspan>
-#endif
 
 #include <Eigen/Core>
 
@@ -156,29 +152,7 @@ void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexce
 
     const AudioBufferAlias alias = ClassifyAudioBufferAlias(input, output);
     assert(alias != AudioBufferAlias::Invalid);
-    if (alias == AudioBufferAlias::Invalid)
-    {
-        // Buffers whose extents overlap without being an exact alias are outside the supported contract: Debug
-        // asserts; Release uses a defined but unspecified copy.
-        for (uint32_t channel = 0; channel < matrix_size; ++channel)
-        {
-            const auto channel_input = input.GetChannelSpan(channel);
-            const auto channel_output = output.GetChannelSpan(channel);
-            if (channel_output.data() == channel_input.data())
-            {
-                continue;
-            }
-            if (std::less<const float*>{}(channel_output.data(), channel_input.data()))
-            {
-                std::ranges::copy(channel_input, channel_output.begin());
-            }
-            else
-            {
-                std::ranges::copy_backward(channel_input, channel_output.end());
-            }
-        }
-    }
-    else if (alias == AudioBufferAlias::Disjoint)
+    if (alias == AudioBufferAlias::Disjoint)
     {
         for (uint32_t channel = 0; channel < matrix_size; ++channel)
         {
