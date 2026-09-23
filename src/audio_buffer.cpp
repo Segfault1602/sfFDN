@@ -90,17 +90,17 @@ uint32_t AudioBuffer::ChannelStride() const noexcept SFFDN_NONBLOCKING
 
 bool AudioBuffer::IsPacked() const noexcept SFFDN_NONBLOCKING
 {
-    return offset_ == 0 && (channel_count_ <= 1 || ChannelStride() == SampleCount());
+    return channel_count_ <= 1 || ChannelStride() == SampleCount();
 }
 
 float* AudioBuffer::Data() noexcept SFFDN_NONBLOCKING
 {
-    return buffer_.data();
+    return buffer_.subspan(offset_).data();
 }
 
 const float* AudioBuffer::Data() const noexcept SFFDN_NONBLOCKING
 {
-    return buffer_.data();
+    return buffer_.subspan(offset_).data();
 }
 
 std::span<const float> AudioBuffer::GetChannelSpan(uint32_t channel) const noexcept SFFDN_NONBLOCKING

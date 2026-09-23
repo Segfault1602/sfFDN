@@ -227,7 +227,7 @@ TEST_CASE("HadamardMultiplyBlock processes disjoint same-allocation views", "[ma
     sfFDN::AudioBuffer const parent_buffer(kStride, kMatrixSize, parent);
     sfFDN::AudioBuffer input = parent_buffer.Offset(1, kBlockSize);
     sfFDN::AudioBuffer output = parent_buffer.Offset(6, kBlockSize);
-    REQUIRE(input.Data() == output.Data());
+    REQUIRE(input.Data() != output.Data());
     REQUIRE(sfFDN::ClassifyAudioBufferAlias(input, output) == sfFDN::AudioBufferAlias::Disjoint);
 
     std::array<std::array<float, kBlockSize>, kMatrixSize> input_samples{};

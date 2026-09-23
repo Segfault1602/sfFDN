@@ -54,20 +54,24 @@ class AudioBuffer
 
     /**
      * @brief Reports whether all logical samples form one contiguous range beginning at Data().
-     * @return True for zero-offset empty and mono buffers, and for zero-offset multichannel buffers whose channel
-     * stride equals their sample count.
+     * @return True for empty and mono buffers, and for multichannel buffers whose channel stride equals their sample
+     * count.
      */
     bool IsPacked() const noexcept SFFDN_NONBLOCKING;
 
     /**
-     * @brief Provides direct access to the backing planar-storage origin.
-     * @return A pointer to the backing audio data.
+     * @brief Provides direct access to the first logical sample of channel 0.
+     * @return A pointer equal to GetChannelSpan(0).data() whenever the buffer has at least one channel. Channel k
+     * begins at Data() + k * ChannelStride(). The ChannelCount() * SampleCount() logical samples form one contiguous
+     * range beginning at Data() only when IsPacked() is true.
      */
     float* Data() noexcept SFFDN_NONBLOCKING;
 
     /**
-     * @brief Provides direct access to the backing planar-storage origin.
-     * @return A pointer to the backing audio data.
+     * @brief Provides direct access to the first logical sample of channel 0.
+     * @return A pointer equal to GetChannelSpan(0).data() whenever the buffer has at least one channel. Channel k
+     * begins at Data() + k * ChannelStride(). The ChannelCount() * SampleCount() logical samples form one contiguous
+     * range beginning at Data() only when IsPacked() is true.
      */
     const float* Data() const noexcept SFFDN_NONBLOCKING;
 

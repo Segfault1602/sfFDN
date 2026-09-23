@@ -63,8 +63,19 @@ TEST_CASE("AudioBuffer aliases backing storage through constructors and accessor
     REQUIRE(shortened_mono.IsPacked());
 
     const auto offset_shortened_mono = mono.Offset(1, 2);
-    REQUIRE(offset_shortened_mono.Data() == storage.data());
-    REQUIRE_FALSE(offset_shortened_mono.IsPacked());
+    REQUIRE(offset_shortened_mono.Data() == std::span(storage).subspan(1).data());
+    REQUIRE(offset_shortened_mono.Data() == offset_shortened_mono.GetChannelSpan(0).data());
+    REQUIRE(offset_shortened_mono.IsPacked());
+
+    const auto offset_window = buffer.Offset(1, 2);
+    REQUIRE(offset_window.Data() == std::span(storage).subspan(1).data());
+    REQUIRE(offset_window.Data() == offset_window.GetChannelSpan(0).data());
+    REQUIRE(offset_window.GetChannelSpan(2).data() ==
+            std::span(storage).subspan(1 + (2 * offset_window.ChannelStride())).data());
+    REQUIRE_FALSE(offset_window.IsPacked());
+
+    auto mutable_offset_window = buffer.Offset(1, 2);
+    REQUIRE(mutable_offset_window.Data() == std::span(storage).subspan(1).data());
 }
 
 TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
