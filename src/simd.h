@@ -59,6 +59,12 @@ namespace sfFDN::simd
 #ifdef SFFDN_SIMD_NEON
 
 inline constexpr size_t kWidth = 4;
+// AArch64 has 32 128-bit vector registers; 32-bit Arm NEON has 16 quad registers.
+#if defined(__aarch64__) || defined(_M_ARM64)
+inline constexpr size_t kRegisterCount = 32;
+#else
+inline constexpr size_t kRegisterCount = 16;
+#endif
 using Vec = float32x4_t;
 using IntVec = int32x4_t;
 
@@ -142,6 +148,8 @@ inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_
 #elifdef SFFDN_SIMD_AVX
 
 inline constexpr size_t kWidth = 8;
+// AVX/AVX2 without AVX-512 has 16 256-bit vector registers.
+inline constexpr size_t kRegisterCount = 16;
 using Vec = __m256;
 using IntVec = __m256i;
 
@@ -238,6 +246,12 @@ inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_
 #elifdef SFFDN_SIMD_SSE
 
 inline constexpr size_t kWidth = 4;
+// x86-64 has 16 128-bit SSE registers; 32-bit x86 has 8.
+#if defined(__x86_64__) || defined(_M_X64)
+inline constexpr size_t kRegisterCount = 16;
+#else
+inline constexpr size_t kRegisterCount = 8;
+#endif
 using Vec = __m128;
 using IntVec = __m128i;
 
@@ -320,6 +334,8 @@ inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_
 #else
 
 inline constexpr size_t kWidth = 4;
+// Nominal value for the scalar fallback, whose Vec lives wherever the compiler places it.
+inline constexpr size_t kRegisterCount = 16;
 
 struct Vec
 {

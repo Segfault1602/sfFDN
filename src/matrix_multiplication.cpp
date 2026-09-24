@@ -18,12 +18,14 @@ namespace
 {
 
 // Primary row-tile size: wider tiles amortize the per-row-group pass over every input channel across more output
-// rows, which matters once an order has enough rows to fill it. kTileRowsSmall is the fallback for orders (or
+// rows, which matters once an order has enough rows to fill it. A tile holds kTileRows * kTileVecs accumulators plus
+// kTileVecs inputs and one broadcast coefficient in registers, so 8 rows only fit a 32-register file (NEON); on
+// 16-register x86 an 8x2 tile spills and runs ~40% slower than 4x2. kTileRowsSmall is the fallback for orders (or
 // order remainders) narrower than kTileRows, so small orders still get a single wide-enough tile instead of
 // falling all the way to single-row tiles, which would re-stream the whole input once per output row.
-constexpr uint32_t kTileRows = 8;
-constexpr uint32_t kTileRowsSmall = 4;
 constexpr uint32_t kTileVecs = 2;
+constexpr uint32_t kTileRows = sfFDN::simd::kRegisterCount >= 32 ? 8 : 4;
+constexpr uint32_t kTileRowsSmall = 4;
 constexpr size_t kTileFrames = kTileVecs * sfFDN::simd::kWidth;
 
 // Orders at or above this pack each input tile into contiguous scratch. Planar channels at a power-of-two stride map
