@@ -2,8 +2,11 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
+#include <span>
+#include <vector>
 
 #include <sndfile.h>
 
@@ -770,4 +773,75 @@ TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count", 
             REQUIRE_THAT(bank_output[i], Catch::Matchers::WithinAbs(reference[i], 1e-5f));
         }
     }
+}
+
+TEST_CASE("IIRFilterBank tracks per-channel cascades over sustained resonant input", "[filter]")
+{
+    // Poles close to the unit circle recirculate rounding error for thousands of samples, so this catches
+    // SIMD arithmetic (for example fused versus unfused NegMulAdd) that drifts from the scalar cascade over time
+    // rather than within a single block. The channel count is deliberately not a multiple of any SIMD width.
+    constexpr uint32_t kChannelCount = 13;
+    constexpr uint32_t kStageCount = 2;
+    constexpr uint32_t kBlockSize = 128;
+    constexpr uint32_t kBlockCount = 400;
+
+    std::vector<sfFDN::FilterCoefficients> coeffs;
+    coeffs.reserve(kChannelCount * kStageCount);
+    for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+    {
+        for (uint32_t stage = 0; stage < kStageCount; ++stage)
+        {
+            const float radius = 0.999f - (0.0004f * static_cast<float>((channel + stage) % 3));
+            const float angle = 0.05f + (0.13f * static_cast<float>(channel)) + (0.4f * static_cast<float>(stage));
+            const float gain = 0.05f;
+            coeffs.push_back({.b0 = gain,
+                              .b1 = 0.f,
+                              .b2 = -gain,
+                              .a0 = 1.f,
+                              .a1 = -2.f * radius * std::cos(angle),
+                              .a2 = radius * radius});
+        }
+    }
+
+    sfFDN::IIRFilterBank filter_bank;
+    filter_bank.SetFilter(coeffs, kChannelCount);
+    std::vector<sfFDN::CascadedBiquads> cascades(kChannelCount);
+    for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+    {
+        cascades[channel].SetCoefficients(
+            std::span<const sfFDN::FilterCoefficients>(coeffs).subspan(channel * kStageCount, kStageCount));
+    }
+
+    sfFDN::RNG rng;
+    std::vector<float> input(kChannelCount * kBlockSize);
+    std::vector<float> bank_output(input.size());
+    std::vector<float> reference(input.size());
+    const sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+    sfFDN::AudioBuffer bank_buffer(kBlockSize, kChannelCount, bank_output);
+    sfFDN::AudioBuffer reference_buffer(kBlockSize, kChannelCount, reference);
+
+    float max_error = 0.f;
+    float max_reference = 0.f;
+    for (uint32_t block = 0; block < kBlockCount; ++block)
+    {
+        for (auto& sample : input)
+        {
+            sample = rng();
+        }
+        filter_bank.Process(input_buffer, bank_buffer);
+        for (uint32_t channel = 0; channel < kChannelCount; ++channel)
+        {
+            auto channel_output = reference_buffer.GetChannelBuffer(channel);
+            cascades[channel].Process(input_buffer.GetChannelBuffer(channel), channel_output);
+        }
+        for (size_t i = 0; i < reference.size(); ++i)
+        {
+            max_error = std::max(max_error, std::abs(bank_output[i] - reference[i]));
+            max_reference = std::max(max_reference, std::abs(reference[i]));
+        }
+    }
+
+    INFO("max |bank - reference| = " << max_error << ", max |reference| = " << max_reference);
+    REQUIRE(max_reference > 0.1f);
+    REQUIRE(max_error <= 1e-5f * max_reference);
 }

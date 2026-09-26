@@ -194,8 +194,12 @@ class SimdBiquadBank
     // Up to kMaxGroups groups still run as a single pass, because avoiding a second pass entirely
     // beats the slightly worse per-group rate. Once a split is unavoidable, passes are sized at
     // kPreferredGroups, which is the most efficient width measured.
-    static constexpr uint32_t kMaxGroups = simd::kWidth == 8 ? 4 : 8;
-    static constexpr uint32_t kPreferredGroups = simd::kWidth == 8 ? 3 : 6;
+    //
+    // Both are expressed in channels (32 per pass, 24 when splitting), which reproduces the values
+    // tuned for 4- and 8-lane vectors. Other widths are an untuned starting point.
+    static constexpr uint32_t kMaxGroups = std::max<uint32_t>(1, static_cast<uint32_t>(32 / simd::kWidth));
+    static constexpr uint32_t kPreferredGroups = std::max<uint32_t>(1, static_cast<uint32_t>(24 / simd::kWidth));
+    static_assert(kMaxGroups <= 8, "RunStages is instantiated for at most 8 groups");
 
     /**
      * @brief Gathers a pass's channels from the caller's channel-major buffer into the frame-major

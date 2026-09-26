@@ -110,6 +110,7 @@ target_link_libraries(
     PRIVATE Eigen3::Eigen
             pffft::pffft
             kissfft::kissfft-float
+            xsimd::xsimd
             sfFDN::sfFDN_warnings
             sfFDN::sfFDN_options
 )

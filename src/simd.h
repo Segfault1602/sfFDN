@@ -4,427 +4,188 @@
 
 #include "sffdn/attributes.h"
 
+#include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <type_traits>
+#include <utility>
 
-// Define SFFDN_SIMD_FORCE_SCALAR to compile the portable fallback on any target. This exists so
-// the scalar kernels stay testable against the vector kernels on a single machine.
-#ifndef SFFDN_SIMD_FORCE_SCALAR
-#if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(_M_ARM64)
-#include <arm_neon.h>
-#define SFFDN_SIMD_NEON 1
-#elifdef __AVX__
-#include <immintrin.h>
-#define SFFDN_SIMD_AVX 1
-#elif defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
-#include <emmintrin.h>
-#define SFFDN_SIMD_SSE 1
-#endif
-#endif
-
-#if defined(SFFDN_SIMD_NEON) || defined(SFFDN_SIMD_AVX) || defined(SFFDN_SIMD_SSE)
-#define SFFDN_HAS_SIMD 1
-#endif
-
-#if !defined(SFFDN_HAS_SIMD) || !defined(__AVX2__)
-#include <array>
-#endif
-
-// std::bit_cast unpacks the index vector for the emulated x86 gathers only.
-#if defined(SFFDN_SIMD_SSE) || (defined(SFFDN_SIMD_AVX) && !defined(__AVX2__))
-#include <bit>
-#endif
-
-#ifndef SFFDN_HAS_SIMD
-#include <algorithm>
-#include <cmath>
-#endif
+#include <xsimd/xsimd.hpp>
 
 namespace sfFDN::simd
 {
 
-/**
- * @brief A single-precision vector backed by NEON, AVX, SSE, or a scalar fallback.
- *
- * The abstraction is intentionally minimal: only the operations required by the DSP kernels in
- * this library are provided. Every operation is branch-free and allocation-free so that callers
- * remain real-time safe.
- */
-// This header is the one place in the project allowed to name architecture intrinsics; everything
-// else goes through the wrappers below. portability-simd-intrinsics is silenced here rather than in
-// .clang-tidy so that it keeps flagging intrinsics that leak into DSP sources.
-// NOLINTBEGIN(portability-simd-intrinsics)
-#ifdef SFFDN_SIMD_NEON
+namespace detail
+{
+static_assert(xsimd::default_arch::supported(),
+              "sfFDN requires a SIMD instruction set supported by xsimd; check the target's compiler flags");
 
-inline constexpr size_t kWidth = 4;
-// AArch64 has 32 128-bit vector registers; 32-bit Arm NEON has 16 quad registers.
-#if defined(__aarch64__) || defined(_M_ARM64)
+using Arch = xsimd::default_arch;
+} // namespace detail
+
+/**
+ * @brief A single-precision vector for the target's widest supported SIMD instruction set.
+ *
+ * The abstraction is intentionally minimal: only the operations required by the DSP kernels in this library are
+ * provided. Every operation is branch-free and allocation-free so that callers remain real-time safe. Callers must not
+ * assume a particular width; use kWidth.
+ */
+using Vec = xsimd::batch<float, detail::Arch>;
+using IntVec = xsimd::batch<int32_t, detail::Arch>;
+
+inline constexpr size_t kWidth = Vec::size;
+// xsimd does not expose the size of the vector register file. The dense matrix kernel sizes its register tiles from
+// this value, so it only needs to be right about whether 32 registers are available. xsimd feature macros are always
+// defined as 0 or 1 and must be tested with #if.
+#if XSIMD_WITH_SSE2 && !(defined(__x86_64__) || defined(_M_X64))
+inline constexpr size_t kRegisterCount = 8;
+#elif XSIMD_WITH_AVX512F || XSIMD_WITH_NEON64 || XSIMD_WITH_SVE || XSIMD_WITH_RVV
 inline constexpr size_t kRegisterCount = 32;
 #else
 inline constexpr size_t kRegisterCount = 16;
 #endif
-using Vec = float32x4_t;
-using IntVec = int32x4_t;
+
+static_assert(IntVec::size == kWidth);
 
 inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
 {
-    return vld1q_f32(p);
+    return Vec::load_unaligned(p);
 }
 
 inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
 {
-    vst1q_f32(p, v);
+    v.store_unaligned(p);
 }
 
 inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
 {
-    return vdupq_n_f32(x);
+    return xsimd::broadcast<float, detail::Arch>(x);
 }
 
 inline Vec Zero() noexcept SFFDN_NONBLOCKING
 {
-    return vdupq_n_f32(0.f);
+    return Splat(0.f);
 }
 
 inline Vec Add(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
 {
-    return vaddq_f32(a, b);
+    return a + b;
 }
 
 inline Vec Sub(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
 {
-    return vsubq_f32(a, b);
+    return a - b;
 }
 
 inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
 {
-    return vmulq_f32(a, b);
+    return a * b;
 }
 
-/** @brief Returns a * b + c. */
+/** @brief Returns a * b + c, fused where the target supports it. */
 inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 {
-    return vfmaq_f32(c, a, b);
+    return xsimd::fma(a, b, c);
 }
 
-/** @brief Returns c - a * b. */
+/** @brief Returns c - a * b, fused where the target supports it. */
 inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
 {
-    return vfmsq_f32(c, a, b);
+#if XSIMD_WITH_NEON && !XSIMD_WITH_SVE && defined(__ARM_FEATURE_FMA)
+    // xsimd has no NEON fnma, and its generic -a * b + c is split across operator calls, so the compiler cannot fuse
+    // it; fma(-a, b, c) still costs a separate fneg. vfmsq_f32 is a single fmls/vfms, matching the pre-xsimd code.
+    // NOLINTNEXTLINE(portability-simd-intrinsics)
+    return Vec(vfmsq_f32(c, a, b));
+#else
+    return xsimd::fnma(a, b, c);
+#endif
 }
 
+/** @brief Rounds toward negative infinity. Requires |x| < 2^31 in every lane. */
 inline Vec Floor(Vec x) noexcept SFFDN_NONBLOCKING
 {
-    return vrndmq_f32(x);
+    // xsimd 14.3.0 has a native floor only on SSE4.1, AVX, AVX-512, WASM and VSX. Its generic fallback handles
+    // arbitrary magnitudes with an extra abs, compare and select, which cost the SSE2 oscillator ~10%; the
+    // precondition allows a plain truncate-and-correct instead, and AArch64 has a single-instruction floor.
+    // Selection is done by the preprocessor: function effect analysis also inspects discarded if-constexpr branches in
+    // non-template functions, and cannot see into the xsimd templates they would have instantiated.
+#if XSIMD_WITH_SSE4_1 || XSIMD_WITH_AVX || XSIMD_WITH_AVX512F || XSIMD_WITH_WASM || XSIMD_WITH_VSX
+    return xsimd::floor(x);
+#elif XSIMD_WITH_NEON64 && !XSIMD_WITH_SVE
+    // NOLINTNEXTLINE(portability-simd-intrinsics)
+    return Vec(vrndmq_f32(x));
+#else
+    const Vec truncated = xsimd::batch_cast<float>(xsimd::batch_cast<int32_t>(x));
+    return xsimd::select(truncated > x, truncated - Vec(1.f), truncated);
+#endif
 }
 
+/** @brief Converts to integers, truncating toward zero. Requires every lane to be representable as int32_t. */
 inline IntVec ToInt(Vec x) noexcept SFFDN_NONBLOCKING
 {
-    return vcvtq_s32_f32(x);
+    return xsimd::batch_cast<int32_t>(x);
 }
 
 inline Vec ToFloat(IntVec x) noexcept SFFDN_NONBLOCKING
 {
-    return vcvtq_f32_s32(x);
+    return xsimd::batch_cast<float>(x);
 }
 
 inline IntVec Min(IntVec x, int32_t maximum) noexcept SFFDN_NONBLOCKING
 {
-    return vminq_s32(x, vdupq_n_s32(maximum));
+    return xsimd::min(x, IntVec(maximum));
 }
 
-inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
-{
-    std::array<float, kWidth> gathered{};
-    gathered[0] = values[static_cast<size_t>(vgetq_lane_s32(indices, 0))];
-    gathered[1] = values[static_cast<size_t>(vgetq_lane_s32(indices, 1))];
-    gathered[2] = values[static_cast<size_t>(vgetq_lane_s32(indices, 2))];
-    gathered[3] = values[static_cast<size_t>(vgetq_lane_s32(indices, 3))];
-    return Load(gathered.data());
-}
-
-#elifdef SFFDN_SIMD_AVX
-
-inline constexpr size_t kWidth = 8;
-// AVX/AVX2 without AVX-512 has 16 256-bit vector registers.
-inline constexpr size_t kRegisterCount = 16;
-using Vec = __m256;
-using IntVec = __m256i;
-
-inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_loadu_ps(p);
-}
-
-inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
-{
-    _mm256_storeu_ps(p, v);
-}
-
-inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_set1_ps(x);
-}
-
-inline Vec Zero() noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_setzero_ps();
-}
-
-inline Vec Add(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_add_ps(a, b);
-}
-
-inline Vec Sub(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_sub_ps(a, b);
-}
-
-inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_mul_ps(a, b);
-}
-
-inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
-{
-#if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__))
-    return _mm256_fmadd_ps(a, b, c);
+// xsimd has a hardware gather only on AVX2/AVX-512, SVE and RVV. Elsewhere its generic gather extracts and inserts one
+// lane at a time, a serial dependency chain that made the SSE2 oscillator ~30% slower. Extracting the indices once
+// and constructing the vector from every lane lets the compiler combine the lanes as a tree instead.
+#if XSIMD_WITH_AVX2 || XSIMD_WITH_SVE || XSIMD_WITH_RVV
+#define SFFDN_SIMD_NATIVE_GATHER 1
 #else
-    return _mm256_add_ps(_mm256_mul_ps(a, b), c);
+#define SFFDN_SIMD_NATIVE_GATHER 0
 #endif
-}
 
-inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
+namespace detail
 {
-#if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__))
-    return _mm256_fnmadd_ps(a, b, c);
-#else
-    return _mm256_sub_ps(c, _mm256_mul_ps(a, b));
-#endif
-}
+using IndexLanes = std::array<int32_t, IntVec::size>;
 
-inline Vec Floor(Vec x) noexcept SFFDN_NONBLOCKING
+inline IndexLanes ToIndexLanes(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
 {
-    return _mm256_floor_ps(x);
-}
-
-inline IntVec ToInt(Vec x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_cvttps_epi32(x);
-}
-
-inline Vec ToFloat(IntVec x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm256_cvtepi32_ps(x);
-}
-
-inline IntVec Min(IntVec x, int32_t maximum) noexcept SFFDN_NONBLOCKING
-{
-#ifdef __AVX2__
-    return _mm256_min_epi32(x, _mm256_set1_epi32(maximum));
-#else
-    return ToInt(_mm256_min_ps(ToFloat(x), _mm256_set1_ps(static_cast<float>(maximum))));
-#endif
-}
-
-inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
-{
-#ifdef __AVX2__
-    return _mm256_i32gather_ps(values.data(), indices, sizeof(float));
-#else
-    const auto lanes = std::bit_cast<std::array<int32_t, kWidth>>(indices);
-    return _mm256_setr_ps(values[static_cast<size_t>(lanes[0])], values[static_cast<size_t>(lanes[1])],
-                          values[static_cast<size_t>(lanes[2])], values[static_cast<size_t>(lanes[3])],
-                          values[static_cast<size_t>(lanes[4])], values[static_cast<size_t>(lanes[5])],
-                          values[static_cast<size_t>(lanes[6])], values[static_cast<size_t>(lanes[7])]);
-#endif
-}
-
-#elifdef SFFDN_SIMD_SSE
-
-inline constexpr size_t kWidth = 4;
-// x86-64 has 16 128-bit SSE registers; 32-bit x86 has 8.
-#if defined(__x86_64__) || defined(_M_X64)
-inline constexpr size_t kRegisterCount = 16;
-#else
-inline constexpr size_t kRegisterCount = 8;
-#endif
-using Vec = __m128;
-using IntVec = __m128i;
-
-inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_loadu_ps(p);
-}
-
-inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
-{
-    _mm_storeu_ps(p, v);
-}
-
-inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_set1_ps(x);
-}
-
-inline Vec Zero() noexcept SFFDN_NONBLOCKING
-{
-    return _mm_setzero_ps();
-}
-
-inline Vec Add(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_add_ps(a, b);
-}
-
-inline Vec Sub(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_sub_ps(a, b);
-}
-
-inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_mul_ps(a, b);
-}
-
-inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_add_ps(_mm_mul_ps(a, b), c);
-}
-
-inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_sub_ps(c, _mm_mul_ps(a, b));
-}
-
-inline Vec Floor(Vec x) noexcept SFFDN_NONBLOCKING
-{
-    const Vec truncated = _mm_cvtepi32_ps(_mm_cvttps_epi32(x));
-    const Vec correction = _mm_and_ps(_mm_cmplt_ps(x, truncated), _mm_set1_ps(1.f));
-    return _mm_sub_ps(truncated, correction);
-}
-
-inline IntVec ToInt(Vec x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_cvttps_epi32(x);
-}
-
-inline Vec ToFloat(IntVec x) noexcept SFFDN_NONBLOCKING
-{
-    return _mm_cvtepi32_ps(x);
-}
-
-inline IntVec Min(IntVec x, int32_t maximum) noexcept SFFDN_NONBLOCKING
-{
-    const IntVec maximum_vector = _mm_set1_epi32(maximum);
-    const IntVec overflow = _mm_cmpgt_epi32(x, maximum_vector);
-    return _mm_or_si128(_mm_and_si128(overflow, maximum_vector), _mm_andnot_si128(overflow, x));
-}
-
-inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
-{
-    const auto lanes = std::bit_cast<std::array<int32_t, kWidth>>(indices);
-    return _mm_setr_ps(values[static_cast<size_t>(lanes[0])], values[static_cast<size_t>(lanes[1])],
-                       values[static_cast<size_t>(lanes[2])], values[static_cast<size_t>(lanes[3])]);
-}
-
-#else
-
-inline constexpr size_t kWidth = 4;
-// Nominal value for the scalar fallback, whose Vec lives wherever the compiler places it.
-inline constexpr size_t kRegisterCount = 16;
-
-struct Vec
-{
-    std::array<float, kWidth> v;
-};
-using IntVec = std::array<int32_t, kWidth>;
-
-inline Vec Load(const float* p) noexcept SFFDN_NONBLOCKING
-{
-    Vec out{};
-    std::copy_n(p, kWidth, out.v.begin());
-    return out;
-}
-
-inline void Store(float* p, Vec v) noexcept SFFDN_NONBLOCKING
-{
-    std::copy_n(v.v.begin(), kWidth, p);
-}
-
-inline Vec Splat(float x) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{x, x, x, x}};
-}
-
-inline Vec Zero() noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{0.f, 0.f, 0.f, 0.f}};
-}
-
-inline Vec Add(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{a.v[0] + b.v[0], a.v[1] + b.v[1], a.v[2] + b.v[2], a.v[3] + b.v[3]}};
-}
-
-inline Vec Sub(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{a.v[0] - b.v[0], a.v[1] - b.v[1], a.v[2] - b.v[2], a.v[3] - b.v[3]}};
-}
-
-inline Vec Mul(Vec a, Vec b) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{a.v[0] * b.v[0], a.v[1] * b.v[1], a.v[2] * b.v[2], a.v[3] * b.v[3]}};
-}
-
-inline Vec MulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{(a.v[0] * b.v[0]) + c.v[0], (a.v[1] * b.v[1]) + c.v[1], (a.v[2] * b.v[2]) + c.v[2],
-                (a.v[3] * b.v[3]) + c.v[3]}};
-}
-
-inline Vec NegMulAdd(Vec a, Vec b, Vec c) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{c.v[0] - (a.v[0] * b.v[0]), c.v[1] - (a.v[1] * b.v[1]), c.v[2] - (a.v[2] * b.v[2]),
-                c.v[3] - (a.v[3] * b.v[3])}};
-}
-
-inline Vec Floor(Vec x) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{{std::floor(x.v[0]), std::floor(x.v[1]), std::floor(x.v[2]), std::floor(x.v[3])}};
-}
-
-inline IntVec ToInt(Vec x) noexcept SFFDN_NONBLOCKING
-{
-    return {static_cast<int32_t>(x.v[0]), static_cast<int32_t>(x.v[1]), static_cast<int32_t>(x.v[2]),
-            static_cast<int32_t>(x.v[3])};
-}
-
-inline Vec ToFloat(IntVec x) noexcept SFFDN_NONBLOCKING
-{
-    return Vec{
-        {static_cast<float>(x[0]), static_cast<float>(x[1]), static_cast<float>(x[2]), static_cast<float>(x[3])}};
-}
-
-inline IntVec Min(IntVec x, int32_t maximum) noexcept SFFDN_NONBLOCKING
-{
-    for (int32_t& lane : x)
+    IndexLanes lanes{};
+    indices.store_unaligned(lanes.data());
+#ifndef NDEBUG
+    for (const int32_t index : lanes)
     {
-        lane = std::min(lane, maximum);
+        assert(index >= 0 && static_cast<size_t>(index) < values.size());
     }
-    return x;
+#else
+    static_cast<void>(values);
+#endif
+    return lanes;
 }
 
+template <size_t... Lane>
+Vec GatherLanes(std::span<const float> values, const IndexLanes& lanes,
+                std::index_sequence<Lane...> /*unused*/) noexcept SFFDN_NONBLOCKING
+{
+    return Vec(values[static_cast<size_t>(lanes[Lane])]...);
+}
+} // namespace detail
+
+/** @brief Returns values[indices[i]] in lane i. Every index must be within @p values. */
 inline Vec Gather(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
 {
-    return Vec{{values[static_cast<size_t>(indices[0])], values[static_cast<size_t>(indices[1])],
-                values[static_cast<size_t>(indices[2])], values[static_cast<size_t>(indices[3])]}};
-}
-
+#if SFFDN_SIMD_NATIVE_GATHER
+#ifndef NDEBUG
+    static_cast<void>(detail::ToIndexLanes(values, indices));
 #endif
+    return Vec::gather(values.data(), indices);
+#else
+    return detail::GatherLanes(values, detail::ToIndexLanes(values, indices), std::make_index_sequence<kWidth>{});
+#endif
+}
 
 struct AdjacentGather
 {
@@ -432,21 +193,31 @@ struct AdjacentGather
     Vec upper;
 };
 
+/** @brief Returns values[indices[i]] in lower and values[indices[i] + 1] in upper. */
 inline AdjacentGather GatherAdjacent(std::span<const float> values, IntVec indices) noexcept SFFDN_NONBLOCKING
 {
-#ifdef SFFDN_SIMD_NEON
-    const float32x2_t pair0 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(indices, 0))]);
-    const float32x2_t pair1 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(indices, 1))]);
-    const float32x2_t pair2 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(indices, 2))]);
-    const float32x2_t pair3 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(indices, 3))]);
+    // Temporary A/B switch: the pre-xsimd NEON implementation, which replaces two four-lane gathers with four pair
+    // loads and an unzip. vuzp1q/vuzp2q_f32 are AArch64-only, and SVE builds use a different register type.
+#if defined(SFFDN_SIMD_NEON_PAIR_GATHER) && XSIMD_WITH_NEON64 && !XSIMD_WITH_SVE
+    // NOLINTBEGIN(portability-simd-intrinsics)
+    static_assert(kWidth == 4);
+    const int32x4_t lanes = indices;
+    const float32x2_t pair0 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(lanes, 0))]);
+    const float32x2_t pair1 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(lanes, 1))]);
+    const float32x2_t pair2 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(lanes, 2))]);
+    const float32x2_t pair3 = vld1_f32(&values[static_cast<size_t>(vgetq_lane_s32(lanes, 3))]);
     const float32x4_t low = vcombine_f32(pair0, pair1);
     const float32x4_t high = vcombine_f32(pair2, pair3);
-    return {.lower = vuzp1q_f32(low, high), .upper = vuzp2q_f32(low, high)};
-#else
+    return {.lower = Vec(vuzp1q_f32(low, high)), .upper = Vec(vuzp2q_f32(low, high))};
+    // NOLINTEND(portability-simd-intrinsics)
+#elif SFFDN_SIMD_NATIVE_GATHER
     return {.lower = Gather(values, indices), .upper = Gather(values.subspan(1), indices)};
+#else
+    const detail::IndexLanes lanes = detail::ToIndexLanes(values.first(values.size() - 1), indices);
+    return {.lower = detail::GatherLanes(values, lanes, std::make_index_sequence<kWidth>{}),
+            .upper = detail::GatherLanes(values.subspan(1), lanes, std::make_index_sequence<kWidth>{})};
 #endif
 }
-// NOLINTEND(portability-simd-intrinsics)
 
 /** @brief Rounds @p count up to a whole number of vector lanes. */
 constexpr size_t PadToWidth(size_t count) noexcept

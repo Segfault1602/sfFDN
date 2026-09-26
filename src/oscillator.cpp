@@ -36,7 +36,6 @@ namespace sfFDN
 {
 namespace
 {
-#ifdef SFFDN_HAS_SIMD
 simd::Vec SineVector(simd::Vec phase) noexcept SFFDN_NONBLOCKING
 {
     const simd::Vec wrapped = simd::Sub(phase, simd::Floor(phase));
@@ -47,11 +46,10 @@ simd::Vec SineVector(simd::Vec phase) noexcept SFFDN_NONBLOCKING
     const auto [a, b] = simd::GatherAdjacent(kSineTable, uindex);
     return simd::MulAdd(simd::Sub(b, a), frac, a);
 }
-#endif
 
 template <typename VectorSink, typename ScalarSink>
 float RunOscillator(size_t count, float phase, float increment, const std::array<float, 3>& wave,
-                    [[maybe_unused]] VectorSink vector_sink, ScalarSink scalar_sink) noexcept SFFDN_NONBLOCKING
+                    VectorSink vector_sink, ScalarSink scalar_sink) noexcept SFFDN_NONBLOCKING
 {
     const auto [phase_offset, amplitude, offset] = wave;
 
@@ -60,7 +58,6 @@ float RunOscillator(size_t count, float phase, float increment, const std::array
     size_t i = 0;
     for (; i + kGroup <= count; i += kGroup)
     {
-#ifdef SFFDN_HAS_SIMD
         std::array<float, kGroup> phases{};
         for (float& lane_phase : phases)
         {
@@ -69,13 +66,6 @@ float RunOscillator(size_t count, float phase, float increment, const std::array
         }
         const simd::Vec sine = SineVector(simd::Load(phases.data()));
         vector_sink(i, simd::MulAdd(sine, simd::Splat(amplitude), simd::Splat(offset)));
-#else
-        for (size_t lane = 0; lane < kGroup; ++lane)
-        {
-            scalar_sink(i + lane, (Sine(phase + phase_offset) * amplitude) + offset);
-            phase += increment;
-        }
-#endif
     }
 
     for (; i < count; ++i)

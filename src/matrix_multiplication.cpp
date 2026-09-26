@@ -592,15 +592,20 @@ void MatrixMultiply_C(std::span<const float> in, std::span<float> out, std::span
     }
 }
 
+size_t DenseMatrixScratchSize(uint32_t order) noexcept
+{
+    // One packed frame tile per channel; this also covers the per-frame gather of the scalar remainder.
+    return static_cast<size_t>(order) * kTileFrames;
+}
+
 void MultiplyDenseMatrix(const AudioBuffer& input, AudioBuffer& output, std::span<const float> matrix,
                          std::span<float> scratch) noexcept SFFDN_NONBLOCKING
 {
-    static_assert(kTileFrames <= kDenseMatrixScratchFrames);
     assert(input.SampleCount() == output.SampleCount());
     assert(input.ChannelCount() == output.ChannelCount());
     const uint32_t order = input.ChannelCount();
     assert(matrix.size() == static_cast<size_t>(order) * order);
-    assert(scratch.size() >= static_cast<size_t>(order) * kDenseMatrixScratchFrames);
+    assert(scratch.size() >= DenseMatrixScratchSize(order));
 
     // Buffers whose extents overlap without being an exact alias are outside the supported contract: Debug asserts,
     // and Release takes the packed path, which is defined but numerically unspecified for that case.

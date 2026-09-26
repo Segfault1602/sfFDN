@@ -32,7 +32,7 @@ ScalarFeedbackMatrix::ScalarFeedbackMatrix(const ScalarFeedbackMatrixOptions& co
                                   [](const MatrixData&) { return ScalarMatrixType::Count; },
                               },
                               config.source))
-    , scratch_data_(static_cast<size_t>(order_) * kDenseMatrixScratchFrames)
+    , scratch_data_(DenseMatrixScratchSize(order_))
 {
     std::visit(
         overloaded{

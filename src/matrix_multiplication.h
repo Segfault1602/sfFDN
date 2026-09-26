@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -18,14 +19,15 @@ void WalshHadamardTransform(std::span<float> inout);
 void HadamardMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 void HouseholderMultiplyBlock(const AudioBuffer& input, AudioBuffer& output) noexcept SFFDN_NONBLOCKING;
 
-/// Scratch samples per channel that MultiplyDenseMatrix requires.
-inline constexpr uint32_t kDenseMatrixScratchFrames = 16;
+/// @brief Returns the scratch size, in samples, that MultiplyDenseMatrix requires for an order x order matrix.
+/// @note The size depends on the SIMD vector width, so allocate scratch from this rather than a constant.
+size_t DenseMatrixScratchSize(uint32_t order) noexcept;
 
 /// @brief Overwrites output with y_s = A * x_s for every frame s.
 /// @param input order-channel input; may be disjoint from output or exactly alias it
 /// @param output order-channel output with the same sample count as input
 /// @param matrix order x order transformation matrix in row-major output/input order
-/// @param scratch at least order * kDenseMatrixScratchFrames samples
+/// @param scratch at least DenseMatrixScratchSize(order) samples
 void MultiplyDenseMatrix(const AudioBuffer& input, AudioBuffer& output, std::span<const float> matrix,
                          std::span<float> scratch) noexcept SFFDN_NONBLOCKING;
 

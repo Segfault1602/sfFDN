@@ -66,3 +66,20 @@ if(TARGET kissfft AND CMAKE_C_COMPILER_ID MATCHES ".*Clang")
 endif()
 
 cpmaddpackage("gh:nlohmann/json@3.12.0")
+
+cpmaddpackage(
+    NAME
+    xsimd
+    GIT_TAG
+    14.3.0
+    GITHUB_REPOSITORY
+    xtensor-stack/xsimd
+    DOWNLOAD_ONLY
+    YES
+)
+
+if(xsimd_ADDED AND NOT TARGET xsimd::xsimd)
+    add_library(xsimd INTERFACE)
+    add_library(xsimd::xsimd ALIAS xsimd)
+    target_include_directories(xsimd SYSTEM INTERFACE ${xsimd_SOURCE_DIR}/include)
+endif()
