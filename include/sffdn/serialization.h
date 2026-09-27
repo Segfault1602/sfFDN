@@ -211,6 +211,8 @@ SFFDN_JSON_ENUM(ParallelGainsMode, {ParallelGainsMode::Split, "Split"}, {Paralle
                 {ParallelGainsMode::Parallel, "Parallel"});
 SFFDN_JSON_ENUM(TimeVaryingMatrixMode, {TimeVaryingMatrixMode::Hadamard, "Hadamard"},
                 {TimeVaryingMatrixMode::RealSchur, "RealSchur"}, {TimeVaryingMatrixMode::Count, "Count"});
+SFFDN_JSON_ENUM(KroneckerKernelType, {KroneckerKernelType::Rotation, "Rotation"},
+                {KroneckerKernelType::Reflection, "Reflection"}, {KroneckerKernelType::Count, "Count"});
 
 #undef SFFDN_JSON_ENUM
 
@@ -248,6 +250,10 @@ inline void from_json(const nlohmann::json& j, TimeVaryingFeedbackMatrixOptions&
     json_detail::ReadField(j, "rng_seed", candidate.rng_seed);
     config = std::move(candidate);
 }
+void to_json(nlohmann::json& j, const KroneckerFeedbackMatrixOptions& config);
+void from_json(const nlohmann::json& j, KroneckerFeedbackMatrixOptions& config);
+void to_json(nlohmann::json& j, const TimeVaryingKroneckerFeedbackMatrixOptions& config);
+void from_json(const nlohmann::json& j, TimeVaryingKroneckerFeedbackMatrixOptions& config);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(ParallelGainsOptions, mode, gains, time_varying_config);
 inline void from_json(const nlohmann::json& j, ParallelGainsOptions& config)
 {

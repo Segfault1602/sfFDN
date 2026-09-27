@@ -32,6 +32,11 @@ This section describes the multi-channel processors provided by sfFDN. These are
   shape-checked row-major `MatrixData`, which owns its values and exposes `Values()` spans.
 - [Filter Feedback Matrix](@ref sfFDN::FilterFeedbackMatrix): Implementation of a Filter Feedback Matrix based on the design by S. J. Schlecht and E. A. P. Habets, “Scattering in feedback delay networks.” A filter feedback matrix consists of a series of scalar matrix interleaved with banks of delay lines.
   `CascadedFeedbackMatrixOptions::rng_seed` controls both the generated matrices and delay lengths.
+- [Kronecker feedback matrices](@ref sfFDN::KroneckerFeedbackMatrix): Static and
+  [time-varying](@ref sfFDN::TimeVaryingKroneckerFeedbackMatrix) O(N log N) orthogonal mixers for power-of-two
+  orders. Their log2(N) stages independently use rotation or reflection kernels. Angles are indexed innermost first:
+  stage zero mixes adjacent channels, stage one mixes channels separated by two, and so on. Empty angle and kernel
+  vectors select pi/4 rotations. Reflection stages at pi/4 produce the normalized Sylvester Hadamard matrix.
 - [Attenuation Filter Bank](@ref sfFDN::AttenuationFilterBankOptions): A parallel bank of attenuation filters. These filters are usually designed to target a specific RT60 and their gains are scaled according to the length of the delay lines. See also the [Filtering](filters.md) manual page for the four attenuation filter variants and the associated design helpers.
 
 
@@ -99,3 +104,49 @@ Matrix recipes default to `kDefaultMatrixSeed`. Zero is also a deterministic see
 
 Use `RandomizeMatrixSeeds(config)` to assign new random seeds to generated matrices in the feedback, input, output,
 and loop stages. Explicit `MatrixData` is unchanged.
+
+### Kronecker matrices
+
+```cpp
+KroneckerFeedbackMatrixOptions kronecker{
+    .matrix_size = 8,
+    .angles = {0.25f, 0.5f, 0.75f},
+    .kernel_types = {KroneckerKernelType::Rotation, KroneckerKernelType::Reflection,
+                     KroneckerKernelType::Rotation},
+};
+
+TimeVaryingKroneckerFeedbackMatrixOptions modulated_kronecker{
+    .matrix = kronecker,
+    .time_varying_config = {
+        {.frequency = 0.2f / 48000.f, .amplitude = 0.2f, .initial_phase = 0.f},
+        {},
+        {.frequency = 0.3f / 48000.f, .amplitude = -0.1f, .initial_phase = 0.5f},
+    },
+};
+```
+
+The static JSON shape contains exactly `matrix_size`, `angles`, and `kernel_types`. The dynamic form nests that
+static matrix under `matrix`:
+
+```json
+{"TimeVaryingKroneckerFeedbackMatrixOptions":{"matrix":{"matrix_size":8,"angles":[0.25,0.5,0.75],"kernel_types":["Rotation","Reflection","Rotation"]},"time_varying_config":[{"frequency":0.0000041666667,"amplitude":0.2,"initial_phase":0.0},{"frequency":0.0,"amplitude":0.0,"initial_phase":0.0},{"frequency":0.00000625,"amplitude":-0.1,"initial_phase":0.5}]}}
+```
+
+Angles are radians. Modulation frequency is cycles per sample, amplitude is a fraction of pi, and initial phase
+is cycles. Convert pyFDN values with `frequency = rate_hz / sample_rate`, `amplitude = depth_radians / pi`, and
+`initial_phase = wrap(phase_radians / (2*pi))`. The first sample evaluates the supplied initial phase before advancing.
+`Clear()` resets accumulated phase, while `Clone()` preserves it. `GetMatrix()` is a reset-relative query and does not
+inspect or mutate the live stream. Processing overwrites its output, supports exact in-place operation, and allocates
+nothing; arbitrary partial overlap is unsupported.
+
+`SetAngles()` periodically wraps angles into [-pi, pi]. `SetAngles()` and `SetTimeVaryingConfig()` are setup/control
+operations: do not call them concurrently with `Process()`. For sample-accurate automation, use the static matrix's
+`ProcessWithAngleOffsets()` hook. Its offsets are stage-major; the varying-stage mask selects per-sample rows, while a
+clear bit uses the first row value for the entire block.
+
+The matrix may be configured in the feedback path or an N-channel processor list. A zero outermost angle separates
+contiguous channel halves; a zero innermost angle separates even and odd channels. These partitions are building
+blocks only: routing, damping, and gains are still required for stereo or selective-freeze designs. Unlike
+`VariableDiffusion`, the stages are individually parameterized, and unlike `TimeVaryingFeedbackMatrix`, there are
+log2(N) modulated Kronecker factors rather than N/2 conjugated eigenvalue rotations. Matrix eigenvalues are not the
+poles of an unequal-delay FDN.

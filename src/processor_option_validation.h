@@ -32,6 +32,10 @@ void ValidateOptions(const CascadedFeedbackMatrixOptions& options, const std::st
                      std::vector<ConfigIssue>& issues);
 void ValidateOptions(const TimeVaryingFeedbackMatrixOptions& options, const std::string& path,
                      std::vector<ConfigIssue>& issues);
+void ValidateOptions(const KroneckerFeedbackMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
+void ValidateOptions(const TimeVaryingKroneckerFeedbackMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues);
 void ValidateOptions(const FilterCoefficients& options, const std::string& path, std::vector<ConfigIssue>& issues);
 void ValidateOptions(const AllpassFilterOptions& options, const std::string& path, std::vector<ConfigIssue>& issues);
 void ValidateOptions(const CascadedBiquadsOptions& options, const std::string& path,
