@@ -52,7 +52,7 @@ void RunDelayMatrixBenchmark(uint32_t order, uint32_t block_size, nanobench::Ben
 }
 } // namespace
 
-TEST_CASE("DelayMatrixPerf", "[feedback_matrix]")
+TEST_CASE("DelayMatrix.Perf", "[feedback_matrix]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DelayMatrix perf");
@@ -67,7 +67,7 @@ TEST_CASE("DelayMatrixPerf", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("DelayMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
+TEST_CASE("DelayMatrix.Perf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

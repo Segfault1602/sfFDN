@@ -79,7 +79,7 @@ std::string_view ExpectedComplexity(sfFDN::ScalarMatrixType type)
 }
 } // namespace
 
-TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Perf", "[feedback_matrix]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "ScalarFeedbackMatrix perf");
@@ -108,7 +108,7 @@ TEST_CASE("ScalarFeedbackMatrixPerf", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Perf_Aliased", "[feedback_matrix]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;
@@ -140,7 +140,7 @@ TEST_CASE("ScalarFeedbackMatrixPerf_Aliased", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
+TEST_CASE("ScalarFeedbackMatrix.Perf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128;
     for (const MatrixTypeInfo& matrix_type : kMatrixTypes)

@@ -43,7 +43,7 @@ sfFDN::DelayOptions MakeOptions(sfFDN::DelayInterpolationType interpolation)
 }
 } // namespace
 
-TEST_CASE("DelayTimeVaryingPerf", "[delay]")
+TEST_CASE("DelayTimeVarying.Perf", "[delay]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DelayTimeVarying perf");

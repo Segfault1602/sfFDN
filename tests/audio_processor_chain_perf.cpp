@@ -49,7 +49,7 @@ void RunAudioProcessorChainBenchmark(uint32_t stage_count, uint32_t block_size, 
 }
 } // namespace
 
-TEST_CASE("AudioProcessorChainPerf", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Perf", "[processor_chain]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "AudioProcessorChain perf");
@@ -64,7 +64,7 @@ TEST_CASE("AudioProcessorChainPerf", "[processor_chain]")
     }
 }
 
-TEST_CASE("AudioProcessorChainPerf_BigO", "[processor_chain][.diagnostic]")
+TEST_CASE("AudioProcessorChain.Perf_BigO", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

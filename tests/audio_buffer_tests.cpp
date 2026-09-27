@@ -5,7 +5,7 @@
 #include "audio_buffer_alias.h"
 #include "sffdn/audio_buffer.h"
 
-TEST_CASE("AudioBuffer aliases backing storage through constructors and accessors", "[audio_buffer]")
+TEST_CASE("AudioBuffer.Aliases_Backing_Storage", "[audio_buffer]")
 {
     sfFDN::AudioBuffer const empty;
     REQUIRE(empty.SampleCount() == 0);
@@ -78,7 +78,7 @@ TEST_CASE("AudioBuffer aliases backing storage through constructors and accessor
     REQUIRE(mutable_offset_window.Data() == std::span(storage).subspan(1).data());
 }
 
-TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
+TEST_CASE("AudioBuffer.Offset_Channel_Data", "[audio_buffer]")
 {
     constexpr uint32_t kFrameSize = 128;
     constexpr uint32_t kChannelCount = 8;
@@ -145,7 +145,7 @@ TEST_CASE("AudioBuffer Offset returns offset channel data", "[audio_buffer]")
     }
 }
 
-TEST_CASE("AudioBuffer alias classifier distinguishes logical relationships", "[audio_buffer]")
+TEST_CASE("AudioBuffer.Classifies_Alias_Relationships", "[audio_buffer]")
 {
     std::array<float, 48> storage{};
     std::array<float, 24> separate_storage{};

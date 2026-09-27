@@ -146,7 +146,7 @@ void NormalizeMatrixSeeds(sfFDN::FDNConfig& config)
 
 } // namespace
 
-TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
+TEST_CASE("FDNConfig.Validates_Builds_Usable", "[fdn]")
 {
     constexpr std::array kMatrixTypes = {
         sfFDN::ScalarMatrixType::Identity,          sfFDN::ScalarMatrixType::Random,
@@ -228,7 +228,7 @@ TEST_CASE("FDNConfig validates and builds usable configurations", "[fdn]")
     REQUIRE(sfFDN::ValidateFDNConfig(variants).has_value());
 }
 
-TEST_CASE("CreateFDNFromConfig selects static matrices and preserves modulated stage gains", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.StaticMatrices_ModulatedGains", "[fdn]")
 {
     SECTION("unmodulated stage gains become ChannelMatrix boundaries")
     {
@@ -305,7 +305,7 @@ TEST_CASE("CreateFDNFromConfig selects static matrices and preserves modulated s
     }
 }
 
-TEST_CASE("ValidateFDNConfig reports issues at resolvable JSON pointers", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Resolvable_JSON_Pointers", "[fdn]")
 {
     auto config = MakeValidConfig();
     config.block_size = 0U;
@@ -353,7 +353,7 @@ TEST_CASE("ValidateFDNConfig reports issues at resolvable JSON pointers", "[fdn]
                      "/tone_correction_filters/0/RingModulatorOptions/frequency"));
 }
 
-TEST_CASE("ValidateFDNConfig aggregates independent root issues without dependent noise", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Aggregates_Root_Issues", "[fdn]")
 {
     auto config = MakeValidConfig();
     config.fdn_size = 0U;
@@ -367,7 +367,7 @@ TEST_CASE("ValidateFDNConfig aggregates independent root issues without dependen
     REQUIRE(HasIssue(issues, sfFDN::ConfigErrorCode::InvalidValue, "/sample_rate"));
 }
 
-TEST_CASE("ValidateFDNConfig is deterministic and CreateFDNFromConfig reports its issues", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Deterministic_Factory_Reporting", "[fdn]")
 {
     auto config = MakeValidConfig();
     config.delay_bank_config.delays[0] = -1.F;
@@ -397,7 +397,7 @@ TEST_CASE("ValidateFDNConfig is deterministic and CreateFDNFromConfig reports it
     }
 }
 
-TEST_CASE("ValidateFDNConfig reports size and capacity boundaries before construction", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Preconstruction_Size_Boundaries", "[fdn]")
 {
     auto dimensions = MakeValidConfig();
     dimensions.fdn_size = 3U;
@@ -458,7 +458,7 @@ TEST_CASE("ValidateFDNConfig reports size and capacity boundaries before constru
                      "/feedback_matrix_config/CascadedFeedbackMatrixInfo/gain_per_samples"));
 }
 
-TEST_CASE("FDNConfig compares every configured value structurally", "[fdn]")
+TEST_CASE("FDNConfig.Structural_Value_Equality", "[fdn]")
 {
     static_assert(
         AllEqualityComparable<
@@ -532,7 +532,7 @@ TEST_CASE("FDNConfig compares every configured value structurally", "[fdn]")
     REQUIRE(randomized == before);
 }
 
-TEST_CASE("MakeDefaultFDNConfig creates deterministic usable wet configurations", "[fdn]")
+TEST_CASE("MakeDefaultFDNConfig.Deterministic_Usable_Wet", "[fdn]")
 {
     struct DefaultCase
     {
@@ -604,7 +604,7 @@ sfFDN::FDNConfig MakeMimoConfig(uint32_t input_channels, uint32_t output_channel
 
 } // namespace
 
-TEST_CASE("ValidateFDNConfig accepts boundary matrices that match the declared channel counts", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Accepts_Matching_Boundaries", "[fdn]")
 {
     const auto config = MakeMimoConfig(2U, 3U);
     REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
@@ -618,7 +618,7 @@ TEST_CASE("ValidateFDNConfig accepts boundary matrices that match the declared c
     REQUIRE(sfFDN::ValidateFDNConfig(with_direct).has_value());
 }
 
-TEST_CASE("ValidateFDNConfig rejects ambiguous and mismatched boundary routing", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Rejects_Ambiguous_Mismatched", "[fdn]")
 {
     SECTION("stage gains and a boundary matrix cannot both be set")
     {
@@ -684,7 +684,7 @@ TEST_CASE("ValidateFDNConfig rejects ambiguous and mismatched boundary routing",
     }
 }
 
-TEST_CASE("ValidateFDNConfig constrains the direct path to one representation", "[fdn]")
+TEST_CASE("ValidateFDNConfig.DirectPath_Single_Representation", "[fdn]")
 {
     SECTION("a direct matrix and a nonzero scalar gain are ambiguous")
     {
@@ -727,7 +727,7 @@ TEST_CASE("ValidateFDNConfig constrains the direct path to one representation", 
     }
 }
 
-TEST_CASE("ValidateFDNConfig accepts stage single-channel processors outside a mono boundary", "[fdn]")
+TEST_CASE("ValidateFDNConfig.Accepts_StageProcessors_Boundary", "[fdn]")
 {
     // These are replicated per external channel rather than rejected, so a MIMO boundary is valid.
     auto config = MakeMimoConfig(2U, 3U);
@@ -740,7 +740,7 @@ TEST_CASE("ValidateFDNConfig accepts stage single-channel processors outside a m
     REQUIRE(fdn->OutputChannelCount() == 3U);
 }
 
-TEST_CASE("CreateFDNFromConfig builds a MIMO network with the configured routing", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.Builds_MIMO_Routing", "[fdn]")
 {
     auto config = MakeMimoConfig(2U, 2U);
     config.block_size = 1U;
@@ -784,7 +784,7 @@ TEST_CASE("CreateFDNFromConfig builds a MIMO network with the configured routing
     REQUIRE(output[1] == 8.F);
 }
 
-TEST_CASE("CreateFDNFromConfig replicates tone correction across output channels", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.Replicates_ToneCorrection_Outputs", "[fdn]")
 {
     auto config = MakeMimoConfig(1U, 2U);
     config.input_channel_count = 1U;
@@ -811,7 +811,7 @@ TEST_CASE("CreateFDNFromConfig replicates tone correction across output channels
     REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fdn->GetTCFilter()) != nullptr);
 }
 
-TEST_CASE("CreateFDNFromConfig omits the direct path when the channel counts differ", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.OmitsDirect_Mismatched_Channels", "[fdn]")
 {
     auto config = MakeMimoConfig(1U, 2U);
     config.input_block_config.boundary_matrix.reset();
@@ -862,7 +862,7 @@ sfFDN::FDNConfig MakeSeparatedStereoConfig()
     return config;
 }
 
-TEST_CASE("CreateFDNFromConfig gives each replicated stage chain independent state", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.ReplicatedChains_Independent_State", "[fdn]")
 {
     auto config = MakeSeparatedStereoConfig();
     // A one-sample delay carries state across blocks, so a single shared instance would leak channel 0 into channel 1.
@@ -907,7 +907,7 @@ TEST_CASE("CreateFDNFromConfig gives each replicated stage chain independent sta
     REQUIRE(std::ranges::all_of(right_channel, [](float sample) { return sample == 0.F; }));
 }
 
-TEST_CASE("CreateFDNFromConfig replicates stage single-channel chains faithfully and in order", "[fdn]")
+TEST_CASE("CreateFDNFromConfig.Replicates_StageChains_Order", "[fdn]")
 {
     // A ring modulator is time-varying, so it does not commute with a delay: reordering the chain changes the
     // response. Rendering the same ordered chain through a mono network and through both channels of a stereo network
@@ -979,7 +979,7 @@ TEST_CASE("CreateFDNFromConfig replicates stage single-channel chains faithfully
     REQUIRE(stereo_right == mono_output);
 }
 
-TEST_CASE("RandomizeMatrixSeeds leaves explicit boundary coefficients unchanged", "[fdn]")
+TEST_CASE("RandomizeMatrixSeeds.Preserves_Explicit_Boundaries", "[fdn]")
 {
     auto config = MakeMimoConfig(2U, 3U);
     config.direct_matrix = sfFDN::ChannelMatrixOptions{

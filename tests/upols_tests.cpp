@@ -8,7 +8,7 @@
 #include "signal_test_utils.h"
 #include "test_utils.h"
 
-TEST_CASE("UPOLS reproduces the reference impulse response", "[convolution]")
+TEST_CASE("UPOLS.Impulse_Response_Reference", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 32;
 
@@ -26,7 +26,7 @@ TEST_CASE("UPOLS reproduces the reference impulse response", "[convolution]")
     sfFDNTest::RequireSignalsClose(fir, output, 1e-6f, 100.0);
 }
 
-TEST_CASE("UPOLS matches Fir on a chirp", "[convolution]")
+TEST_CASE("UPOLS.Fir_Chirp_Reference", "[convolution]")
 {
     constexpr uint32_t kBlockSize = 128;
 

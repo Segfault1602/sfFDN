@@ -7,7 +7,7 @@
 #include "passthrough.h"
 #include "sffdn/audio_buffer.h"
 
-TEST_CASE("PassThrough copies disjoint buffers", "[processor_chain]")
+TEST_CASE("PassThrough.Copies_Disjoint_Buffers", "[processor_chain]")
 {
     constexpr std::array<float, 5> kExpected = {1.f, -2.f, 3.f, -4.f, 5.f};
     auto input = kExpected;
@@ -21,7 +21,7 @@ TEST_CASE("PassThrough copies disjoint buffers", "[processor_chain]")
     REQUIRE(output == kExpected);
 }
 
-TEST_CASE("PassThrough treats exact alias as a no-op", "[processor_chain]")
+TEST_CASE("PassThrough.ExactAlias_No_Op", "[processor_chain]")
 {
     constexpr std::array<float, 5> kExpected = {1.f, -2.f, 3.f, -4.f, 5.f};
     constexpr uint32_t kOffset = 3;

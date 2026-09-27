@@ -34,7 +34,7 @@ void CheckRoundTrip(sfFDN::FFT& fft, uint32_t fft_size)
 }
 } // namespace
 
-TEST_CASE("FFT round trips real buffers", "[fft]")
+TEST_CASE("FFT.RealBuffers_Round_Trip", "[fft]")
 {
     constexpr std::array kFFTSize = {32, 64, 128, 256, 512, 1024, 8192};
 
@@ -50,7 +50,7 @@ TEST_CASE("FFT round trips real buffers", "[fft]")
     }
 }
 
-TEST_CASE("FFT retains aligned resources after reinitialization and moves", "[fft]")
+TEST_CASE("FFT.Reinit_Move_Resources", "[fft]")
 {
     sfFDN::FFT reinitialized;
     REQUIRE(reinitialized.Initialize(64));
@@ -69,7 +69,7 @@ TEST_CASE("FFT retains aligned resources after reinitialization and moves", "[ff
     CheckRoundTrip(replacement, 8192);
 }
 
-TEST_CASE("FFT ConvolveAccumulate produces impulse convolution", "[fft]")
+TEST_CASE("FFT.ConvolveAccumulate_Impulse_Convolution", "[fft]")
 {
     constexpr uint32_t kFFTSize = 64;
     sfFDN::FFT fft;

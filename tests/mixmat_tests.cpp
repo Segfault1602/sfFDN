@@ -156,7 +156,7 @@ std::vector<float> RenderCascade(sfFDN::FilterFeedbackMatrix& matrix, uint32_t b
 }
 } // namespace
 
-TEST_CASE("FilterFeedbackMatrix produces a nonzero response after Clear", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Nonzero_After_Clear", "[feedback_matrix]")
 {
     constexpr uint32_t kStageCount = 4;
     constexpr float kSparsity = 3.f;
@@ -198,7 +198,7 @@ TEST_CASE("FilterFeedbackMatrix produces a nonzero response after Clear", "[feed
     REQUIRE(std::ranges::any_of(output_buffer_data, [](float sample) { return sample != 0.f; }));
 }
 
-TEST_CASE("GenerateMatrix creates an orthogonal VariableDiffusion matrix", "[feedback_matrix]")
+TEST_CASE("GenerateMatrix.Orthogonal_VariableDiffusion", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 2;
     const auto mat = sfFDN::GenerateMatrix(kMatSize, sfFDN::VariableDiffusionOptions{.diffusion = 0.5f}, 0);
@@ -213,7 +213,7 @@ TEST_CASE("GenerateMatrix creates an orthogonal VariableDiffusion matrix", "[fee
     RequireFiniteOrthogonal(mat, kMatSize);
 }
 
-TEST_CASE("GetMatrixType identifies both generator alternatives without throwing", "[feedback_matrix]")
+TEST_CASE("GetMatrixType.Generator_Alternatives_NoThrow", "[feedback_matrix]")
 {
     const sfFDN::MatrixGeneratorOptions scalar = sfFDN::ScalarMatrixType::Householder;
     const sfFDN::MatrixGeneratorOptions diffusion = sfFDN::VariableDiffusionOptions{.diffusion = 0.5F};
@@ -222,7 +222,7 @@ TEST_CASE("GetMatrixType identifies both generator alternatives without throwing
     REQUIRE(sfFDN::GetMatrixType(diffusion) == sfFDN::ScalarMatrixType::VariableDiffusion);
 }
 
-TEST_CASE("MatrixData owns square coefficients and preserves value semantics", "[feedback_matrix]")
+TEST_CASE("MatrixData.Owns_Coefficients_ValueSemantics", "[feedback_matrix]")
 {
     static_assert(std::is_copy_constructible_v<sfFDN::MatrixData>);
     static_assert(std::is_copy_assignable_v<sfFDN::MatrixData>);
@@ -265,7 +265,7 @@ TEST_CASE("MatrixData owns square coefficients and preserves value semantics", "
     REQUIRE_THROWS_AS(sfFDN::MatrixData(2U, std::vector<float>(3U, 0.f)), std::invalid_argument);
 }
 
-TEST_CASE("ScalarFeedbackMatrix source alternatives are distinct and deterministic", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Sources_Distinct_Deterministic", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
     const sfFDN::ScalarFeedbackMatrixOptions generated = {
@@ -306,7 +306,7 @@ TEST_CASE("ScalarFeedbackMatrix source alternatives are distinct and determinist
     REQUIRE(default_output != zero_output);
 }
 
-TEST_CASE("ScalarFeedbackMatrix preserves samples with an Identity matrix", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Identity_Preserves_Samples", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
@@ -341,7 +341,7 @@ TEST_CASE("ScalarFeedbackMatrix preserves samples with an Identity matrix", "[fe
     REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
 }
 
-TEST_CASE("ScalarFeedbackMatrix supports aliased processing", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Supports_Aliased_Processing", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 3;
@@ -368,7 +368,7 @@ TEST_CASE("ScalarFeedbackMatrix supports aliased processing", "[feedback_matrix]
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix processes zero-offset strided views", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.ZeroOffset_Strided_Views", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 3;
     constexpr uint32_t kBlockSize = 5;
@@ -436,7 +436,7 @@ TEST_CASE("ScalarFeedbackMatrix processes zero-offset strided views", "[feedback
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix processes nonzero-offset strided views", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.NonzeroOffset_Strided_Views", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 3;
     constexpr uint32_t kBlockSize = 7;
@@ -478,70 +478,72 @@ TEST_CASE("ScalarFeedbackMatrix processes nonzero-offset strided views", "[feedb
     }
     matrix.Process(packed_input_buffer, packed_output_buffer);
     RequireLogicalOutput(output, packed_output);
+
+    SECTION("exact alias preserves strided storage")
+    {
+        constexpr uint32_t kAliasOrder = 3;
+        constexpr uint32_t kAliasBlockSize = 37;
+        constexpr uint32_t kAliasStride = 43;
+        constexpr uint32_t kAliasOffset = 3;
+        constexpr float kAliasSentinel = -1357.75f;
+        const auto alias_matrix_data = DenseTestMatrix(kAliasOrder);
+        sfFDN::ScalarFeedbackMatrix alias_matrix(
+            {.source = sfFDN::MatrixData{kAliasOrder, alias_matrix_data}});
+        std::vector<float> storage(kAliasOrder * kAliasStride, kAliasSentinel);
+        sfFDN::AudioBuffer parent(kAliasStride, kAliasOrder, storage);
+        sfFDN::AudioBuffer buffer = parent.Offset(kAliasOffset, kAliasBlockSize);
+        FillLogicalInput(buffer);
+        const auto alias_expected = DenseReference(alias_matrix_data, buffer);
+
+        size_t allocations = 0;
+        {
+            sfFDNTest::ScopedAllocationCounter allocation_counter;
+            alias_matrix.Process(buffer, buffer);
+            allocations = allocation_counter.Count();
+        }
+
+        REQUIRE(allocations == 0);
+        RequireLogicalOutput(buffer, alias_expected);
+        RequireStrideSentinels(storage, kAliasStride, kAliasOrder, kAliasOffset, kAliasBlockSize, kAliasSentinel);
+
+        constexpr uint32_t kFilterOrder = 4;
+        constexpr uint32_t kFilterBlockSize = 32;
+        const sfFDN::CascadedFeedbackMatrixOptions options = {
+            .matrix_size = kFilterOrder,
+            .stage_count = 2,
+            .sparsity = 2.f,
+            .generator = sfFDN::ScalarMatrixType::Random,
+            .gain_per_samples = 0.99f,
+            .rng_seed = 12345U,
+        };
+        sfFDN::FilterFeedbackMatrix packed_filter(options);
+        sfFDN::FilterFeedbackMatrix strided_filter(options);
+        std::vector<float> packed_storage(kFilterOrder * kFilterBlockSize);
+        sfFDN::AudioBuffer packed_buffer(kFilterBlockSize, kFilterOrder, packed_storage);
+        FillLogicalInput(packed_buffer);
+        constexpr uint32_t kFilterStride = 39;
+        constexpr uint32_t kFilterOffset = 4;
+        std::vector<float> strided_storage(kFilterOrder * kFilterStride, kAliasSentinel);
+        sfFDN::AudioBuffer strided_parent(kFilterStride, kFilterOrder, strided_storage);
+        sfFDN::AudioBuffer strided_buffer = strided_parent.Offset(kFilterOffset, kFilterBlockSize);
+        for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
+        {
+            std::ranges::copy(packed_buffer.GetChannelSpan(channel), strided_buffer.GetChannelSpan(channel).begin());
+        }
+
+        packed_filter.Process(packed_buffer, packed_buffer);
+        strided_filter.Process(strided_buffer, strided_buffer);
+
+        for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
+        {
+            RequireNear(strided_buffer.GetChannelSpan(channel), packed_buffer.GetChannelSpan(channel), 1e-4f);
+        }
+        RequireStrideSentinels(strided_storage, kFilterStride, kFilterOrder, kFilterOffset, kFilterBlockSize,
+                               kAliasSentinel);
+    }
 }
 
-TEST_CASE("ScalarFeedbackMatrix processes exact strided aliases without allocations", "[feedback_matrix]")
-{
-    constexpr uint32_t kOrder = 3;
-    constexpr uint32_t kBlockSize = 37;
-    constexpr uint32_t kStride = 43;
-    constexpr uint32_t kOffset = 3;
-    constexpr float kSentinel = -1357.75f;
-    const auto matrix_data = DenseTestMatrix(kOrder);
-    sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{kOrder, matrix_data}});
-    std::vector<float> storage(kOrder * kStride, kSentinel);
-    sfFDN::AudioBuffer parent(kStride, kOrder, storage);
-    sfFDN::AudioBuffer buffer = parent.Offset(kOffset, kBlockSize);
-    FillLogicalInput(buffer);
-    const auto expected = DenseReference(matrix_data, buffer);
-
-    size_t allocations = 0;
-    {
-        sfFDNTest::ScopedAllocationCounter allocation_counter;
-        matrix.Process(buffer, buffer);
-        allocations = allocation_counter.Count();
-    }
-
-    REQUIRE(allocations == 0);
-    RequireLogicalOutput(buffer, expected);
-    RequireStrideSentinels(storage, kStride, kOrder, kOffset, kBlockSize, kSentinel);
-
-    constexpr uint32_t kFilterOrder = 4;
-    constexpr uint32_t kFilterBlockSize = 32;
-    const sfFDN::CascadedFeedbackMatrixOptions options = {
-        .matrix_size = kFilterOrder,
-        .stage_count = 2,
-        .sparsity = 2.f,
-        .generator = sfFDN::ScalarMatrixType::Random,
-        .gain_per_samples = 0.99f,
-        .rng_seed = 12345U,
-    };
-    sfFDN::FilterFeedbackMatrix packed_filter(options);
-    sfFDN::FilterFeedbackMatrix strided_filter(options);
-    std::vector<float> packed_storage(kFilterOrder * kFilterBlockSize);
-    sfFDN::AudioBuffer packed_buffer(kFilterBlockSize, kFilterOrder, packed_storage);
-    FillLogicalInput(packed_buffer);
-    constexpr uint32_t kFilterStride = 39;
-    constexpr uint32_t kFilterOffset = 4;
-    std::vector<float> strided_storage(kFilterOrder * kFilterStride, kSentinel);
-    sfFDN::AudioBuffer strided_parent(kFilterStride, kFilterOrder, strided_storage);
-    sfFDN::AudioBuffer strided_buffer = strided_parent.Offset(kFilterOffset, kFilterBlockSize);
-    for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
-    {
-        std::ranges::copy(packed_buffer.GetChannelSpan(channel), strided_buffer.GetChannelSpan(channel).begin());
-    }
-
-    packed_filter.Process(packed_buffer, packed_buffer);
-    strided_filter.Process(strided_buffer, strided_buffer);
-
-    for (uint32_t channel = 0; channel < kFilterOrder; ++channel)
-    {
-        RequireNear(strided_buffer.GetChannelSpan(channel), packed_buffer.GetChannelSpan(channel), 1e-4f);
-    }
-    RequireStrideSentinels(strided_storage, kFilterStride, kFilterOrder, kFilterOffset, kFilterBlockSize, kSentinel);
-}
-
-TEST_CASE("ScalarFeedbackMatrix dense processing matches the reference across tile remainders", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Dense_TileRemainder_Reference", "[feedback_matrix]")
 {
     // Orders straddle the row-tile width and the packing threshold; block sizes straddle the SIMD width and the frame
     // tile so every vector, remainder, and scalar path runs both disjoint and in place.
@@ -592,7 +594,7 @@ TEST_CASE("ScalarFeedbackMatrix dense processing matches the reference across ti
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix applies a Householder reflection", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Householder_Reflection", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -642,7 +644,7 @@ TEST_CASE("ScalarFeedbackMatrix applies a Householder reflection", "[feedback_ma
     REQUIRE_THAT(energy_in, Catch::Matchers::WithinAbs(energy_out, std::numeric_limits<float>::epsilon()));
 }
 
-TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Hadamard", "[feedback_matrix]")
 {
     SECTION("Hadamard_4")
     {
@@ -715,7 +717,7 @@ TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders
     }
 }
 
-// TEST_CASE("Inplace")
+// TEST_CASE("ScalarFeedbackMatrix.Hadamard_Inplace")
 // {
 //     constexpr uint32_t kMatSize = 4;
 //     constexpr uint32_t kBlockSize = 8;
@@ -746,7 +748,7 @@ TEST_CASE("ScalarFeedbackMatrix applies Hadamard transforms for supported orders
 //     }
 // }
 
-TEST_CASE("ScalarFeedbackMatrix applies a Hadamard transform across a block", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Hadamard_Block", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -782,7 +784,7 @@ TEST_CASE("ScalarFeedbackMatrix applies a Hadamard transform across a block", "[
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix SetMatrix copies assigned coefficients", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.SetMatrix_Copies_Coefficients", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kBlockSize = 2;
@@ -809,7 +811,7 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix copies assigned coefficients", "[feedb
     }
 }
 
-TEST_CASE("GenerateMatrix creates an orthogonal Random matrix", "[feedback_matrix]")
+TEST_CASE("GenerateMatrix.Orthogonal_Random_Matrix", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 6;
 
@@ -832,7 +834,7 @@ TEST_CASE("GenerateMatrix creates an orthogonal Random matrix", "[feedback_matri
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix forwards nonzero seeds to generated matrices", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Forwards_Nonzero_Seeds", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 3U;
@@ -873,7 +875,7 @@ TEST_CASE("ScalarFeedbackMatrix forwards nonzero seeds to generated matrices", "
     REQUIRE(first != second);
 }
 
-TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processing", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Forwards_VariableDiffusion_Arguments", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 2U;
@@ -900,7 +902,7 @@ TEST_CASE("ScalarFeedbackMatrix forwards VariableDiffusion arguments to processi
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix applies explicit matrix data unchanged", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.Explicit_Matrix_Unchanged", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 3U;
     constexpr uint32_t kBlockSize = 2U;
@@ -920,7 +922,7 @@ TEST_CASE("ScalarFeedbackMatrix applies explicit matrix data unchanged", "[feedb
     RequireNear(output, DenseReference(custom, kOrder, kBlockSize, input));
 }
 
-TEST_CASE("DelayMatrix follows the row-major dest*N+src convention", "[feedback_matrix]")
+TEST_CASE("DelayMatrix.RowMajor_DestN_Src", "[feedback_matrix]")
 {
     // Non-symmetric 3x3 case.
     // Matrix A (row-major, non-symmetric):
@@ -979,7 +981,7 @@ TEST_CASE("DelayMatrix follows the row-major dest*N+src convention", "[feedback_
     }
 }
 
-TEST_CASE("FilterFeedbackMatrix repeats output after Clear", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Clear_Repeats_Output", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
     constexpr uint32_t kStageCount = 1;
@@ -1020,7 +1022,7 @@ TEST_CASE("FilterFeedbackMatrix repeats output after Clear", "[feedback_matrix]"
     }
 }
 
-TEST_CASE("Structured feedback matrices match dense processing without allocations", "[feedback_matrix]")
+TEST_CASE("FeedbackMatrix.Structured_Dense_Reference", "[feedback_matrix]")
 {
     constexpr std::array kOrders = {8u, 16u};
     constexpr std::array kBlockSizes = {64u, 128u};
@@ -1073,7 +1075,7 @@ TEST_CASE("Structured feedback matrices match dense processing without allocatio
     }
 }
 
-TEST_CASE("ScalarFeedbackMatrix SetMatrix disables structured processing", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.SetMatrix_Disables_Structured", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 8;
     constexpr uint32_t kBlockSize = 3;
@@ -1102,7 +1104,7 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix disables structured processing", "[fee
     }
 }
 
-TEST_CASE("FilterFeedbackMatrix uses structured stage-zero processing", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Structured_StageZero_Processing", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 16;
     constexpr uint32_t kBlockSize = 64;
@@ -1150,7 +1152,7 @@ TEST_CASE("FilterFeedbackMatrix uses structured stage-zero processing", "[feedba
 // Tests added for matrix-order canonicalization (row-major: flat[row*N+col])
 // ---------------------------------------------------------------------------
 
-TEST_CASE("ScalarFeedbackMatrix uses row-major SetMatrix GetMatrix GetCoefficient and Process conventions",
+TEST_CASE("ScalarFeedbackMatrix.RowMajor_API_Processing",
           "[feedback_matrix]")
 {
     // A = [[1,2,3],[4,5,6],[7,8,9]] stored in row-major flat order.
@@ -1219,7 +1221,7 @@ TEST_CASE("ScalarFeedbackMatrix uses row-major SetMatrix GetMatrix GetCoefficien
     REQUIRE(mat.GetCoefficient(2, 0) == 3.f);
 }
 
-TEST_CASE("ScalarFeedbackMatrix SetMatrix rejects wrong size and leaves state unchanged", "[feedback_matrix]")
+TEST_CASE("ScalarFeedbackMatrix.SetMatrix_RejectsWrongSize_Unchanged", "[feedback_matrix]")
 {
     constexpr uint32_t N = 3;
     const std::vector<float> kInit = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f};
@@ -1256,7 +1258,7 @@ TEST_CASE("ScalarFeedbackMatrix SetMatrix rejects wrong size and leaves state un
     REQUIRE(mat.GetCoefficient(1, 1) == 99.f);
 }
 
-TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.GetFirstMatrix_RowMajor_Layout", "[feedback_matrix]")
 {
     // Use a non-structured matrix type (Random) with stage_count=0 so that
     // Process immediately applies matrix_[0] with no delays (stateless path).
@@ -1295,7 +1297,7 @@ TEST_CASE("FilterFeedbackMatrix GetFirstMatrix returns row-major layout", "[feed
     REQUIRE_FALSE(ffm.GetFirstMatrix(wrong));
 }
 
-TEST_CASE("FilterFeedbackMatrix reproduces seeded random-family cascades", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Seeded_Random_Cascades", "[feedback_matrix]")
 {
     // Covers both a random-matrix generator (where the seed changes the matrix itself) and a random-recipe
     // generator (RandomHouseholder, where the seed still drives the cascade even at the uint32_t boundary),
@@ -1353,7 +1355,7 @@ TEST_CASE("FilterFeedbackMatrix reproduces seeded random-family cascades", "[fee
     }
 }
 
-TEST_CASE("FilterFeedbackMatrix repeats default and zero-seed cascade recipes", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.DefaultZeroSeed_Repeats_Cascades", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 16U;
@@ -1406,7 +1408,7 @@ TEST_CASE("FilterFeedbackMatrix repeats default and zero-seed cascade recipes", 
     }
 }
 
-TEST_CASE("FilterFeedbackMatrix reproduces seeded structured cascade delays", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Seeded_Structured_Delays", "[feedback_matrix]")
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kBlockSize = 16U;

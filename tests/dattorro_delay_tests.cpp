@@ -36,7 +36,7 @@ std::vector<float> ImpulseResponse(sfFDN::DattorroDelay& delay, uint32_t size)
 }
 } // namespace
 
-TEST_CASE("DattorroDelay produces a feedforward only response", "[dattorro]")
+TEST_CASE("DattorroDelay.Feedforward_Only_Response", "[dattorro]")
 {
     constexpr uint32_t kDelay = 8;
     constexpr float kBlend = 0.25f;
@@ -71,7 +71,7 @@ TEST_CASE("DattorroDelay produces a feedforward only response", "[dattorro]")
     }
 }
 
-TEST_CASE("DattorroDelay produces a decaying feedback echo", "[dattorro]")
+TEST_CASE("DattorroDelay.Decaying_Feedback_Echo", "[dattorro]")
 {
     constexpr uint32_t kDelay = 5;
     constexpr float kFeedback = 0.5f;
@@ -108,7 +108,7 @@ TEST_CASE("DattorroDelay produces a decaying feedback echo", "[dattorro]")
     }
 }
 
-TEST_CASE("DattorroDelay feedback tap is not modulated", "[dattorro]")
+TEST_CASE("DattorroDelay.FeedbackTap_Not_Modulated", "[dattorro]")
 {
     constexpr uint32_t kDelay = 32;
     constexpr float kFeedback = 0.5f;
@@ -136,7 +136,7 @@ TEST_CASE("DattorroDelay feedback tap is not modulated", "[dattorro]")
     }
 }
 
-TEST_CASE("DattorroDelay matches SchroederAllpass", "[dattorro]")
+TEST_CASE("DattorroDelay.Matches_SchroederAllpass", "[dattorro]")
 {
     constexpr uint32_t kDelay = 11;
     constexpr float kGain = 0.6f;
@@ -164,7 +164,7 @@ TEST_CASE("DattorroDelay matches SchroederAllpass", "[dattorro]")
     }
 }
 
-TEST_CASE("DattorroDelay block processing matches Tick", "[dattorro]")
+TEST_CASE("DattorroDelay.Block_Matches_Tick", "[dattorro]")
 {
     constexpr uint32_t kBlockSize = 40;
     const sfFDN::DattorroDelayOptions options{
@@ -201,9 +201,23 @@ TEST_CASE("DattorroDelay block processing matches Tick", "[dattorro]")
     {
         REQUIRE_THAT(actual, Catch::Matchers::WithinAbs(expected_sample, 1e-6f));
     }
+
+    sfFDN::DattorroDelay grown_delay(sfFDN::DattorroDelayOptions{
+        .delay_config = {.delay = 8.f,
+                         .max_delay = 16,
+                         .interp_type = sfFDN::DelayInterpolationType::Allpass,
+                         .lfo_config = std::nullopt},
+    });
+    grown_delay.SetDelay(512.f);
+    grown_delay.Process(input_buffer, output_buffer);
+    {
+        const sfFDNTest::ScopedAllocationCounter counter;
+        grown_delay.Process(input_buffer, output_buffer);
+        REQUIRE(counter.Count() == 0);
+    }
 }
 
-TEST_CASE("DattorroDelay preserves state when cloned and restores initial state when cleared", "[dattorro]")
+TEST_CASE("DattorroDelay.Clone_Preserves_ClearResets", "[dattorro]")
 {
     const sfFDN::DattorroDelayOptions options{
         .delay_config = {.delay = 17.f,
@@ -250,57 +264,7 @@ TEST_CASE("DattorroDelay preserves state when cloned and restores initial state 
     }
 }
 
-TEST_CASE("DattorroDelay does not allocate", "[dattorro]")
-{
-    constexpr uint32_t kBlockSize = 64;
-    sfFDN::DattorroDelay delay(sfFDN::MakeDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f));
-
-    std::vector<float> input(kBlockSize, 0.f);
-    std::vector<float> output(kBlockSize, 0.f);
-    sfFDN::RNG rng;
-    for (float& sample : input)
-    {
-        sample = rng();
-    }
-
-    sfFDN::AudioBuffer input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-
-    // Warm up any lazy state before counting.
-    delay.Process(input_buffer, output_buffer);
-
-    {
-        const sfFDNTest::ScopedAllocationCounter counter;
-        delay.Process(input_buffer, output_buffer);
-        REQUIRE(counter.Count() == 0);
-    }
-}
-
-TEST_CASE("DattorroDelay grows its buffer during setup then processes without allocation", "[dattorro]")
-{
-    constexpr uint32_t kBlockSize = 64;
-    sfFDN::DattorroDelay delay(sfFDN::DattorroDelayOptions{
-        .delay_config = {.delay = 8.f,
-                         .max_delay = 16,
-                         .interp_type = sfFDN::DelayInterpolationType::Allpass,
-                         .lfo_config = std::nullopt},
-    });
-
-    // Changing the delay is a setup operation and may enlarge the backing delay line. Process() must not do so.
-    delay.SetDelay(512.f);
-
-    std::array<float, kBlockSize> input{};
-    std::array<float, kBlockSize> output{};
-    sfFDN::AudioBuffer const input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-    delay.Process(input_buffer, output_buffer);
-
-    const sfFDNTest::ScopedAllocationCounter counter;
-    delay.Process(input_buffer, output_buffer);
-    REQUIRE(counter.Count() == 0);
-}
-
-TEST_CASE("DattorroDelay rejects invalid parameters and clamps feedback", "[dattorro]")
+TEST_CASE("DattorroDelay.RejectsInvalid_Clamps_Feedback", "[dattorro]")
 {
     sfFDN::DattorroDelayOptions options{
         .delay_config = {.delay = 4.f,
@@ -339,7 +303,7 @@ TEST_CASE("DattorroDelay rejects invalid parameters and clamps feedback", "[datt
     REQUIRE(delay.GetFeedback() > -1.f);
 }
 
-TEST_CASE("MakeDattorroDelayOptions produces stable presets", "[dattorro]")
+TEST_CASE("MakeDattorroDelayOptions.Produces_Stable_Presets", "[dattorro]")
 {
     constexpr float kSampleRate = 48000.f;
     constexpr std::array<sfFDN::DattorroEffectType, 5> kTypes = {
@@ -362,6 +326,17 @@ TEST_CASE("MakeDattorroDelayOptions produces stable presets", "[dattorro]")
         for (const float sample : response)
         {
             REQUIRE(std::isfinite(sample));
+        }
+
+        std::array<float, 64> input{};
+        std::array<float, 64> output{};
+        const sfFDN::AudioBuffer input_buffer(input);
+        sfFDN::AudioBuffer output_buffer(output);
+        delay.Process(input_buffer, output_buffer);
+        {
+            const sfFDNTest::ScopedAllocationCounter counter;
+            delay.Process(input_buffer, output_buffer);
+            REQUIRE(counter.Count() == 0);
         }
     }
 
@@ -515,7 +490,7 @@ float SecondDifferenceCrestFactor(std::span<const float> signal)
 }
 } // namespace
 
-TEST_CASE("DattorroDelay preset audition renders", "[dattorro][.diagnostic]")
+TEST_CASE("DattorroDelay.Preset_Audition_Renders", "[dattorro][.diagnostic]")
 {
     // Deliberately not a multiple of the 16-sample unroll factor inside Process(), so that both the unrolled body and
     // the scalar remainder run every block and any seam between them would show up in the audio.
@@ -546,7 +521,7 @@ TEST_CASE("DattorroDelay preset audition renders", "[dattorro][.diagnostic]")
     }
 }
 
-TEST_CASE("DattorroDelay presets render without clicks", "[dattorro]")
+TEST_CASE("DattorroDelay.Presets_Click_Free", "[dattorro]")
 {
     // A pure sine is smooth and band-limited, so every output of these presets is a sum of scaled, delayed and
     // interpolated sines and must be smooth too. That makes a click easy to spot: it is an isolated large jump in a
@@ -596,7 +571,7 @@ TEST_CASE("DattorroDelay presets render without clicks", "[dattorro]")
     }
 }
 
-TEST_CASE("DattorroDelay modulates a white chorus sine smoothly", "[dattorro]")
+TEST_CASE("DattorroDelay.WhiteChorus_Smooth_Modulation", "[dattorro]")
 {
     // The white chorus LFO runs at 0.15 Hz, so one modulation cycle lasts about 6.7 s. The file is long enough to
     // hear two full cycles sweep past.
@@ -653,7 +628,7 @@ TEST_CASE("DattorroDelay modulates a white chorus sine smoothly", "[dattorro]")
     REQUIRE(SecondDifferenceCrestFactor(output) < 10.f);
 }
 
-TEST_CASE("DattorroDelay renders a white chorus sine audition", "[dattorro][.diagnostic]")
+TEST_CASE("DattorroDelay.WhiteChorus_Audition_Render", "[dattorro][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 100;
     constexpr uint32_t kDurationSamples = kSampleRate * 14;
@@ -681,7 +656,7 @@ TEST_CASE("DattorroDelay renders a white chorus sine audition", "[dattorro][.dia
     WriteWavFile("dattorro_chorus_sine.wav", output);
 }
 
-TEST_CASE("DattorroDelay white chorus preserves a flat magnitude response", "[dattorro]")
+TEST_CASE("DattorroDelay.WhiteChorus_Flat_Magnitude", "[dattorro]")
 {
     // The "white" in white chorus means a flat magnitude response: with blend = feedback and feedforward = 1 the
     // transfer function (BL + z^-M) / (1 + BL*z^-M) is allpass, so the effect is pure phase modulation and adds no
@@ -742,7 +717,7 @@ TEST_CASE("DattorroDelay white chorus preserves a flat magnitude response", "[da
     REQUIRE(ripple_db < 1.f);
 }
 
-TEST_CASE("FilterBank reports Dattorro channel count", "[dattorro]")
+TEST_CASE("FilterBank.Dattorro_Channel_Count", "[dattorro]")
 {
     sfFDN::MultichannelProcessorOptions options;
     REQUIRE(sfFDN::FilterBank(options).InputChannelCount() == 0);
@@ -757,7 +732,7 @@ TEST_CASE("FilterBank reports Dattorro channel count", "[dattorro]")
     REQUIRE(bank->OutputChannelCount() == kChannelCount);
 }
 
-TEST_CASE("FilterBank preserves Dattorro per-channel independence", "[dattorro]")
+TEST_CASE("FilterBank.Dattorro_Channel_Independence", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 64;
@@ -802,9 +777,10 @@ TEST_CASE("FilterBank preserves Dattorro per-channel independence", "[dattorro]"
             }
         }
     }
+
 }
 
-TEST_CASE("MakeMultichannelDattorroDelayOptions decorrelates channels", "[dattorro]")
+TEST_CASE("MakeMultichannelDattorroDelayOptions.Decorrelates_Channels", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 8;
     constexpr float kSampleRate = 48000.f;
@@ -871,16 +847,9 @@ TEST_CASE("MakeMultichannelDattorroDelayOptions decorrelates channels", "[dattor
         REQUIRE_FALSE(channel_options.delay_config.lfo_config.has_value());
         REQUIRE(channel_options.delay_config.interp_type == sfFDN::DelayInterpolationType::None);
     }
-}
 
-TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
-{
-    constexpr uint32_t kChannelCount = 8;
+    auto bank = std::make_unique<sfFDN::FilterBank>(options);
     constexpr uint32_t kBlockSize = 64;
-
-    auto bank = std::make_unique<sfFDN::FilterBank>(
-        sfFDN::MakeMultichannelDattorroDelayOptions(sfFDN::DattorroEffectType::WhiteChorus, 48000.f, kChannelCount));
-
     sfFDN::RNG rng;
     std::vector<float> input(static_cast<size_t>(kBlockSize) * kChannelCount, 0.f);
     for (float& sample : input)
@@ -888,13 +857,9 @@ TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
         sample = rng();
     }
     std::vector<float> output(input.size(), 0.f);
-
-    sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
+    const sfFDN::AudioBuffer input_buffer(kBlockSize, kChannelCount, input);
     sfFDN::AudioBuffer output_buffer(kBlockSize, kChannelCount, output);
-
-    // Warm up any lazy state before counting.
     bank->Process(input_buffer, output_buffer);
-
     {
         const sfFDNTest::ScopedAllocationCounter counter;
         bank->Process(input_buffer, output_buffer);
@@ -902,7 +867,7 @@ TEST_CASE("FilterBank does not allocate with Dattorro processors", "[dattorro]")
     }
 }
 
-TEST_CASE("FilterBank preserves Dattorro state when cloned and cleared", "[dattorro]")
+TEST_CASE("FilterBank.Dattorro_Clone_Clear", "[dattorro]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 32;
@@ -959,7 +924,7 @@ TEST_CASE("FilterBank preserves Dattorro state when cloned and cleared", "[datto
     }
 }
 
-TEST_CASE("DattorroDelay presets obey feedback loop gain limits", "[dattorro]")
+TEST_CASE("DattorroDelay.Presets_Respect_GainLimits", "[dattorro]")
 {
     constexpr float kSampleRate = 48000.f;
 

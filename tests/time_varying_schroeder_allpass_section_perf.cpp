@@ -54,7 +54,7 @@ void RunTimeVaryingSchroederBenchmark(uint32_t stage_count, bool parallel, uint3
 }
 } // namespace
 
-TEST_CASE("TimeVaryingSchroederAllpassSectionPerf", "[filter]")
+TEST_CASE("TimeVaryingSchroederAllpassSection.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "TimeVaryingSchroederAllpassSection perf");
@@ -71,7 +71,7 @@ TEST_CASE("TimeVaryingSchroederAllpassSectionPerf", "[filter]")
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSectionPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("TimeVaryingSchroederAllpassSection.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     for (const bool parallel : {false, true})

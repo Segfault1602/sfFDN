@@ -62,7 +62,7 @@ void RunChannelMatrixBenchmark(uint32_t input_channels, uint32_t output_channels
 }
 } // namespace
 
-TEST_CASE("ChannelMatrixPerf", "[channel_matrix]")
+TEST_CASE("ChannelMatrix.Perf", "[channel_matrix]")
 {
     nanobench::Bench bench;
     // The effective channel count of a rectangular boundary is max(M, K), matching the existing convention where a

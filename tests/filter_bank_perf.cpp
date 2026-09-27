@@ -40,7 +40,7 @@ void RunFilterBankBenchmark(uint32_t channel_count, uint32_t block_size, nanoben
 }
 } // namespace
 
-TEST_CASE("FilterBankPerf", "[filter]")
+TEST_CASE("FilterBank.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "FilterBank perf");
@@ -54,7 +54,7 @@ TEST_CASE("FilterBankPerf", "[filter]")
     }
 }
 
-TEST_CASE("FilterBankPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("FilterBank.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

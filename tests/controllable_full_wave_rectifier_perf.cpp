@@ -30,7 +30,7 @@ constexpr std::array kVariants = {
 };
 } // namespace
 
-TEST_CASE("ControllableFullWaveRectifierPerf", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Perf", "[nonlinear]")
 {
     constexpr auto kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 

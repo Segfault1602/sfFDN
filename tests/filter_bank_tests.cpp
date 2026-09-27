@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-TEST_CASE("FilterBank constructs every single-channel processor option", "[filter]")
+TEST_CASE("FilterBank.All_SingleChannel_Options", "[filter]")
 {
     const sfFDN::GraphicEQOptions graphic_eq{
         .gains_db = {6.F, -3.F, 4.F, -2.F, 1.F, 0.F, -1.F, 2.F, -4.F, 3.F},
@@ -101,7 +101,7 @@ TEST_CASE("FilterBank constructs every single-channel processor option", "[filte
 
 }
 
-TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place processing", "[filter]")
+TEST_CASE("FilterBank.Mixed_Bypass_CloneInPlace", "[filter]")
 {
     constexpr uint32_t kSamples = 8;
     const sfFDN::MultichannelProcessorOptions options{
@@ -191,7 +191,7 @@ TEST_CASE("FilterBank handles mixed processors, bypasses, cloning, and in-place 
     REQUIRE(counter.Count() == 0);
 }
 
-TEST_CASE("FilterBank accepts empty and all-bypass options", "[filter]")
+TEST_CASE("FilterBank.Accepts_Empty_Bypass", "[filter]")
 {
     sfFDN::FilterBank empty(sfFDN::MultichannelProcessorOptions{});
     REQUIRE(empty.InputChannelCount() == 0U);

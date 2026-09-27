@@ -18,7 +18,7 @@
 #include "allocation_counter.h"
 #include "test_utils.h"
 
-TEST_CASE("ParallelGains Split applies configured gains to each output channel", "[parallel_gains]")
+TEST_CASE("ParallelGains.Split_Configured_Gains", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -49,7 +49,7 @@ TEST_CASE("ParallelGains Split applies configured gains to each output channel",
     }
 }
 
-TEST_CASE("ParallelGains Merge sums scaled input channels", "[parallel_gains]")
+TEST_CASE("ParallelGains.Merge_Scaled_Inputs", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -83,7 +83,7 @@ TEST_CASE("ParallelGains Merge sums scaled input channels", "[parallel_gains]")
 }
 
 // With frequency and amplitude to 0, this should behave the same as a normal ParallelGain
-TEST_CASE("TimeVaryingParallelGains Split matches ParallelGains without modulation", "[parallel_gains]")
+TEST_CASE("TimeVaryingParallelGains.Split_Static_Reference", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -120,7 +120,7 @@ TEST_CASE("TimeVaryingParallelGains Split matches ParallelGains without modulati
     }
 }
 
-TEST_CASE("TimeVaryingParallelGains Merge matches ParallelGains without modulation", "[parallel_gains]")
+TEST_CASE("TimeVaryingParallelGains.Merge_Static_Reference", "[parallel_gains]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 10;
@@ -159,7 +159,7 @@ TEST_CASE("TimeVaryingParallelGains Merge matches ParallelGains without modulati
     }
 }
 
-TEST_CASE("TimeVaryingParallelGains Split modulates gains and Clear restores initial phase", "[parallel_gains]")
+TEST_CASE("TimeVaryingParallelGains.Modes_Reference_State", "[parallel_gains]")
 {
     constexpr std::array<float, 4> kExpectedGain = {0.5f, 0.6767767f, 0.75f, 0.6767767f};
     constexpr std::array<float, 4> kContinuedGain = {0.5f, 0.3232233f, 0.25f, 0.3232233f};
@@ -199,10 +199,7 @@ TEST_CASE("TimeVaryingParallelGains Split modulates gains and Clear restores ini
     {
         REQUIRE(reset_output[i] == Catch::Approx(kExpectedGain[i]));
     }
-}
 
-TEST_CASE("TimeVaryingParallelGains processes Merge and Parallel modes without allocation", "[parallel_gains]")
-{
     const sfFDN::ParallelGainsOptions merge_options{
         .mode = sfFDN::ParallelGainsMode::Merge,
         .gains = {0.5f, 1.f},
@@ -242,22 +239,23 @@ TEST_CASE("TimeVaryingParallelGains processes Merge and Parallel modes without a
     std::array<float, 8> clone_output{};
     sfFDN::AudioBuffer clone_output_buffer(4, 2, clone_output);
     clone->Process(merge_input_buffer, clone_output_buffer);
-    std::array<float, 8> continued_output{};
-    sfFDN::AudioBuffer continued_output_buffer(4, 2, continued_output);
-    parallel.Process(merge_input_buffer, continued_output_buffer);
+    std::array<float, 8> parallel_continued_output{};
+    sfFDN::AudioBuffer parallel_continued_output_buffer(4, 2, parallel_continued_output);
+    parallel.Process(merge_input_buffer, parallel_continued_output_buffer);
     for (size_t i = 0; i < clone_output.size(); ++i)
     {
-        REQUIRE(clone_output[i] == Catch::Approx(continued_output[i]));
+        REQUIRE(clone_output[i] == Catch::Approx(parallel_continued_output[i]));
     }
 
     {
         sfFDNTest::ScopedAllocationCounter const allocation_counter;
+        merge.Process(merge_input_buffer, merge_output_buffer);
         parallel.Process(merge_input_buffer, parallel_output_buffer);
         REQUIRE(allocation_counter.Count() == 0);
     }
 }
 
-TEST_CASE("MakeParallelGainsFromConfig selects static and time-varying implementations", "[parallel_gains]")
+TEST_CASE("MakeParallelGainsFromConfig.Selects_Static_TimeVarying", "[parallel_gains]")
 {
     SECTION("static modes continue to construct ParallelGains")
     {

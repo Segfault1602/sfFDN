@@ -72,7 +72,7 @@ void RunTimeVaryingFeedbackMatrixBenchmark(const ModeInfo& mode, uint32_t order,
 }
 } // namespace
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
+TEST_CASE("TimeVaryingFeedbackMatrix.Perf", "[time_varying_matrix]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "TimeVaryingFeedbackMatrix perf");
@@ -93,7 +93,7 @@ TEST_CASE("TimeVaryingFeedbackMatrixPerf", "[time_varying_matrix]")
     }
 }
 
-TEST_CASE("TimeVaryingFeedbackMatrixPerf_BigO", "[time_varying_matrix][.diagnostic]")
+TEST_CASE("TimeVaryingFeedbackMatrix.Perf_BigO", "[time_varying_matrix][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
 

@@ -59,7 +59,7 @@ void RunIIRFilterBankBenchmark(uint32_t channel_count, uint32_t stage_count, uin
 }
 } // namespace
 
-TEST_CASE("IIRFilterBankPerf", "[filter]")
+TEST_CASE("IIRFilterBank.Perf", "[filter]")
 {
     constexpr uint32_t kStageCount = 10U;
     nanobench::Bench bench;
@@ -77,7 +77,7 @@ TEST_CASE("IIRFilterBankPerf", "[filter]")
     }
 }
 
-TEST_CASE("IIRFilterBankPerf_Stages", "[filter]")
+TEST_CASE("IIRFilterBank.Perf_Stages", "[filter]")
 {
     constexpr uint32_t kChannelCount = 16U;
     nanobench::Bench bench;
@@ -92,7 +92,7 @@ TEST_CASE("IIRFilterBankPerf_Stages", "[filter]")
     }
 }
 
-TEST_CASE("IIRFilterBankPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("IIRFilterBank.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr uint32_t kStageCount = 10U;

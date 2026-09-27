@@ -11,7 +11,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("SignalDependentFractionalDelayPerf", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Perf", "[nonlinear]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(

@@ -12,7 +12,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("RingModulatorPerf", "[nonlinear]")
+TEST_CASE("RingModulator.Perf", "[nonlinear]")
 {
     constexpr auto kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 

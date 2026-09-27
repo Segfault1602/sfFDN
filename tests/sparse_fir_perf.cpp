@@ -45,7 +45,7 @@ void RunSparseFirBenchmark(uint32_t tap_count, uint32_t block_size, nanobench::B
 }
 } // namespace
 
-TEST_CASE("SparseFirPerf", "[filter]")
+TEST_CASE("SparseFir.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "SparseFir perf");
@@ -59,7 +59,7 @@ TEST_CASE("SparseFirPerf", "[filter]")
     }
 }
 
-TEST_CASE("SparseFirPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("SparseFir.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

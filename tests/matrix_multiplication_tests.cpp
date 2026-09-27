@@ -75,7 +75,7 @@ void TestMatrixMultiplyIdentity()
 }
 } // namespace
 
-TEST_CASE("MatrixMultiply_16 matches MatrixMultiply_C for a row-major order-16 matrix", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiply_16.RowMajor_Order16_Reference", "[matrix_multiplication]")
 {
     const std::array<float, kMatrixMultiplyOrder> input = {1.f,  -2.f,  3.5f, -4.f,   5.f,  -6.5f, 7.f,   -8.f,
                                                            9.5f, -10.f, 11.f, -12.5f, 13.f, -14.f, 15.5f, -16.f};
@@ -94,7 +94,7 @@ TEST_CASE("MatrixMultiply_16 matches MatrixMultiply_C for a row-major order-16 m
     }
 }
 
-TEST_CASE("MatrixMultiply_C preserves identity matrices across supported orders", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiply_C.Identity_Supported_Orders", "[matrix_multiplication]")
 {
     TestMatrixMultiplyIdentity<4>();
     TestMatrixMultiplyIdentity<8>();
@@ -102,7 +102,7 @@ TEST_CASE("MatrixMultiply_C preserves identity matrices across supported orders"
     TestMatrixMultiplyIdentity<32>();
 }
 
-TEST_CASE("MatrixMultiply_C matches Eigen for multiple orders and row counts", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiply_C.Eigen_Orders_Rows", "[matrix_multiplication]")
 {
     constexpr std::array kNSize = {4, 6, 8, 10, 12, 16, 32};
     constexpr std::array kRowCounts = {1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64};
@@ -170,14 +170,14 @@ void TestMatrixMultiplyHadamard()
     }
 }
 
-TEST_CASE("HadamardMultiply matches WalshHadamardTransform against Hadamard matrices", "[matrix_multiplication]")
+TEST_CASE("HadamardMultiply.WalshHadamard_Matrix_Reference", "[matrix_multiplication]")
 {
     TestMatrixMultiplyHadamard<4>();
     TestMatrixMultiplyHadamard<8>();
     TestMatrixMultiplyHadamard<16>();
 }
 
-TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block sample", "[matrix_multiplication]")
+TEST_CASE("HadamardMultiplyBlock.PerSample_Hadamard_Transform", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatrixSize = 4;
     constexpr uint32_t kBlockSize = 5;
@@ -216,7 +216,7 @@ TEST_CASE("HadamardMultiplyBlock applies a Hadamard transform to each block samp
     }
 }
 
-TEST_CASE("HadamardMultiplyBlock processes disjoint strided views", "[matrix_multiplication]")
+TEST_CASE("HadamardMultiplyBlock.Disjoint_Strided_Views", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatrixSize = 4;
     constexpr uint32_t kStride = 11;

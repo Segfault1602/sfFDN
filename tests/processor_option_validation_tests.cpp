@@ -59,7 +59,7 @@ void RequireInvalidAttenuationOptions(const sfFDN::attenuation_filter_variant_t&
 }
 } // namespace
 
-TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents", "[fdn_config]")
+TEST_CASE("RequireValidOptions.Lvalue_Borrow_Preserves", "[fdn_config]")
 {
     using Options = sfFDN::DelayBankOptions;
     static_assert(CanRequireValidOptions<Options&>);
@@ -79,7 +79,7 @@ TEST_CASE("RequireValidOptions borrows only lvalues and preserves their contents
     REQUIRE(options == invalid);
 }
 
-TEST_CASE("ChannelMatrixOptions validates dimensions and coefficient count", "[fdn_config]")
+TEST_CASE("ChannelMatrixOptions.Validates_Dimensions_Coefficients", "[fdn_config]")
 {
     std::vector<sfFDN::ConfigIssue> issues;
     sfFDN::detail::ValidateOptions(
@@ -98,7 +98,7 @@ TEST_CASE("ChannelMatrixOptions validates dimensions and coefficient count", "[f
     REQUIRE(issues[1].path == "/matrix/output_channel_count");
 }
 
-TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation domains", "[fdn_config]")
+TEST_CASE("ValidateOptions.Rejects_Invalid_Domains", "[fdn_config]")
 {
     RequireInvalidOptions(sfFDN::CascadedBiquadsOptions{
         .coeffs = {{1.F, 0.F, 0.F, 0.F, 2.F, 0.F}},
@@ -135,7 +135,7 @@ TEST_CASE("ValidateOptions rejects invalid filter nonlinear and attenuation doma
     });
 }
 
-TEST_CASE("Delay options reject nonrepresentable values before construction", "[delay]")
+TEST_CASE("Delay.Options_Reject_Nonrepresentable", "[delay]")
 {
     const std::vector<sfFDN::DelayOptions> invalid_options = {
         {.delay = -1.F, .max_delay = 16U, .interp_type = sfFDN::DelayInterpolationType::None, .lfo_config = {}},
@@ -172,7 +172,7 @@ TEST_CASE("Delay options reject nonrepresentable values before construction", "[
         {.delay = 0.F, .max_delay = 4U, .interp_type = sfFDN::DelayInterpolationType::Lagrange, .lfo_config = {}}));
 }
 
-TEST_CASE("Delay banks validate cardinality and safe tap capacity", "[delay]")
+TEST_CASE("Delay.Banks_Validate_Capacity", "[delay]")
 {
     const sfFDN::DelayBankOptions valid_fixed{
         .delays = {1.F, 3.5F}, .block_size = 3U, .interpolation_type = sfFDN::DelayInterpolationType::Linear};
@@ -225,7 +225,7 @@ TEST_CASE("Delay banks validate cardinality and safe tap capacity", "[delay]")
     }));
 }
 
-TEST_CASE("DattorroDelay validates finite controls and preserves supported normalization", "[dattorro]")
+TEST_CASE("DattorroDelay.Validates_Controls_Normalization", "[dattorro]")
 {
     auto valid = sfFDN::DattorroDelayOptions{
         .delay_config = {.delay = 3.F,
@@ -253,7 +253,7 @@ TEST_CASE("DattorroDelay validates finite controls and preserves supported norma
     REQUIRE_THROWS_AS(sfFDN::DattorroDelay(valid), std::invalid_argument);
 }
 
-TEST_CASE("ParallelGains options accept empty gains and reject invalid modulation", "[parallel_gains]")
+TEST_CASE("ParallelGains.Options_AcceptEmpty_RejectModulation", "[parallel_gains]")
 {
     REQUIRE_NOTHROW(sfFDN::ParallelGains(
         sfFDN::ParallelGainsOptions{.mode = sfFDN::ParallelGainsMode::Split, .gains = {}, .time_varying_config = {}}));
@@ -274,7 +274,7 @@ TEST_CASE("ParallelGains options accept empty gains and reject invalid modulatio
     REQUIRE_NOTHROW(sfFDN::TimeVaryingParallelGains(invalid));
 }
 
-TEST_CASE("Schroeder sections validate stage vectors before allocation", "[time_varying_allpass]")
+TEST_CASE("SchroederAllpassSection.Validates_Stages_Preallocation", "[time_varying_allpass]")
 {
     auto static_options = ValidSchroederOptions();
     sfFDN::SchroederAllpassSection static_section(static_options);
@@ -307,7 +307,7 @@ TEST_CASE("Schroeder sections validate stage vectors before allocation", "[time_
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpassSection(time_varying), std::invalid_argument);
 }
 
-TEST_CASE("CascadedBiquads SetCoefficients retains state on valid updates and failures", "[filter]")
+TEST_CASE("CascadedBiquads.SetCoefficients_Retains_State", "[filter]")
 {
     const sfFDN::FilterCoefficients old_coefficients{1.F, 0.F, 0.F, 1.F, -0.5F, 0.F};
     const sfFDN::FilterCoefficients updated_coefficients{2.F, 0.F, 0.F, 1.F, -0.5F, 0.F};
