@@ -57,6 +57,7 @@ target_sources(
             audio_buffer_tests.cpp
             audio_processor_chain_tests.cpp
             array_math_tests.cpp
+            banded_waveguide_tests.cpp
             channel_matrix_tests.cpp
             dattorro_delay_tests.cpp
             delay_tests.cpp
@@ -181,6 +182,7 @@ set(
 )
 set(
     SFFDN_LOW_LEVEL_PERF_SOURCES
+    banded_waveguide_perf.cpp
     array_math_perf.cpp
     filter_design_perf.cpp
     matrix_multiplication_perf.cpp
