@@ -541,6 +541,57 @@ TEST_CASE("ScalarFeedbackMatrix processes exact strided aliases without allocati
     RequireStrideSentinels(strided_storage, kFilterStride, kFilterOrder, kFilterOffset, kFilterBlockSize, kSentinel);
 }
 
+TEST_CASE("ScalarFeedbackMatrix dense processing matches the reference across tile remainders", "[feedback_matrix]")
+{
+    // Orders straddle the row-tile width and the packing threshold; block sizes straddle the SIMD width and the frame
+    // tile so every vector, remainder, and scalar path runs both disjoint and in place.
+    constexpr std::array kOrders = {1U, 2U, 3U, 4U, 5U, 7U, 8U, 9U, 31U, 32U, 33U, 64U};
+    constexpr std::array kBlockSizes = {1U, 3U, 7U, 8U, 9U, 15U, 16U, 17U, 31U, 33U, 130U};
+    constexpr uint32_t kOffset = 3;
+    constexpr uint32_t kPadding = 5;
+    constexpr float kSentinel = -2468.5f;
+
+    for (const uint32_t order : kOrders)
+    {
+        const auto matrix_data = sfFDN::GenerateMatrix(order, sfFDN::ScalarMatrixType::Random, 97U);
+        sfFDN::ScalarFeedbackMatrix matrix({.source = sfFDN::MatrixData{order, matrix_data}});
+        for (const uint32_t block_size : kBlockSizes)
+        {
+            CAPTURE(order, block_size);
+            const uint32_t stride = kOffset + block_size + kPadding;
+            std::vector<float> input_storage(static_cast<size_t>(order) * stride, kSentinel);
+            std::vector<float> output_storage(input_storage.size(), kSentinel);
+            sfFDN::AudioBuffer input_parent(stride, order, input_storage);
+            sfFDN::AudioBuffer output_parent(stride, order, output_storage);
+            sfFDN::AudioBuffer input = input_parent.Offset(kOffset, block_size);
+            sfFDN::AudioBuffer output = output_parent.Offset(kOffset, block_size);
+            for (uint32_t channel = 0; channel < order; ++channel)
+            {
+                const auto channel_input = input.GetChannelSpan(channel);
+                for (uint32_t sample = 0; sample < block_size; ++sample)
+                {
+                    channel_input[sample] = std::sin(static_cast<float>((channel * 131U) + (sample * 17U) + 1U));
+                }
+            }
+            const auto expected = DenseReference(matrix_data, input);
+
+            size_t allocations = 0;
+            {
+                sfFDNTest::ScopedAllocationCounter allocation_counter;
+                matrix.Process(input, output);
+                matrix.Process(input, input);
+                allocations = allocation_counter.Count();
+            }
+
+            REQUIRE(allocations == 0);
+            RequireLogicalOutput(output, expected);
+            RequireLogicalOutput(input, expected);
+            RequireStrideSentinels(output_storage, stride, order, kOffset, block_size, kSentinel);
+            RequireStrideSentinels(input_storage, stride, order, kOffset, block_size, kSentinel);
+        }
+    }
+}
+
 TEST_CASE("ScalarFeedbackMatrix applies a Householder reflection", "[feedback_matrix]")
 {
     constexpr uint32_t kMatSize = 4;
