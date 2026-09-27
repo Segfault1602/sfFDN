@@ -78,8 +78,10 @@ cpmaddpackage(
     YES
 )
 
-if(xsimd_ADDED AND NOT TARGET xsimd::xsimd)
-    add_library(xsimd INTERFACE)
+if(NOT TARGET xsimd::xsimd)
+    if(xsimd_ADDED AND NOT TARGET xsimd)
+        add_library(xsimd INTERFACE)
+        target_include_directories(xsimd SYSTEM INTERFACE ${xsimd_SOURCE_DIR}/include)
+    endif()
     add_library(xsimd::xsimd ALIAS xsimd)
-    target_include_directories(xsimd SYSTEM INTERFACE ${xsimd_SOURCE_DIR}/include)
 endif()
