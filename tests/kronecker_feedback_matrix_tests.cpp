@@ -7,6 +7,7 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/kronecker_feedback_matrix.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
