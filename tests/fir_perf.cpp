@@ -34,7 +34,7 @@ void RunFirBenchmark(uint32_t tap_count, uint32_t block_size, nanobench::Bench& 
 }
 } // namespace
 
-TEST_CASE("FirPerf", "[filter]")
+TEST_CASE("Fir.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "Fir perf");
@@ -50,7 +50,7 @@ TEST_CASE("FirPerf", "[filter]")
     }
 }
 
-TEST_CASE("FirPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("Fir.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

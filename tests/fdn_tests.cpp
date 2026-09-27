@@ -315,7 +315,7 @@ std::unique_ptr<sfFDN::FDN> CreateMimoGoldFDN()
 
 } // namespace
 
-TEST_CASE("FDN matches the MIMO pyFDN golden reference", "[fdn]")
+TEST_CASE("FDN.MIMO_pyFDN_Reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = 4096;
@@ -378,7 +378,7 @@ TEST_CASE("FDN matches the MIMO pyFDN golden reference", "[fdn]")
     REQUIRE_FALSE(std::ranges::equal(output_buffer.GetChannelSpan(0), output_buffer.GetChannelSpan(1)));
 }
 
-TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
+TEST_CASE("FDN.pyFDN_Golden_Reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = 4096;
@@ -437,7 +437,7 @@ TEST_CASE("FDN matches the pyFDN golden reference", "[fdn]")
     }
 }
 
-TEST_CASE("FDN transposed topology matches its golden reference", "[fdn]")
+TEST_CASE("FDN.Transposed_Golden_Reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kIter = kSampleRate;
@@ -484,7 +484,7 @@ TEST_CASE("FDN transposed topology matches its golden reference", "[fdn]")
     }
 }
 
-TEST_CASE("FDN with FIR filters matches its golden reference", "[fdn]")
+TEST_CASE("FDN.FIR_Golden_Reference", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 64;
@@ -556,7 +556,7 @@ TEST_CASE("FDN with FIR filters matches its golden reference", "[fdn]")
     }
 }
 
-TEST_CASE("FDN reproduces the chirp golden file", "[fdn]")
+TEST_CASE("FDN.Chirp_Golden_File", "[fdn]")
 {
     constexpr uint32_t kSampleRate = 48000;
 
@@ -601,7 +601,7 @@ TEST_CASE("FDN reproduces the chirp golden file", "[fdn]")
     }
 }
 
-TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
+TEST_CASE("FDNConfig.RenderedNetwork_Round_Trip", "[fdn]")
 {
     sfFDN::FDNConfig config;
     config.fdn_size = 8;
@@ -669,7 +669,7 @@ TEST_CASE("FDNConfig round-trips a rendered network", "[fdn]")
         REQUIRE_THAT(deserialized_output[i], Catch::Matchers::WithinAbs(output[i], 1e-6));
     }
 }
-TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay networks", "[fdn]")
+TEST_CASE("FDNConfig.DattorroMultichannel_Round_Trip", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 8;
     constexpr float kSampleRate = 48000.f;
@@ -764,7 +764,7 @@ TEST_CASE("FDNConfig validates and round-trips multichannel Dattorro delay netwo
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 
-TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]")
+TEST_CASE("FDNConfig.Validates_TimeVarying_Allpass", "[fdn]")
 {
     constexpr uint32_t kFdnSize = 4;
     constexpr uint32_t kSampleCount = 240000;
@@ -871,7 +871,7 @@ TEST_CASE("FDNConfig validates time-varying Schroeder allpass networks", "[fdn]"
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(bad_config), std::runtime_error);
 }
 
-TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output", "[fdn]")
+TEST_CASE("FDN.ArbitraryBlocks_Duplicate_Mono", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 13;
     auto whole_fdn = CreatePyFDNGoldFDN();
@@ -900,9 +900,46 @@ TEST_CASE("FDN supports arbitrary block lengths and duplicates its mono output",
             REQUIRE(channel_output[i] == Catch::Approx(whole_output[i]));
         }
     }
+
+    {
+        constexpr uint32_t kBlockSize = 8;
+        std::array<float, kBlockSize> mode_input{};
+        std::array<float, kBlockSize> mode_output{};
+        const sfFDN::AudioBuffer mode_input_buffer(mode_input);
+        sfFDN::AudioBuffer mode_output_buffer(mode_output);
+
+        sfFDN::FDN normal(4, kBlockSize);
+        sfFDN::FDN transposed(4, kBlockSize, true);
+        sfFDN::FDNConfig config;
+        config.fdn_size = 4;
+        config.block_size = kBlockSize;
+        config.sample_rate = 48000.f;
+        config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
+        config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                           .time_varying_config = {}};
+        config.feedback_matrix_config =
+            sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
+                                                   .matrix_size = config.fdn_size,
+                                                   .generator = sfFDN::ScalarMatrixType::Hadamard,
+                                               }};
+        config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
+                                                            .time_varying_config = {}};
+        auto configured = sfFDN::CreateFDNFromConfig(config);
+
+        normal.Process(mode_input_buffer, mode_output_buffer);
+        transposed.Process(mode_input_buffer, mode_output_buffer);
+        configured->Process(mode_input_buffer, mode_output_buffer);
+        {
+            const sfFDNTest::ScopedAllocationCounter allocation_counter;
+            normal.Process(mode_input_buffer, mode_output_buffer);
+            transposed.Process(mode_input_buffer, mode_output_buffer);
+            configured->Process(mode_input_buffer, mode_output_buffer);
+            REQUIRE(allocation_counter.Count() == 0);
+        }
+    }
 }
 
-TEST_CASE("FDN output composition overwrites the destination with wet and direct paths", "[fdn]")
+TEST_CASE("FDN.Output_Overwrites_WetDirect", "[fdn]")
 {
     std::array<float, 1> impulse = {1.F};
     std::array<float, 1> silence = {0.F};
@@ -943,7 +980,7 @@ TEST_CASE("FDN output composition overwrites the destination with wet and direct
     }
 }
 
-TEST_CASE("FDN applies static MIMO boundary matrices in both topologies", "[fdn]")
+TEST_CASE("FDN.StaticMIMO_Both_Topologies", "[fdn]")
 {
     std::array<float, 2> input = {2.F, 4.F};
     std::array<float, 2> silence{};
@@ -987,7 +1024,7 @@ TEST_CASE("FDN applies static MIMO boundary matrices in both topologies", "[fdn]
     }
 }
 
-TEST_CASE("FDN processes external channel counts larger than its order", "[fdn]")
+TEST_CASE("FDN.ExternalChannels_Exceed_Order", "[fdn]")
 {
     constexpr uint32_t kOrder = 4U;
     constexpr uint32_t kChannels = 5U;
@@ -1041,7 +1078,7 @@ TEST_CASE("FDN processes external channel counts larger than its order", "[fdn]"
     REQUIRE(output == input);
 }
 
-TEST_CASE("FDN MIMO processing is independent of callback partitioning", "[fdn]")
+TEST_CASE("FDN.MIMO_Partition_Invariant", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 7U;
     for (const bool transposed : {false, true})
@@ -1065,10 +1102,14 @@ TEST_CASE("FDN MIMO processing is independent of callback partitioning", "[fdn]"
         chunked->Process(second_input, second_output);
 
         REQUIRE(chunked_output == whole_output);
+
+        const sfFDNTest::ScopedAllocationCounter allocation_counter;
+        whole->Process(input_buffer, whole_output_buffer);
+        REQUIRE(allocation_counter.Count() == 0U);
     }
 }
 
-TEST_CASE("FDN applies multichannel tone correction only to wet output", "[fdn]")
+TEST_CASE("FDN.MultichannelTone_Wet_Only", "[fdn]")
 {
     auto fdn = CreateMimoTestFDN(false);
     REQUIRE(fdn->SetTCFilter(std::make_unique<sfFDN::ChannelMatrix>(sfFDN::ChannelMatrixOptions{
@@ -1093,7 +1134,7 @@ TEST_CASE("FDN applies multichannel tone correction only to wet output", "[fdn]"
     REQUIRE(output[1] == Catch::Approx(30.F));
 }
 
-TEST_CASE("FDN rejects routing processors that do not match the fixed topology", "[fdn]")
+TEST_CASE("FDN.Rejects_Mismatched_Routing", "[fdn]")
 {
     auto fdn = CreateMimoTestFDN(false);
     auto* const input = fdn->GetInputGains();
@@ -1126,7 +1167,7 @@ TEST_CASE("FDN rejects routing processors that do not match the fixed topology",
     REQUIRE(fdn->OutputChannelCount() == 2U);
 }
 
-TEST_CASE("FDN SetDirectPath removes the direct processor and restores the scalar gain", "[fdn]")
+TEST_CASE("FDN.SetDirectPath_Restores_ScalarGain", "[fdn]")
 {
     auto fdn = CreateMimoTestFDN(false);
     REQUIRE(fdn->GetDirectPath() != nullptr);
@@ -1153,7 +1194,7 @@ TEST_CASE("FDN SetDirectPath removes the direct processor and restores the scala
     REQUIRE(output[1] == Catch::Approx(7.F));
 }
 
-TEST_CASE("FDN construction rejects degenerate topologies", "[fdn]")
+TEST_CASE("FDN.Rejects_Degenerate_Topologies", "[fdn]")
 {
     REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 0U, .block_size = 8U})), std::invalid_argument);
     REQUIRE_THROWS_AS((sfFDN::FDN(sfFDN::FDNTopology{.order = 4U, .block_size = 0U})), std::invalid_argument);
@@ -1163,7 +1204,7 @@ TEST_CASE("FDN construction rejects degenerate topologies", "[fdn]")
                       std::invalid_argument);
 }
 
-TEST_CASE("FDN SetDirectGain is rejected when the input and output channel counts differ", "[fdn]")
+TEST_CASE("FDN.SetDirectGain_Rejects_MismatchedChannels", "[fdn]")
 {
     sfFDN::FDN fdn(sfFDN::FDNTopology{
         .order = 4U,
@@ -1202,21 +1243,7 @@ TEST_CASE("FDN SetDirectGain is rejected when the input and output channel count
     REQUIRE(output[1] == Catch::Approx(-0.5F));
 }
 
-TEST_CASE("FDN MIMO processing is allocation-free for remainder blocks", "[fdn]")
-{
-    auto fdn = CreateMimoTestFDN(false, 4U);
-    std::array<float, 6> input{};
-    std::array<float, 6> output{};
-    const sfFDN::AudioBuffer input_buffer(3U, 2U, input);
-    sfFDN::AudioBuffer output_buffer(3U, 2U, output);
-    fdn->Process(input_buffer, output_buffer);
-
-    const sfFDNTest::ScopedAllocationCounter allocation_counter;
-    fdn->Process(input_buffer, output_buffer);
-    REQUIRE(allocation_counter.Count() == 0U);
-}
-
-TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", "[fdn]")
+TEST_CASE("FDN.ClearRestores_CloneCleared", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
     auto fdn = CreatePyFDNGoldFDN();
@@ -1250,7 +1277,7 @@ TEST_CASE("FDN Clear restores a fresh configured network and Clone is cleared", 
     }
 }
 
-TEST_CASE("FDN rejects incompatible setters without replacing configured processors", "[fdn]")
+TEST_CASE("FDN.RejectsSetters_Preserves_Processors", "[fdn]")
 {
     sfFDN::FDN fdn(4, 8);
     auto* const input_gains = fdn.GetInputGains();
@@ -1279,7 +1306,7 @@ TEST_CASE("FDN rejects incompatible setters without replacing configured process
     REQUIRE(fdn.GetDelayBank().InputChannelCount() == 4);
 }
 
-TEST_CASE("FDN construction fixes the topology and preserves transpose", "[fdn]")
+TEST_CASE("FDN.Construction_FixedTopology_Transpose", "[fdn]")
 {
     sfFDN::FDN fdn(sfFDN::FDNTopology{
         .order = 6U,
@@ -1303,7 +1330,7 @@ TEST_CASE("FDN construction fixes the topology and preserves transpose", "[fdn]"
     REQUIRE(fdn.GetOrder() == 6U);
 }
 
-TEST_CASE("FDN default and span boundary routing use ChannelMatrix", "[fdn]")
+TEST_CASE("FDN.BoundaryRouting_Uses_ChannelMatrix", "[fdn]")
 {
     SECTION("mono defaults preserve the legacy half-gain routing")
     {
@@ -1411,7 +1438,7 @@ TEST_CASE("FDN default and span boundary routing use ChannelMatrix", "[fdn]")
     }
 }
 
-TEST_CASE("FDN move operations preserve active processing state", "[fdn]")
+TEST_CASE("FDN.Move_Preserves_State", "[fdn]")
 {
     constexpr uint32_t kSampleCount = 32;
     std::array<float, kSampleCount> impulse{};
@@ -1470,45 +1497,7 @@ TEST_CASE("FDN move operations preserve active processing state", "[fdn]")
     REQUIRE(clone_first_output == mimo_first_output);
 }
 
-TEST_CASE("FDN processing is allocation-free for normal, transposed, and configured networks", "[fdn]")
-{
-    constexpr uint32_t kBlockSize = 8;
-    std::array<float, kBlockSize> input{};
-    std::array<float, kBlockSize> output{};
-    sfFDN::AudioBuffer const input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-
-    sfFDN::FDN normal(4, kBlockSize);
-    sfFDN::FDN transposed(4, kBlockSize, true);
-    sfFDN::FDNConfig config;
-    config.fdn_size = 4;
-    config.block_size = kBlockSize;
-    config.sample_rate = 48000.f;
-    config.delay_bank_config = {.delays = {16.f, 17.f, 19.f, 23.f}, .block_size = kBlockSize};
-    config.input_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
-                                                       .time_varying_config = {}};
-    config.feedback_matrix_config =
-        sfFDN::ScalarFeedbackMatrixOptions{.source = sfFDN::GeneratedMatrixOptions{
-                                               .matrix_size = config.fdn_size,
-                                               .generator = sfFDN::ScalarMatrixType::Hadamard,
-                                           }};
-    config.output_block_config.parallel_gains_config = {.gains = std::vector<float>(config.fdn_size, 0.5f),
-                                                        .time_varying_config = {}};
-    auto configured = sfFDN::CreateFDNFromConfig(config);
-
-    normal.Process(input_buffer, output_buffer);
-    transposed.Process(input_buffer, output_buffer);
-    configured->Process(input_buffer, output_buffer);
-    {
-        sfFDNTest::ScopedAllocationCounter const allocation_counter;
-        normal.Process(input_buffer, output_buffer);
-        transposed.Process(input_buffer, output_buffer);
-        configured->Process(input_buffer, output_buffer);
-        REQUIRE(allocation_counter.Count() == 0);
-    }
-}
-
-TEST_CASE("FDN renders a mono-to-stereo impulse response audition", "[fdn][.diagnostic]")
+TEST_CASE("FDN.MonoStereo_Audition_Render", "[fdn][.diagnostic]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr uint32_t kBlockSize = 128U;
@@ -1604,7 +1593,7 @@ TEST_CASE("FDN renders a mono-to-stereo impulse response audition", "[fdn][.diag
     WriteWavFile("fdn_mono_to_stereo_ir.wav", interleaved, 2U);
 }
 
-TEST_CASE("FDNConfig defaults are defined and reject an incomplete draft", "[fdn]")
+TEST_CASE("FDNConfig.Defaults_Reject_Incomplete", "[fdn]")
 {
     sfFDN::FDNConfig config;
 
@@ -1616,7 +1605,7 @@ TEST_CASE("FDNConfig defaults are defined and reject an incomplete draft", "[fdn
     REQUIRE_THROWS_AS(sfFDN::CreateFDNFromConfig(config), std::runtime_error);
 }
 
-TEST_CASE("FDNConfig validates primary delay bank values and sizing", "[fdn]")
+TEST_CASE("FDNConfig.Validates_PrimaryDelays", "[fdn]")
 {
     SECTION("rejects malformed primary delays")
     {
@@ -1657,7 +1646,7 @@ TEST_CASE("FDNConfig validates primary delay bank values and sizing", "[fdn]")
     }
 }
 
-TEST_CASE("FDNConfig accepts only documented attenuation bank cardinalities", "[fdn]")
+TEST_CASE("FDNConfig.Accepts_Documented_Cardinality", "[fdn]")
 {
     constexpr size_t kOrder = 4;
 
@@ -1709,7 +1698,7 @@ TEST_CASE("FDNConfig accepts only documented attenuation bank cardinalities", "[
     }
 }
 
-TEST_CASE("FDNConfig permits short delay bank inserts", "[fdn]")
+TEST_CASE("FDNConfig.Accepts_Short_Inserts", "[fdn]")
 {
     const sfFDN::DelayBankOptions short_delays{
         .delays = {1.F, 2.F, 3.F, 4.F},
@@ -1730,7 +1719,7 @@ TEST_CASE("FDNConfig permits short delay bank inserts", "[fdn]")
     REQUIRE_NOTHROW(sfFDN::CreateFDNFromConfig(output));
 }
 
-TEST_CASE("FDNConfig rejects overflowing delay bank inserts", "[fdn]")
+TEST_CASE("FDNConfig.Rejects_Overflowing_Inserts", "[fdn]")
 {
     const auto reject_in_all_placements = [](const sfFDN::DelayBankOptions& delay_bank) {
         for (const uint32_t placement : {0U, 1U, 2U})
@@ -1764,7 +1753,7 @@ TEST_CASE("FDNConfig rejects overflowing delay bank inserts", "[fdn]")
     });
 }
 
-TEST_CASE("FDNConfig constructs ordered tone correction paths", "[fdn]")
+TEST_CASE("FDNConfig.Ordered_ToneCorrection_Paths", "[fdn]")
 {
     for (const bool transposed : {false, true})
     {

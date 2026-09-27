@@ -89,7 +89,7 @@ void RunArrayMathBenchmarks(uint32_t block_size, nanobench::Bench& bench)
 }
 } // namespace
 
-TEST_CASE("ArrayMath", "[array_math]")
+TEST_CASE("ArrayMath.Perf", "[array_math]")
 {
     nanobench::Bench bench;
     bench.title("ArrayMath perf");

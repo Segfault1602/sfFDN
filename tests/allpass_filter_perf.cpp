@@ -11,7 +11,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("AllpassFilterPerf", "[filter]")
+TEST_CASE("AllpassFilter.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "AllpassFilter perf", std::chrono::milliseconds(20), 100'000);

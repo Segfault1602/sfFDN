@@ -13,7 +13,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("AudioProcessorChainComparisonPerf", "[processor_chain][.diagnostic]")
+TEST_CASE("AudioProcessorChainComparison.Perf", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr std::array<sfFDN::FilterCoefficients, 2> kCoefficients = {
@@ -63,7 +63,7 @@ TEST_CASE("AudioProcessorChainComparisonPerf", "[processor_chain][.diagnostic]")
     });
 }
 
-TEST_CASE("DattorroDelayVsTimeVaryingPerf", "[processor_chain][.diagnostic]")
+TEST_CASE("DattorroDelayVsTimeVarying.Perf", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     const sfFDN::DelayOptions delay_options{
@@ -119,7 +119,7 @@ TEST_CASE("DattorroDelayVsTimeVaryingPerf", "[processor_chain][.diagnostic]")
     });
 }
 
-TEST_CASE("SchroederAllpassComparisonPerf", "[processor_chain][.diagnostic]")
+TEST_CASE("SchroederAllpassComparison.Perf", "[processor_chain][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     constexpr uint32_t kDelay = 479U;

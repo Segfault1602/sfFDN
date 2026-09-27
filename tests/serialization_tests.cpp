@@ -257,7 +257,7 @@ void RequireUnchangedAfterFailedRead(const nlohmann::json& malformed, Options op
 
 } // namespace
 
-TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serialization]")
+TEST_CASE("FDNConfig.JSON_AllOptions_RoundTrip", "[serialization]")
 {
     const auto populated = MakeEveryOptionConfig();
     auto absent_optionals = MakeRenderableConfig();
@@ -291,7 +291,7 @@ TEST_CASE("FDNConfig round-trips every configured option through JSON", "[serial
     }
 }
 
-TEST_CASE("FDNConfig JSON accepts files written before MIMO support", "[serialization]")
+TEST_CASE("FDNConfig.JSON_Accepts_PreMIMO", "[serialization]")
 {
     const auto legacy_config = MakeRenderableConfig();
     nlohmann::json legacy = legacy_config;
@@ -321,7 +321,7 @@ TEST_CASE("FDNConfig JSON accepts files written before MIMO support", "[serializ
     REQUIRE(nulled.get<sfFDN::FDNConfig>() == legacy_config);
 }
 
-TEST_CASE("FDNConfig JSON round-trip preserves MIMO rendered output", "[serialization]")
+TEST_CASE("FDNConfig.JSON_MIMO_RoundTrip", "[serialization]")
 {
     const auto config = MakeMimoConfig();
     REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
@@ -339,7 +339,7 @@ TEST_CASE("FDNConfig JSON round-trip preserves MIMO rendered output", "[serializ
     REQUIRE(rendered == RenderMimoFDN(*round_tripped_fdn));
 }
 
-TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization]")
+TEST_CASE("FDNConfig.JSON_Rendered_RoundTrip", "[serialization]")
 {
     const auto config = MakeRenderableConfig();
     const auto round_tripped = nlohmann::json(config).get<sfFDN::FDNConfig>();
@@ -350,7 +350,7 @@ TEST_CASE("FDNConfig JSON round-trip preserves rendered output", "[serialization
     REQUIRE(RenderFDN(*original_fdn) == RenderFDN(*round_tripped_fdn));
 }
 
-TEST_CASE("Serialization uses canonical JSON contracts", "[serialization]")
+TEST_CASE("Serialization.Canonical_JSON_Contracts", "[serialization]")
 {
     const sfFDN::StageGainsOptions stage_gains = {
         .gains = {0.25F, 0.5F},
@@ -415,7 +415,7 @@ TEST_CASE("Serialization uses canonical JSON contracts", "[serialization]")
     REQUIRE(mono_stage.at("boundary_matrix").is_null());
 }
 
-TEST_CASE("FDNConfig JSON rejects representative malformed input", "[serialization]")
+TEST_CASE("FDNConfig.JSON_Rejects_Malformed", "[serialization]")
 {
     const nlohmann::json valid = MakeRenderableConfig();
     std::vector<nlohmann::json> malformed;
@@ -484,7 +484,7 @@ TEST_CASE("FDNConfig JSON rejects representative malformed input", "[serializati
     REQUIRE_FALSE(null_lfo.get<sfFDN::DelayOptions>().lfo_config.has_value());
 }
 
-TEST_CASE("JSON reads leave destinations unchanged on failure", "[serialization]")
+TEST_CASE("Serialization.JSON_Failure_PreservesDestination", "[serialization]")
 {
     const auto config = MakeRenderableConfig();
     auto malformed_root = nlohmann::json(config);
@@ -505,7 +505,7 @@ TEST_CASE("JSON reads leave destinations unchanged on failure", "[serialization]
     RequireUnchangedAfterFailedRead(malformed_matrix, matrix);
 }
 
-TEST_CASE("MultichannelProcessorOptions serialization clears a reused destination", "[serialization]")
+TEST_CASE("MultichannelProcessorOptions.Serialization_Clears_Destination", "[serialization]")
 {
     const sfFDN::MultichannelProcessorOptions options{
         .channels = {sfFDN::FirOptions{.coeffs = {1.F}}, std::nullopt},

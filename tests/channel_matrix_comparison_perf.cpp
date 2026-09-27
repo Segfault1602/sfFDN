@@ -63,7 +63,7 @@ void RunBoundaryBenchmark(Processor& processor, std::string_view name, uint32_t 
 }
 } // namespace
 
-TEST_CASE("ChannelMatrixComparisonPerf", "[channel_matrix][.diagnostic]")
+TEST_CASE("ChannelMatrixComparison.Perf", "[channel_matrix][.diagnostic]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureComplexityBench(bench, "ChannelMatrix vs ParallelGains (us per Process call)",

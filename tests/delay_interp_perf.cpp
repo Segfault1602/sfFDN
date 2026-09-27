@@ -28,7 +28,7 @@ constexpr std::array kInterpolationTypes = {
 };
 } // namespace
 
-TEST_CASE("DelayInterpPerf", "[delay]")
+TEST_CASE("DelayInterp.Perf", "[delay]")
 {
     constexpr float kDelay = 2456.5F;
     constexpr uint32_t kMaxDelay = 8192U;

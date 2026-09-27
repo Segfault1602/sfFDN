@@ -8,7 +8,7 @@
 
 #include "sffdn/oscillator.h"
 
-TEST_CASE("SineWave Generate produces sine samples", "[oscillator]")
+TEST_CASE("SineWave.Generate_Sine_Samples", "[oscillator]")
 {
     constexpr uint32_t kBlockSize = 128;
     constexpr uint32_t kSampleRate = 48000;
@@ -36,7 +36,7 @@ TEST_CASE("SineWave Generate produces sine samples", "[oscillator]")
     }
 }
 
-TEST_CASE("SineWave sample APIs agree", "[oscillator]")
+TEST_CASE("SineWave.Sample_APIs_Agree", "[oscillator]")
 {
     constexpr uint32_t kSize = 17;
     constexpr float kFrequency = 0.13f;
@@ -55,7 +55,7 @@ TEST_CASE("SineWave sample APIs agree", "[oscillator]")
     }
 }
 
-TEST_CASE("SineWave applies controls and wraps normalized frequency", "[oscillator]")
+TEST_CASE("SineWave.Controls_Wrap_Frequency", "[oscillator]")
 {
     constexpr float kFrequency = 0.75f;
     constexpr float kInitialPhase = 0.25f;
@@ -86,7 +86,7 @@ TEST_CASE("SineWave applies controls and wraps normalized frequency", "[oscillat
                      (std::sin(kPhaseOffset * 2.f * std::numbers::pi_v<float>) * kAmplitude) + kOffset, 7e-4f));
 }
 
-TEST_CASE("SineWave safely wraps phases that round to the table endpoint", "[oscillator]")
+TEST_CASE("SineWave.Wraps_TableEndpoint_Phases", "[oscillator]")
 {
     constexpr float kPhaseOffset = -0.3f;
     constexpr float kFrequency = 0.01f;
@@ -106,7 +106,7 @@ TEST_CASE("SineWave safely wraps phases that round to the table endpoint", "[osc
     }
 }
 
-TEST_CASE("SineWave Multiply matches scalar modulation and accumulation", "[oscillator]")
+TEST_CASE("SineWave.Multiply_Modulates_Accumulates", "[oscillator]")
 {
     constexpr std::array<float, 11> kInput = {1.f, -2.f, 0.5f, -0.25f, 4.f, 3.f, -1.f, 0.75f, -0.5f, 2.f, -3.f};
     constexpr float kFrequency = 0.2f;

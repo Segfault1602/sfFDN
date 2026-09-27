@@ -20,7 +20,7 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
-TEST_CASE("FilterBankComparisonPerf", "[filter][.diagnostic]")
+TEST_CASE("FilterBankComparison.Perf", "[filter][.diagnostic]")
 {
     constexpr uint32_t kChannelCount = 16U;
     constexpr uint32_t kStageCount = 10U;

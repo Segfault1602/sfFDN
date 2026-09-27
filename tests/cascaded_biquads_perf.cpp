@@ -35,7 +35,7 @@ void RunCascadedBiquadsBenchmark(uint32_t stage_count, uint32_t block_size, nano
 }
 } // namespace
 
-TEST_CASE("CascadedBiquadsPerf", "[filter]")
+TEST_CASE("CascadedBiquads.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "CascadedBiquads perf");
@@ -49,7 +49,7 @@ TEST_CASE("CascadedBiquadsPerf", "[filter]")
     }
 }
 
-TEST_CASE("CascadedBiquadsPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("CascadedBiquads.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;

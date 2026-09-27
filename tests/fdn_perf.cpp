@@ -113,7 +113,7 @@ void RunFDNBenchmark(const FamilyInfo& family, uint32_t order, uint32_t block_si
 }
 } // namespace
 
-TEST_CASE("FDNPerf", "[fdn]")
+TEST_CASE("FDN.Perf", "[fdn]")
 {
     nanobench::Bench bench;
     // A whole FDN block is tens of microseconds, so the default 10 ms epoch only buys a couple of hundred iterations
@@ -134,7 +134,7 @@ TEST_CASE("FDNPerf", "[fdn]")
     }
 }
 
-TEST_CASE("FDNPerf_BigO", "[fdn][.diagnostic]")
+TEST_CASE("FDN.Perf_BigO", "[fdn][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
 
@@ -153,7 +153,7 @@ TEST_CASE("FDNPerf_BigO", "[fdn][.diagnostic]")
     }
 }
 
-TEST_CASE("FDNPerf_FIR", "[fdn]")
+TEST_CASE("FDN.Perf_FIR", "[fdn]")
 {
     constexpr uint32_t kOrder = 16U;
     const std::vector<float> fir = ReadWavFile("./tests/data/att_fir_1153.wav");
@@ -190,7 +190,7 @@ TEST_CASE("FDNPerf_FIR", "[fdn]")
     }
 }
 
-TEST_CASE("FDNPerf_FFM", "[fdn]")
+TEST_CASE("FDN.Perf_FFM", "[fdn]")
 {
     constexpr uint32_t kOrder = 16U;
     nanobench::Bench bench;

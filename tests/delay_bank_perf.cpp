@@ -63,7 +63,7 @@ void RunDelayBankBenchmark(const InterpolationInfo& interpolation, uint32_t chan
 }
 } // namespace
 
-TEST_CASE("DelayBankPerf", "[delay]")
+TEST_CASE("DelayBank.Perf", "[delay]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DelayBank perf");

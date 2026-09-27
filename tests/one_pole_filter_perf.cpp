@@ -11,7 +11,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("OnePoleFilterPerf", "[filter]")
+TEST_CASE("OnePoleFilter.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "OnePoleFilter perf", std::chrono::milliseconds(20), 100'000);

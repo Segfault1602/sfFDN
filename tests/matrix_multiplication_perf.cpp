@@ -71,7 +71,7 @@ void RequireClose(const std::array<float, 16>& expected, const std::array<float,
 
 } // namespace
 
-TEST_CASE("MatrixMultiplicationPerf_single", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiplication.Perf_Single", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 16;
     const auto expected_output = ScalarMatrixMultiply16();
@@ -133,7 +133,7 @@ TEST_CASE("MatrixMultiplicationPerf_single", "[matrix_multiplication]")
     #endif
 }
 
-TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication][.diagnostic]")
+TEST_CASE("MatrixMultiplication.Perf_Block", "[matrix_multiplication][.diagnostic]")
 {
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kBlockSize = 128;
@@ -194,7 +194,7 @@ TEST_CASE("MatrixMultiplicationPerf_block", "[matrix_multiplication][.diagnostic
     #endif
 }
 
-TEST_CASE("Hadamard", "[matrix_multiplication]")
+TEST_CASE("MatrixMultiplication.Hadamard", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 8;
     std::array<float, kMatSize> input{};
@@ -265,7 +265,7 @@ TEST_CASE("Hadamard", "[matrix_multiplication]")
     });
 }
 
-TEST_CASE("Hadamard_Block", "[matrix_multiplication]")
+TEST_CASE("Hadamard.Block", "[matrix_multiplication]")
 {
     constexpr uint32_t kMatSize = 16;
     constexpr uint32_t kBlockSize = 1;

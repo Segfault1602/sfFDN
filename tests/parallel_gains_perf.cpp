@@ -55,7 +55,7 @@ void RunParallelGainsBenchmark(const ModeInfo& mode, uint32_t channel_count, uin
 }
 } // namespace
 
-TEST_CASE("ParallelGainsPerf", "[parallel_gains]")
+TEST_CASE("ParallelGains.Perf", "[parallel_gains]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "ParallelGains perf");

@@ -51,7 +51,7 @@ void RunSchroederAllpassSectionBenchmark(uint32_t stage_count, bool parallel, ui
 }
 } // namespace
 
-TEST_CASE("SchroederAllpassSectionPerf", "[filter]")
+TEST_CASE("SchroederAllpassSection.Perf", "[filter]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "SchroederAllpassSection perf");
@@ -71,7 +71,7 @@ TEST_CASE("SchroederAllpassSectionPerf", "[filter]")
     }
 }
 
-TEST_CASE("SchroederAllpassSectionPerf_Aliased", "[filter]")
+TEST_CASE("SchroederAllpassSection.Perf_Aliased", "[filter]")
 {
     constexpr uint32_t kBlockSize = 128U;
     nanobench::Bench bench;
@@ -93,7 +93,7 @@ TEST_CASE("SchroederAllpassSectionPerf_Aliased", "[filter]")
     }
 }
 
-TEST_CASE("SchroederAllpassSectionPerf_BigO", "[filter][.diagnostic]")
+TEST_CASE("SchroederAllpassSection.Perf_BigO", "[filter][.diagnostic]")
 {
     constexpr uint32_t kBlockSize = 128U;
     for (const bool parallel : {false, true})

@@ -196,7 +196,7 @@ float Energy(std::span<const float> signal)
 
 // ==================== ControllableFullWaveRectifier ====================
 
-TEST_CASE("ControllableFullWaveRectifier matches the reference implementation", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Reference_Implementation", "[nonlinear]")
 {
     const auto alpha = GENERATE(0.f, 0.25f, 0.5f, 1.f);
     const auto input = MakeNoise(512);
@@ -222,7 +222,7 @@ TEST_CASE("ControllableFullWaveRectifier matches the reference implementation", 
     }
 }
 
-TEST_CASE("ControllableFullWaveRectifier reports its compensation gain", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Reports_Compensation_Gain", "[nonlinear]")
 {
     // Equation (3) of the paper: the gain is one where the operation is exactly energy preserving, and peaks at
     // sqrt(2) where the rectifier becomes a half-wave rectifier.
@@ -238,7 +238,7 @@ TEST_CASE("ControllableFullWaveRectifier reports its compensation gain", "[nonli
     REQUIRE_THAT(rectifier.GetCompensationGain(), Catch::Matchers::WithinAbs(kSqrt2, 1e-6f));
 }
 
-TEST_CASE("ControllableFullWaveRectifier passes through at alpha 0 and rectifies at alpha 1", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Alpha0_Passthrough_Alpha1Rectify", "[nonlinear]")
 {
     const auto input = MakeNoise(256);
 
@@ -261,7 +261,7 @@ TEST_CASE("ControllableFullWaveRectifier passes through at alpha 0 and rectifies
     }
 }
 
-TEST_CASE("ControllableFullWaveRectifier antialiasing lowers the aliased noise floor", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Antialiasing_Lowers_Aliasing", "[nonlinear]")
 {
     // A rectifier generates every even harmonic of its input, and the ones above Nyquist fold back between the
     // harmonics. Section 3.1 of the paper. Picking a fundamental that is not a submultiple of the sample rate means
@@ -311,7 +311,7 @@ TEST_CASE("ControllableFullWaveRectifier antialiasing lowers the aliased noise f
     REQUIRE(residual_energy(true) < residual_energy(false));
 }
 
-TEST_CASE("ControllableFullWaveRectifier antialiasing is continuous across the fallback", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Antialiasing_Continuous_Fallback", "[nonlinear]")
 {
     // A constant input drives the denominator of equation (4) to exactly zero on every sample but the first, so the
     // ill-conditioned branch is taken. It must agree with the rectifier it approximates.
@@ -341,7 +341,7 @@ TEST_CASE("ControllableFullWaveRectifier antialiasing is continuous across the f
     }
 }
 
-TEST_CASE("ControllableFullWaveRectifier energy is nearly constant across alpha", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Energy_Stable_AcrossAlpha", "[nonlinear]")
 {
     // Section 4.2 of the paper: the uncompensated power varies quadratically with alpha and dips at alpha = 0.5, and
     // g_cfwr corrects that variation. It is exact at alpha = 0, 0.5 and 1, and slightly under one in between.
@@ -366,7 +366,7 @@ TEST_CASE("ControllableFullWaveRectifier energy is nearly constant across alpha"
     }
 }
 
-TEST_CASE("ControllableFullWaveRectifier dc blocker removes the offset", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.DcBlocker_Removes_Offset", "[nonlinear]")
 {
     const auto input = MakeSine(48000, 1000.f / kSampleRate);
 
@@ -389,7 +389,7 @@ TEST_CASE("ControllableFullWaveRectifier dc blocker removes the offset", "[nonli
     REQUIRE(std::abs(mean(blocked_output)) < 1e-2f);
 }
 
-TEST_CASE("ControllableFullWaveRectifier block processing matches Tick", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Block_Matches_Tick", "[nonlinear]")
 {
     const sfFDN::ControllableFullWaveRectifierOptions options{
         .alpha = 0.75f, .antialiasing = true, .dc_block = true, .sample_rate = kSampleRate};
@@ -404,9 +404,15 @@ TEST_CASE("ControllableFullWaveRectifier block processing matches Tick", "[nonli
     {
         REQUIRE_THAT(block_output[i], Catch::Matchers::WithinAbs(tick_processor.Tick(input[i]), 1e-6f));
     }
+
+    auto allocation_input = input;
+    std::vector<float> allocation_output(input.size(), 0.f);
+    sfFDN::AudioBuffer allocation_input_buffer(allocation_input);
+    sfFDN::AudioBuffer allocation_output_buffer(allocation_output);
+    REQUIRE(AllocationCountAfterWarmup(block_processor, allocation_input_buffer, allocation_output_buffer) == 0);
 }
 
-TEST_CASE("ControllableFullWaveRectifier Clone carries over state and Clear resets it", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Clone_Preserves_ClearResets", "[nonlinear]")
 {
     const sfFDN::ControllableFullWaveRectifierOptions options{
         .alpha = 0.4f, .antialiasing = true, .dc_block = true, .sample_rate = kSampleRate};
@@ -442,7 +448,7 @@ TEST_CASE("ControllableFullWaveRectifier Clone carries over state and Clear rese
     }
 }
 
-TEST_CASE("ControllableFullWaveRectifier constructor rejects invalid options", "[nonlinear]")
+TEST_CASE("ControllableFullWaveRectifier.Constructor_Rejects_Invalid", "[nonlinear]")
 {
     REQUIRE_THROWS_AS(sfFDN::ControllableFullWaveRectifier(
                           sfFDN::ControllableFullWaveRectifierOptions{.alpha = -0.1f, .sample_rate = kSampleRate}),
@@ -473,22 +479,9 @@ TEST_CASE("ControllableFullWaveRectifier constructor rejects invalid options", "
     REQUIRE_THROWS_AS(rectifier.SetAlpha(std::numeric_limits<float>::infinity()), std::invalid_argument);
 }
 
-TEST_CASE("ControllableFullWaveRectifier does not allocate", "[nonlinear]")
-{
-    sfFDN::ControllableFullWaveRectifier rectifier(sfFDN::ControllableFullWaveRectifierOptions{
-        .alpha = 0.6f, .antialiasing = true, .dc_block = true, .sample_rate = kSampleRate});
-
-    std::vector<float> input = MakeNoise(64);
-    std::vector<float> output(input.size(), 0.f);
-    sfFDN::AudioBuffer input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-
-    REQUIRE(AllocationCountAfterWarmup(rectifier, input_buffer, output_buffer) == 0);
-}
-
 // ==================== SignalDependentFractionalDelay ====================
 
-TEST_CASE("SignalDependentFractionalDelay matches the reference implementation", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Reference_Implementation", "[nonlinear]")
 {
     const auto d = GENERATE(0.f, 0.25f, 0.5f, 1.f);
     const auto input = MakeNoise(512, 4242);
@@ -503,7 +496,7 @@ TEST_CASE("SignalDependentFractionalDelay matches the reference implementation",
     }
 }
 
-TEST_CASE("SignalDependentFractionalDelay is a plain delay at d = 0", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.D0_Plain_Delay", "[nonlinear]")
 {
     // At d = 0 both halves are delayed by exactly one sample, so the two branches recombine into x[n - 1].
     const auto input = MakeNoise(128, 5150);
@@ -517,7 +510,7 @@ TEST_CASE("SignalDependentFractionalDelay is a plain delay at d = 0", "[nonlinea
     }
 }
 
-TEST_CASE("SignalDependentFractionalDelay splits the halves at d = 1", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.D1_Splits_Halves", "[nonlinear]")
 {
     // At d = 1 the negative half is not delayed at all and the positive half is delayed by two samples.
     const auto input = MakeNoise(128, 1234);
@@ -531,7 +524,7 @@ TEST_CASE("SignalDependentFractionalDelay splits the halves at d = 1", "[nonline
     }
 }
 
-TEST_CASE("SignalDependentFractionalDelay is slightly lossy", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Is_Slightly_Lossy", "[nonlinear]")
 {
     // Section 4.2 of the paper: the overlap between the delayed halves costs up to one sample of energy per period,
     // so the operation loses energy rather than preserving or adding it.
@@ -546,7 +539,7 @@ TEST_CASE("SignalDependentFractionalDelay is slightly lossy", "[nonlinear]")
     REQUIRE(ratio > 0.8f);
 }
 
-TEST_CASE("SignalDependentFractionalDelay block processing matches Tick", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Block_Matches_Tick", "[nonlinear]")
 {
     const sfFDN::SignalDependentFractionalDelayOptions options{.d = 0.6f};
 
@@ -560,9 +553,15 @@ TEST_CASE("SignalDependentFractionalDelay block processing matches Tick", "[nonl
     {
         REQUIRE_THAT(block_output[i], Catch::Matchers::WithinAbs(tick_processor.Tick(input[i]), 1e-6f));
     }
+
+    auto allocation_input = input;
+    std::vector<float> allocation_output(input.size(), 0.f);
+    sfFDN::AudioBuffer allocation_input_buffer(allocation_input);
+    sfFDN::AudioBuffer allocation_output_buffer(allocation_output);
+    REQUIRE(AllocationCountAfterWarmup(block_processor, allocation_input_buffer, allocation_output_buffer) == 0);
 }
 
-TEST_CASE("SignalDependentFractionalDelay Clone carries over state and Clear resets it", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Clone_Preserves_ClearResets", "[nonlinear]")
 {
     const sfFDN::SignalDependentFractionalDelayOptions options{.d = 0.3f};
     sfFDN::SignalDependentFractionalDelay filter(options);
@@ -594,7 +593,7 @@ TEST_CASE("SignalDependentFractionalDelay Clone carries over state and Clear res
     }
 }
 
-TEST_CASE("SignalDependentFractionalDelay constructor rejects invalid options", "[nonlinear]")
+TEST_CASE("SignalDependentFractionalDelay.Constructor_Rejects_Invalid", "[nonlinear]")
 {
     REQUIRE_THROWS_AS(sfFDN::SignalDependentFractionalDelay(sfFDN::SignalDependentFractionalDelayOptions{.d = -0.1f}),
                       std::invalid_argument);
@@ -613,21 +612,9 @@ TEST_CASE("SignalDependentFractionalDelay constructor rejects invalid options", 
     REQUIRE_THROWS_AS(filter.SetD(std::numeric_limits<float>::infinity()), std::invalid_argument);
 }
 
-TEST_CASE("SignalDependentFractionalDelay does not allocate", "[nonlinear]")
-{
-    sfFDN::SignalDependentFractionalDelay filter(sfFDN::SignalDependentFractionalDelayOptions{.d = 0.5f});
-
-    std::vector<float> input = MakeNoise(64);
-    std::vector<float> output(input.size(), 0.f);
-    sfFDN::AudioBuffer input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-
-    REQUIRE(AllocationCountAfterWarmup(filter, input_buffer, output_buffer) == 0);
-}
-
 // ==================== RingModulator ====================
 
-TEST_CASE("RingModulator multiplies by the modulating sinusoid", "[nonlinear]")
+TEST_CASE("RingModulator.Multiplies_Modulating_Sinusoid", "[nonlinear]")
 {
     constexpr float kFrequency = 100.f / kSampleRate;
     const auto input = MakeNoise(1024, 8);
@@ -644,7 +631,7 @@ TEST_CASE("RingModulator multiplies by the modulating sinusoid", "[nonlinear]")
     }
 }
 
-TEST_CASE("RingModulator at zero frequency is a constant gain", "[nonlinear]")
+TEST_CASE("RingModulator.ZeroFrequency_Constant_Gain", "[nonlinear]")
 {
     // A quarter turn of phase puts the modulator at its peak, where it never moves again.
     const auto input = MakeNoise(64, 77);
@@ -658,7 +645,7 @@ TEST_CASE("RingModulator at zero frequency is a constant gain", "[nonlinear]")
     }
 }
 
-TEST_CASE("RingModulator is energy preserving on average", "[nonlinear]")
+TEST_CASE("RingModulator.Average_Energy_Preserving", "[nonlinear]")
 {
     // Section 4.2 of the paper: the average power of a unit sinusoid is one half, so a gain of sqrt(2) restores the
     // energy over a whole modulation period.
@@ -672,7 +659,7 @@ TEST_CASE("RingModulator is energy preserving on average", "[nonlinear]")
     REQUIRE_THAT(Energy(output) / Energy(input), Catch::Matchers::WithinAbs(1.f, 0.05f));
 }
 
-TEST_CASE("RingModulator block processing matches Tick", "[nonlinear]")
+TEST_CASE("RingModulator.Block_Matches_Tick", "[nonlinear]")
 {
     const sfFDN::RingModulatorOptions options{
         .frequency = 440.f / kSampleRate, .amplitude = kSqrt2, .initial_phase = 0.125f};
@@ -689,9 +676,15 @@ TEST_CASE("RingModulator block processing matches Tick", "[nonlinear]")
     {
         REQUIRE_THAT(block_output[i], Catch::Matchers::WithinAbs(tick_processor.Tick(input[i]), 1e-4f));
     }
+
+    auto allocation_input = input;
+    std::vector<float> allocation_output(input.size(), 0.f);
+    sfFDN::AudioBuffer allocation_input_buffer(allocation_input);
+    sfFDN::AudioBuffer allocation_output_buffer(allocation_output);
+    REQUIRE(AllocationCountAfterWarmup(block_processor, allocation_input_buffer, allocation_output_buffer) == 0);
 }
 
-TEST_CASE("RingModulator Clone carries over state and Clear resets it", "[nonlinear]")
+TEST_CASE("RingModulator.Clone_Preserves_ClearResets", "[nonlinear]")
 {
     const sfFDN::RingModulatorOptions options{
         .frequency = 250.f / kSampleRate, .amplitude = kSqrt2, .initial_phase = 0.3f};
@@ -725,7 +718,7 @@ TEST_CASE("RingModulator Clone carries over state and Clear resets it", "[nonlin
     }
 }
 
-TEST_CASE("RingModulator constructor rejects invalid options", "[nonlinear]")
+TEST_CASE("RingModulator.Constructor_Rejects_Invalid", "[nonlinear]")
 {
     REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.frequency = -0.1f}), std::invalid_argument);
     REQUIRE_THROWS_AS(sfFDN::RingModulator(sfFDN::RingModulatorOptions{.initial_phase = 1.5f}), std::invalid_argument);
@@ -744,22 +737,9 @@ TEST_CASE("RingModulator constructor rejects invalid options", "[nonlinear]")
         std::invalid_argument);
 }
 
-TEST_CASE("RingModulator does not allocate", "[nonlinear]")
-{
-    sfFDN::RingModulator modulator(
-        sfFDN::RingModulatorOptions{.frequency = 100.f / kSampleRate, .amplitude = kSqrt2, .initial_phase = 0.f});
-
-    std::vector<float> input = MakeNoise(64);
-    std::vector<float> output(input.size(), 0.f);
-    sfFDN::AudioBuffer input_buffer(input);
-    sfFDN::AudioBuffer output_buffer(output);
-
-    REQUIRE(AllocationCountAfterWarmup(modulator, input_buffer, output_buffer) == 0);
-}
-
 // ==================== DcBlocker ====================
 
-TEST_CASE("DcBlocker removes a constant offset", "[nonlinear]")
+TEST_CASE("DcBlocker.Removes_Constant_Offset", "[nonlinear]")
 {
     sfFDN::DcBlocker blocker(kSampleRate);
 
@@ -772,7 +752,7 @@ TEST_CASE("DcBlocker removes a constant offset", "[nonlinear]")
     REQUIRE(std::abs(last) < 1e-2f);
 }
 
-TEST_CASE("DcBlocker make-up gain is bounded", "[nonlinear]")
+TEST_CASE("DcBlocker.MakeupGain_Is_Bounded", "[nonlinear]")
 {
     // The blocker sits inside a feedback loop, so the make-up gain must never run away, even when the input is pure
     // dc and the output is therefore driven to zero.
@@ -786,7 +766,7 @@ TEST_CASE("DcBlocker make-up gain is bounded", "[nonlinear]")
     }
 }
 
-TEST_CASE("DcBlocker passes a signal it cannot attenuate", "[nonlinear]")
+TEST_CASE("DcBlocker.Passes_Unattenuated_Signal", "[nonlinear]")
 {
     // Well above the cutoff the blocker is essentially transparent and the make-up gain settles near one.
     const auto input = MakeSine(48000, 1000.f / kSampleRate);
@@ -805,7 +785,7 @@ TEST_CASE("DcBlocker passes a signal it cannot attenuate", "[nonlinear]")
 
 // ==================== Multichannel banks ====================
 
-TEST_CASE("FilterBank bypasses null nonlinearity channels", "[nonlinear]")
+TEST_CASE("FilterBank.Bypasses_Null_Nonlinearity", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     constexpr uint32_t kBlockSize = 64;
@@ -877,7 +857,7 @@ TEST_CASE("FilterBank bypasses null nonlinearity channels", "[nonlinear]")
     }
 }
 
-TEST_CASE("FilterBank keeps fractional delay channels independent", "[nonlinear]")
+TEST_CASE("FilterBank.FractionalDelay_Channel_Independence", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     constexpr uint32_t kBlockSize = 32;
@@ -909,7 +889,7 @@ TEST_CASE("FilterBank keeps fractional delay channels independent", "[nonlinear]
     }
 }
 
-TEST_CASE("MultichannelProcessorOptions staggers ring modulator phases", "[nonlinear]")
+TEST_CASE("MultichannelProcessorOptions.Staggers_RingModulator_Phases", "[nonlinear]")
 {
     constexpr uint32_t kChannels = 4;
     const auto options = sfFDN::MakeMultichannelRingModulatorOptions(100.f / kSampleRate, kSqrt2, kChannels);
@@ -923,7 +903,7 @@ TEST_CASE("MultichannelProcessorOptions staggers ring modulator phases", "[nonli
     }
 }
 
-TEST_CASE("FilterBank rejects invalid nonlinearity options", "[nonlinear]")
+TEST_CASE("FilterBank.Rejects_Invalid_Nonlinearity", "[nonlinear]")
 {
     sfFDN::MultichannelProcessorOptions rectifier_options;
     rectifier_options.channels.emplace_back(
@@ -1044,7 +1024,7 @@ float PeakOf(std::span<const float> signal)
 }
 } // namespace
 
-TEST_CASE("FDN stays bounded and decays with nonlinear loop filters", "[nonlinear]")
+TEST_CASE("FDN.Nonlinear_Bounded_Decay", "[nonlinear]")
 {
     constexpr uint32_t kBlockSize = 64;
     // Four seconds at 96 kHz, comfortably longer than the 2 s T60 of the network.
@@ -1090,7 +1070,7 @@ TEST_CASE("FDN stays bounded and decays with nonlinear loop filters", "[nonlinea
     }
 }
 
-TEST_CASE("FDN generates harmonics with ControllableFullWaveRectifier loop filters", "[nonlinear]")
+TEST_CASE("FDN.RectifierLoop_Generates_Harmonics", "[nonlinear]")
 {
     // Section 5.1 of the paper: the nonlinearity produces even harmonics of the input, and the recursion fills in the
     // odd ones. Drive the network with a sinusoid and measure the energy of the second harmonic.

@@ -66,7 +66,7 @@ void RunDelayBankTimeVaryingBenchmark(const InterpolationInfo& interpolation, ui
 }
 } // namespace
 
-TEST_CASE("DelayBankTimeVaryingPerf", "[delay]")
+TEST_CASE("DelayBankTimeVarying.Perf", "[delay]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "DelayBankTimeVarying perf");

@@ -9,7 +9,7 @@
 #include "sffdn/channel_matrix.h"
 #include "sffdn/parallel_gains.h"
 
-TEST_CASE("ChannelMatrix applies row-major rectangular coefficients", "[channel_matrix]")
+TEST_CASE("ChannelMatrix.RowMajor_Rectangular_Coefficients", "[channel_matrix]")
 {
     sfFDN::ChannelMatrix matrix({
         .input_channel_count = 2U,
@@ -24,9 +24,13 @@ TEST_CASE("ChannelMatrix applies row-major rectangular coefficients", "[channel_
     matrix.Process(input_buffer, output_buffer);
 
     REQUIRE(output == std::array{21.F, 42.F, 4.F, 8.F, -17.F, -34.F});
+
+    const sfFDNTest::ScopedAllocationCounter allocation_counter;
+    matrix.Process(input_buffer, output_buffer);
+    REQUIRE(allocation_counter.Count() == 0U);
 }
 
-TEST_CASE("ChannelMatrix matches ParallelGains for degenerate shapes", "[channel_matrix]")
+TEST_CASE("ChannelMatrix.Degenerate_Matches_ParallelGains", "[channel_matrix]")
 {
     constexpr std::array<float, 3> kGains = {2.F, -3.F, 0.5F};
     std::array<float, 4> mono_input = {1.F, 2.F, 3.F, 4.F};
@@ -64,7 +68,7 @@ TEST_CASE("ChannelMatrix matches ParallelGains for degenerate shapes", "[channel
     REQUIRE(matrix_merge_output == gains_merge_output);
 }
 
-TEST_CASE("ChannelMatrix clones configuration and clears without changing it", "[channel_matrix]")
+TEST_CASE("ChannelMatrix.Clone_Clear_Configuration", "[channel_matrix]")
 {
     sfFDN::ChannelMatrix matrix({
         .input_channel_count = 2U,
@@ -88,7 +92,7 @@ TEST_CASE("ChannelMatrix clones configuration and clears without changing it", "
     REQUIRE(clone_output == original_output);
 }
 
-TEST_CASE("ChannelMatrix rejects invalid dimensions and coefficient counts", "[channel_matrix]")
+TEST_CASE("ChannelMatrix.Rejects_Invalid_Dimensions", "[channel_matrix]")
 {
     REQUIRE_THROWS_AS(sfFDN::ChannelMatrix({.input_channel_count = 0U, .output_channel_count = 1U, .coefficients = {}}),
                       std::invalid_argument);
@@ -97,22 +101,4 @@ TEST_CASE("ChannelMatrix rejects invalid dimensions and coefficient counts", "[c
     REQUIRE_THROWS_AS(
         sfFDN::ChannelMatrix({.input_channel_count = 2U, .output_channel_count = 3U, .coefficients = {1.F}}),
         std::invalid_argument);
-}
-
-TEST_CASE("ChannelMatrix processing is allocation-free", "[channel_matrix]")
-{
-    sfFDN::ChannelMatrix matrix({
-        .input_channel_count = 2U,
-        .output_channel_count = 3U,
-        .coefficients = {1.F, 2.F, 3.F, 4.F, 5.F, 6.F},
-    });
-    std::array<float, 16> input{};
-    std::array<float, 24> output{};
-    const sfFDN::AudioBuffer input_buffer(8U, 2U, input);
-    sfFDN::AudioBuffer output_buffer(8U, 3U, output);
-    matrix.Process(input_buffer, output_buffer);
-
-    const sfFDNTest::ScopedAllocationCounter allocation_counter;
-    matrix.Process(input_buffer, output_buffer);
-    REQUIRE(allocation_counter.Count() == 0U);
 }

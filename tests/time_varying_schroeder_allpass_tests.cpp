@@ -99,7 +99,7 @@ void Process(sfFDN::AudioProcessor& processor, std::span<float> input, std::span
 }
 } // namespace
 
-TEST_CASE("TimeVaryingSchroederAllpass explicit gain matches SchroederAllpass", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.ExplicitGain_Static_Reference", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 13;
     constexpr float kGain = -0.73f;
@@ -117,7 +117,7 @@ TEST_CASE("TimeVaryingSchroederAllpass explicit gain matches SchroederAllpass", 
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass follows normalized Type V reference", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.Normalized_TypeV_Reference", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 9;
     constexpr uint32_t kSamples = 401;
@@ -168,7 +168,7 @@ TEST_CASE("TimeVaryingSchroederAllpass follows normalized Type V reference", "[t
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass avoids naive changing-gain energy error", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.Avoids_NaiveGain_Error", "[time_varying_allpass]")
 {
     constexpr uint32_t kDelay = 5;
     constexpr uint32_t kSamples = 512;
@@ -193,7 +193,7 @@ TEST_CASE("TimeVaryingSchroederAllpass avoids naive changing-gain energy error",
     REQUIRE(std::abs(naive_energy + Energy(naive_delay) - 1.0) > 1.e-3);
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass configured modulation is block invariant", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.Modulation_Block_Invariant", "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 127;
     const sfFDN::ModulationOptions modulation{.frequency = 0.017f, .amplitude = 0.31f, .initial_phase = 0.2f};
@@ -219,7 +219,7 @@ TEST_CASE("TimeVaryingSchroederAllpass configured modulation is block invariant"
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass ProcessBlockAccumulate adds its response", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.ProcessBlockAccumulate_Adds_Response", "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 37;
     const sfFDN::ModulationOptions modulation{.frequency = 0.017f, .amplitude = 0.31f, .initial_phase = 0.2f};
@@ -241,7 +241,7 @@ TEST_CASE("TimeVaryingSchroederAllpass ProcessBlockAccumulate adds its response"
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass Clear restores configured modulation phase", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.Clear_Restores_Phase", "[time_varying_allpass]")
 {
     const sfFDN::ModulationOptions modulation{.frequency = 0.037f, .amplitude = 0.31f, .initial_phase = 0.375f};
     sfFDN::TimeVaryingSchroederAllpass cleared(11, -0.4f, modulation);
@@ -260,7 +260,7 @@ TEST_CASE("TimeVaryingSchroederAllpass Clear restores configured modulation phas
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, clone, and Clear",
+TEST_CASE("TimeVaryingSchroederAllpassSection.BlockTail_Alias_CloneClear",
           "[time_varying_allpass]")
 {
     constexpr uint32_t kSamples = 95;
@@ -316,52 +316,52 @@ TEST_CASE("TimeVaryingSchroederAllpassSection handles blocks, tails, aliases, cl
     Process(original, input, cleared_output);
     Process(fresh, input, fresh_output);
     REQUIRE(cleared_output == fresh_output);
-}
 
-TEST_CASE("FilterBank keeps time-varying allpass channels independent without allocation", "[time_varying_allpass]")
-{
-    constexpr uint32_t kSamples = 64;
-    sfFDN::MultichannelProcessorOptions options{.channels = {SectionOptions(), SectionOptions(true), SectionOptions()}};
-    auto bank = std::make_unique<sfFDN::FilterBank>(options);
-    std::vector<float> bank_input(3 * kSamples, 0.f);
-    std::vector<float> bank_output(3 * kSamples, 0.f);
-    bank_input[0] = 1.f;
-    bank_input[kSamples] = -1.f;
-    bank_input[(2 * kSamples) + 5U] = 0.5f;
-    sfFDN::AudioBuffer const bank_input_buffer(kSamples, 3, bank_input);
-    sfFDN::AudioBuffer bank_output_buffer(kSamples, 3, bank_output);
-
-    std::array<sfFDN::TimeVaryingSchroederAllpassSection, 3> references = {
-        sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions()),
-        sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions(true)),
-        sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions()),
-    };
-    std::vector<float> expected(3 * kSamples, 0.f);
-    for (uint32_t channel = 0; channel < 3U; ++channel)
     {
-        Process(references[channel], std::span(bank_input).subspan(channel * kSamples, kSamples),
-                std::span(expected).subspan(channel * kSamples, kSamples));
-    }
+        constexpr uint32_t kBankSamples = 64;
+        sfFDN::MultichannelProcessorOptions options{
+            .channels = {SectionOptions(), SectionOptions(true), SectionOptions()}};
+        auto bank = std::make_unique<sfFDN::FilterBank>(options);
+        std::vector<float> bank_input(3 * kBankSamples, 0.f);
+        std::vector<float> bank_output(3 * kBankSamples, 0.f);
+        bank_input[0] = 1.f;
+        bank_input[kBankSamples] = -1.f;
+        bank_input[(2 * kBankSamples) + 5U] = 0.5f;
+        sfFDN::AudioBuffer const bank_input_buffer(kBankSamples, 3, bank_input);
+        sfFDN::AudioBuffer bank_output_buffer(kBankSamples, 3, bank_output);
 
-    bank->Process(bank_input_buffer, bank_output_buffer);
-    for (uint32_t sample = 0; sample < (3U * kSamples); ++sample)
-    {
-        REQUIRE_THAT(bank_output[sample], Catch::Matchers::WithinAbs(expected[sample], 1.e-6f));
-    }
-    REQUIRE(std::abs(bank_output[kSamples - 1U]) > 1.e-7f);
-    REQUIRE(std::abs(bank_output[(2U * kSamples) + kSamples - 1U]) > 1.e-7f);
+        std::array<sfFDN::TimeVaryingSchroederAllpassSection, 3> references = {
+            sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions()),
+            sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions(true)),
+            sfFDN::TimeVaryingSchroederAllpassSection(SectionOptions()),
+        };
+        std::vector<float> expected(3 * kBankSamples, 0.f);
+        for (uint32_t channel = 0; channel < 3U; ++channel)
+        {
+            Process(references[channel], std::span(bank_input).subspan(channel * kBankSamples, kBankSamples),
+                    std::span(expected).subspan(channel * kBankSamples, kBankSamples));
+        }
 
-    bank->Clear();
-    std::ranges::fill(bank_output, 0.f);
-    bank->Process(bank_input_buffer, bank_output_buffer);
-    {
-        const sfFDNTest::ScopedAllocationCounter counter;
         bank->Process(bank_input_buffer, bank_output_buffer);
-        REQUIRE(counter.Count() == 0);
+        for (uint32_t sample = 0; sample < (3U * kBankSamples); ++sample)
+        {
+            REQUIRE_THAT(bank_output[sample], Catch::Matchers::WithinAbs(expected[sample], 1.e-6f));
+        }
+        REQUIRE(std::abs(bank_output[kBankSamples - 1U]) > 1.e-7f);
+        REQUIRE(std::abs(bank_output[(2U * kBankSamples) + kBankSamples - 1U]) > 1.e-7f);
+
+        bank->Clear();
+        std::ranges::fill(bank_output, 0.f);
+        bank->Process(bank_input_buffer, bank_output_buffer);
+        {
+            const sfFDNTest::ScopedAllocationCounter counter;
+            bank->Process(bank_input_buffer, bank_output_buffer);
+            REQUIRE(counter.Count() == 0);
+        }
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpassSection matches exact and disjoint strided views", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpassSection.Exact_Disjoint_Views", "[time_varying_allpass]")
 {
     constexpr uint32_t kStride = 24;
     constexpr uint32_t kBlockSize = 8;
@@ -424,7 +424,7 @@ TEST_CASE("TimeVaryingSchroederAllpassSection matches exact and disjoint strided
     }
 }
 
-TEST_CASE("TimeVaryingSchroederAllpass validates setup options", "[time_varying_allpass]")
+TEST_CASE("TimeVaryingSchroederAllpass.Validates_Setup_Options", "[time_varying_allpass]")
 {
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpass(0, 0.f, kTestModulation), std::invalid_argument);
     REQUIRE_THROWS_AS(sfFDN::TimeVaryingSchroederAllpass(4, 1.f, kTestModulation), std::invalid_argument);

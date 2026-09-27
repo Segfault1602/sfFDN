@@ -282,7 +282,7 @@ double SpectralFlatness(std::span<const float> signal)
 
 } // namespace
 
-TEST_CASE("Time-varying FDN preserves T60", "[time_varying_fdn]")
+TEST_CASE("TimeVaryingFDN.Preserves_T60", "[time_varying_fdn]")
 {
     auto unmodulated_fdn = CreateFDN(0.0F, true);
     auto modulated_fdn = CreateFDN(0.7F, true);
@@ -306,7 +306,7 @@ TEST_CASE("Time-varying FDN preserves T60", "[time_varying_fdn]")
     REQUIRE(t60_difference < 0.05);
 }
 
-TEST_CASE("Time-varying FDN produces finite diffusion and spectral metrics", "[time_varying_fdn][.diagnostic]")
+TEST_CASE("TimeVaryingFDN.Finite_Diffusion_Metrics", "[time_varying_fdn][.diagnostic]")
 {
     auto unmodulated_fdn = CreateFDN(0.0F, true);
     auto modulated_fdn = CreateFDN(0.7F, true);
@@ -329,7 +329,7 @@ TEST_CASE("Time-varying FDN produces finite diffusion and spectral metrics", "[t
     REQUIRE(std::isfinite(modulated_flatness));
 }
 
-TEST_CASE("Time-varying FDN stays bounded over a long lossless run", "[time_varying_fdn]")
+TEST_CASE("TimeVaryingFDN.Bounded_Long_Lossless", "[time_varying_fdn]")
 {
     auto fdn = CreateFDN(0.7F, false);
     const auto output = RenderImpulseResponse(*fdn, kLosslessSamples);
@@ -349,7 +349,7 @@ TEST_CASE("Time-varying FDN stays bounded over a long lossless run", "[time_vary
     REQUIRE(rms_ratio < 1.03);
 }
 
-TEST_CASE("Time-varying FDN does not regress to linear matrix interpolation", "[time_varying_fdn]")
+TEST_CASE("TimeVaryingFDN.Not_LinearInterpolation_Regression", "[time_varying_fdn]")
 {
     auto orthogonal_fdn = CreateFDN(0.7F, true);
     auto linear_fdn = CreateLinearInterpolationFDN();

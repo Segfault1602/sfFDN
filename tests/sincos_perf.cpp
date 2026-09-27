@@ -9,7 +9,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("SinCosUnitPerf", "[sincos]")
+TEST_CASE("SinCosUnit.Perf", "[sincos]")
 {
     constexpr std::array kAngles = {
         -std::numbers::pi_v<float>,         -0.7F * std::numbers::pi_v<float>,

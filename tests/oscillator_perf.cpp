@@ -26,7 +26,7 @@ void StdSin(std::span<float> output, float phase_increment)
 
 } // namespace
 
-TEST_CASE("SineWave performance", "[oscillator]")
+TEST_CASE("SineWave.Performance", "[oscillator]")
 {
     constexpr uint32_t kSampleRate = 48000;
     constexpr uint32_t kBlockSize = 128;

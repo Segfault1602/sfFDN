@@ -51,7 +51,7 @@ std::vector<float> CreateProductionRIR(uint32_t sample_count)
 }
 } // namespace
 
-TEST_CASE("ProductionFDNPerf", "[production]")
+TEST_CASE("ProductionFDN.Perf", "[production]")
 {
     nanobench::Bench bench;
     bench.title("Production FDN workloads");
@@ -67,7 +67,7 @@ TEST_CASE("ProductionFDNPerf", "[production]")
     }
 }
 
-TEST_CASE("ProductionConvolverPerf", "[production]")
+TEST_CASE("ProductionConvolver.Perf", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kLoopCount = 512;
@@ -104,7 +104,7 @@ TEST_CASE("ProductionConvolverPerf", "[production]")
     }
 }
 
-TEST_CASE("ProductionConvolverPartitionPerf", "[production]")
+TEST_CASE("ProductionConvolverPartition.Perf", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kLoopCount = 512;
@@ -147,7 +147,7 @@ TEST_CASE("ProductionConvolverPartitionPerf", "[production]")
     }
 }
 
-TEST_CASE("ProductionConvolverLatency", "[production]")
+TEST_CASE("Production.ProductionConvolverLatency", "[production]")
 {
     constexpr uint32_t kBlockSize = 1024;
     constexpr uint32_t kIterationCount = 8192;

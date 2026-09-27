@@ -71,7 +71,7 @@ void RunTimeVaryingParallelGainsBenchmark(const ModeInfo& mode, uint32_t channel
 }
 } // namespace
 
-TEST_CASE("TimeVaryingParallelGainsPerf", "[parallel_gains]")
+TEST_CASE("TimeVaryingParallelGains.Perf", "[parallel_gains]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "TimeVaryingParallelGains perf");

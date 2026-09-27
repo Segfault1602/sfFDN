@@ -11,7 +11,7 @@
 
 using namespace ankerl;
 
-TEST_CASE("PassThroughPerf", "[processor_chain]")
+TEST_CASE("PassThrough.Perf", "[processor_chain]")
 {
     nanobench::Bench bench;
     sfFDN::test::perf::ConfigureThroughputBench(bench, "PassThrough perf", std::chrono::milliseconds(20), 100'000);

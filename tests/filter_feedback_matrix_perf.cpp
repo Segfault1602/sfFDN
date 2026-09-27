@@ -97,7 +97,7 @@ void RunFilterFeedbackMatrixBenchmark(const Configuration& configuration, uint32
 }
 } // namespace
 
-TEST_CASE("FilterFeedbackMatrixPerf", "[feedback_matrix]")
+TEST_CASE("FilterFeedbackMatrix.Perf", "[feedback_matrix]")
 {
     constexpr uint32_t kStageCount = 2U;
     nanobench::Bench bench;
@@ -123,7 +123,7 @@ TEST_CASE("FilterFeedbackMatrixPerf", "[feedback_matrix]")
     }
 }
 
-TEST_CASE("FilterFeedbackMatrixPerf_BigO", "[feedback_matrix][.diagnostic]")
+TEST_CASE("FilterFeedbackMatrix.Perf_BigO", "[feedback_matrix][.diagnostic]")
 {
     constexpr uint32_t kOrder = 8U;
     constexpr uint32_t kBlockSize = 128U;

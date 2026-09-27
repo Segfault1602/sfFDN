@@ -32,7 +32,7 @@ std::vector<float> MakeRir(uint32_t sample_count)
 }
 } // namespace
 
-TEST_CASE("PartitionedConvolverPerf", "[convolution]")
+TEST_CASE("PartitionedConvolver.Perf", "[convolution]")
 {
     const uint32_t loop_count = sfFDN::test::perf::SmokeModeEnabled() ? 8U : 256U;
     nanobench::Bench bench;

@@ -29,7 +29,7 @@ constexpr std::array kPresets = {
 };
 } // namespace
 
-TEST_CASE("DattorroDelayPerf", "[delay]")
+TEST_CASE("DattorroDelay.Perf", "[delay]")
 {
     constexpr auto kSampleRate = static_cast<float>(sfFDN::kDefaultSampleRate);
 

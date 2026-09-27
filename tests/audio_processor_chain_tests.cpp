@@ -11,7 +11,7 @@
 
 #include "allocation_counter.h"
 
-TEST_CASE("AudioProcessorChain processes configured gain processors", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Processes_Configured_Gains", "[processor_chain]")
 {
     constexpr uint32_t kSize = 4;
     constexpr uint32_t kBlockSize = 4;
@@ -49,7 +49,7 @@ TEST_CASE("AudioProcessorChain processes configured gain processors", "[processo
     }
 }
 
-TEST_CASE("AudioProcessorChain preserves output when empty", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Empty_Preserves_Output", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
 
@@ -66,7 +66,7 @@ TEST_CASE("AudioProcessorChain preserves output when empty", "[processor_chain]"
     }
 }
 
-TEST_CASE("AudioProcessorChain manages, processes, and clones processors", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Manages_Clone_Processors", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
     sfFDN::AudioProcessorChain chain(kBlockSize);
@@ -111,7 +111,7 @@ TEST_CASE("AudioProcessorChain manages, processes, and clones processors", "[pro
     }
 }
 
-TEST_CASE("AudioProcessorChain clears intermediate storage for accumulating processors", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Clears_Accumulation_Storage", "[processor_chain]")
 {
     sfFDN::AudioProcessorChain chain(1U);
 
@@ -138,7 +138,7 @@ TEST_CASE("AudioProcessorChain clears intermediate storage for accumulating proc
     REQUIRE(output[0] == Catch::Approx(60.F));
 }
 
-TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its contents", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.Rejects_Channel_Mismatch", "[processor_chain]")
 {
     sfFDN::AudioProcessorChain chain(8);
     auto split = std::make_unique<sfFDN::ParallelGains>(sfFDN::ParallelGainsMode::Split);
@@ -153,7 +153,7 @@ TEST_CASE("AudioProcessorChain rejects channel mismatches without changing its c
     REQUIRE(chain.OutputChannelCount() == 2);
 }
 
-TEST_CASE("AudioProcessorChain writes single processor output directly", "[processor_chain]")
+TEST_CASE("AudioProcessorChain.SingleProcessor_Direct_Output", "[processor_chain]")
 {
     constexpr uint32_t kBlockSize = 4;
     std::array<float, kBlockSize> input = {1.f, 2.f, 3.f, 4.f};

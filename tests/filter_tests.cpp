@@ -53,7 +53,7 @@ constexpr std::array<float, 32> kTestSOSExpectedOutput = {
 
 } // namespace
 
-TEST_CASE("OnePoleFilter produces an impulse response", "[filter]")
+TEST_CASE("OnePoleFilter.Impulse_Response", "[filter]")
 {
     sfFDN::OnePoleFilter filter;
     filter.SetCoefficients(0.1, -0.9);
@@ -76,7 +76,7 @@ TEST_CASE("OnePoleFilter produces an impulse response", "[filter]")
     }
 }
 
-TEST_CASE("Fir matches an impulse response through block and sample processing", "[filter]")
+TEST_CASE("Fir.Impulse_Block_Sample", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     sfFDN::Fir filter;
@@ -121,7 +121,7 @@ TEST_CASE("Fir matches an impulse response through block and sample processing",
     }
 }
 
-TEST_CASE("MakeFirFilter selects SparseFir for sparse coefficients", "[filter]")
+TEST_CASE("MakeFirFilter.Selects_SparseFir", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     sfFDN::FirOptions fir_config;
@@ -135,7 +135,7 @@ TEST_CASE("MakeFirFilter selects SparseFir for sparse coefficients", "[filter]")
     REQUIRE(dynamic_cast<sfFDN::SparseFir*>(sparse_filter.get()) != nullptr);
 }
 
-TEST_CASE("SparseFir supports default construction and coefficient updates", "[filter]")
+TEST_CASE("SparseFir.Default_Coefficient_Updates", "[filter]")
 {
     sfFDN::SparseFir filter;
 
@@ -166,7 +166,7 @@ TEST_CASE("SparseFir supports default construction and coefficient updates", "[f
     REQUIRE_THAT(output[11], Catch::Matchers::WithinAbs(0.125f, 1e-6f));
 }
 
-TEST_CASE("SparseFir continuously consumes streaming blocks", "[filter]")
+TEST_CASE("SparseFir.Continuous_Streaming_Blocks", "[filter]")
 {
     constexpr uint32_t kFirSize = 64;
     constexpr uint32_t kBlockSize = 128;
@@ -230,7 +230,7 @@ TEST_CASE("SparseFir continuously consumes streaming blocks", "[filter]")
     }
 }
 
-TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom", "[filter]")
+TEST_CASE("SparseFir.RingHeadroom_Fallback", "[filter]")
 {
     constexpr uint32_t kFilterOrder = 4000;
     constexpr uint32_t kBlockSize = 256;
@@ -268,7 +268,7 @@ TEST_CASE("SparseFir falls back when tap span and block exceed ring headroom", "
     }
 }
 
-TEST_CASE("SchroederAllpass matches an impulse response through tick and block processing", "[filter]")
+TEST_CASE("SchroederAllpass.Impulse_Tick_Block", "[filter]")
 {
     sfFDN::SchroederAllpass filter(5, -0.9);
 
@@ -294,7 +294,7 @@ TEST_CASE("SchroederAllpass matches an impulse response through tick and block p
     }
 }
 
-TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move", "[filter]")
+TEST_CASE("SchroederAllpassSection.Parallel_Clone_Move", "[filter]")
 {
     const sfFDN::SchroederAllpassSectionOptions options{
         .delays = {5, 7, 11},
@@ -340,7 +340,7 @@ TEST_CASE("SchroederAllpassSection preserves parallel mode across clone and move
     }
 }
 
-TEST_CASE("SchroederAllpassSection matches exact and disjoint strided views", "[filter]")
+TEST_CASE("SchroederAllpassSection.Exact_Disjoint_Views", "[filter]")
 {
     constexpr uint32_t kStride = 24;
     constexpr uint32_t kBlockSize = 8;
@@ -408,7 +408,7 @@ TEST_CASE("SchroederAllpassSection matches exact and disjoint strided views", "[
     }
 }
 
-TEST_CASE("SchroederAllpassSection matches a serial allpass cascade", "[filter]")
+TEST_CASE("SchroederAllpassSection.Serial_Cascade_Reference", "[filter]")
 {
     sfFDN::SchroederAllpassSection filter(2);
 
@@ -436,7 +436,7 @@ TEST_CASE("SchroederAllpassSection matches a serial allpass cascade", "[filter]"
     }
 }
 
-TEST_CASE("FilterBank processes independent first-order Schroeder channels", "[filter]")
+TEST_CASE("FilterBank.FirstOrderSchroeder_Channel_Independence", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -495,7 +495,7 @@ TEST_CASE("FilterBank processes independent first-order Schroeder channels", "[f
     }
 }
 
-TEST_CASE("FilterBank processes independent Schroeder cascades", "[filter]")
+TEST_CASE("FilterBank.SchroederCascade_Channel_Independence", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -554,7 +554,7 @@ TEST_CASE("FilterBank processes independent Schroeder cascades", "[filter]")
     }
 }
 
-TEST_CASE("FilterBank matches distinct per-channel one-pole responses", "[filter]")
+TEST_CASE("FilterBank.OnePole_PerChannel_Reference", "[filter]")
 {
     constexpr uint32_t kChannelCount = 4;
     constexpr uint32_t kBlockSize = 8;
@@ -594,7 +594,7 @@ TEST_CASE("FilterBank matches distinct per-channel one-pole responses", "[filter
     }
 }
 
-TEST_CASE("CascadedBiquads matches a reference biquad cascade", "[filter]")
+TEST_CASE("CascadedBiquads.Cascade_Reference", "[filter]")
 {
     sfFDN::CascadedBiquads filter;
 
@@ -617,7 +617,7 @@ TEST_CASE("CascadedBiquads matches a reference biquad cascade", "[filter]")
     }
 }
 
-TEST_CASE("IIRFilterBank matches a cascade reference with cloning and in-place processing", "[filter]")
+TEST_CASE("IIRFilterBank.Cascade_Clone_InPlace", "[filter]")
 {
     constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kStageCount = kTestSOS.size();
@@ -689,7 +689,7 @@ TEST_CASE("IIRFilterBank matches a cascade reference with cloning and in-place p
     }
 }
 
-TEST_CASE("IIRFilterBank preserves channel coefficient layout", "[filter]")
+TEST_CASE("IIRFilterBank.Channel_Coefficient_Layout", "[filter]")
 {
     constexpr uint32_t kChannelCount = 2;
     constexpr uint32_t kBlockSize = 4;
@@ -713,7 +713,7 @@ TEST_CASE("IIRFilterBank preserves channel coefficient layout", "[filter]")
     }
 }
 
-TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count", "[filter]")
+TEST_CASE("IIRFilterBank.PerChannel_All_Counts", "[filter]")
 {
     // The bank vectorizes across channels in groups of four and splits wide banks into several
     // passes. This walks every channel count across those boundaries, including counts that are
@@ -775,7 +775,7 @@ TEST_CASE("IIRFilterBank matches per-channel cascades for every channel count", 
     }
 }
 
-TEST_CASE("IIRFilterBank tracks per-channel cascades over sustained resonant input", "[filter]")
+TEST_CASE("IIRFilterBank.PerChannel_Resonant_Input", "[filter]")
 {
     // Poles close to the unit circle recirculate rounding error for thousands of samples, so this catches
     // SIMD arithmetic (for example fused versus unfused NegMulAdd) that drifts from the scalar cascade over time
