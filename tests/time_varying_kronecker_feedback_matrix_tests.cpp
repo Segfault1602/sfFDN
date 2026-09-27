@@ -7,6 +7,7 @@
 #include "sffdn/audio_buffer.h"
 #include "sffdn/time_varying_kronecker_feedback_matrix.h"
 
+#include <algorithm>
 #include <array>
 #include <ranges>
 #include <span>
