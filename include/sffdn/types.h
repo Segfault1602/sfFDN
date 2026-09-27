@@ -132,6 +132,14 @@ enum class TimeVaryingMatrixMode : uint8_t
     Count = 2,     /**< Number of time-varying matrix modes. */
 };
 
+/** @brief Kernel types for one stage of a KroneckerFeedbackMatrix. */
+enum class KroneckerKernelType : uint8_t
+{
+    Rotation = 0,
+    Reflection = 1,
+    Count = 2,
+};
+
 // STRUCTS
 
 struct VariableDiffusionOptions
@@ -222,6 +230,25 @@ struct TimeVaryingFeedbackMatrixOptions
                                               it. */
 
     bool operator==(const TimeVaryingFeedbackMatrixOptions&) const = default;
+};
+
+/** @brief Options for a fast orthogonal Kronecker feedback matrix. */
+struct KroneckerFeedbackMatrixOptions
+{
+    uint32_t matrix_size{0}; /**< Power-of-two matrix dimension, at least two. */
+    std::vector<float> angles; /**< One angle in radians per stage, or empty for pi/4. */
+    std::vector<KroneckerKernelType> kernel_types; /**< One kernel per stage, or empty for rotations. */
+
+    bool operator==(const KroneckerFeedbackMatrixOptions&) const = default;
+};
+
+/** @brief Options for a sine-modulated Kronecker feedback matrix. */
+struct TimeVaryingKroneckerFeedbackMatrixOptions
+{
+    KroneckerFeedbackMatrixOptions matrix;
+    std::vector<ModulationOptions> time_varying_config;
+
+    bool operator==(const TimeVaryingKroneckerFeedbackMatrixOptions&) const = default;
 };
 
 /** @brief Options for configuring parallel gain processing. */
@@ -602,7 +629,8 @@ struct GraphicEQOptions
 
 /** @brief Variant type for holding different feedback matrix options. */
 using feedback_matrix_variant_t =
-    std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, TimeVaryingFeedbackMatrixOptions>;
+    std::variant<CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions, TimeVaryingFeedbackMatrixOptions,
+                 KroneckerFeedbackMatrixOptions, TimeVaryingKroneckerFeedbackMatrixOptions>;
 
 /** @brief Variant type for holding different single-channel processor options. */
 using single_channel_processor_variant_t =
@@ -625,7 +653,8 @@ struct MultichannelProcessorOptions
 /** @brief Variant type for holding different multi-channel processor options. */
 using multi_channel_processor_variant_t =
     std::variant<ParallelGainsOptions, MultichannelProcessorOptions, AttenuationFilterBankOptions, DelayBankOptions,
-                 DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions>;
+                 DelayBankTimeVaryingOptions, CascadedFeedbackMatrixOptions, ScalarFeedbackMatrixOptions,
+                 KroneckerFeedbackMatrixOptions, TimeVaryingKroneckerFeedbackMatrixOptions>;
 
 /** @}*/
 

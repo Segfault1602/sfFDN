@@ -266,4 +266,51 @@ void ValidateOptions(const TimeVaryingFeedbackMatrixOptions& options, const std:
 
     ValidateModulationOptions(options.time_varying_config, path + "/time_varying_config", issues);
 }
+
+void ValidateOptions(const KroneckerFeedbackMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
+{
+    const bool size_valid = options.matrix_size >= 2U && std::has_single_bit(options.matrix_size);
+    if (!size_valid)
+    {
+        AddIssue(issues, ConfigErrorCode::InvalidValue, path + "/matrix_size",
+                 "matrix size must be a power of two and at least two");
+    }
+
+    const size_t stage_count = size_valid ? static_cast<size_t>(std::bit_width(options.matrix_size) - 1U) : 0U;
+    if (!options.angles.empty() && options.angles.size() != stage_count)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/angles",
+                 "angle count must equal the Kronecker stage count");
+    }
+    if (!options.kernel_types.empty() && options.kernel_types.size() != stage_count)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/kernel_types",
+                 "kernel count must equal the Kronecker stage count");
+    }
+    for (size_t stage = 0; stage < options.kernel_types.size(); ++stage)
+    {
+        const KroneckerKernelType type = options.kernel_types[stage];
+        if (type != KroneckerKernelType::Rotation && type != KroneckerKernelType::Reflection)
+        {
+            AddIssue(issues, ConfigErrorCode::UnsupportedValue, IndexPath(path + "/kernel_types", stage),
+                     "Kronecker kernel type is unsupported");
+        }
+    }
+}
+
+void ValidateOptions(const TimeVaryingKroneckerFeedbackMatrixOptions& options, const std::string& path,
+                     std::vector<ConfigIssue>& issues)
+{
+    ValidateOptions(options.matrix, path + "/matrix", issues);
+    const bool size_valid = options.matrix.matrix_size >= 2U && std::has_single_bit(options.matrix.matrix_size);
+    const size_t stage_count =
+        size_valid ? static_cast<size_t>(std::bit_width(options.matrix.matrix_size) - 1U) : 0U;
+    if (size_valid && !options.time_varying_config.empty() && options.time_varying_config.size() != stage_count)
+    {
+        AddIssue(issues, ConfigErrorCode::SizeMismatch, path + "/time_varying_config",
+                 "modulation count must equal the Kronecker stage count");
+    }
+    ValidateModulationOptions(options.time_varying_config, path + "/time_varying_config", issues);
+}
 } // namespace sfFDN::detail

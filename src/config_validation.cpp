@@ -138,6 +138,26 @@ void ValidateFeedbackMatrix(const sfFDN::feedback_matrix_variant_t& options, con
                                         std::to_string(value.matrix_size));
                        }
                    },
+                   [&](const sfFDN::KroneckerFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/KroneckerFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
+                   },
+                   [&](const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/TimeVaryingKroneckerFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix.matrix_size));
+                       }
+                   },
                },
                options);
 }
@@ -265,6 +285,26 @@ void ValidateMultichannelProcessor(const sfFDN::multi_channel_processor_variant_
                        const std::string options_path = path + "/ScalarFeedbackMatrixOptions";
                        sfFDN::detail::ValidateOptions(value, options_path, issues);
                        ValidateScalarMatrixDimension(value, options_path, fdn_size, fdn_size_valid, issues);
+                   },
+                   [&](const sfFDN::KroneckerFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/KroneckerFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix_size));
+                       }
+                   },
+                   [&](const sfFDN::TimeVaryingKroneckerFeedbackMatrixOptions& value) {
+                       const std::string options_path = path + "/TimeVaryingKroneckerFeedbackMatrixOptions";
+                       sfFDN::detail::ValidateOptions(value, options_path, issues);
+                       if (fdn_size_valid && value.matrix.matrix_size != fdn_size)
+                       {
+                           AddIssue(issues, ConfigErrorCode::SizeMismatch, options_path + "/matrix/matrix_size",
+                                    "expected " + std::to_string(fdn_size) + ", got " +
+                                        std::to_string(value.matrix.matrix_size));
+                       }
                    },
                },
                options);

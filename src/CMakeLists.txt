@@ -47,6 +47,7 @@ target_sources(
             filter_design.cpp
             filter_feedback_matrix.cpp
             iirfilterbank.cpp
+            kronecker_feedback_matrix.cpp
             math_utils.cpp
             matrix_data.cpp
             matrix_gallery.cpp
@@ -61,6 +62,7 @@ target_sources(
             schroeder_allpass.cpp
             sparse_fir.cpp
             time_varying_feedback_matrix.cpp
+            time_varying_kronecker_feedback_matrix.cpp
             time_varying_parallel_gains.cpp
             upols.cpp
 )
@@ -92,6 +94,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter_feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filter.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/filterbank.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/kronecker_feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/matrix_data.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/matrix_gallery.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/nonlinear.h
@@ -100,6 +103,7 @@ target_sources(
            ${SFFDN_INCLUDE_DIRS}/sffdn/schroeder_allpass.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/sffdn.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/time_varying_feedback_matrix.h
+           ${SFFDN_INCLUDE_DIRS}/sffdn/time_varying_kronecker_feedback_matrix.h
            ${SFFDN_INCLUDE_DIRS}/sffdn/types.h
 )
 
