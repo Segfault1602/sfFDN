@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <algorithm>
 #include <array>
@@ -8,6 +9,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -18,6 +20,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "allocation_counter.h"
 #include "sffdn/config_diagnostics.h"
 #include "sffdn/sffdn.h"
 #include <sffdn/serialization.h>
@@ -803,6 +806,89 @@ TEST_CASE("CreateFDNFromConfig.Builds_MIMO_Routing", "[fdn]")
     fdn->Process(silence_buffer, output_buffer);
     REQUIRE(output[0] == 2.F);
     REQUIRE(output[1] == 8.F);
+}
+
+TEST_CASE("CreateFDNFromConfig.Vectorizes_Uniform_Biquads", "[fdn]")
+{
+    constexpr uint32_t kSampleCount = 256;
+
+    sfFDN::MultichannelProcessorOptions bank;
+    for (uint32_t channel = 0; channel < 4U; ++channel)
+    {
+        const float offset = 0.05F * static_cast<float>(channel);
+        bank.channels.emplace_back(sfFDN::CascadedBiquadsOptions{
+            .coeffs = {
+                {.b0 = 0.3F + offset, .b1 = 0.2F, .b2 = 0.1F, .a0 = 1.F, .a1 = -0.4F + offset, .a2 = 0.1F},
+                {.b0 = 0.9F, .b1 = -0.2F, .b2 = 0.05F - offset, .a0 = 1.F, .a1 = 0.1F, .a2 = -0.05F},
+            }});
+    }
+    // A non-unit a0 checks that the vectorized bank normalizes like CascadedBiquads.
+    auto& scaled = std::get<sfFDN::CascadedBiquadsOptions>(bank.channels[2].value()).coeffs[0];
+    scaled = {.b0 = 2.F * scaled.b0,
+              .b1 = 2.F * scaled.b1,
+              .b2 = 2.F * scaled.b2,
+              .a0 = 2.F,
+              .a1 = 2.F * scaled.a1,
+              .a2 = 2.F * scaled.a2};
+
+    auto config = MakeValidConfig();
+    config.loop_filter_configs.emplace_back(bank);
+    REQUIRE(sfFDN::ValidateFDNConfig(config).has_value());
+
+    auto fdn = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(dynamic_cast<sfFDN::IIRFilterBank*>(fdn->GetLoopFilter()) != nullptr);
+
+    auto reference = sfFDN::CreateFDNFromConfig(config);
+    REQUIRE(reference->SetLoopFilter(std::make_unique<sfFDN::FilterBank>(bank)));
+
+    std::vector<float> input(kSampleCount, 0.F);
+    input.front() = 1.F;
+    std::vector<float> output(kSampleCount, 0.F);
+    std::vector<float> expected(kSampleCount, 0.F);
+    const sfFDN::AudioBuffer input_buffer(input);
+    sfFDN::AudioBuffer output_buffer(output);
+    sfFDN::AudioBuffer expected_buffer(expected);
+
+    {
+        const sfFDNTest::ScopedAllocationCounter allocation_counter;
+        fdn->Process(input_buffer, output_buffer);
+        REQUIRE(allocation_counter.Count() == 0U);
+    }
+    reference->Process(input_buffer, expected_buffer);
+
+    REQUIRE(std::ranges::any_of(expected, [](float sample) { return sample != 0.F; }));
+    for (uint32_t sample = 0; sample < kSampleCount; ++sample)
+    {
+        CAPTURE(sample);
+        REQUIRE_THAT(output[sample],
+                     Catch::Matchers::WithinAbs(expected[sample], 1e-6F + (1e-4F * std::abs(expected[sample]))));
+    }
+}
+
+TEST_CASE("CreateFDNFromConfig.Keeps_Mixed_Banks", "[fdn]")
+{
+    constexpr sfFDN::FilterCoefficients kHalfGain{.b0 = 0.5F, .b1 = 0.F, .b2 = 0.F, .a0 = 1.F, .a1 = 0.F, .a2 = 0.F};
+    const sfFDN::CascadedBiquadsOptions one_stage{.coeffs = {kHalfGain}};
+    const sfFDN::CascadedBiquadsOptions two_stages{.coeffs = {kHalfGain, kHalfGain}};
+
+    // Each bank breaks one requirement of the vectorized path: every channel must be a nonempty biquad cascade, and
+    // all channels must share a stage count.
+    const std::array<sfFDN::MultichannelProcessorOptions, 4> banks{{
+        {.channels = {one_stage, one_stage, one_stage, std::nullopt}},
+        {.channels = {one_stage, one_stage, one_stage, two_stages}},
+        {.channels = {one_stage, one_stage, one_stage, sfFDN::FirOptions{.coeffs = {0.5F}}}},
+        {.channels = {sfFDN::CascadedBiquadsOptions{}, sfFDN::CascadedBiquadsOptions{}, sfFDN::CascadedBiquadsOptions{},
+                      sfFDN::CascadedBiquadsOptions{}}},
+    }};
+
+    for (size_t index = 0; index < banks.size(); ++index)
+    {
+        CAPTURE(index);
+        auto config = MakeValidConfig();
+        config.loop_filter_configs.emplace_back(banks[index]);
+        auto fdn = sfFDN::CreateFDNFromConfig(config);
+        REQUIRE(dynamic_cast<sfFDN::FilterBank*>(fdn->GetLoopFilter()) != nullptr);
+    }
 }
 
 TEST_CASE("CreateFDNFromConfig.Replicates_ToneCorrection_Outputs", "[fdn]")

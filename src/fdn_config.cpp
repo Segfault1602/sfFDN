@@ -37,7 +37,7 @@ struct MultichannelProcessorVisitor
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(const sfFDN::MultichannelProcessorOptions& config) const
     {
-        return std::make_unique<sfFDN::FilterBank>(config);
+        return sfFDN::CreateMultichannelProcessor(config);
     }
 
     std::unique_ptr<sfFDN::AudioProcessor> operator()(

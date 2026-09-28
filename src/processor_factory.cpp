@@ -8,15 +8,48 @@
 #include "sffdn/delay_time_varying.h"
 #include "sffdn/filter.h"
 #include "sffdn/filter_design.h"
+#include "sffdn/filterbank.h"
 #include "sffdn/nonlinear.h"
 #include "sffdn/schroeder_allpass.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace sfFDN
 {
+namespace
+{
+const CascadedBiquadsOptions* AsCascadedBiquads(const std::optional<single_channel_processor_variant_t>& channel)
+{
+    return channel.has_value() ? std::get_if<CascadedBiquadsOptions>(&channel.value()) : nullptr;
+}
+
+bool IsUniformBiquadBank(const MultichannelProcessorOptions& options)
+{
+    if (options.channels.size() < 2)
+    {
+        return false;
+    }
+
+    const CascadedBiquadsOptions* first = AsCascadedBiquads(options.channels.front());
+    if (first == nullptr || first->coeffs.empty())
+    {
+        return false;
+    }
+
+    const size_t stage_count = first->coeffs.size();
+    return std::ranges::all_of(options.channels, [stage_count](const auto& channel) {
+        const CascadedBiquadsOptions* biquads = AsCascadedBiquads(channel);
+        return biquads != nullptr && biquads->coeffs.size() == stage_count;
+    });
+}
+} // namespace
+
 std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channel_processor_variant_t& config)
 {
     return std::visit<std::unique_ptr<AudioProcessor>>(
@@ -72,5 +105,25 @@ std::unique_ptr<AudioProcessor> CreateSingleChannelProcessor(const single_channe
                        return std::make_unique<RingModulator>(options);
                    },},
         config);
+}
+
+std::unique_ptr<AudioProcessor> CreateMultichannelProcessor(const MultichannelProcessorOptions& options)
+{
+    if (!IsUniformBiquadBank(options))
+    {
+        return std::make_unique<FilterBank>(options);
+    }
+
+    std::vector<FilterCoefficients> coeffs;
+    coeffs.reserve(options.channels.size() * AsCascadedBiquads(options.channels.front())->coeffs.size());
+    for (const auto& channel : options.channels)
+    {
+        const CascadedBiquadsOptions& biquads = detail::RequireValidOptions(*AsCascadedBiquads(channel));
+        coeffs.insert(coeffs.end(), biquads.coeffs.begin(), biquads.coeffs.end());
+    }
+
+    auto bank = std::make_unique<IIRFilterBank>();
+    bank->SetFilter(coeffs, static_cast<uint32_t>(options.channels.size()));
+    return bank;
 }
 } // namespace sfFDN
